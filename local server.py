@@ -1193,7 +1193,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				else:
 					r.append('''
 <!-- stolen from http://plyr.io -->
-<link rel="stylesheet" href="/video.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/RaSan147/httpserver_with_many_feat@main/video.css" />
 
 <link rel="preload" as="font" crossorigin type="font/woff2" href="https://cdn.plyr.io/static/fonts/gordita-medium.woff2" />
 <link rel="preload" as="font" crossorigin type="font/woff2" href="https://cdn.plyr.io/static/fonts/gordita-bold.woff2" />
