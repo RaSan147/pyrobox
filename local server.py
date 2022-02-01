@@ -14,7 +14,11 @@ PASSWORD= "SECret".encode('utf-8')
 # VIDEO PLAYER
 # DELETE FILE FROM REMOTE (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
 # RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
+# MULTIPLE FILE UPLOAD
 
+#TODO:
+# ADD FOLDER CREATION
+# RIGHT CLICK CONTEXT MENU
 
 
 # INSTALL REQUIRED PACKAGES
@@ -973,6 +977,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			f.close()
 		
 	def deal_post_data(self):
+		uploaded_files = []
 		content_type = self.headers['content-type']
 		if not content_type:
 			return (False, "Content-Type header doesn't contain boundary")
@@ -1000,38 +1005,40 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		remainbytes -= len(line)
 		if not boundary in line:
 			return (False, "Content NOT begin with boundary")
-		line = self.rfile.readline()
-		remainbytes -= len(line)
-		fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
-		if not fn:
-			return (False, "Can't find out file name...")
-		path = self.translate_path(self.path)
-		fn = os.path.join(path, fn[0])
-		line = self.rfile.readline()
-		remainbytes -= len(line)
-		line = self.rfile.readline()
-		remainbytes -= len(line)
-		try:
-			out = open(fn, 'wb')
-		except IOError:
-			return (False, "Can't create file to write, do you have permission to write?")
-				
-		preline = self.rfile.readline()
-		remainbytes -= len(preline)
 		while remainbytes > 0:
 			line = self.rfile.readline()
 			remainbytes -= len(line)
-			if boundary in line:
-				preline = preline[0:-1]
-				if preline.endswith(b'\r'):
-					preline = preline[0:-1]
-				out.write(preline)
-				out.close()
-				return (True, "File '%s' upload success!" % fn)
+			fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
+			if not fn:
+				return (False, "Can't find out file name...")
+			path = self.translate_path(self.path)
+			fn = os.path.join(path, fn[0])
+			line = self.rfile.readline()
+			remainbytes -= len(line)
+			line = self.rfile.readline()
+			remainbytes -= len(line)
+			try:
+				out = open(fn, 'wb')
+			except IOError:
+				return (False, "Can't create file to write, do you have permission to write?")
 			else:
-				out.write(preline)
-				preline = line
-		return (False, "Unexpect Ends of data.")
+				with out:                    
+					preline = self.rfile.readline()
+					remainbytes -= len(preline)
+					while remainbytes > 0:
+						line = self.rfile.readline()
+						remainbytes -= len(line)
+						if boundary in line:
+							preline = preline[0:-1]
+							if preline.endswith(b'\r'):
+								preline = preline[0:-1]
+							out.write(preline)
+							uploaded_files.append(fn)
+							break
+						else:
+							out.write(preline)
+							preline = line
+		return (True, "File '%s' upload success!" % ",".join(uploaded_files))
 
 
 
@@ -1373,9 +1380,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				# Note: a link to a directory displays with @ and links with /
 		r.append('</ul>\n<hr>\n<button onclick = "request_reload()">reload</button><br>')
 
-		r.append('''<h2>Upload file</h2><br><br><form enctype="multipart/form-data" method="post">
+		r.append('''<br><hr><br><h2>Upload file</h2>
+        <form ENCTYPE="multipart/form-data" method="post">
+        
   <p>PassWord:&nbsp;&nbsp;</p><input name="txt" type="text" label="Password"><br>
-  <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" label="File"><br><br>
+  <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple/><br><br>
 
   <input type="submit" value="\u2B71 upload" style="background-color: #555; height: 30px; width: 100px"></form>\n''')
 
