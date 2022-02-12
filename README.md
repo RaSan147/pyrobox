@@ -17,5 +17,6 @@
 --------------------------------------------------------------
 * ADD FOLDER CREATION
 * RIGHT CLICK CONTEXT MENU
-
+* Add side bar to do something 🤔
+* Add pop-up messages from Web leach
 Support for more features
