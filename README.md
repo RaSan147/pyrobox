@@ -45,5 +45,7 @@ How to use
 * RIGHT CLICK CONTEXT MENU
 * Add side bar to do something 🤔
 * Add pop-up messages from Web leach
-* check output ip and port accuracy on multiple os
-Support for more features
+* check output ip and port accuracy on multiple os  
+
+
+# Support for more features
