@@ -1861,9 +1861,14 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	httpd = ServerClass(addr, HandlerClass)
 	host, port = httpd.socket.getsockname()[:2]
 	url_host = f'[{host}]' if ':' in host else host
+	hostname = socket.gethostname()
+	local_ip = socket.gethostbyname(hostname)
+
 	print(
-		f"Serving HTTP on {host} port {port} "
-		f"(http://{url_host}:{port}/) ..."
+		f"Serving HTTP on {host} port {port} \n" #TODO: need to check since the output is "Serving HTTP on :: port 6969"
+		f"(http://{url_host}:{port}/) ...\n" #TODO: need to check since the output is "(http://[::]:6969/) ..."
+		f"Server is probably running on {local_ip}:{port}"
+
 	)
 	try:
 		httpd.serve_forever()
