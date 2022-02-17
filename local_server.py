@@ -24,6 +24,7 @@ PASSWORD= "SECret".encode('utf-8')
 # INSTALL REQUIRED PACKAGES
 REQUEIREMENTS= ['send2trash',]
 
+from msilib.schema import File
 from subprocess import call
 import sys
 
@@ -53,7 +54,7 @@ directory_explorer_header = '''
 <script>
 function request_reload()
 {
-	fetch('/?reload?');
+    fetch('/?reload?');
 }
 </script>
 
@@ -67,12 +68,12 @@ body{
 }
 
 html, body, input, textarea, select, button {
-	border-color: #736b5e;
-	color: #e8e6e3;
-	background-color: #181a1b;
+    border-color: #736b5e;
+    color: #e8e6e3;
+    background-color: #181a1b;
 }
 * {
-	scrollbar-color: #0f0f0f #454a4d;
+    scrollbar-color: #0f0f0f #454a4d;
 }
 a{
   line-height: 200%%;
@@ -85,7 +86,7 @@ a{
 
 .link{
   color: #F00;
-  background-color: #92929248;
+  /* background-color: #92929248; */
 }
 
 .vid{
@@ -98,11 +99,6 @@ a{
   color: #F02975;
 }
 
-/*video {
-   override other styles to make responsive 
-  width: 100%%	!important;
-  height: auto   !important;
-}*/
 
 #footer {
   position: absolute;
@@ -110,73 +106,211 @@ a{
   width: 100%%;
   height: 2.5rem;			/* Footer height */
 }
+
+/* POPUP CSS */
+
+.popup{
+    position: fixed;
+    z-index: 99;
+    left: 50%%;
+    top: 50%%;
+    width: 100%%;
+    height: 100%%;
+    overflow: auto;
+    transition: all 300ms ease-in-out;
+    transform: translate(-50%%, -50%%) scale(1)
+}
+
+#popup-box {
+    display: block;
+    position: fixed;
+    top: 50%%;
+    left: 50%%;
+    color: #AAA;
+    transition: all 300ms ease-in-out;
+    background: #222;
+    width: 95%%;
+    max-width: 500px;
+    z-index: 1;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+    font-family: "Open Sans", sans-serif;
+    max-height: 600px;
+    height:max-content;
+    min-height: 300px;
+}
+
+.popup-close-btn {
+    cursor: pointer;
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    width: 30px;
+    height: 30px;
+    background: #222;
+    color: #fff;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 30px;
+    text-align: center;
+    border-radius: 50%%
+}
+
+.popup:not(.active){
+    transform: translate(-50%%, -50%%) scale(0);
+}
+
+
+.popup.active #popup-box{
+    transform: translate(-50%%, -50%%) scale(1);
+}
+
+
+
 </style>
-</head> '''
+</head> 
+<body>
+
+
+    
+<div class="popup", id="popup-0">
+    <div id="popup-bg" class="modal_bg" style="background-color:rgba(0, 0, 0, 0.9);" onclick="popup_msg.togglePopup()"></div>
+    <div id="popup-box">
+        <div class="popup-close-btn" onclick="popup_msg.togglePopup()">&times;</div>
+    
+        <h1 id="popup-header"></h1>
+        <hr width="95%%" id="popup-hr">  <!-- if needed -->
+        
+        <div id="popup-content"></div>
+    </div>
+</div>
+
+
+'''
 
 _js_script='''
-<hr>\n<script>
+<hr>
+<script>
 
 const r_li = %s;
-
+const f_li = %s;
 
 function go_link(typee, locate){
-	// function to generate link for different types of actions
-	return typee+"%%3F"+locate;}
+  // function to generate link for different types of actions
+  return typee+"%%3F"+locate;}
 
 // getting all the links in the directory
-const linkd_li = document.getElementsByTagName('li');
 
-for (let i = 0; i < linkd_li.length; i++) {
+const linkd_li = document.getElementsByTagName('ul')[0];
+
+for (let i = 0; i < r_li.length; i++) {
   // time to customize the links according to their formats
 
-  const ele = linkd_li[i];
+  let ele = document.createElement('li');
+	let r= r_li[i];
+	let r_ = r.slice(1);
+	let name = f_li[i];
+	let link = document.createElement('a');
+	link.href = r_;
 
-  if(ele.className== 'folder_'){
+	if(r.startsWith('d')){
 	// add DOWNLOAD FOLDER OPTION in it
 	// TODO: add download folder option by zipping it
 	// currently only shows folder size and its contents
+	link.innerHTML = "📂" + name;
+	link.classList.add('link');
 
-	const dl = document.createElement('a');
+	ele.appendChild(link);
+
+	let dl = document.createElement('a');
 	dl.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b>〘↓〙</b></span>';
-	dl.href = go_link('dl', r_li[i]);  // download folder link: parent/dl?folder_name
+	dl.href = go_link('dl', r_);  // download folder link: parent/dl?folder_name
 	dl.style.paddingLeft= '50px';
 
 	ele.insertAdjacentElement("beforeend",dl);
-  }
+	}
 
-  if(ele.className== 'vid_'){
+	if(r.startsWith('v')){
 	// if its a video, add play button at the end
 	// that will redirect to the video player
 	// clicking main link will download the video instead
 
-	const play = document.createElement('A');
+	link.innerHTML = '🎥' + name;
+	link.classList.add('vid');
+	ele.appendChild(link);
+
+
+	let play = document.createElement('A');
 	play.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b>&nbsp▶&nbspPLAY&nbsp</b></span>';
-	play.href = go_link('vid', r_li[i]);  // video player link: parent/vid?video_name
+	play.href = go_link('vid', r_);  // video player link: parent/vid?video_name
 	play.style.paddingLeft= '50px';
 
 	ele.insertAdjacentElement("beforeend",play);
-  }
+	}
 
-  if(true){
-	  // recycling option for the files and folder
-	  // files and folders are handled differently
+	if(r.startsWith('f')){
+	link.innerHTML = '📄' + name;
+	link.classList.add('file');
+	ele.appendChild(link);
 
-	  if(ele.className== 'folder_'){
-		  var xxx = "D";
-	  }
-	  else{
-		  var xxx = "F";
-	  }
+	}
+	if(r.startsWith('h')){
+	link.innerHTML = '🔗' + name;
+	link.classList.add('html');
+	ele.appendChild(link);
+
+	}
+
+	if(true){
+		// recycling option for the files and folder
+		// files and folders are handled differently
+
+		if(r.startsWith('d')){
+			var xxx = "D";
+		}
+		else{
+			var xxx = "F";
+		}
 	const del = document.createElement('a');
 	del.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b> ♻ </b></span>';
-	del.href = go_link('recycle' + xxx, r_li[i]); // recycle link: parent/recycle*?file_or_folder_name
+	del.href = go_link('recycle' + xxx, r_); // recycle link: parent/recycle*?file_or_folder_name
 	del.style.paddingLeft= '50px';
 
 	ele.insertAdjacentElement("beforeend",del);
-  }
+	}
+
+	
+  linkd_li.appendChild(ele);
 }
 
 
+class Popup_Msg {
+  constructor() {
+	  this.popup_obj = document.getElementById('popup-0');
+	  this.header = document.getElementById('popup-header');
+	  this.content = document.getElementById('popup-content');
+	  this.hr = document.getElementById('popup-hr');
+  }
+
+  togglePopup(indx=0, on_or_off = null) {
+	  this.popup_obj.classList.toggle("active");
+	  toggle_scroll();
+  }
+
+  createPopup(header, content, hr=true) {
+				  this.header.innerHTML = header;
+				  this.content.innerHTML = content;
+				  if(hr){
+					  this.hr.style.display = "block";
+				  }else{
+					  this.hr.style.display = "none";
+				  }
+			  }
+}
+
+
+let popup_msg = new Popup_Msg();
 </script>
 
 </body>
@@ -284,6 +418,7 @@ import http.client
 import io
 import mimetypes
 import os
+import tempfile
 import posixpath
 import select
 import shutil
@@ -294,7 +429,7 @@ import time
 import urllib.parse
 import contextlib
 from functools import partial
-
+from subprocess import call
 from http import HTTPStatus
 
 import re
@@ -1072,6 +1207,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		spathtemp= os.path.split(self.path)
 		pathtemp= os.path.split(path)
 		spathsplit = self.path.split('/')
+		ctype = self.guess_type(path)
 		
 		print('path',path, '\nself.path',self.path, '\nspathtemp',spathtemp, '\npathtemp',pathtemp, '\nspathsplit',spathsplit)
 
@@ -1083,23 +1219,27 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			httpd.shutdown()
 
 
-		if spathsplit[-1].startswith("recycleF%3F"):
+		elif spathsplit[-1].startswith("recycleF%3F"):
 			# RECYCLES THE FILE
 			print("==================== current path", path)
 			xpath = path.replace("recycleF?", "", 1)
 			print("Recycling", xpath)
 			send2trash(xpath)
 
-		if spathsplit[-2].startswith("recycleD%3F"):
+		elif spathsplit[-2].startswith("recycleD%3F"):
 			# RECYCLES THE DIRECTORY
 			print("==================== current path", path)
 			xpath = path.replace("recycleD?", "", 1)
 			print("Recycling", xpath)
 			send2trash(xpath[:-1])
 
+		elif spathsplit[-1].startswith('dlY%3F'):
+			loc = tempfile.gettempdir()
+			print("==================== current path", str(loc))
+			call(['7z/7za', 'a', str(loc)+'/'+spathsplit[-1][6:]+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:]])
+			path = str(loc)+'/'+spathsplit[-1][6:]+'.zip'
 
-
-		if self.path.endswith('/') and spathsplit[-2].startswith('dl%3F'):
+		elif self.path.endswith('/') and spathsplit[-2].startswith('dl%3F'):
 			
 			path= self.translate_path('/'.join(spathsplit[:-2])+'/'+spathsplit[-2][5:]+'/')
 			print('init')
@@ -1109,7 +1249,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			# print(too_big)
 			print("Directory size: " + str(total_size))
 			outp='<!DOCTYPE HTML><h1>The folder size is too big</h1>\
-				' if too_big else "<!DOCTYPE HTML><pre style='font-size:20px; font-weight: 600;'><b>Directory size:</b> " + humanbytes(total_size)+'</pre><br><br>The directory has:\n<hr>'+ ("\n".join(['<u>'+i+'</u><br>' for i in r]))
+				' if too_big else "<!DOCTYPE HTML><h1> Download will start shortly</h1><pre style='font-size:20px; font-weight: 600;'><b>Directory size:</b> " + humanbytes(total_size)+'</pre><br><br>The directory has:\n<hr>'+ ("\n".join(['<u>'+i+'</u><br>' for i in r]) + """
+				<script>window.location.href="../dlY%3F"""+spathsplit[-2][5:]+'";</script>')
 			encoded = outp.encode('utf-8', 'surrogateescape')
 
 			f = io.BytesIO()
@@ -1123,7 +1264,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return f
 
 
-		if spathtemp[0].startswith('/drive%3E'):
+		elif spathtemp[0].startswith('/drive%3E'):
 			# SWITCH TO A DIFFERENT DRIVE ON WINDOWS
 			# NOT WORKING YET
 
@@ -1138,39 +1279,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				#print('path',path, '\nself.path',self.path)
 				spathtemp= os.path.split(self.path)
 				pathtemp= os.path.split(path)
-	
-		f = None
-		if os.path.isdir(path):
-			parts = urllib.parse.urlsplit(self.path)
-			if not parts.path.endswith('/'):
-				# redirect browser - doing basically what apache does
-				self.send_response(HTTPStatus.MOVED_PERMANENTLY)
-				new_parts = (parts[0], parts[1], parts[2] + '/',
-							 parts[3], parts[4])
-				new_url = urllib.parse.urlunsplit(new_parts)
-				self.send_header("Location", new_url)
-				self.end_headers()
-				return None
-			for index in "index.html", "index.htm":
-				index = os.path.join(path, index)
-				if os.path.exists(index):
-					path = index
-					break
-			else:
-				return self.list_directory(path)
-		ctype = self.guess_type(path)
-		# check for trailing "/" which should return 404. See Issue17324
-		# The test for this was added in test_httpserver.py
-		# However, some OS platforms accept a trailingSlash as a filename
-		# See discussion on python-dev and Issue34711 regarding
-		# parseing and rejection of filenames with a trailing slash
-		if path.endswith("/"):
-			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-			return None
 
-		
-		
-		if spathsplit[-1].startswith('vid%3F') or os.path.exists(path):
+		elif spathsplit[-1].startswith('vid%3F') or os.path.exists(path):
 			# SEND VIDEO PLAYER
 			if spathsplit[-1].startswith('vid%3F') and self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])).startswith('video/'):
 
@@ -1230,74 +1340,106 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				self.send_header("Content-Length", str(len(encoded)))
 				self.end_headers()
 				return f
-
+	
+		f = None
+		if os.path.isdir(path):
+			parts = urllib.parse.urlsplit(self.path)
+			if not parts.path.endswith('/'):
+				# redirect browser - doing basically what apache does
+				self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+				new_parts = (parts[0], parts[1], parts[2] + '/',
+							 parts[3], parts[4])
+				new_url = urllib.parse.urlunsplit(new_parts)
+				self.send_header("Location", new_url)
+				self.end_headers()
+				return None
+			for index in "index.html", "index.htm":
+				index = os.path.join(path, index)
+				if os.path.exists(index):
+					path = index
+					break
 			else:
-				f = open(path, 'rb')
-				try:
-					fs = os.fstat(f.fileno())
+				return self.list_directory(path)
 
-					file_len = fs[6]
-					if self.range and first >= file_len: # PAUSE AND RESUME SUPPORT
-						self.send_error(416, 'Requested Range Not Satisfiable')
-						return None
-					# Use browser cache if possible
-					if ("If-Modified-Since" in self.headers
-							and "If-None-Match" not in self.headers):
-						# compare If-Modified-Since and time of last file modification
-						try:
-							ims = email.utils.parsedate_to_datetime(
-								self.headers["If-Modified-Since"])
-						except (TypeError, IndexError, OverflowError, ValueError):
-							# ignore ill-formed values
-							pass
-						else:
-							if ims.tzinfo is None:
-								# obsolete format with no timezone, cf.
-								# https://tools.ietf.org/html/rfc7231#section-7.1.1.1
-								ims = ims.replace(tzinfo=datetime.timezone.utc)
-							if ims.tzinfo is datetime.timezone.utc:
-								# compare to UTC datetime of last modification
-								last_modif = datetime.datetime.fromtimestamp(
-									fs.st_mtime, datetime.timezone.utc)
-								# remove microseconds, like in If-Modified-Since
-								last_modif = last_modif.replace(microsecond=0)
-
-								if last_modif <= ims:
-									self.send_response(HTTPStatus.NOT_MODIFIED)
-									self.end_headers()
-									f.close()
-									return None
-					if self.range:
-						self.send_response(206)
-						self.send_header('Content-type', ctype)
-						self.send_header('Accept-Ranges', 'bytes')
-
-						
-						if last is None or last >= file_len:
-							last = file_len - 1
-						response_length = last - first + 1
-
-						self.send_header('Content-Range',
-										'bytes %s-%s/%s' % (first, last, file_len))
-						self.send_header('Content-Length', str(response_length))
-
-						
-
-					else:
-						self.send_response(HTTPStatus.OK)
-						self.send_header("Content-type", ctype)
-						self.send_header("Content-Length", str(fs[6]))
-					self.send_header("Last-Modified",
-									self.date_time_string(fs.st_mtime))
-					self.end_headers()
-					return f
-				except:
-					f.close()
-					raise
-				
-		else:
+		# check for trailing "/" which should return 404. See Issue17324
+		# The test for this was added in test_httpserver.py
+		# However, some OS platforms accept a trailingSlash as a filename
+		# See discussion on python-dev and Issue34711 regarding
+		# parseing and rejection of filenames with a trailing slash
+		if path.endswith("/"):
 			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 			return None
+
+		
+		
+		
+
+		else:
+			f = open(path, 'rb')
+			try:
+				fs = os.fstat(f.fileno())
+
+				file_len = fs[6]
+				if self.range and first >= file_len: # PAUSE AND RESUME SUPPORT
+					self.send_error(416, 'Requested Range Not Satisfiable')
+					return None
+				# Use browser cache if possible
+				if ("If-Modified-Since" in self.headers
+						and "If-None-Match" not in self.headers):
+					# compare If-Modified-Since and time of last file modification
+					try:
+						ims = email.utils.parsedate_to_datetime(
+							self.headers["If-Modified-Since"])
+					except (TypeError, IndexError, OverflowError, ValueError):
+						# ignore ill-formed values
+						pass
+					else:
+						if ims.tzinfo is None:
+							# obsolete format with no timezone, cf.
+							# https://tools.ietf.org/html/rfc7231#section-7.1.1.1
+							ims = ims.replace(tzinfo=datetime.timezone.utc)
+						if ims.tzinfo is datetime.timezone.utc:
+							# compare to UTC datetime of last modification
+							last_modif = datetime.datetime.fromtimestamp(
+								fs.st_mtime, datetime.timezone.utc)
+							# remove microseconds, like in If-Modified-Since
+							last_modif = last_modif.replace(microsecond=0)
+
+							if last_modif <= ims:
+								self.send_response(HTTPStatus.NOT_MODIFIED)
+								self.end_headers()
+								f.close()
+								return None
+				if self.range:
+					self.send_response(206)
+					self.send_header('Content-type', ctype)
+					self.send_header('Accept-Ranges', 'bytes')
+
+					
+					if last is None or last >= file_len:
+						last = file_len - 1
+					response_length = last - first + 1
+
+					self.send_header('Content-Range',
+									'bytes %s-%s/%s' % (first, last, file_len))
+					self.send_header('Content-Length', str(response_length))
+
+					
+
+				else:
+					self.send_response(HTTPStatus.OK)
+					self.send_header("Content-type", ctype)
+					self.send_header("Content-Length", str(fs[6]))
+					
+				self.send_header("Last-Modified",
+								self.date_time_string(fs.st_mtime))
+				self.send_header("Content-Disposition", 'filename="%s"' % os.path.basename(path))
+				self.end_headers()
+				return f
+			except:
+				f.close()
+				raise
+				
 
 		
 
@@ -1336,7 +1478,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		r.append('<title>%s</title>\n</head>' % title)'''
 		r.append('<body>\n<h1>%s</h1>' % title)
 		r.append('<hr>\n<ul id= "linkss">')
-		r_li= []
+		r_li= [] # type + file_link
+				 # f  : File
+				 # d  : Directory
+				 # v  : Video
+				 # h  : HTML
+		f_li = [] # file_names
 		for name in list:
 			fullname = os.path.join(path, name)
 			displayname = linkname = name
@@ -1351,28 +1498,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				_is_dir_ =False
 				__, ext = posixpath.splitext(fullname)
 				if ext=='.html':
-					r_li.append(urllib.parse.quote(linkname, errors='surrogatepass'))
-					r.append('<li class="link_"><a class= "%s" href="%s">%s</a></li>'
-					% ("link", urllib.parse.quote(linkname, errors='surrogatepass'),
-					   html.escape(displayname, quote=False)))
+					r_li.append('h'+ urllib.parse.quote(linkname, errors='surrogatepass'))
+					f_li.append(html.escape(displayname, quote=False))
 
 				elif self.guess_type(linkname).startswith('video/'):
-					r_li.append(urllib.parse.quote(linkname, errors='surrogatepass'))
-					r.append('<li class= "vid_"><a class= "%s" href="%s">🎥%s</a></li>'
-					% ("vid", urllib.parse.quote(linkname, errors='surrogatepass'),
-					   html.escape(displayname, quote=False)))
+					r_li.append('v'+ urllib.parse.quote(linkname, errors='surrogatepass'))
+					f_li.append(html.escape(displayname, quote=False))
 
 				else:
-					r_li.append(urllib.parse.quote(linkname, errors='surrogatepass'))
-					r.append('<li class= "file_"><a class= "%s" href="%s">%s</a></li>'
-					% ("file", urllib.parse.quote(linkname,
-										  errors='surrogatepass'),
-					   html.escape(displayname, quote=False)))
+					r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
+					f_li.append(html.escape(displayname, quote=False))
 			if _is_dir_:
-				r_li.append(urllib.parse.quote(linkname, errors='surrogatepass'))
-				r.append('<li class="folder_"><a class="%s" href="%s">️📂%s</a></li>'
-					% ('folder', urllib.parse.quote(linkname, errors='surrogatepass'),
-					   html.escape(displayname, quote=False)))
+				r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
+				f_li.append(html.escape(displayname, quote=False))
 			
 			r
 
@@ -1388,7 +1526,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
   <input type="submit" value="\u2B71 upload" style="background-color: #555; height: 30px; width: 100px"></form>\n''')
 
-		r.append(_js_script%str(r_li))
+		r.append(_js_script%(str(r_li), str(f_li)))
 		# r.append('<script>function dl_(typee, locate){window.open(typee+"%3F"+locate,"_self");}</script></body>\n</html>\n')
 		encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 		f = io.BytesIO()
