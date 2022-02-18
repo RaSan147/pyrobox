@@ -119,7 +119,25 @@ a{
   height: 2.5rem;			/* Footer height */
 }
 
+
+.overflowHidden {
+	overflow: hidden !important
+}
+
+
 /* POPUP CSS */
+
+.modal_bg{
+  display: inherit;
+  position: fixed;
+  z-index: 1;
+  padding-top: inherit;
+  left: 0;
+  top: 0;
+  width: 100%%;
+  height: 100%%;
+  overflow: auto;
+}
 
 .popup{
     position: fixed;
@@ -180,6 +198,39 @@ a{
 
 
 
+.pagination {
+  cursor: pointer;
+    width: 150px;
+    max-width: 800px
+}
+
+.pagination {
+    font: bold 20px Arial;
+    text-decoration: none;
+    background-color: #8a8b8d6b;
+    color: #1f83b6;
+    padding: 2px 6px;
+    border-top: 1px solid #828d94;
+    box-shadow: 4px 4px #5050506b;
+    border-left: 1px solid #828D94;
+}
+
+.pagination:hover {
+    background-color:  #4e4f506b;
+    color: #00b7ff;
+    box-shadow: 4px 4px #8d8d8d6b;
+    border: none;
+    border-right: 1px solid #959fa5;
+    border-bottom: 1px solid #959fa5
+}
+
+.pagination:active {
+    margin-top: 4px;
+    margin-left: 4px;
+    box-shadow: none
+}
+
+
 </style>
 </head> 
 <body>
@@ -202,11 +253,27 @@ a{
 '''
 
 _js_script='''
+</ul>\n<hr>\n<div class=\'pagination\' onclick = "request_reload()">reload</div><br>
+
+<div class=\'pagination\' onclick = "Show_folder_maker()">Create Folder</div><br>
+
+<br><hr><br><h2>Upload file</h2>
+        <form ENCTYPE="multipart/form-data" method="post">
+        
+  <p>PassWord:&nbsp;&nbsp;</p><input name="txt" type="text" label="Password"><br>
+  <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple/><br><br>
+
+  <input type="submit" value="\u2B71 upload" style="background-color: #555; height: 30px; width: 100px"></form>\n
 <hr>
 <script>
 
 const r_li = %s;
 const f_li = %s;
+
+
+function toggle_scroll() {
+    document.body.classList.toggle('overflowHidden');
+}
 
 function go_link(typee, locate){
   // function to generate link for different types of actions
@@ -286,8 +353,8 @@ for (let i = 0; i < r_li.length; i++) {
 		}
 	const del = document.createElement('a');
 	del.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b> ♻ </b></span>';
-	del.href = go_link('recycle' + xxx, r_); // recycle link: parent/recycle*?file_or_folder_name
-	del.style.paddingLeft= '50px';
+	del.onclick = run_recyle(go_link('recycle' + xxx, r_)); // recycle link: parent/recycle*?file_or_folder_name
+    del.style.paddingLeft= '50px';
 
 	ele.insertAdjacentElement("beforeend",del);
 	}
@@ -323,6 +390,46 @@ class Popup_Msg {
 
 
 let popup_msg = new Popup_Msg();
+
+function Show_folder_maker(){
+    popup_msg.createPopup("Create Folder", "Enter folder name: <input id='folder-name' type='text'><br><br><div class=\'pagination\' onclick='create_folder()'>Create</div>");
+    popup_msg.togglePopup();
+}
+
+function show_response(url, add_reload_btn=true){
+  var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == XMLHttpRequest.DONE) {
+            let msg = xhr.responseText;
+			if(add_reload_btn){
+				msg = msg + "<br><br><div class=\'pagination\' onclick='window.location.reload()'>Reload🔄️</div>";
+			}
+            popup_msg.createPopup("Result", msg);
+            popup_msg.togglePopup();
+        }
+    }
+    xhr.open('GET', url , true);
+    xhr.send(null);
+}
+
+function create_folder(){
+    let folder_name = document.getElementById('folder-name').value;
+    let folder_link = go_link('mkdir', folder_name);
+
+    popup_msg.togglePopup();
+    show_response(folder_link);
+}
+
+function reload(){
+    show_response("?reload?");
+}
+
+function run_recyle(url){
+    return function(){
+        show_response(url);
+    }
+}
+
 </script>
 
 </body>
@@ -1229,6 +1336,26 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			httpd.server_close()
 			httpd.shutdown()
 
+		elif pathtemp[-1].startswith("mkdir?"):
+			print(pathtemp)
+			try:
+				os.mkdir(os.path.join(pathtemp[0], pathtemp[1][6:]))
+				msg = "Directory created!"
+			except Exception as e:
+				msg = "Failed To Create folder " + pathtemp[1][6:] + "</h1><br>" + e.__class__.__name__ + " : " + str(e) 
+			
+			encoded = msg.encode('utf-8', 'surrogateescape')
+
+			f = io.BytesIO()
+			f.write(encoded)
+			
+			f.seek(0)
+			self.send_response(HTTPStatus.OK)
+			self.send_header("Content-type", "text/html; charset=%s" % 'utf-8')
+			self.send_header("Content-Length", str(len(encoded)))
+			self.end_headers()
+			return f
+
 
 		elif spathsplit[-2].startswith(("recycleD%3F", "recycleF%3F")):
 			# RECYCLES THE DIRECTORY
@@ -1380,7 +1507,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 <script src="https://cdn.plyr.io/3.6.9/demo.js" crossorigin="anonymous"></script>
 	</div><br>'''%(self.path, ctype, self.path))
 
-				r.append('<br><a href="%s"><button>Download</button></a></li>'
+				r.append('<br><a href="%s"><div class=\'pagination\'>Download</div></a></li>'
 					% self.path)
 
 
@@ -1570,15 +1697,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			
 				# Note: a link to a directory displays with @ and links with /
-		r.append('</ul>\n<hr>\n<button onclick = "request_reload()">reload</button><br>')
+		# r.append('')
 
-		r.append('''<br><hr><br><h2>Upload file</h2>
-        <form ENCTYPE="multipart/form-data" method="post">
-        
-  <p>PassWord:&nbsp;&nbsp;</p><input name="txt" type="text" label="Password"><br>
-  <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple/><br><br>
-
-  <input type="submit" value="\u2B71 upload" style="background-color: #555; height: 30px; width: 100px"></form>\n''')
+		# r.append('''''')
 
 		r.append(_js_script%(str(r_li), str(f_li)))
 		# r.append('<script>function dl_(typee, locate){window.open(typee+"%3F"+locate,"_self");}</script></body>\n</html>\n')
