@@ -24,9 +24,12 @@ PASSWORD= "SECret".encode('utf-8')
 # INSTALL REQUIRED PACKAGES
 REQUEIREMENTS= ['send2trash',]
 
-from msilib.schema import File
+
 from subprocess import call
 import sys
+import tempfile, random, string
+import os
+import shutil
 
 import pkg_resources as pkg_r
 
@@ -40,6 +43,15 @@ for i in REQUEIREMENTS:
 
 from send2trash import send2trash
 
+zip_temp_dir = tempfile.gettempdir() + '/zip_temp/'
+zip_ids = dict()
+zip_in_progress = []
+
+shutil.rmtree(zip_temp_dir, ignore_errors=True)
+try:
+	os.mkdir(path=zip_temp_dir)
+except FileExistsError:
+	pass
 
 
 
@@ -417,8 +429,6 @@ import html
 import http.client
 import io
 import mimetypes
-import os
-import tempfile
 import posixpath
 import select
 import shutil
@@ -1189,7 +1199,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		"""
 
-		global reload
+		global reload, zip_ids, zip_in_progress
 
 		if 'Range' not in self.headers:
 			self.range = None
@@ -1208,6 +1218,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		pathtemp= os.path.split(path)
 		spathsplit = self.path.split('/')
 		ctype = self.guess_type(path)
+		filename = None
 		
 		print('path',path, '\nself.path',self.path, '\nspathtemp',spathtemp, '\npathtemp',pathtemp, '\nspathsplit',spathsplit)
 
@@ -1219,38 +1230,81 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			httpd.shutdown()
 
 
-		elif spathsplit[-1].startswith("recycleF%3F"):
-			# RECYCLES THE FILE
-			print("==================== current path", path)
-			xpath = path.replace("recycleF?", "", 1)
-			print("Recycling", xpath)
-			send2trash(xpath)
-
-		elif spathsplit[-2].startswith("recycleD%3F"):
+		elif spathsplit[-2].startswith(("recycleD%3F", "recycleF%3F")):
 			# RECYCLES THE DIRECTORY
 			print("==================== current path", path)
-			xpath = path.replace("recycleD?", "", 1)
+			
+			xpath = path.replace("recycleD?", "", 1).replace("recycleF?", "", 1)
 			print("Recycling", xpath)
-			send2trash(xpath[:-1])
+			msg = "<!doctype HTML><h1>Recycled successfully  " + xpath + "</h1>"
+			try:
+				send2trash(xpath[:-1])
+			except Exception as e:
+				print(e)
+				msg = "<!doctype HTML><h1>Recycling failed  " + xpath + "</h1><br>" + e.__class__.__name__ + " : " + str(e) 
+			
+			encoded = msg.encode('utf-8', 'surrogateescape')
+
+			f = io.BytesIO()
+			f.write(encoded)
+			
+			f.seek(0)
+			self.send_response(HTTPStatus.OK)
+			self.send_header("Content-type", "text/html; charset=%s" % 'utf-8')
+			self.send_header("Content-Length", str(len(encoded)))
+			self.end_headers()
+			return f
 
 		elif spathsplit[-1].startswith('dlY%3F'):
-			loc = tempfile.gettempdir()
-			print("==================== current path", str(loc))
-			call(['7z/7za', 'a', str(loc)+'/'+spathsplit[-1][6:]+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:]])
-			path = str(loc)+'/'+spathsplit[-1][6:]+'.zip'
+			filename = pathtemp[-1][4:-29]
+			id = pathtemp[1][-24:]
+			loc = zip_temp_dir
+
+			print(zip_ids)
+
+			print(id in zip_ids.keys())
+			print(id in zip_in_progress)
+
+			if id in zip_ids.keys():
+				path = loc +'/' + id + ".zip"
+				filename = zip_ids[id] + ".zip"
+
+			elif id in zip_in_progress:
+				while id in zip_in_progress:
+					time.sleep(1)
+				path = loc +'/' + id + ".zip"
+				filename = zip_ids[id] + ".zip"
+
+			else:
+				zip_in_progress.append(id)
+
+				# print("Downloading", filename, "from", id)
+				print("==================== current path", str(loc))
+				call(['7z/7za', 'a', '-mx=0', str(loc)+'/'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
+				zip_in_progress.remove(id)
+				zip_ids[id] = filename
+				path = loc+'/'+id+'.zip'
+				filename = zip_ids[id] + ".zip"
 
 		elif self.path.endswith('/') and spathsplit[-2].startswith('dl%3F'):
 			
 			path= self.translate_path('/'.join(spathsplit[:-2])+'/'+spathsplit[-2][5:]+'/')
-			print('init')
-			total_size, r = get_dir_size(path, 8*1024*1024*1024, True)  # max size limit = 8GB
-			# print(total_size)
-			too_big= total_size=='2big'
-			# print(too_big)
-			print("Directory size: " + str(total_size))
-			outp='<!DOCTYPE HTML><h1>The folder size is too big</h1>\
-				' if too_big else "<!DOCTYPE HTML><h1> Download will start shortly</h1><pre style='font-size:20px; font-weight: 600;'><b>Directory size:</b> " + humanbytes(total_size)+'</pre><br><br>The directory has:\n<hr>'+ ("\n".join(['<u>'+i+'</u><br>' for i in r]) + """
-				<script>window.location.href="../dlY%3F"""+spathsplit[-2][5:]+'";</script>')
+			if not os.path.isdir(path):
+				outp = "<!DOCTYPE HTML><h1>Directory not found</h1>"
+			else:
+				print('init')
+				total_size, r = get_dir_size(path, 8*1024*1024*1024, True)  # max size limit = 8GB
+				id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))+'_'+ str(time.time())
+				id += '0'*(24-len(id))
+				# print(total_size)
+				too_big= total_size=='2big'
+				# print(too_big)
+				print("Directory size: " + str(total_size))
+				outp='<!DOCTYPE HTML><h1>The folder size is too big</h1>\
+					' if too_big else """"<!DOCTYPE HTML><h1> Download will start shortly</h1>
+					<pre style='font-size:20px; font-weight: 600;'><b>Directory size:</b> """ + humanbytes(total_size) + """</pre>
+					<br><br>The directory has:\n<hr>"""+ ("\n".join(['<u>'+i+'</u><br>' for i in r]) + """
+					<script>window.location.href="../dlY%3F"""+spathsplit[-2][5:] +"%3Fid="+id+'";</script>')
 			encoded = outp.encode('utf-8', 'surrogateescape')
 
 			f = io.BytesIO()
@@ -1433,7 +1487,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					
 				self.send_header("Last-Modified",
 								self.date_time_string(fs.st_mtime))
-				self.send_header("Content-Disposition", 'filename="%s"' % os.path.basename(path))
+				self.send_header("Content-Disposition", 'filename="%s"' % (os.path.basename(path) if filename is None else filename))
 				self.end_headers()
 				return f
 			except:
@@ -1587,14 +1641,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if not self.range:
 			source.read(1)
 			source.seek(0)
-			shutil.copyfileobj(source, outputfile)
+			try:
+				shutil.copyfileobj(source, outputfile)
+			except ConnectionResetError as e:
+				print(e)
 			
 		else:
 			# SimpleHTTPRequestHandler uses shutil.copyfileobj, which doesn't let
 			# you stop the copying before the end of the file.
 			start, stop = self.range  # set in send_head()
-			copy_byte_range(source, outputfile, start, stop)
-
+			try:
+				copy_byte_range(source, outputfile, start, stop)
+			except ConnectionResetError as e:
+				print(e)
 
 
 	def guess_type(self, path):
