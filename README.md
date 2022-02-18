@@ -33,6 +33,7 @@ How to use
 ----------------------------------------------------------------
 * PAUSE AND RESUME
 * UPLOAD WITH PASSWORD
+* FFOLDER DOWNLOAD (but you need to delete temp folder manually, working on it)
 * VIDEO PLAYER
 * DELETE FILE FROM REMOTE (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
 * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
