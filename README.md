@@ -38,14 +38,15 @@ How to use
 * DELETE FILE FROM REMOTE (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
 * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
 * MULTIPLE FILE UPLOAD
+* ADD FOLDER CREATION
+* Add pop-up messages from Web leach
 * More comming soon
 
  TODO:
 --------------------------------------------------------------
-* ADD FOLDER CREATION
+
 * RIGHT CLICK CONTEXT MENU
 * Add side bar to do something 🤔
-* Add pop-up messages from Web leach
 * check output ip and port accuracy on multiple os  
 
 
