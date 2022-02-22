@@ -93,12 +93,12 @@ a{
   font-weight: 600;
   font-family: 'Gill Sans, Gill Sans MT, Calibri, Trebuchet MS, sans-serif';
   text-decoration: none;
-  color: #40A4F7;
+  color: #00BFFF;
 }
 
 .link{
-  color: #F00;
-  /* background-color: #92929248; */
+  color: #1589FF;
+  /* background-color: #1589FF; */
 }
 
 .vid{
@@ -108,7 +108,7 @@ a{
 
 .file{
   font-weight: 300;
-  color: #F02975;
+  color: #800080;
 }
 
 
@@ -1324,7 +1324,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		spathtemp= os.path.split(self.path)
 		pathtemp= os.path.split(path)
 		spathsplit = self.path.split('/')
-		ctype = self.guess_type(path)
+		
 		filename = None
 		
 		print('path',path, '\nself.path',self.path, '\nspathtemp',spathtemp, '\npathtemp',pathtemp, '\nspathsplit',spathsplit)
@@ -1489,6 +1489,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])) not in ['video/mp4', 'video/ogg', 'video/webm']:
 					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
 				else:
+					ctype = self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:]))
 					r.append('''
 <!-- stolen from http://plyr.io -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/RaSan147/httpserver_with_many_feat@main/video.css" />
@@ -1556,6 +1557,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		
 
 		else:
+			ctype = self.guess_type(path)
 			f = open(path, 'rb')
 			try:
 				fs = os.fstat(f.fileno())
@@ -2214,6 +2216,7 @@ print(pathlib.Path(__file__))
 
 if __name__ == '__main__':
 	import argparse
+	
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--cgi', action='store_true',
@@ -2229,6 +2232,9 @@ if __name__ == '__main__':
 						nargs='?',
 						help='Specify alternate port [default: 8000]')
 	args = parser.parse_args()
+	if args.directory == ftp_dir and not os.path.isdir(ftp_dir):
+		print(ftp_dir, "not found!\nReseting directory to current directory")
+		args.directory = "."
 	if args.cgi:
 		handler_class = CGIHTTPRequestHandler
 	else:
