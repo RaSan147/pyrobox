@@ -83,7 +83,6 @@ function request_reload()
 body{
   position: relative;
   min-height: 100vh;
-  width: 100%%;
 }
 
 html, body, input, textarea, select, button {
@@ -101,6 +100,10 @@ a{
   font-family: 'Gill Sans, Gill Sans MT, Calibri, Trebuchet MS, sans-serif';
   text-decoration: none;
   color: #00BFFF;
+}
+
+.all_link{
+word-wrap: break-word;
 }
 
 .link{
@@ -168,20 +171,20 @@ a{
     transition: all 300ms ease-in-out;
     background: #222;
     width: 95%%;
-    max-width: 500px;
+    max-width: 600px;
     z-index: 1;
     text-align: center;
-    padding: 20px;
+    padding: 10px;
     box-sizing: border-box;
     font-family: "Open Sans", sans-serif;
-    max-height: 600px;
+    max-height: 800px;
     height:max-content;
-    min-height: 300px;
+    min-height: 400px;
 }
 
 #popup-content{
 	max-width:95%%;
-	overflow: scroll;
+	overflow: scroll;;
 }
 
 .popup-close-btn {
@@ -308,6 +311,7 @@ for (let i = 0; i < r_li.length; i++) {
 	let name = f_li[i];
 	let link = document.createElement('a');
 	link.href = r_;
+	link.classList.add('all_link');
 
 	if(r.startsWith('d')){
 	// add DOWNLOAD FOLDER OPTION in it
@@ -368,7 +372,7 @@ for (let i = 0; i < r_li.length; i++) {
 			var xxx = "F";
 		}
 	const del = document.createElement('a');
-	del.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b> ♻ &nbsp;</b></span>';
+	del.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b> ♻&nbsp;</b></span>';
 	del.onclick = run_recyle(go_link('recycle' + xxx, r_)); // recycle link: parent/recycle*?file_or_folder_name
     del.style.paddingLeft= '50px';
 
@@ -394,6 +398,13 @@ class Popup_Msg {
   }
 
   createPopup(header, content, hr=true) {
+				   while (this.header.firstChild) {
+    this.header.removeChild(this.header.lastChild);
+  }
+  				while (this.content.firstChild) {
+    this.content.removeChild(this.content.lastChild);
+  }
+  				
 				  this.header.innerHTML = header;
 				  this.content.innerHTML = content;
 				  if(hr){
