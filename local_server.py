@@ -4,7 +4,7 @@ ftp_dir= 'G:\\'
 all_port= 6969
 # UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
 PASSWORD= "SECret".encode('utf-8')
-
+log_location = "G:/py-server/"  # fallback log_location = "./"
 
 
 # FEATURES
@@ -41,7 +41,7 @@ for i in REQUEIREMENTS:
 	if i not in INSTALLED_PIP:
 		call([sys.executable, "-m", "pip", "install", '--disable-pip-version-check', '--quiet', i])
 
-from send2trash import send2trash
+from send2trash import send2trash, TrashPermissionError
 
 zip_temp_dir = tempfile.gettempdir() + '/zip_temp/'
 zip_ids = dict()
@@ -52,7 +52,11 @@ try:
 	os.mkdir(path=zip_temp_dir)
 except FileExistsError:
 	pass
-
+if not os.path.isdir(log_location):
+	try:
+		os.mkdir(path=log_location)
+	except:
+		log_location ="./"
 
 
 directory_explorer_header = '''
@@ -77,6 +81,7 @@ function request_reload()
 body{
   position: relative;
   min-height: 100vh;
+  max-width: 100%;
 }
 
 html, body, input, textarea, select, button {
@@ -108,7 +113,8 @@ a{
 
 .file{
   font-weight: 300;
-  color: #800080;
+  color: #c07cf7;
+  font-weight: 400;
 }
 
 
@@ -238,7 +244,7 @@ a{
 
     
 <div class="popup", id="popup-0">
-    <div id="popup-bg" class="modal_bg" style="background-color:rgba(0, 0, 0, 0.9);" onclick="popup_msg.togglePopup()"></div>
+    <div id="popup-bg" class="modal_bg" style="background-color:rgba(0, 0, 0, 0.7);" onclick="popup_msg.togglePopup()"></div>
     <div id="popup-box">
         <div class="popup-close-btn" onclick="popup_msg.togglePopup()">&times;</div>
     
@@ -352,7 +358,7 @@ for (let i = 0; i < r_li.length; i++) {
 			var xxx = "F";
 		}
 	const del = document.createElement('a');
-	del.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b> ♻ </b></span>';
+	del.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b> ♻ &nbsp;</b></span>';
 	del.onclick = run_recyle(go_link('recycle' + xxx, r_)); // recycle link: parent/recycle*?file_or_folder_name
     del.style.paddingLeft= '50px';
 
@@ -1117,6 +1123,12 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 						 (self.address_string(),
 						  self.log_date_time_string(),
 						  format%args))
+						  
+		with open(log_location + 'log.txt','a+') as f:
+			f.write("\n\n" + "%s - - [%s] %s\n" %
+						 (self.address_string(),
+						  self.log_date_time_string(),
+						  format%args))
 
 	def version_string(self):
 		"""Return the server software version string."""
@@ -1357,15 +1369,23 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return f
 
 
-		elif spathsplit[-2].startswith(("recycleD%3F", "recycleF%3F")):
+		elif spathsplit[-2].startswith("recycleD%3F") or spathsplit[-1].startswith("recycleF%3F"):
 			# RECYCLES THE DIRECTORY
 			print("==================== current path", path)
 			
 			xpath = path.replace("recycleD?", "", 1).replace("recycleF?", "", 1)
+			if xpath.endswith(("/","\\")):
+				print(xpath)
+				xpath = xpath[:-1]
 			print("Recycling", xpath)
 			msg = "<!doctype HTML><h1>Recycled successfully  " + xpath + "</h1>"
 			try:
-				send2trash(xpath[:-1])
+				try:
+					send2trash(xpath)
+				except TrashPermissionError:
+					if os.path.isfile(xpath): os.remove(xpath)
+					else: shutil.rmtree(xpath)
+					msg = msg = "<!doctype HTML><h1>Recycling unavailable. FORCE DELETING  " + xpath + "</h1>"
 			except Exception as e:
 				print(e)
 				msg = "<!doctype HTML><h1>Recycling failed  " + xpath + "</h1><br>" + e.__class__.__name__ + " : " + str(e) 
