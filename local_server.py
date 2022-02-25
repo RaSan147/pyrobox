@@ -64,6 +64,8 @@ directory_explorer_header = '''
 
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=%s">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
 
 <title>%s</title>
 
@@ -81,7 +83,7 @@ function request_reload()
 body{
   position: relative;
   min-height: 100vh;
-  max-width: 100%;
+  width: 100%%;
 }
 
 html, body, input, textarea, select, button {
@@ -177,6 +179,11 @@ a{
     min-height: 300px;
 }
 
+#popup-content{
+	max-width:95%%;
+	overflow: scroll;
+}
+
 .popup-close-btn {
     cursor: pointer;
     position: absolute;
@@ -254,6 +261,9 @@ a{
         <div id="popup-content"></div>
     </div>
 </div>
+
+<h1 style="word-wrap: break-word;">%s</h1>
+<hr>
 
 
 '''
@@ -1502,9 +1512,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				r.append('<meta http-equiv="Content-Type" '
 						'content="text/html; charset=%s">' % enc)
 				r.append('<title>%s</title>\n</head>' % title)"""
-				r.append(directory_explorer_header%(enc, title))
-				r.append('<body>\n<h1>%s</h1>' % title)
-				r.append('<hr>\n')
+				r.append(directory_explorer_header%(enc, title, title))
 
 				if self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])) not in ['video/mp4', 'video/ogg', 'video/webm']:
 					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
@@ -1673,13 +1681,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		displaypath = html.escape(displaypath, quote=False)
 		enc = sys.getfilesystemencoding()
 		title = 'Directory listing for %s' % displaypath
-		r.append(directory_explorer_header%(enc, title))
+		r.append(directory_explorer_header%(enc, title, title))
 		'''r.append('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" '
 				 '"http://www.w3.org/TR/html4/strict.dtd">')
 		r.append('<meta http-equiv="Content-Type" '
 				 'content="text/html; charset=%s">' % enc)
 		r.append('<title>%s</title>\n</head>' % title)'''
-		r.append('<body>\n<h1>%s</h1>' % title)
+		#r.append('<body>\n<h1>%s</h1>' % title)
 		r.append('<hr>\n<ul id= "linkss">')
 		r_li= [] # type + file_link
 				 # f  : File
