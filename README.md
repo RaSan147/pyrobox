@@ -38,8 +38,8 @@ How to use
 * DELETE FILE FROM REMOTE (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
 * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
 * MULTIPLE FILE UPLOAD
-* ADD FOLDER CREATION
-* Add pop-up messages from Web leach
+* FOLDER CREATION
+* Pop-up messages (from my Web leach repo)
 * More comming soon
 
  TODO:
@@ -48,6 +48,7 @@ How to use
 * RIGHT CLICK CONTEXT MENU
 * Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
+* Backup code if Reload causes unhandled issue and can't be accessed
 
 
 # Support for more features
