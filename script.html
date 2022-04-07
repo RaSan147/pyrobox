@@ -1,0 +1,215 @@
+</ul>
+<h2>Upload file</h2>
+<div>
+	<h3>Instructions</h3>
+	TLDR:<br>
+	Upload just the assignment.zip to test it. Or upload test.in and test.out files to validate it against previous assignments.
+	<br><br>
+	This upload has 2 functionalities.<br>
+	1. Testing your assignment against the existing tests:<br>
+	Select the zip file of the assignment (the very same you would send in the webcourse) and click on "Upload" <br>
+	2. Submitting a new test (will be verified against all previously submitted assignments):<br>
+	Select two files to upload (.in and .out files with identical base names. e.g. test.in and test.out).<br>
+	You can select multiple files in the upload dialog by holding the Ctrl (or CMD for Mac) key while clicking on the second file).<br>
+	<br>
+	When uploading an assignment, if the assignment it successfully running on all the tests, the compiled executable will be saved to run against new test files.<br>
+	When uploading a test, if it successfully runs on all the existing assignments, it will be saved to run against new assignments.
+
+	<h3>What's New</h3>
+	1. (06/04/2022 13:00) I've allowed uploading multiple tests at once. Simply select the tests you'd like to upload (it pairs .in/.out according to the base file name)
+	<br>All the uploaded files must be part of a pair (either the .in or .out). You can't send extra files or none of the tests will run.<br>
+	Tests that ran successfully on all the assignments will be saved. Tests that ran on more than 80&#37; but not all, will be help for manual review. That that failed on 20&#37; or more than the assignment will be rejected.
+	<br>If a test was rejected and you're <strong>certain</strong> it's a valid test, you can contact me: <a href="tel:+97235112432">03-511-2432</a>.
+	
+	
+</div>
+        <form ENCTYPE="multipart/form-data" method="post">
+        
+<!--  <p>PassWord:&nbsp;&nbsp;</p> --><input name="txt" type="text" label="Password" hidden><br>
+  <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple/><br><br>
+
+  <input type="submit" value="Upload" style="background-color: #555; height: 30px; width: 100px"></form>
+  <br><hr><br>
+  <!-- Create a button to download tests -->
+  <form action="download_tests" method="get">
+	<input type="submit" value="Download Tests" style="background-color: #555; height: 30px; width: 120px">
+  </form>
+
+<hr>
+<script>
+
+const r_li = %s;
+const f_li = %s;
+
+
+function toggle_scroll() {
+    document.body.classList.toggle('overflowHidden');
+}
+
+function go_link(typee, locate){
+  // function to generate link for different types of actions
+  return typee+"%%3F"+locate;}
+
+// getting all the links in the directory
+
+const linkd_li = document.getElementsByTagName('ul')[0];
+
+for (let i = 0; i < r_li.length; i++) {
+  // time to customize the links according to their formats
+
+  let ele = document.createElement('li');
+	let r= r_li[i];
+	let r_ = r.slice(1);
+	let name = f_li[i];
+	let link = document.createElement('a');
+	link.href = r_;
+	link.classList.add('all_link');
+
+	if(r.startsWith('d')){
+	// add DOWNLOAD FOLDER OPTION in it
+	// TODO: add download folder option by zipping it
+	// currently only shows folder size and its contents
+	link.innerHTML = "📂" + name;
+	link.classList.add('link');
+
+	ele.appendChild(link);
+
+	let dl = document.createElement('a');
+	dl.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b>〘↓〙</b></span>';
+	dl.href = go_link('dl', r_);  // download folder link: parent/dl?folder_name
+	dl.style.paddingLeft= '50px';
+
+	ele.insertAdjacentElement("beforeend",dl);
+	}
+
+	if(r.startsWith('v')){
+	// if its a video, add play button at the end
+	// that will redirect to the video player
+	// clicking main link will download the video instead
+
+	link.innerHTML = '🎥' + name;
+	link.classList.add('vid');
+	ele.appendChild(link);
+
+
+	let play = document.createElement('A');
+	play.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b>&nbsp▶&nbspPLAY&nbsp</b></span>';
+	play.href = go_link('vid', r_);  // video player link: parent/vid?video_name
+	play.style.paddingLeft= '50px';
+
+	ele.insertAdjacentElement("beforeend",play);
+	}
+
+	if(r.startsWith('f')){
+	link.innerHTML = '📄' + name;
+	link.classList.add('file');
+	ele.appendChild(link);
+
+	}
+	if(r.startsWith('h')){
+	link.innerHTML = '🔗' + name;
+	link.classList.add('html');
+	ele.appendChild(link);
+
+	}
+
+	if(true){
+		// recycling option for the files and folder
+		// files and folders are handled differently
+
+		if(r.startsWith('d')){
+			var xxx = "D";
+		}
+		else{
+			var xxx = "F";
+		}
+	const del = document.createElement('a');
+	del.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b> ♻&nbsp;</b></span>';
+	del.onclick = run_recyle(go_link('recycle' + xxx, r_)); // recycle link: parent/recycle*?file_or_folder_name
+    del.style.paddingLeft= '50px';
+
+	ele.insertAdjacentElement("beforeend",del);
+	}
+
+	
+  linkd_li.appendChild(ele);
+}
+
+
+class Popup_Msg {
+  constructor() {
+	  this.popup_obj = document.getElementById('popup-0');
+	  this.header = document.getElementById('popup-header');
+	  this.content = document.getElementById('popup-content');
+	  this.hr = document.getElementById('popup-hr');
+  }
+
+  togglePopup(indx=0, on_or_off = null) {
+	  this.popup_obj.classList.toggle("active");
+	  toggle_scroll();
+  }
+
+  createPopup(header, content, hr=true) {
+				   while (this.header.firstChild) {
+    this.header.removeChild(this.header.lastChild);
+  }
+  				while (this.content.firstChild) {
+    this.content.removeChild(this.content.lastChild);
+  }
+  				
+				  this.header.innerHTML = header;
+				  this.content.innerHTML = content;
+				  if(hr){
+					  this.hr.style.display = "block";
+				  }else{
+					  this.hr.style.display = "none";
+				  }
+			  }
+}
+
+
+let popup_msg = new Popup_Msg();
+
+function Show_folder_maker(){
+    popup_msg.createPopup("Create Folder", "Enter folder name: <input id='folder-name' type='text'><br><br><div class=\'pagination\' onclick='create_folder()'>Create</div>");
+    popup_msg.togglePopup();
+}
+
+function show_response(url, add_reload_btn=true){
+  var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == XMLHttpRequest.DONE) {
+            let msg = xhr.responseText;
+			if(add_reload_btn){
+				msg = msg + "<br><br><div class=\'pagination\' onclick='window.location.reload()'>Reload🔄️</div>";
+			}
+            popup_msg.createPopup("Result", msg);
+            popup_msg.togglePopup();
+        }
+    }
+    xhr.open('GET', url , true);
+    xhr.send(null);
+}
+
+function create_folder(){
+    let folder_name = document.getElementById('folder-name').value;
+    let folder_link = go_link('mkdir', folder_name);
+
+    popup_msg.togglePopup();
+    show_response(folder_link);
+}
+
+function reload(){
+    show_response("?reload?");
+}
+
+function run_recyle(url){
+    return function(){
+        show_response(url);
+    }
+}
+
+</script>
+
+</body>
+</html>

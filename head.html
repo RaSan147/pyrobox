@@ -1,0 +1,207 @@
+<!DOCTYPE HTML>
+
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=%s">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<title>%s</title>
+
+<script>
+function request_reload()
+{
+    fetch('/?reload?');
+}
+</script>
+
+
+
+
+<style type="text/css">
+body{
+  position: relative;
+  min-height: 100vh;
+}
+
+html, body, input, textarea, select, button {
+    border-color: #736b5e;
+    color: #e8e6e3;
+    background-color: #181a1b;
+}
+* {
+    scrollbar-color: #0f0f0f #454a4d;
+}
+a{
+  line-height: 200%%;
+  font-size: 20px;
+  font-weight: 600;
+  font-family: 'Gill Sans, Gill Sans MT, Calibri, Trebuchet MS, sans-serif';
+  text-decoration: none;
+  color: #00BFFF;
+}
+
+.all_link{
+word-wrap: break-word;
+}
+
+.link{
+  color: #1589FF;
+  /* background-color: #1589FF; */
+}
+
+.vid{
+  color: #8A2BE2;
+  font-weight: 300;
+}
+
+.file{
+  font-weight: 300;
+  color: #c07cf7;
+  font-weight: 400;
+}
+
+
+#footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%%;
+  height: 2.5rem;			/* Footer height */
+}
+
+
+.overflowHidden {
+	overflow: hidden !important
+}
+
+
+/* POPUP CSS */
+
+.modal_bg{
+  display: inherit;
+  position: fixed;
+  z-index: 1;
+  padding-top: inherit;
+  left: 0;
+  top: 0;
+  width: 100%%;
+  height: 100%%;
+  overflow: auto;
+}
+
+.popup{
+    position: fixed;
+    z-index: 99;
+    left: 50%%;
+    top: 50%%;
+    width: 100%%;
+    height: 100%%;
+    overflow: auto;
+    transition: all 300ms ease-in-out;
+    transform: translate(-50%%, -50%%) scale(1)
+}
+
+#popup-box {
+    display: block;
+    position: fixed;
+    top: 50%%;
+    left: 50%%;
+    color: #AAA;
+    transition: all 300ms ease-in-out;
+    background: #222;
+    width: 95%%;
+    max-width: 600px;
+    z-index: 1;
+    text-align: center;
+    padding: 10px;
+    box-sizing: border-box;
+    font-family: "Open Sans", sans-serif;
+    max-height: 800px;
+    height:max-content;
+    min-height: 400px;
+}
+
+#popup-content{
+	max-width:95%%;
+	overflow: scroll;;
+}
+
+.popup-close-btn {
+    cursor: pointer;
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    width: 30px;
+    height: 30px;
+    background: #222;
+    color: #fff;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 30px;
+    text-align: center;
+    border-radius: 50%%
+}
+
+.popup:not(.active){
+    transform: translate(-50%%, -50%%) scale(0);
+}
+
+
+.popup.active #popup-box{
+    transform: translate(-50%%, -50%%) scale(1);
+}
+
+
+
+.pagination {
+  cursor: pointer;
+    width: 150px;
+    max-width: 800px
+}
+
+.pagination {
+    font: bold 20px Arial;
+    text-decoration: none;
+    background-color: #8a8b8d6b;
+    color: #1f83b6;
+    padding: 2px 6px;
+    border-top: 1px solid #828d94;
+    box-shadow: 4px 4px #5050506b;
+    border-left: 1px solid #828D94;
+}
+
+.pagination:hover {
+    background-color:  #4e4f506b;
+    color: #00b7ff;
+    box-shadow: 4px 4px #8d8d8d6b;
+    border: none;
+    border-right: 1px solid #959fa5;
+    border-bottom: 1px solid #959fa5
+}
+
+.pagination:active {
+    margin-top: 4px;
+    margin-left: 4px;
+    box-shadow: none
+}
+
+
+</style>
+</head> 
+<body>
+
+
+    
+<div class="popup", id="popup-0">
+    <div id="popup-bg" class="modal_bg" style="background-color:rgba(0, 0, 0, 0.7);" onclick="popup_msg.togglePopup()"></div>
+    <div id="popup-box">
+        <div class="popup-close-btn" onclick="popup_msg.togglePopup()">&times;</div>
+    
+        <h1 id="popup-header"></h1>
+        <hr width="95%%" id="popup-hr">  <!-- if needed -->
+        
+        <div id="popup-content"></div>
+    </div>
+</div>
+
+<h1 style="word-wrap: break-word;">%s</h1>
+<hr>
