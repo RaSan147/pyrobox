@@ -1002,7 +1002,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                     f'cp {tmpdirname}/{base_test_name}.in {self.user_tests_dir}/{md5_hash}.in')
                 os.system(
                     f'cp {tmpdirname}/{base_test_name}.out {self.user_tests_dir}/{md5_hash}.out')
-                result += "Test passed on all executables!\n"
+                result += f"Test {base_test_name} passed on all executables (and copied to {self.user_tests_dir}/{md5_hash}.(in/out))!\n"
             else:
                 os.system(
                     f'cp {tmpdirname}/{base_test_name}.in {self.self.review_tests_dir}/{md5_hash}.in')
