@@ -942,8 +942,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             elif len(uploaded_files) % 2 == 0:
                 # Check the files are pairs of ".in" and ".out" files
                 for fn in uploaded_files:
-                    test_name = uploaded_files[0].split('.')[0]
-                    if len(uploaded_files[0].split('.')) != 2:
+                    test_name = fn.split('.')[0]
+                    if len(fn.split('.')) != 2:
                         return (False, ("Bad upload format.\n" +
                                 "When uploading a test please upload both the in/out files with identical base name and extensions (.in and .out).\n" +
                                         "e.g. test.in and test.out").replace("\n", "<br>"))
@@ -952,10 +952,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                                 ("When uploading a test please upload both the in/out files with identical base name and extensions (.in and .out).\n" +
                                  "e.g. test.in and test.out").replace('\n', '<br>'))
                 for fn in uploaded_files:
-                    test_name = uploaded_files[0].split('.')[0]
-                    if not uploaded_files[0].endswith('.in'):
+                    test_name = fn.split('.')[0]
+                    if not fn.endswith('.in'):
                         continue
-                    curr_res = self.run_new_test_on_archive(uploaded_files[0])
+                    curr_res = self.run_new_test_on_archive(fn)
                     result += curr_res[1]
                     if result[0] == False:
                         return (False, f"Some of the new tests failed on too many executables\n======= OUTPUT =======\n{result}".replace("\n", "<br>"))
