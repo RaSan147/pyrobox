@@ -1,5 +1,5 @@
 # Help Needed
-# httpserver_with_many_feat
+# py_httpserver_Ult
 
 ` Note ` UPLOAD PASSWORD: `SECret`
 # Requesting for more suggesions and ideas
@@ -16,7 +16,7 @@ How to use
 1. On browser (same device as server), go to `localhost:port_number` to see the output
 1. To change the server running directory, 
    - i) either edit the code  
-   - ii) or add `-d` or -`--directory` command line argument when launching the program
+   - ii) or add `-d` or `--directory` command line argument when launching the program
         - `local_server.py -d .` to launch the server in current directory (where the file is)
         - `local_server.py -d "D:\Server\Public folder\`  (Use Double-Quotation while directory has space)
         - `local_server.py -d "D:/Server/Public folder` (Forward or backward slash really doesn't matter)
