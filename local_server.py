@@ -990,24 +990,24 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 try:
                     curr_res = subprocess.check_output(
                         f'diff {tmpdirname}/{base_test_name}.res {tmpdirname}/{base_test_name}.out 2>&1', shell=True).decode()
-                    result += curr_res
+                    result += curr_res  # or f"Test {base_test_name} passed on {file}\n"
                 except subprocess.CalledProcessError as e:
                     failed_on.append(file)
                     result += f"Test {base_test_name} failed on {file}:\n{e.output.decode()}\n"
             if len(failed_on) >= 0.2*len(assignments_archive):
-                result += "Test failed on too many executables\n"
+                result += f"Test failed on too many executables (fails on {len(failed_on)}/{len(assignments_archive)} >= 20%)\n"
                 return (False, result)
             elif len(failed_on) == 0:
                 os.system(
                     f'cp {tmpdirname}/{base_test_name}.in {self.user_tests_dir}/{md5_hash}.in')
                 os.system(
                     f'cp {tmpdirname}/{base_test_name}.out {self.user_tests_dir}/{md5_hash}.out')
-                result += f"Test {base_test_name} passed on all executables (and copied to {self.user_tests_dir}/{md5_hash}.(in/out))!\n"
+                result += f"Test {base_test_name} passed on all (total of {len(assignments_archive)}) executables (and copied to {self.user_tests_dir}/{md5_hash}.(in/out))!\n"
             else:
                 os.system(
-                    f'cp {tmpdirname}/{base_test_name}.in {self.self.review_tests_dir}/{md5_hash}.in')
+                    f'cp {tmpdirname}/{base_test_name}.in {self.review_tests_dir}/{md5_hash}.in')
                 os.system(
-                    f'cp {tmpdirname}/{base_test_name}.out {self.self.review_tests_dir}/{md5_hash}.out')
+                    f'cp {tmpdirname}/{base_test_name}.out {self.review_tests_dir}/{md5_hash}.out')
                 result += f"Test failed on a few executables, the test file will be manually reviewed\n"
             return (True, result or "No diff")
 
