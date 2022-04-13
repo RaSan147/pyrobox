@@ -1,0 +1,7 @@
+// Check short undef hex escape
+
+int main() {
+	print("Hello world!");
+	print("Nice short bad escape \xD");
+	return 0;
+}

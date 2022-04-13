@@ -1,0 +1,8 @@
+// check leading zero behavior
+
+int main() {
+    byte y = 0b; // this is okay
+    int x = 0; // so is this
+    int z = 00; // this is two lexemes!
+	return 0;
+}

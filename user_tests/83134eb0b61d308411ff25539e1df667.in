@@ -1,0 +1,7 @@
+// Check valid escape
+
+int main() {
+	print("Completely legitimate \" escape here!");
+	print("More \n \n legitimate \" \\ \t escapes!");
+	return 0;
+}

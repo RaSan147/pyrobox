@@ -1,0 +1,6 @@
+int main() {
+	int x = 5;
+	int powerOfx = x * x;
+	print(x);
+	return 0;
+}

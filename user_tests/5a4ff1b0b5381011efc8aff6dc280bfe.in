@@ -1,0 +1,8 @@
+// Check unclosed string
+
+int main() {
+	print("Hello world!");
+	print("Nice bad 
+	");
+	return 0;
+}
