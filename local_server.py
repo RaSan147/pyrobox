@@ -67,6 +67,7 @@ if not os.path.isdir(log_location):
 		log_location ="./"
 
 
+
 directory_explorer_header = '''
 <!DOCTYPE HTML>
 <!-- test1 -->
@@ -101,6 +102,18 @@ html, body, input, textarea, select, button {
 * {
     scrollbar-color: #0f0f0f #454a4d;
 }
+
+
+.dir_arrow {
+	position: relative;
+	top: -3px;
+    padding: 4px;
+	color: #e8e6e3;
+	font-size: 12px;
+	}
+
+
+
 a{
   line-height: 200%%;
   font-size: 20px;
@@ -256,8 +269,13 @@ word-wrap: break-word;
 
 
 </style>
+
+<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.png?raw=true" type="image/png"> 
+
+
 </head> 
 <body>
+
 
 
     
@@ -1372,9 +1390,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		
 		print('path',path, '\nself.path',self.path, '\nspathtemp',spathtemp, '\npathtemp',pathtemp, '\nspathsplit',spathsplit)
 
-		if self.path=='/favicon.ico':
-			return None
-
 		if spathsplit[-1] == "?reload?":
 			# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
 			reload = True
@@ -1383,7 +1398,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			httpd.shutdown()
 
 		elif pathtemp[-1].startswith("mkdir?"):
-			print(pathtemp)
+			# print(pathtemp)
 			try:
 				os.mkdir(os.path.join(pathtemp[0], pathtemp[1][6:]))
 				msg = "Directory created!"
@@ -1405,11 +1420,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		elif spathsplit[-2].startswith("recycleD%3F") or spathsplit[-1].startswith("recycleF%3F"):
 			# RECYCLES THE DIRECTORY
-			print("==================== current path", path)
+			# print("==================== current path", path)
 			
 			xpath = path.replace("recycleD?", "", 1).replace("recycleF?", "", 1)
 			if xpath.endswith(("/","\\")):
-				print(xpath)
+				# print(xpath)
 				xpath = xpath[:-1]
 			print("Recycling", xpath)
 			msg = "<!doctype HTML><h1>Recycled successfully  " + xpath + "</h1>"
@@ -1438,19 +1453,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		elif spathsplit[-1].startswith('dlY%3F'):
 			out = subprocess.check_output([xxx_dir+"/7z/7za"]).decode()
-			print("=="*10, "\n\n")
+			# print("=="*10, "\n\n")
 			filename = pathtemp[-1][4:-29]
-			print("filename", filename)
+			# print("filename", filename)
 			id = pathtemp[-1][-24:]
-			print("id", id)
+			# print("id", id)
 			loc = zip_temp_dir
 			zip_name = id + '.zip'
 			zip_path = loc +'/' + zip_name
 
-			print('zip_ids', zip_ids)
+			# print('zip_ids', zip_ids)
 
-			print(id in zip_ids.keys())
-			print(id in zip_in_progress)
+			# print(id in zip_ids.keys())
+			# print(id in zip_in_progress)
 
 			xpath = pathtemp[0] +'\\' + pathtemp[-1][4:-29]
 
@@ -1473,11 +1488,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					zip_in_progress.append(id)
 
 					# print("Downloading", filename, "from", id)
-					print("==================== current path", str(loc))
-					print("==================== to zip path ", str(pathtemp[-1][4:-29]))
+					# print("==================== current path", str(loc))
+					# print("==================== to zip path ", str(pathtemp[-1][4:-29]))
 					
 					
-					print(' '.join([xxx_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]]))
+					# print(' '.join([xxx_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]]))
 					call([xxx_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
 					zip_in_progress.remove(id)
 					zip_ids[id] = filename
@@ -1513,7 +1528,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			if not os.path.isdir(path):
 				outp = "<!DOCTYPE HTML><h1>Directory not found</h1>"
 			else:
-				print('init')
+				# print('init')
 				total_size, r = get_dir_size(path, 8*1024*1024*1024, True)  # max size limit = 8GB
 				id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))+'_'+ str(time.time())
 				id += '0'*(25-len(id))
@@ -1573,13 +1588,16 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					displaypath = urllib.parse.unquote(path)
 				displaypath = html.escape(displaypath, quote=False)
 				enc = sys.getfilesystemencoding()
-				title = 'Directory listing for %s' % displaypath
+
+
+				title = self.get_titles(displaypath)
+
 				"""r.append('<!DOCTYPE HTML>')
 				r.append('<html>\n<head>')
 				r.append('<meta http-equiv="Content-Type" '
 						'content="text/html; charset=%s">' % enc)
 				r.append('<title>%s</title>\n</head>' % title)"""
-				r.append(directory_explorer_header%(enc, title, title))
+				r.append(directory_explorer_header%(enc, title, self.dir_navigator(displaypath)))
 
 				if self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])) not in ['video/mp4', 'video/ogg', 'video/webm']:
 					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
@@ -1747,8 +1765,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			displaypath = urllib.parse.unquote(path)
 		displaypath = html.escape(displaypath, quote=False)
 		enc = sys.getfilesystemencoding()
-		title = 'Directory listing for %s' % displaypath
-		r.append(directory_explorer_header%(enc, title, title))
+
+
+		title = self.get_titles(displaypath)
+		
+		r.append(directory_explorer_header%(enc, title, self.dir_navigator(displaypath)))
 		'''r.append('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" '
 				 '"http://www.w3.org/TR/html4/strict.dtd">')
 		r.append('<meta http-equiv="Content-Type" '
@@ -1812,6 +1833,35 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.send_header("Content-Length", str(len(encoded)))
 		self.end_headers()
 		return f
+
+	def get_titles(self, path):
+
+		paths = path.split('/')
+		if paths[-2]=='':
+			return 'Viewing &#127968; HOME'
+		else:
+			return 'Viewing ' + paths[-2]
+
+	def dir_navigator(self, path):
+		"""Makes each part of the header directory accessible like links
+		just like file manager, but with less CSS"""
+
+		dirs = path.split('/')
+		urls = ['/']
+		names = ['&#127968; HOME']
+		r = []
+
+		for i in range(1, len(dirs)):
+			dir = dirs[i]
+			urls.append(urls[i-1] + urllib.parse.quote(dir, errors='surrogatepass' )+ '/')
+			names.append(dir)
+
+		for i in range(len(names)):
+			tag = "<a href='" + urls[i] + "'>" + names[i] + "</a>"
+			r.append(tag)
+
+		return '<span class="dir_arrow">&#10151;</span>'.join(r)
+			
 
 	def translate_path(self, path):
 		"""Translate a /-separated PATH to the local filename syntax.
