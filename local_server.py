@@ -5,7 +5,7 @@ all_port= 6969
 # UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
 PASSWORD= "SECret".encode('utf-8')
 log_location = "G:/py-server/"  # fallback log_location = "./"
-
+allow_web_log = True # if you want to see some important LOG in browser, may contain your important information
 
 import os
 xxx = os.path.realpath(__file__)
@@ -13,17 +13,26 @@ xxx_dir = os.path.dirname(xxx)
 print(xxx)
 
 
+_7z_parent_dir = xxx_dir # this is where the 7z/7z.exe is located. if you don't want to keep 7z in the same directory, you can change it here
+_7z_location = '/7z/7za.exe'  # location of 7za.exe # https://www.7-zip.org/a/7z2107-extra.7z
+
+
+
 # FEATURES
 # ----------------------------------------------------------------
-# PAUSE AND RESUME
-# UPLOAD WITH PASSWORD
-# VIDEO PLAYER
-# DELETE FILE FROM REMOTE (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
-# RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
-# MULTIPLE FILE UPLOAD
+# * PAUSE AND RESUME
+# * UPLOAD WITH PASSWORD
+# * FOLDER DOWNLOAD (uses temp folder)
+# * VIDEO PLAYER
+# * DELETE FILE FROM REMOTE (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
+# * File manager like NAVIGATION BAR
+# * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
+# * MULTIPLE FILE UPLOAD
+# * FOLDER CREATION
+# * Pop-up messages (from my Web leach repo)
+
 
 #TODO:
-# ADD FOLDER CREATION
 # RIGHT CLICK CONTEXT MENU
 
 
@@ -38,6 +47,7 @@ import tempfile, random, string
 import os
 import shutil
 import traceback
+import platform
 
 import pkg_resources as pkg_r
 
@@ -65,6 +75,21 @@ if not os.path.isdir(log_location):
 		os.mkdir(path=log_location)
 	except:
 		log_location ="./"
+
+
+if platform.system()=='Windows':
+	if not os.path.isfile(_7z_parent_dir+ _7z_location):
+		import urllib.request
+		import shutil
+		import zipfile
+		print("Downloading 7za.zip")
+
+		# Download the 7za.zip file and put it in the :
+		with urllib.request.urlopen("https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/7z.zip") as response, open(_7z_parent_dir+ "/7z.zip", 'wb') as out_file:
+			shutil.copyfileobj(response, out_file)
+
+		with zipfile.ZipFile(_7z_parent_dir + '/7z.zip', 'r') as zip_ref:
+			zip_ref.extractall(_7z_parent_dir)
 
 
 
@@ -1452,7 +1477,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return f
 
 		elif spathsplit[-1].startswith('dlY%3F'):
-			out = subprocess.check_output([xxx_dir+"/7z/7za"]).decode()
 			# print("=="*10, "\n\n")
 			filename = pathtemp[-1][4:-29]
 			# print("filename", filename)
@@ -1492,8 +1516,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					# print("==================== to zip path ", str(pathtemp[-1][4:-29]))
 					
 					
-					# print(' '.join([xxx_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]]))
-					call([xxx_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
+					# print(' '.join([_7z_parent_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]]))
+					call([_7z_parent_dir + _7z_location, 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
 					zip_in_progress.remove(id)
 					zip_ids[id] = filename
 					path = zip_path
@@ -1501,13 +1525,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			except Exception as e:
 				traceback.print_exc()
 				
-				msg = "<!doctype HTML><h1>Zipping failed  " + xpath + "</h1><br>" + e.__class__.__name__ + " : " + str(e) + "\n\n\n" + traceback.format_exc().replace("\n", "<br>")
-				msg += "<br><br><b>Command</b> " + ' '.join(['7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
-				msg += "<br><br>"
-				msg += ' '.join(map(str, ['path',path, '<br>self.path',self.path, '<br>spathtemp',spathtemp, '<br>pathtemp',pathtemp, '<br>spathsplit',spathsplit]))
-				msg += "<br><br>"
-				msg += ' '.join(map(str, ['loc',loc, '<br>id',id, '<br>zip_name',zip_name, '<br>zip_path',zip_path, '<br>zip_ids',zip_ids, '<br>zip_in_progress',zip_in_progress]))
-				msg += "<br><br>"
+				msg = "<!doctype HTML><h1>Zipping failed  " + xpath + "</h1><br>" + e.__class__.__name__ 
+				
+				if allow_web_log:
+					msg += " : " + str(e) + "\n\n\n" + traceback.format_exc().replace("\n", "<br>")
+					msg += "<br><br><b>7z location:</b> " + _7z_parent_dir +  _7z_location
+					msg += "<br><br><b>Command</b> " + ' '.join([_7z_location, 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
+					msg += "<br><br>"
+					msg += ' '.join(map(str, ['path',path, '<br>self.path',self.path, '<br>spathtemp',spathtemp, '<br>pathtemp',pathtemp, '<br>spathsplit',spathsplit]))
+					msg += "<br><br>"
+					msg += ' '.join(map(str, ['loc',loc, '<br>id',id, '<br>zip_name',zip_name, '<br>zip_path',zip_path, '<br>zip_ids',zip_ids, '<br>zip_in_progress',zip_in_progress]))
+					msg += "<br><br>"
 
 				encoded = msg.encode('utf-8', 'surrogateescape')
 
