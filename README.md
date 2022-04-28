@@ -11,7 +11,17 @@ Server side requirement
 * `send2trash` pip package (will be auto installed when the code runs)
 * (for windows) no need to download 7z (from here), it will be automatically downloaded
 
-How to use
+Installation
+----------------------------------------------------------------
+1. Download the `local_server.py`
+2. yes, only the `local_Server.py`. Other files are not necessary.
+3. Install Python 3.7 or higher and run the `local_server.py`
+4. The server will show your ip and port, use that with and local device browser under the same network
+   * Like this `192.168.0.100:6969/`
+   
+
+
+Customization
 ----------------------------------------------------------------
 1. Simply running the code will create a server on `G:\ Drive` for windows on `Port: 6969`
 1. On browser (same device as server), go to `localhost:port_number` to see the output
@@ -52,6 +62,7 @@ How to use
 * Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
 * Backup code if Reload causes unhandled issue and can't be accessed
+* command line arg for passwords (vulnerable on reload)
 
 
 # Support for more features
