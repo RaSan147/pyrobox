@@ -7,6 +7,12 @@ PASSWORD= "SECret".encode('utf-8')
 log_location = "G:/py-server/"  # fallback log_location = "./"
 
 
+import os
+xxx = os.path.realpath(__file__)
+xxx_dir = os.path.dirname(xxx)
+print(xxx)
+
+
 # FEATURES
 # ----------------------------------------------------------------
 # PAUSE AND RESUME
@@ -26,10 +32,12 @@ REQUEIREMENTS= ['send2trash',]
 
 
 from subprocess import call
+import subprocess
 import sys
 import tempfile, random, string
 import os
 import shutil
+import traceback
 
 import pkg_resources as pkg_r
 
@@ -61,7 +69,7 @@ if not os.path.isdir(log_location):
 
 directory_explorer_header = '''
 <!DOCTYPE HTML>
-
+<!-- test1 -->
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=%s">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -184,7 +192,7 @@ word-wrap: break-word;
 
 #popup-content{
 	max-width:95%%;
-	overflow: scroll;;
+	overflow: scroll;
 }
 
 .popup-close-btn {
@@ -1223,6 +1231,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if f:
 			try:
 				self.copyfile(f, self.wfile)
+			except ConnectionAbortedError:
+				print("Connection aborted")
 			finally:
 				f.close()
 
@@ -1362,6 +1372,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		
 		print('path',path, '\nself.path',self.path, '\nspathtemp',spathtemp, '\npathtemp',pathtemp, '\nspathsplit',spathsplit)
 
+		if self.path=='/favicon.ico':
+			return None
+
 		if spathsplit[-1] == "?reload?":
 			# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
 			reload = True
@@ -1424,35 +1437,75 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return f
 
 		elif spathsplit[-1].startswith('dlY%3F'):
+			out = subprocess.check_output([xxx_dir+"/7z/7za"]).decode()
+			print("=="*10, "\n\n")
 			filename = pathtemp[-1][4:-29]
-			id = pathtemp[1][-24:]
+			print("filename", filename)
+			id = pathtemp[-1][-24:]
+			print("id", id)
 			loc = zip_temp_dir
+			zip_name = id + '.zip'
+			zip_path = loc +'/' + zip_name
 
-			print(zip_ids)
+			print('zip_ids', zip_ids)
 
 			print(id in zip_ids.keys())
 			print(id in zip_in_progress)
 
-			if id in zip_ids.keys():
-				path = loc +'/' + id + ".zip"
-				filename = zip_ids[id] + ".zip"
+			xpath = pathtemp[0] +'\\' + pathtemp[-1][4:-29]
 
-			elif id in zip_in_progress:
-				while id in zip_in_progress:
-					time.sleep(1)
-				path = loc +'/' + id + ".zip"
-				filename = zip_ids[id] + ".zip"
+			try:
+				if id in zip_ids.keys():
+					path = loc +'/' + id + ".zip"
+					filename = zip_ids[id] + ".zip"
 
-			else:
-				zip_in_progress.append(id)
+					if not os.path.isfile(path):
+						zip_ids.pop(id)
 
-				# print("Downloading", filename, "from", id)
-				print("==================== current path", str(loc))
-				call(['7z/7za', 'a', '-mx=0', str(loc)+'/'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
-				zip_in_progress.remove(id)
-				zip_ids[id] = filename
-				path = loc+'/'+id+'.zip'
-				filename = zip_ids[id] + ".zip"
+
+				if id in zip_in_progress:
+					while id in zip_in_progress:
+						time.sleep(1)
+					path = loc +'/' + id + ".zip"
+					filename = zip_ids[id] + ".zip"
+
+				if not (id in zip_ids.keys() or id in zip_in_progress):
+					zip_in_progress.append(id)
+
+					# print("Downloading", filename, "from", id)
+					print("==================== current path", str(loc))
+					print("==================== to zip path ", str(pathtemp[-1][4:-29]))
+					
+					
+					print(' '.join([xxx_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]]))
+					call([xxx_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
+					zip_in_progress.remove(id)
+					zip_ids[id] = filename
+					path = zip_path
+					filename = zip_ids[id] + ".zip"
+			except Exception as e:
+				traceback.print_exc()
+				
+				msg = "<!doctype HTML><h1>Zipping failed  " + xpath + "</h1><br>" + e.__class__.__name__ + " : " + str(e) + "\n\n\n" + traceback.format_exc().replace("\n", "<br>")
+				msg += "<br><br><b>Command</b> " + ' '.join(['7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
+				msg += "<br><br>"
+				msg += ' '.join(map(str, ['path',path, '<br>self.path',self.path, '<br>spathtemp',spathtemp, '<br>pathtemp',pathtemp, '<br>spathsplit',spathsplit]))
+				msg += "<br><br>"
+				msg += ' '.join(map(str, ['loc',loc, '<br>id',id, '<br>zip_name',zip_name, '<br>zip_path',zip_path, '<br>zip_ids',zip_ids, '<br>zip_in_progress',zip_in_progress]))
+				msg += "<br><br>"
+
+				encoded = msg.encode('utf-8', 'surrogateescape')
+
+				f = io.BytesIO()
+				f.write(encoded)
+				
+				f.seek(0)
+
+				self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
+				self.send_header("Content-type", "text/html; charset=%s" % 'utf-8')
+				self.send_header("Content-Length", str(len(encoded)))
+				self.end_headers()
+				return f
 
 		elif self.path.endswith('/') and spathsplit[-2].startswith('dl%3F'):
 			
@@ -1463,16 +1516,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				print('init')
 				total_size, r = get_dir_size(path, 8*1024*1024*1024, True)  # max size limit = 8GB
 				id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))+'_'+ str(time.time())
-				id += '0'*(24-len(id))
+				id += '0'*(25-len(id))
 				# print(total_size)
 				too_big= total_size=='2big'
 				# print(too_big)
 				print("Directory size: " + str(total_size))
 				outp='<!DOCTYPE HTML><h1>The folder size is too big</h1>\
-					' if too_big else """"<!DOCTYPE HTML><h1> Download will start shortly</h1>
+					' if too_big else """<!DOCTYPE HTML><h1> Download will start shortly</h1>
+					<br><br>
+					<iframe src="../dlY%3F"""+spathsplit[-2][5:] +"%3Fid="+id+"""" style="display:none;border: transparent;" height="600px" width="900px"
+					onload="this.style.display = 'block'"></iframe>
 					<pre style='font-size:20px; font-weight: 600;'><b>Directory size:</b> """ + humanbytes(total_size) + """</pre>
 					<br><br>The directory has:\n<hr>"""+ ("\n".join(['<u>'+i+'</u><br>' for i in r]) + """
-					<script>window.location.href="../dlY%3F"""+spathsplit[-2][5:] +"%3Fid="+id+'";</script>')
+					<script>//window.open("../dlY%3F"""+spathsplit[-2][5:] +"%3Fid="+id+'", "_blank");</script>')
 			encoded = outp.encode('utf-8', 'surrogateescape')
 
 			f = io.BytesIO()
@@ -2250,8 +2306,6 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 				socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
 		return super().server_bind()
 
-import pathlib
-print(pathlib.Path(__file__))
 
 if __name__ == '__main__':
 	import argparse
