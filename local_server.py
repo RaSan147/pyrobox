@@ -1762,6 +1762,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				 # v  : Video
 				 # h  : HTML
 		f_li = [] # file_names
+
+		
+		r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
 		for name in list:
 			fullname = os.path.join(path, name)
 			displayname = linkname = name
