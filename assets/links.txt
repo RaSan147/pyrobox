@@ -1,1 +1,1 @@
-
+favicon.png => https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.png?raw=true
