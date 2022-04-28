@@ -9,6 +9,7 @@ Server side requirement
 * Python 3.7 or higher (need to test lower versions)
 * Basic knowledge about Python
 * `send2trash` pip package (will be auto installed when the code runs)
+* (for windows) no need to download 7z (from here), it will be automatically downloaded
 
 How to use
 ----------------------------------------------------------------
@@ -37,6 +38,7 @@ How to use
 * FOLDER DOWNLOAD (uses temp folder)
 * VIDEO PLAYER
 * DELETE FILE FROM REMOTE (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
+* File manager like NAVIGATION BAR
 * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
 * MULTIPLE FILE UPLOAD
 * FOLDER CREATION
