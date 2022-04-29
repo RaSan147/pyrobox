@@ -1,4 +1,5 @@
-import platform
+from platform import system as platform_system
+import os
 class Config:
 	# DEFAULT DIRECTORY TO LAUNCH SERVER
 	ftp_dir= 'G:\\'
@@ -19,13 +20,25 @@ class Config:
 	_7z_location = '/7z/7za.exe'  # location of 7za.exe # https://www.7-zip.org/a/7z2107-extra.7z
 
 	def _7z_command(self, commands = []):
-		if platform.system()=='Windows':
+		if self.get_os=='Windows':
 			return [self._7z_parent_dir + self._7z_location,] + commands
-		elif platform.system()=='Linux':
+		elif self.get_os()=='Linux':
 			return ['7z',] + commands
 		else:
 			print("================================\n                NOT IMPLANTED YET               \n================================")
 			raise NotImplementedError
+
+	def get_os(self):
+		out = platform_system()
+		if out=="Linux":
+			if 'ANDROID_STORAGE' in os.environ:
+				return 'Android'
+		
+		return out
+
+
+
+
 config = Config()
 
 
@@ -63,7 +76,7 @@ import pkg_resources as pkg_r
 
 INSTALLED_PIP = [pkg.key for pkg in pkg_r.working_set]
 if 'pip' not in INSTALLED_PIP:
-	if platform.system()=='Linux':
+	if config.get_os()=='Linux':
 		print("================================\n                PIP NOT INSTALLED                \n================================")
 		subprocess.call(['sudo', 'apt-get', 'install', 'python3-pip'])
 reload = False
@@ -97,7 +110,7 @@ if not os.path.isdir(config.log_location):
 
 
 def init_7z():
-	if platform.system()=='Windows':
+	if config.get_os() =='Windows':
 		try:
 			subprocess.check_output(config._7z_command(['-h']))
 			return True
@@ -125,7 +138,7 @@ def init_7z():
 				print("7za.zip failed to download")
 				return False
 
-	if platform.system()=='Linux':
+	if config.get_os() =='Linux':
 		try:
 			subprocess.check_output(config._7z_command(['-h']))
 			return True
@@ -2502,6 +2515,5 @@ if __name__ == '__main__':
 			)
 
 if reload == True:
-	
 	subprocess.call([sys.executable, config.MAIN_FILE, *sys.argv[1:]])
 	sys.exit(0)
