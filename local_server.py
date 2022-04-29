@@ -1,21 +1,32 @@
-# DEFAULT DIRECTORY TO LAUNCH SERVER
-ftp_dir= 'G:\\'
-# DEFAULT PORT TO LAUNCH SERVER
-all_port= 6969
-# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
-PASSWORD= "SECret".encode('utf-8')
-log_location = "G:/py-server/"  # fallback log_location = "./"
-allow_web_log = True # if you want to see some important LOG in browser, may contain your important information
+import platform
+class Config:
+	# DEFAULT DIRECTORY TO LAUNCH SERVER
+	ftp_dir= 'G:\\'
+	# DEFAULT PORT TO LAUNCH SERVER
+	all_port= 6969
+	# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
+	PASSWORD= "SECret".encode('utf-8')
+	log_location = "G:/py-server/"  # fallback log_location = "./"
+	allow_web_log = True # if you want to see some important LOG in browser, may contain your important information
 
-import os
-xxx = os.path.realpath(__file__)
-xxx_dir = os.path.dirname(xxx)
-print(xxx)
+	import os
+	MAIN_FILE = os.path.realpath(__file__)
+	MAIN_FILE_dir = os.path.dirname(MAIN_FILE)
+	print(MAIN_FILE)
 
 
-_7z_parent_dir = xxx_dir # this is where the 7z/7z.exe is located. if you don't want to keep 7z in the same directory, you can change it here
-_7z_location = '/7z/7za.exe'  # location of 7za.exe # https://www.7-zip.org/a/7z2107-extra.7z
+	_7z_parent_dir = MAIN_FILE_dir # this is where the 7z/7z.exe is located. if you don't want to keep 7z in the same directory, you can change it here
+	_7z_location = '/7z/7za.exe'  # location of 7za.exe # https://www.7-zip.org/a/7z2107-extra.7z
 
+	def _7z_command(self, commands = []):
+		if platform.system()=='Windows':
+			return [self._7z_parent_dir + self._7z_location,] + commands
+		elif platform.system()=='Linux':
+			return ['7z',] + commands
+		else:
+			print("================================\n                NOT IMPLANTED YET               \n================================")
+			raise NotImplementedError
+config = Config()
 
 
 # FEATURES
@@ -40,7 +51,6 @@ _7z_location = '/7z/7za.exe'  # location of 7za.exe # https://www.7-zip.org/a/7z
 REQUEIREMENTS= ['send2trash',]
 
 
-from subprocess import call
 import subprocess
 import sys
 import tempfile, random, string
@@ -52,14 +62,23 @@ import platform
 import pkg_resources as pkg_r
 
 INSTALLED_PIP = [pkg.key for pkg in pkg_r.working_set]
-
+if 'pip' not in INSTALLED_PIP:
+	if platform.system()=='Linux':
+		print("================================\n                PIP NOT INSTALLED                \n================================")
+		subprocess.call(['sudo', 'apt-get', 'install', 'python3-pip'])
 reload = False
 
 for i in REQUEIREMENTS:
 	if i not in INSTALLED_PIP:
-		call([sys.executable, "-m", "pip", "install", '--disable-pip-version-check', '--quiet', i])
 
-from send2trash import send2trash, TrashPermissionError
+		# print(i)
+
+		subprocess.call([sys.executable, "-m", "pip", "install", '--disable-pip-version-check', '--quiet', i])
+		REQUEIREMENTS.remove(i)
+
+if not REQUEIREMENTS:
+	print("Reloading...")
+	reload = True
 
 zip_temp_dir = tempfile.gettempdir() + '/zip_temp/'
 zip_ids = dict()
@@ -70,27 +89,61 @@ try:
 	os.mkdir(path=zip_temp_dir)
 except FileExistsError:
 	pass
-if not os.path.isdir(log_location):
+if not os.path.isdir(config.log_location):
 	try:
-		os.mkdir(path=log_location)
+		os.mkdir(path=config.log_location)
 	except:
-		log_location ="./"
+		config.log_location ="./"
 
 
-if platform.system()=='Windows':
-	if not os.path.isfile(_7z_parent_dir+ _7z_location):
-		import urllib.request
-		import shutil
-		import zipfile
-		print("Downloading 7za.zip")
+def init_7z():
+	if platform.system()=='Windows':
+		try:
+			subprocess.check_output(config._7z_command(['-h']))
+			return True
+		except:
+			import urllib.request
+			import zipfile
+			print("Downloading 7za.zip")
 
-		# Download the 7za.zip file and put it in the :
-		with urllib.request.urlopen("https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/7z.zip") as response, open(_7z_parent_dir+ "/7z.zip", 'wb') as out_file:
-			shutil.copyfileobj(response, out_file)
+			# Download the 7za.zip file and put it in the :
+			with urllib.request.urlopen("https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/7z.zip") as response, open(config._7z_parent_dir+ "/7z.zip", 'wb') as out_file:
+				shutil.copyfileobj(response, out_file)
 
-		with zipfile.ZipFile(_7z_parent_dir + '/7z.zip', 'r') as zip_ref:
-			zip_ref.extractall(_7z_parent_dir)
+			if not os.path.isdir(config._7z_parent_dir):
+				os.makedirs(config._7z_parent_dir)
 
+			with zipfile.ZipFile(config._7z_parent_dir + '/7z.zip', 'r') as zip_ref:
+				zip_ref.extractall(config._7z_parent_dir)
+			try: os.remove(config._7z_parent_dir + '/7z.zip')
+			except: pass
+
+			if init_7z():
+				print("7za.zip downloaded")
+				return True
+			else:
+				print("7za.zip failed to download")
+				return False
+
+	if platform.system()=='Linux':
+		try:
+			subprocess.check_output(config._7z_command(['-h']))
+			return True
+		except:
+			print("7za not found, installing...")
+			subprocess.call(['sudo', 'apt-get', 'install', 'p7zip-full'])
+
+			if init_7z():
+				print("7z installed")
+				return True
+			else:
+				print("7z failed to install")
+				return False
+
+init_7z()
+
+
+from send2trash import send2trash, TrashPermissionError
 
 
 directory_explorer_header = '''
@@ -624,7 +677,6 @@ import time
 import urllib.parse
 import contextlib
 from functools import partial
-from subprocess import call
 from http import HTTPStatus
 
 import re
@@ -1196,7 +1248,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 						  self.log_date_time_string(),
 						  format%args))
 						  
-		with open(log_location + 'log.txt','a+') as f:
+		with open(config.log_location + 'log.txt','a+') as f:
 			f.write("\n\n" + "%s - - [%s] %s\n" %
 						 (self.address_string(),
 						  self.log_date_time_string(),
@@ -1274,8 +1326,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if f:
 			try:
 				self.copyfile(f, self.wfile)
-			except ConnectionAbortedError:
-				print("Connection aborted")
+			except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+				print(e.__class__.__name__, e)
 			finally:
 				f.close()
 
@@ -1334,7 +1386,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		password= self.rfile.readline()
 		print('post password: ',  password)
-		if password != PASSWORD + b'\r\n': # readline returns password with \r\n at end
+		if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
 			return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
 
 
@@ -1412,6 +1464,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		spathsplit = self.path.split('/')
 		
 		filename = None
+
+		if self.path == '/favicon.ico':
+			self.send_response(301)
+			self.send_header('Location','https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
+			self.end_headers()
+			return None
+			
+
+
 		
 		print('path',path, '\nself.path',self.path, '\nspathtemp',spathtemp, '\npathtemp',pathtemp, '\nspathsplit',spathsplit)
 
@@ -1484,7 +1545,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			# print("id", id)
 			loc = zip_temp_dir
 			zip_name = id + '.zip'
-			zip_path = loc +'/' + zip_name
+			zip_path = os.path.join(str(loc), zip_name)
+			zip_source = os.path.join(pathtemp[0], pathtemp[-1][4:-29])
 
 			# print('zip_ids', zip_ids)
 
@@ -1495,7 +1557,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			try:
 				if id in zip_ids.keys():
-					path = loc +'/' + id + ".zip"
+					path = zip_path
 					filename = zip_ids[id] + ".zip"
 
 					if not os.path.isfile(path):
@@ -1505,7 +1567,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if id in zip_in_progress:
 					while id in zip_in_progress:
 						time.sleep(1)
-					path = loc +'/' + id + ".zip"
+					path = zip_path
 					filename = zip_ids[id] + ".zip"
 
 				if not (id in zip_ids.keys() or id in zip_in_progress):
@@ -1517,7 +1579,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					
 					
 					# print(' '.join([_7z_parent_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]]))
-					call([_7z_parent_dir + _7z_location, 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
+					subprocess.call(config._7z_command(['a', '-mx=0', zip_path , zip_source]))
 					zip_in_progress.remove(id)
 					zip_ids[id] = filename
 					path = zip_path
@@ -1527,10 +1589,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				
 				msg = "<!doctype HTML><h1>Zipping failed  " + xpath + "</h1><br>" + e.__class__.__name__ 
 				
-				if allow_web_log:
+				if config.allow_web_log:
 					msg += " : " + str(e) + "\n\n\n" + traceback.format_exc().replace("\n", "<br>")
-					msg += "<br><br><b>7z location:</b> " + _7z_parent_dir +  _7z_location
-					msg += "<br><br><b>Command</b> " + ' '.join([_7z_location, 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]])
+					msg += "<br><br><b>7z location:</b> " + config._7z_parent_dir +  config._7z_location
+					msg += "<br><br><b>Command</b> " + ' '.join(config._7z_command(['a', '-mx=0', zip_path , zip_source]))
 					msg += "<br><br>"
 					msg += ' '.join(map(str, ['path',path, '<br>self.path',self.path, '<br>spathtemp',spathtemp, '<br>pathtemp',pathtemp, '<br>spathsplit',spathsplit]))
 					msg += "<br><br>"
@@ -1940,19 +2002,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if not self.range:
 			source.read(1)
 			source.seek(0)
-			try:
-				shutil.copyfileobj(source, outputfile)
-			except ConnectionResetError as e:
-				print(e)
+			shutil.copyfileobj(source, outputfile)
 			
 		else:
 			# SimpleHTTPRequestHandler uses shutil.copyfileobj, which doesn't let
 			# you stop the copying before the end of the file.
 			start, stop = self.range  # set in send_head()
-			try:
-				copy_byte_range(source, outputfile, start, stop)
-			except ConnectionResetError as e:
-				print(e)
+			copy_byte_range(source, outputfile, start, stop)
 
 
 	def guess_type(self, path):
@@ -2286,7 +2342,6 @@ class CGIHTTPRequestHandler(SimpleHTTPRequestHandler):
 
 		else:
 			# Non-Unix -- use subprocess
-			import subprocess
 			cmdline = [scriptfile]
 			if self.is_python(scriptfile):
 				interp = sys.executable
@@ -2338,6 +2393,21 @@ def _get_best_family(*address):
 	return family, sockaddr
 
 
+import socket
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
+
 def test(HandlerClass=BaseHTTPRequestHandler,
 		 ServerClass=ThreadingHTTPServer,
 		 protocol="HTTP/1.0", port=8000, bind=None):
@@ -2358,12 +2428,12 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	host, port = httpd.socket.getsockname()[:2]
 	url_host = f'[{host}]' if ':' in host else host
 	hostname = socket.gethostname()
-	local_ip = socket.gethostbyname(hostname)
+	local_ip = get_ip()
 
 	print(
 		f"Serving HTTP on {host} port {port} \n" #TODO: need to check since the output is "Serving HTTP on :: port 6969"
 		f"(http://{url_host}:{port}/) ...\n" #TODO: need to check since the output is "(http://[::]:6969/) ..."
-		f"Server is probably running on {local_ip}:{port}"
+		f"Server is probably running on http://{local_ip}:{port}"
 
 	)
 	try:
@@ -2398,39 +2468,40 @@ if __name__ == '__main__':
 	parser.add_argument('--bind', '-b', metavar='ADDRESS',
 						help='Specify alternate bind address '
 							 '[default: all interfaces]')
-	parser.add_argument('--directory', '-d', default=ftp_dir,
+	parser.add_argument('--directory', '-d', default=config.ftp_dir,
 						help='Specify alternative directory '
 						'[default:current directory]')
 	parser.add_argument('port', action='store',
-						default=all_port, type=int,
+						default=config.all_port, type=int,
 						nargs='?',
 						help='Specify alternate port [default: 8000]')
 	args = parser.parse_args()
-	if args.directory == ftp_dir and not os.path.isdir(ftp_dir):
-		print(ftp_dir, "not found!\nReseting directory to current directory")
+	if args.directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
+		print(config.ftp_dir, "not found!\nReseting directory to current directory")
 		args.directory = "."
 	if args.cgi:
 		handler_class = CGIHTTPRequestHandler
 	else:
 		handler_class = partial(SimpleHTTPRequestHandler,
 								directory=args.directory)
-	if sys.version_info>(3,7,2):
-		test(
-		HandlerClass=handler_class,
-		ServerClass=DualStackServer,
-		port=args.port,
-		bind=args.bind,
-		)
-	else: # BACKWARD COMPATIBILITY
-		test(
-		HandlerClass=handler_class,
-		ServerClass=ThreadingHTTPServer,
-		port=args.port,
-		bind=args.bind,
-		)
+
+	if not reload:
+		if sys.version_info>(3,7,2):
+			test(
+			HandlerClass=handler_class,
+			ServerClass=DualStackServer,
+			port=args.port,
+			bind=args.bind,
+			)
+		else: # BACKWARD COMPATIBILITY
+			test(
+			HandlerClass=handler_class,
+			ServerClass=ThreadingHTTPServer,
+			port=args.port,
+			bind=args.bind,
+			)
 
 if reload == True:
-	import pathlib
-	xxx = str(pathlib.Path(__file__))
-	call([sys.executable, xxx, *sys.argv[1:]])
+	
+	subprocess.call([sys.executable, config.MAIN_FILE, *sys.argv[1:]])
 	sys.exit(0)
