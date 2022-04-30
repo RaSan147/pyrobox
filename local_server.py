@@ -1101,7 +1101,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             zip_name = f'tests_{timestamp}.zip'
             try:
                 os.system(
-                    f'zip {zip_name} -r {self.user_tests_dir.format(hw_num)} ./CompiHw1/hw1-tests/')
+                    f'zip {zip_name} -r hw*tests user_tests_*')
                 return self.send_file_or_dir(f'{zip_name}', 'text/plain', filename=zip_name)
             finally:
                 os.system(f'rm -f {zip_name}')
