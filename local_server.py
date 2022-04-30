@@ -814,11 +814,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         if directory is None:
             directory = os.getcwd()
         self.directory = directory
-        self.assignments_archive_dir = './assignments_archive'
-        self.user_tests_dir = './user_tests'
-        self.review_tests_dir = './review_tests'
-        os.system(
-            f'mkdir -p {self.assignments_archive_dir} {self.user_tests_dir}')
+        self.assignments_archive_dir = './hw{}_archive'
+        self.user_tests_dir = './user_tests_hw{}'
+        self.review_tests_dir = './hw{}_review_tests'
         super().__init__(*args, **kwargs)
 
     def do_GET(self):
@@ -884,13 +882,14 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
         # PASSWORD SYSTEM
 
-        password = self.rfile.readline()
-        #print('post password: ',  password)
-        # if password != PASSWORD + b'\r\n':  # readline returns password with \r\n at end
-        # won't even read what the random guy has to say and slap 'em
-        #   return (False, "Incorrect password")
+        hw_num_raw = self.rfile.readline()
+        hw_num = int(hw_num_raw)
+        print('post hw_num: ',  hw_num)
+        # if hw_num != PASSWORD + b'\r\n':  # readline returns password with \r\n at end
+        #     # won't even read what the random guy has to say and slap 'em
+        #     return (False, "Incorrect password")
 
-        remainbytes -= len(password)
+        remainbytes -= len(hw_num_raw)
         line = self.rfile.readline()
         remainbytes -= len(line)
         if not boundary in line:
@@ -931,9 +930,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                             out.write(preline)
                             preline = line
         try:
+            os.system(
+                f'mkdir -p {self.assignments_archive_dir.format(hw_num)} {self.user_tests_dir.format(hw_num)}')
             result = ""
             if len(uploaded_files) == 1:
-                curr_res = self.run_tests_for_zip(uploaded_files[0])
+                curr_res = self.run_tests_for_zip(uploaded_files[0], hw_num)
                 result += curr_res[1]
                 if curr_res[0] == False:
                     return (False, f"Tests failed\n======= OUTPUT =======\n{result}".replace("\n", "<br>"))
@@ -955,7 +956,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                     test_name = fn.split('.')[0]
                     if not fn.endswith('.in'):
                         continue
-                    curr_res = self.run_new_test_on_archive(fn)
+                    curr_res = self.run_new_test_on_archive(fn, hw_num)
                     result += curr_res[1]
                     if result[0] == False:
                         return (False, f"Some of the new tests failed on too many executables\n======= OUTPUT =======\n{result}".replace("\n", "<br>"))
@@ -968,29 +969,32 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         for file in files:
             os.system(f'rm {file}')
 
-    def run_new_test_on_archive(self, new_test_path_in):
+    def run_new_test_on_archive(self, new_test_path_in, hw_num):
         md5_hash = self.md5(new_test_path_in)
         # Remove extension from filename
         test_dir = os.path.splitext(new_test_path_in)[0]
         base_test_name = os.path.basename(test_dir)
         failed_on = []
-        assignments_archive = list(os.listdir(self.assignments_archive_dir))
+        assignments_archive = list(os.listdir(
+            self.assignments_archive_dir.format(hw_num)))
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.system(f'cp {test_dir}.in {tmpdirname}/{base_test_name}.in')
             os.system(f'cp {test_dir}.out {tmpdirname}/{base_test_name}.out')
-            # For each file in self.assignments_archive_dir
+            # For each file in self.assignments_archive_dir.format(hw_num)
             result = ""
             for file in assignments_archive:
                 if not file.endswith(".exec"):
                     continue
-                exec_path = os.path.join(self.assignments_archive_dir, file)
+                exec_path = os.path.join(
+                    self.assignments_archive_dir.format(hw_num), file)
                 os.system(
                     f'{exec_path} < {tmpdirname}/{base_test_name}.in > {tmpdirname}/{base_test_name}.res')
                 try:
                     curr_res = subprocess.check_output(
                         f'diff {tmpdirname}/{base_test_name}.res {tmpdirname}/{base_test_name}.out 2>&1', shell=True).decode()
-                    result += curr_res  # or f"Test {base_test_name} passed on {file}\n"
+                    # or f"Test {base_test_name} passed on {file}\n"
+                    result += curr_res
                 except subprocess.CalledProcessError as e:
                     failed_on.append(file)
                     result += f"Test {base_test_name} failed on {file}:\n{e.output.decode()}\n"
@@ -999,36 +1003,52 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 return (False, result)
             elif len(failed_on) == 0:
                 os.system(
-                    f'cp {tmpdirname}/{base_test_name}.in {self.user_tests_dir}/{md5_hash}.in')
+                    f'cp {tmpdirname}/{base_test_name}.in {self.user_tests_dir.format(hw_num)}/{md5_hash}.in')
                 os.system(
-                    f'cp {tmpdirname}/{base_test_name}.out {self.user_tests_dir}/{md5_hash}.out')
-                result += f"Test {base_test_name} passed on all (total of {len(assignments_archive)}) executables (and copied to {self.user_tests_dir}/{md5_hash}.(in/out))!\n"
+                    f'cp {tmpdirname}/{base_test_name}.out {self.user_tests_dir.format(hw_num)}/{md5_hash}.out')
+                result += f"Test {base_test_name} passed on all (total of {len(assignments_archive)}) executables (and copied to {self.user_tests_dir.format(hw_num)}/{md5_hash}.(in/out))!\n"
             else:
                 os.system(
-                    f'cp {tmpdirname}/{base_test_name}.in {self.review_tests_dir}/{md5_hash}.in')
+                    f'cp {tmpdirname}/{base_test_name}.in {self.review_tests_dir.format(hw_num)}/{md5_hash}.in')
                 os.system(
-                    f'cp {tmpdirname}/{base_test_name}.out {self.review_tests_dir}/{md5_hash}.out')
+                    f'cp {tmpdirname}/{base_test_name}.out {self.review_tests_dir.format(hw_num)}/{md5_hash}.out')
                 result += f"Test failed on a few executables, the test file will be manually reviewed\n"
             return (True, result or "No diff")
 
-    def run_tests_for_zip(self, zip_file_path):
+    def run_tests_for_zip(self, zip_file_path, hw_num):
         # Create tmp dir
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.system(f'unzip {zip_file_path} -d {tmpdirname}')
-            os.system(
-                f'flex -o {tmpdirname}/lex.yy.c {tmpdirname}/scanner.lex')
-            os.system(
-                f'g++ -std=c++17 {tmpdirname}/lex.yy.c {tmpdirname}/hw1.cpp -o {tmpdirname}/hw1.exec')
+            if hw_num == 1:
+                exec_path = f'{tmpdirname}/hw1.exec'
+                os.system(
+                    f'flex -o {tmpdirname}/lex.yy.c {tmpdirname}/scanner.lex')
+                os.system(
+                    f'g++ -std=c++17 {tmpdirname}/lex.yy.c {tmpdirname}/hw1.cpp -o {exec_path}')
+            elif hw_num == 2:
+                exec_path = f'{tmpdirname}/hw2.exec'
+                cwd = os.getcwd()
+                os.chdir(tmpdirname)
+                os.system(f'flex scanner.lex')
+                os.system(f'bison -d parser.ypp')
+                os.system(f'g++ -std=c++17 *.cpp *.c -o {exec_path}')
+                os.chdir(cwd)
+
+                # Make all inside {tmpdirname}
+                # os.system(f'cd {tmpdirname}')
+                # os.system(f'make all')
+                # os.system('cd -')
+                # 
             try:
                 result = subprocess.check_output(
-                    f'./herd_checker_run.sh {tmpdirname}/hw1.exec {tmpdirname} 2>&1', shell=True).decode()
+                    f'./herd_checker_run.sh {exec_path} {tmpdirname} {hw_num} 2>&1', shell=True).decode()
             except subprocess.CalledProcessError as e:
                 return (False, e.output.decode())
 
             # Calculate md5 hash of file
-            md5_hash = self.md5(f'{tmpdirname}/hw1.exec')
+            md5_hash = self.md5(f'{exec_path}')
             os.system(
-                f'cp {tmpdirname}/hw1.exec {self.assignments_archive_dir}/{md5_hash}.exec')
+                f'cp {exec_path} {self.assignments_archive_dir.format(hw_num)}/{md5_hash}.exec')
 
             return (True, result)
 
@@ -1081,7 +1101,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             zip_name = f'tests_{timestamp}.zip'
             try:
                 os.system(
-                    f'zip {zip_name} -r {self.user_tests_dir} ./CompiHw1/hw1-tests/')
+                    f'zip {zip_name} -r {self.user_tests_dir.format(hw_num)} ./CompiHw1/hw1-tests/')
                 return self.send_file_or_dir(f'{zip_name}', 'text/plain', filename=zip_name)
             finally:
                 os.system(f'rm -f {zip_name}')

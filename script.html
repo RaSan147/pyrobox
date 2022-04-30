@@ -3,40 +3,59 @@
 <div>
 	<h3>Instructions</h3>
 	TLDR:<br>
-	Upload just the assignment.zip to test it. Or upload test.in and test.out files to validate it against previous assignments.
+	Upload just the assignment.zip to test it. Or upload test.in and test.out files to validate it against previous
+	assignments.
 	<br><br>
 	This upload has 2 functionalities.<br>
 	1. Testing your assignment against the existing tests:<br>
 	Select the zip file of the assignment (the very same you would send in the webcourse) and click on "Upload" <br>
 	2. Submitting a new test (will be verified against all previously submitted assignments):<br>
 	Select two files to upload (.in and .out files with identical base names. e.g. test.in and test.out).<br>
-	You can select multiple files in the upload dialog by holding the Ctrl (or CMD for Mac) key while clicking on the second file).<br>
+	You can select multiple files in the upload dialog by holding the Ctrl (or CMD for Mac) key while clicking on the
+	second file).<br>
 	<br>
-	When uploading an assignment, if the assignment it successfully running on all the tests, the compiled executable will be saved to run against new test files.<br>
-	When uploading a test, if it successfully runs on all the existing assignments, it will be saved to run against new assignments.
+	When uploading an assignment, if the assignment it successfully running on all the tests, the compiled executable
+	will be saved to run against new test files.<br>
+	When uploading a test, if it successfully runs on all the existing assignments, it will be saved to run against new
+	assignments.
 
 	<h3>What's New</h3>
-	1. (06/04/2022 13:00) I've allowed uploading multiple tests at once. Simply select the tests you'd like to upload (it pairs .in/.out according to the base file name)
-	<br>All the uploaded files must be part of a pair (either the .in or .out). You can't send extra files or none of the tests will run.<br>
-	Tests that ran successfully on all the assignments will be saved. Tests that ran on more than 80&#37; but not all, will be help for manual review. That that failed on 20&#37; or more than the assignment will be rejected.
-	<br>If a test was rejected and you're <strong>certain</strong> it's a valid test, you can contact me: <a href="tel:+97235112432">03-511-2432</a>.
-	
-	
-</div>
-        <form ENCTYPE="multipart/form-data" method="post">
-        
-<!--  <p>PassWord:&nbsp;&nbsp;</p> --><input name="txt" type="text" label="Password" hidden><br>
-  <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple/><br><br>
+	1. (06/04/2022 13:00) I've allowed uploading multiple tests at once. Simply select the tests you'd like to upload
+	(it pairs .in/.out according to the base file name)
+	<br>All the uploaded files must be part of a pair (either the .in or .out). You can't send extra files or none of
+	the tests will run.<br>
+	Tests that ran successfully on all the assignments will be saved. Tests that ran on more than 80&#37; but not all,
+	will be help for manual review. That that failed on 20&#37; or more than the assignment will be rejected.
+	<br>If a test was rejected and you're <strong>certain</strong> it's a valid test, you can contact me: <a
+		href="tel:+97235112432">03-511-2432</a>.
 
-  <input type="submit" value="Upload" style="background-color: #555; height: 30px; width: 100px"></form>
-  <br><hr><br>
-  <!-- Create a button to download tests -->
-  <form action="download_tests" method="get">
+
+</div>
+<form ENCTYPE="multipart/form-data" method="post">
+	<!-- Create input to select which assignment to test -->
+	<label>Select Assignment: </label>
+	<select name="hw">
+		<option value="1">Assignment 1</option>
+		<option value="2" selected>Assignment 2</option>
+		<!-- <option value="3">Assignment 3</option>
+			<option value="4">Assignment 4</option> -->
+	</select>
+	<!-- File select button -->
+	<br>
+	<label>Select file: </label>
+	<input type="file" name="file" id="file" multiple/>
+	<br>
+	<input type="submit" value="Upload" style="background-color: #555; height: 30px; width: 100px">
+</form>
+<br>
+<hr><br>
+<!-- Create a button to download tests -->
+<form action="download_tests" method="get">
 	<input type="submit" value="Download Tests" style="background-color: #555; height: 30px; width: 120px">
-  </form>
+</form>
 
 <hr>
-<script>
+<!-- <script>
 
 const r_li = %s;
 const f_li = %s;
@@ -209,7 +228,8 @@ function run_recyle(url){
     }
 }
 
-</script>
+</script> -->
 
 </body>
+
 </html>
