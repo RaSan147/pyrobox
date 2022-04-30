@@ -1,0 +1,7 @@
+"simple"
+"also 'simple'"
+"escape newlines\n"
+"hex \x10"
+"hex2 \x02"
+"hex2 \x3A"
+'unmatching"

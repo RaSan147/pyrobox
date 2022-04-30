@@ -1,0 +1,8 @@
+1 STRING simple
+2 STRING also 'simple'
+3 STRING escape newlines
+
+4 STRING hex 
+5 STRING hex2 
+6 STRING hex2 :
+Error '

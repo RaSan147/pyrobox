@@ -1,0 +1,6 @@
+1 STRING Hello World!
+This	is	cool, as always.
+2 STRING ba-
+2 BINOP -
+2 ID d
+Error unclosed string

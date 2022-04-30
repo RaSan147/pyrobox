@@ -1,0 +1,22 @@
+1 ID LF
+1 COMMA ,
+2 ID CRLF
+3 ID CR
+4 BINOP /
+4 BINOP *
+4 ID my
+5 COMMENT //
+6 ID comment
+6 COMMENT //
+7 ID ID
+8 LPAREN (
+8 ID Identifier
+8 RPAREN )
+9 ID x
+10 ID max
+11 ID OO7
+12 NUM 12
+12 ID AB
+13 NUM 42
+14 ID big
+Error _
