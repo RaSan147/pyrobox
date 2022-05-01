@@ -826,6 +826,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                     continue
                 if self.client_address[0].startswith(line):
                     return True
+        sys.stderr.write("Access denied for {}\n".format(self.client_address[0]))
         return False
 
     def do_GET(self):
