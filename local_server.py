@@ -1017,6 +1017,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def run_tests_for_zip(self, zip_file_path, hw_num):
         # Create tmp dir
+        result = ""
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.system(f'unzip {zip_file_path} -d {tmpdirname}')
             if hw_num == 1:
@@ -1029,9 +1030,18 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 exec_path = f'{tmpdirname}/hw2.exec'
                 cwd = os.getcwd()
                 os.chdir(tmpdirname)
-                os.system(f'flex scanner.lex')
-                os.system(f'bison -d parser.ypp')
-                os.system(f'g++ -std=c++17 *.cpp *.c -o {exec_path}')
+                try:
+                    cmd = f'flex scanner.lex 2>&1'
+                    result += f'Running "{cmd}":\n'
+                    result += subprocess.check_output(cmd, shell=True).decode()
+                    cmd = f'bison -d parser.ypp 2>&1'
+                    result += f'Running "{cmd}":\n'
+                    result += subprocess.check_output(cmd, shell=True).decode()
+                    cmd = f'g++ -std=c++17 *.cpp *.c -o {exec_path} 2>&1'
+                    result += f'Running "{cmd}":\n'
+                    result += subprocess.check_output(cmd, shell=True).decode()
+                except subprocess.CalledProcessError as e:
+                    return (False, f"Compilation failed:\n{result}\ {'='*8} EXCEPTION {'='*8}\n{e.output.decode()}")
                 os.chdir(cwd)
 
                 # Make all inside {tmpdirname}
@@ -1040,7 +1050,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 # os.system('cd -')
                 # 
             try:
-                result = subprocess.check_output(
+                result += subprocess.check_output(
                     f'./herd_checker_run.sh {exec_path} {tmpdirname} {hw_num} 2>&1', shell=True).decode()
             except subprocess.CalledProcessError as e:
                 return (False, e.output.decode())
