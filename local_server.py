@@ -819,8 +819,21 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         self.review_tests_dir = './hw{}_review_tests'
         super().__init__(*args, **kwargs)
 
+    def is_ip_allowed():
+        with open('./whitelist.txt', 'r') as f:
+            for line in f:
+                if len(line) < 2:
+                    continue
+                if self.client_address[0].startswith(line):
+                    return True
+        return False
+
     def do_GET(self):
         """Serve a GET request."""
+        if not self.is_ip_allowed():
+            self.send_error(403, 'Forbidden')
+            return
+
         f = self.send_head()
         if f:
             try:
@@ -830,12 +843,20 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         """Serve a HEAD request."""
+        if not self.is_ip_allowed():
+            self.send_error(403, 'Forbidden')
+            return
+
         f = self.send_head()
         if f:
             f.close()
 
     def do_POST(self):
         """Serve a POST request."""
+        if not self.is_ip_allowed():
+            self.send_error(403, 'Forbidden')
+            return
+
         self.range = None  # bug fix
 
         r, info = self.deal_post_data()
