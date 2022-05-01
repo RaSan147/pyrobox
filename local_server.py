@@ -846,13 +846,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         f.write(b"<body>\n<h2>Upload Result Page</h2>\n")
         f.write(b"<hr>\n")
         if r:
-            f.write(b"<strong>Success:</strong>")
+            f.write(b"<strong>Success:</strong>\n")
         else:
-            f.write(b"<strong>Failed:</strong>")
+            f.write(b"<strong>Failed:</strong>\n")
         f.write(info.encode())
-        f.write(("<br><a href=\"%s\">back</a>" %
+        f.write(("<br><a href=\"%s\">back</a>\n" %
                 self.headers['referer']).encode())
-        f.write(b"<hr><small>Powerd By: bones7456")
+        f.write(b"<hr><small>Powered By: https://github.com/gur111</small>\n")
 
         length = f.tell()
         f.seek(0)
