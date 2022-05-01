@@ -819,14 +819,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         self.review_tests_dir = './hw{}_review_tests'
         super().__init__(*args, **kwargs)
 
-    def is_ip_allowed():
+    def is_ip_allowed(self):
         with open('./whitelist.txt', 'r') as f:
             for line in f:
+                line = line.strip()
                 if len(line) < 2:
                     continue
                 if self.client_address[0].startswith(line):
                     return True
-        sys.stderr.write("Access denied for {}\n".format(self.client_address[0]))
+        os.system(f'echo Access denied for {self.client_address[0]}')
         return False
 
     def do_GET(self):
@@ -1070,7 +1071,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 # os.system(f'cd {tmpdirname}')
                 # os.system(f'make all')
                 # os.system('cd -')
-                # 
+                #
             try:
                 result += subprocess.check_output(
                     f'./herd_checker_run.sh {exec_path} {tmpdirname} {hw_num} 2>&1', shell=True).decode()
