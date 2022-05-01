@@ -34,7 +34,7 @@ do
     echo "Running test $file"
     # Remove extension
     baseName="$(basename "$file" .in)"
-    $HW_OUT_FILE < $file > $RESULTS_DIR/$baseName.res
+    $HW_OUT_FILE < $file > $RESULTS_DIR/$baseName.res || true
     diff user_tests_hw$3/$baseName.out $RESULTS_DIR/$baseName.res
 done
 
