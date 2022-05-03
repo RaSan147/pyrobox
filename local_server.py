@@ -20,7 +20,7 @@ class Config:
 	_7z_location = '/7z/7za.exe'  # location of 7za.exe # https://www.7-zip.org/a/7z2107-extra.7z
 
 	def _7z_command(self, commands = []):
-		if self.get_os=='Windows':
+		if self.get_os()=='Windows':
 			return [self._7z_parent_dir + self._7z_location,] + commands
 		elif self.get_os()=='Linux':
 			return ['7z',] + commands
@@ -115,6 +115,7 @@ def init_7z():
 			subprocess.check_output(config._7z_command(['-h']))
 			return True
 		except:
+			traceback.print_exc()
 			import urllib.request
 			import zipfile
 			print("Downloading 7za.zip")
