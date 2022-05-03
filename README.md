@@ -29,8 +29,8 @@ Customization
    - i) either edit the code  
    - ii) or add `-d` or `--directory` command line argument when launching the program
         - `local_server.py -d .` to launch the server in current directory (where the file is)
-        - `local_server.py -d "D:\Server\Public folder\`  (Use Double-Quotation while directory has space)
-        - `local_server.py -d "D:/Server/Public folder` (Forward or backward slash really doesn't matter)
+        - `local_server.py -d "D:\Server\Public folder\"`  (Use Double-Quotation while directory has space)
+        - `local_server.py -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter)
  1. To change port number
     - i) just edit the code for permanent change  
     - ii) or add the port number at the end of the command line arg  
@@ -40,17 +40,21 @@ Customization
 1. To specify alternate bind address
     - Add bind add `-bind {address}`
 
+Basic FEATURES
+----------------------------------------------------------------
+* File Hosting system (Serve files from local Storage system)
+* Access Shared File System from Multiple Devices
 
  Extra FEATURES 
 ----------------------------------------------------------------
-* PAUSE AND RESUME
-* UPLOAD WITH PASSWORD
-* FOLDER DOWNLOAD (uses temp folder)
+* DOWNLOAD AND VIDEO STREAM WITH **PAUSE AND RESUME**
+* UPLOAD WITH **PASSWORD**
+* FOLDER DOWNLOAD as **ZIP** (uses temp folder)
 * VIDEO PLAYER
-* DELETE FILE FROM REMOTE (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
+* **DELETE FILE** FROM REMOTE (TO RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
 * File manager like NAVIGATION BAR
 * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
-* MULTIPLE FILE UPLOAD
+* MULTIPLE FILE **UPLOAD**
 * FOLDER CREATION
 * Pop-up messages (from my Web leach repo)
 * More comming soon
