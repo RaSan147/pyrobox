@@ -837,7 +837,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 os.system(f'echo \#\# Auto registered using {self.path} on {datetime.datetime.now()} >> ./whitelist.txt')
                 os.system(f'echo {self.client_address[0]} >> ./whitelist.txt')
                 self.send_error(201, 'Registered')
+                return
             self.send_error(403, 'Forbidden')
+            return
+        elif '236360_secret_compi_register' in self.path:
+            self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+            # new_parts = (parts[0], parts[1], parts[2] + '/')
+            # new_url = urllib.parse.urlunsplit(new_parts)
+            self.send_header("Location", '/')
+            self.end_headers()
             return
 
         f = self.send_head()
