@@ -1069,7 +1069,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                     result += subprocess.check_output(cmd, shell=True).decode()
                 except subprocess.CalledProcessError as e:
                     return (False, f"Compilation failed:\n{result}\ {'='*8} EXCEPTION {'='*8}\n{e.output.decode()}")
-                os.chdir(cwd)
+                finally:
+                    os.chdir(cwd)
 
                 # Make all inside {tmpdirname}
                 # os.system(f'cd {tmpdirname}')
