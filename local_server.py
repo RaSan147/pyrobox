@@ -809,6 +809,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     """
 
     server_version = "SimpleHTTP/" + __version__
+    default_timeout = '10s'
 
     def __init__(self, *args, directory=None, **kwargs):
         if directory is None:
@@ -1087,7 +1088,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 #
             try:
                 result += subprocess.check_output(
-                    f'./herd_checker_run.sh {exec_path} {tmpdirname} {hw_num} 2>&1', shell=True).decode()
+                    f'timeout {self.default_timeout} ./herd_checker_run.sh {exec_path} {tmpdirname} {hw_num} 2>&1', shell=True).decode()
             except subprocess.CalledProcessError as e:
                 return (False, e.output.decode())
 
