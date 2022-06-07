@@ -20,6 +20,7 @@ Installation
    * Like this `192.168.0.100:6969/`
    * 
 # On Linux
+
 On Linux give permissions by
                       `
                       sudo chmod +x local_Server.py
