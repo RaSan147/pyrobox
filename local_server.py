@@ -1527,7 +1527,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				# print(xpath)
 				xpath = xpath[:-1]
 			print("Recycling", xpath)
-			msg = "<!doctype HTML><h1>Recycled successfully  " + xpath + "</h1>"
+			msg = "<!doctype HTML><h1>Moved To Recycle Bin/Trash successfully  " + xpath + "</h1>"
 			try:
 				try:
 					send2trash(xpath)
