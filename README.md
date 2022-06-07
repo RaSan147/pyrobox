@@ -18,20 +18,16 @@ Installation
 3. Install Python 3.7 or higher and run the `local_server.py`
 4. The server will show your ip and port, use that with and local device browser under the same network
    * Like this `192.168.0.100:6969/`
+   * 
 # On Linux
-
 On Linux give permissions by
-                      ```
+                      `
                       sudo chmod +x local_Server.py
-                      ```
+                      `
 run like a script with 
-                      ```
+                      `
                       ./local_Server.py
-                      ```
-
-   
-
-
+                      `
 Customization
 ----------------------------------------------------------------
 1. Simply running the code will create a server on `G:\ Drive` for windows on `Port: 6969`
