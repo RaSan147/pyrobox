@@ -1,3 +1,6 @@
+#!/bin/python3
+# -*- coding: utf-8 -*-
+
 from platform import system as platform_system
 import os
 class Config:
