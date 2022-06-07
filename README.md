@@ -45,7 +45,7 @@ Customization
        -  `local_server.py -d . 45678`
 
 1. To specify alternate bind address
-    - Add bind add `-bind {address}`
+    - Add bind add `-bind {address}
 
 Basic FEATURES
 ----------------------------------------------------------------
