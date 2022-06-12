@@ -78,6 +78,6 @@ Basic FEATURES
 * check output ip and port accuracy on multiple os  
 * Backup code if Reload causes unhandled issue and can't be accessed
 * command line arg for passwords (vulnerable on reload)
-
+* User login and user based permission set. 🔑
 
 # Support for more features
