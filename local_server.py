@@ -81,7 +81,7 @@ INSTALLED_PIP = [pkg.key for pkg in pkg_r.working_set]
 if 'pip' not in INSTALLED_PIP:
 	if config.get_os()=='Linux':
 		print("================================\n                PIP NOT INSTALLED                \n================================")
-		subprocess.call(['sudo', 'apt-get', 'install', 'python3-pip'])
+		os.subsystem('sudo apt-get install python3-pip')
 reload = False
 
 for i in REQUEIREMENTS:
@@ -148,7 +148,7 @@ def init_7z():
 			return True
 		except:
 			print("7za not found, installing...")
-			subprocess.call(['sudo', 'apt-get', 'install', 'p7zip-full'])
+			os.system(sudo apt-get install p7zip-full')
 
 			if init_7z():
 				print("7z installed")
