@@ -147,15 +147,17 @@ def init_7z():
 			subprocess.check_output(config._7z_command(['-h']))
 			return True
 		except:
-			print("7za not found, installing...")
-			subprocess.call(['sudo', 'apt-get', 'install', 'p7zip-full'])
+			print("7za not found.Do you want to install ?")
+			zinstalll = input(" Press y and Enter if you want ,otherwise just Enter.\n")
+			if zinstalll == "y" :
+				subprocess.call(['sudo', 'apt-get', 'install', 'p7zip-full'])
 
-			if init_7z():
-				print("7z installed")
-				return True
-			else:
-				print("7z failed to install")
-				return False
+				if init_7z():
+					print("7z installed")
+					return True
+				else:
+					print("7z failed to install")
+					return False
 
 init_7z()
 
