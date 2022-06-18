@@ -75,7 +75,8 @@ Basic FEATURES
 
 * RIGHT CLICK CONTEXT MENU
 * Context menu coming soon 
-* ![Screenshot_2022-06-18-10-20-09-69_e3c1f266f17b29c7b40472751f031275_1](https://user-images.githubusercontent.com/34002411/174422631-2be6f930-b454-4242-9bc1-560986c610cb.jpg)
+  <img src="https://user-images.githubusercontent.com/34002411/174422718-e19d33b2-4937-47d7-bcc2-610141c1e437.jpg" width=200>
+
 
 * Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
