@@ -74,6 +74,9 @@ Basic FEATURES
 --------------------------------------------------------------
 
 * RIGHT CLICK CONTEXT MENU
+* Context menu coming soon 
+* ![Screenshot_2022-06-18-10-20-09-69_e3c1f266f17b29c7b40472751f031275_1](https://user-images.githubusercontent.com/34002411/174422631-2be6f930-b454-4242-9bc1-560986c610cb.jpg)
+
 * Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
 * Backup code if Reload causes unhandled issue and can't be accessed
