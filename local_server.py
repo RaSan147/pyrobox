@@ -1,26 +1,34 @@
-#!/bin/python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 from platform import system as platform_system
 import os
+import shutil
 class Config:
-	# DEFAULT DIRECTORY TO LAUNCH SERVER
-	ftp_dir= 'G:\\'
-	# DEFAULT PORT TO LAUNCH SERVER
-	all_port= 6969
-	# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
-	PASSWORD= "SECret".encode('utf-8')
-	log_location = "G:/py-server/"  # fallback log_location = "./"
-	allow_web_log = True # if you want to see some important LOG in browser, may contain your important information
+	def __init__(self):
+		# DEFAULT DIRECTORY TO LAUNCH SERVER
+		self.ftp_dir = "." # DEFAULT DIRECTORY TO LAUNCH SERVER
+		self.ANDROID_ftp_dir= "/storage/emulated/0/"
+		self.LINUX_ftp_dir = "~/"
+		self.WIN_ftp_dir= 'G:\\'
+		# DEFAULT PORT TO LAUNCH SERVER
+		self.IP = None # will be assigned by checking
+		self.all_port= 6969
+		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
+		self.PASSWORD= "SECret".encode('utf-8')
+		self.log_location = "G:/py-server/"  # fallback log_location = "./"
+		self.allow_web_log = True # if you want to see some important LOG in browser, may contain your important information
+		self.default_zip = "7z" # or "zipfile" to use python built in zip module
+		
+		self.MAIN_FILE = os.path.realpath(__file__)
+		self.MAIN_FILE_dir = os.path.dirname(self.MAIN_FILE)
+		print(self.MAIN_FILE)
 
-	import os
-	MAIN_FILE = os.path.realpath(__file__)
-	MAIN_FILE_dir = os.path.dirname(MAIN_FILE)
-	print(MAIN_FILE)
 
+		self._7z_parent_dir = self.MAIN_FILE_dir # this is where the 7z/7z.exe is located. if you don't want to keep 7z in the same directory, you can change it here
+		self._7z_location = '/7z/7za.exe'  # location of 7za.exe # https://www.7-zip.org/a/7z2107-extra.7z
 
-	_7z_parent_dir = MAIN_FILE_dir # this is where the 7z/7z.exe is located. if you don't want to keep 7z in the same directory, you can change it here
-	_7z_location = '/7z/7za.exe'  # location of 7za.exe # https://www.7-zip.org/a/7z2107-extra.7z
+		self.ftp_dir = self.get_default_dir()
 
 	def _7z_command(self, commands = []):
 		if self.get_os()=='Windows':
@@ -28,22 +36,63 @@ class Config:
 		elif self.get_os()=='Linux':
 			return ['7z',] + commands
 		else:
-			print("================================\n                NOT IMPLANTED YET               \n================================")
+			print(tools.text_box("7z NOT IMPLANTED YET"))
 			raise NotImplementedError
 
 	def get_os(self):
 		out = platform_system()
 		if out=="Linux":
 			if 'ANDROID_STORAGE' in os.environ:
+				#self.IP = "192.168.43.1"
 				return 'Android'
 		
 		return out
 
+	def get_default_dir(self):
+		OS = self.get_os()
+		if OS=='Windows':
+			return self.WIN_ftp_dir
+		elif OS=='Linux':
+			return self.LINUX_ftp_dir
+		elif OS=='Android':
+			return self.ANDROID_ftp_dir
+		else:
+			return './'
+
+	def linux_installer(self):
+		# detect if apt or yum is installed
+		if shutil.which('pkg'):
+			return 'pkg'
+		elif shutil.which('apt'):
+			return 'apt'
+		elif shutil.which('apt-get'):
+			return 'apt-get'
+		elif shutil.which('yum'):
+			return 'yum'
+		else:
+			return None
 
 
 
+
+class Tools:
+	def __init__(self):
+		self.styles = {
+			"equal" : "=",
+			"star"    : "*",
+			"hash"  : "#",
+			"dash"  : "-",
+			"udash": "_"
+		}
+		
+	def text_box(self, text, style = "equal"):
+		term_col = shutil.get_terminal_size()[0]
+
+		s = self.styles[style] if style in self.styles else style
+		return (f"\n\n{s*term_col}\n{str(text).center(term_col)}\n{'='*term_col}\n\n")
+
+tools = Tools()
 config = Config()
-
 
 # FEATURES
 # ----------------------------------------------------------------
@@ -51,7 +100,7 @@ config = Config()
 # * UPLOAD WITH PASSWORD
 # * FOLDER DOWNLOAD (uses temp folder)
 # * VIDEO PLAYER
-# * DELETE FILE FROM REMOTE (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
+# * DELETE FILE FROM REMOTEp (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
 # * File manager like NAVIGATION BAR
 # * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
 # * MULTIPLE FILE UPLOAD
@@ -70,31 +119,121 @@ REQUEIREMENTS= ['send2trash',]
 import subprocess
 import sys
 import tempfile, random, string
-import os
-import shutil
+
+
 import traceback
 import platform
 
-import pkg_resources as pkg_r
+import pkg_resources as pkg_r, importlib
 
-INSTALLED_PIP = [pkg.key for pkg in pkg_r.working_set]
-if 'pip' not in INSTALLED_PIP:
-	if config.get_os()=='Linux':
-		print("================================\n                PIP NOT INSTALLED                \n================================")
-		subprocess.call(['sudo', 'apt-get', 'install', 'python3-pip'])
+
+def get_installed():
+	importlib.reload(pkg_r)
+	return [pkg.key for pkg in pkg_r.working_set]
+
+
+
+
+def init_requirements():
+	missing = []
+
+	missing_dict = {
+		'pip': 'python3-pip',
+		"7z": "p7zip-full"
+	}
+	if 'pip' not in get_installed():
+		missing.append('pip')
+
+	def has_7z():
+		try:
+			subprocess.check_output(config._7z_command(['-h']))
+			return True
+		except:
+			return False
+
+	if config.get_os()!="Android" and not has_7z():
+		missing.append('7z')
+
+	if missing:
+		print(tools.text_box("Missing required packages: " + ', '.join(missing)))
+		if config.get_os()=='Linux':
+			print("***SUDO MAY REQUIRE***")
+		if config.linux_installer()==None:
+			promt = 'n'
+		else:
+			promt = input("Do you want to install them? (y/n) ")
+
+		if promt=='y':
+			if config.get_os()=='Linux':
+				MISSING = [missing_dict[i] for i in missing]
+				subprocess.call(['sudo', config.linux_installer(), 'install', '-y'] + MISSING)
+
+			if config.get_os()=='Windows':
+				if 'pip' in missing:
+					subprocess.call(sys.executable, '-m', 'ensurepip')
+					if "pip" in get_installed():
+						missing.remove("pip")
+
+				if '7z' in missing:
+					
+					import urllib.request
+					import zipfile
+					print("Downloading 7za.zip")
+
+					# Download the 7za.zip file and put it in the :
+					with urllib.request.urlopen("https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/7z.zip") as response, open(config._7z_parent_dir+ "/7z.zip", 'wb') as out_file:
+						shutil.copyfileobj(response, out_file)
+
+					if not os.path.isdir(config._7z_parent_dir):
+						os.makedirs(config._7z_parent_dir)
+
+					with zipfile.ZipFile(config._7z_parent_dir + '/7z.zip', 'r') as zip_ref:
+						zip_ref.extractall(config._7z_parent_dir)
+					try: os.remove(config._7z_parent_dir + '/7z.zip')
+					except: pass
+
+					if has_7z():
+						missing.remove("7z")
+						print("7za.zip downloaded")
+					else:
+						print("7za.zip failed to download")
+
+			
+		else:
+			print("Please install missing packages to use FULL FUNCTIONALITY")
+		
+	return missing
+		
+
+missing_sys_req = init_requirements()
+disabled_func = {
+	"trash": False,
+	"7z":     False
+}
+if "pip" in missing_sys_req:
+	print("'Trash/Recycle bin' disabled")
+	disabled_func["trash"] = True
+	
+if "7z" in missing_sys_req:
+	print("'Download folder as Zip' disabled")
+	disabled_func["7z"] = True
+	
+
 reload = False
 
-for i in REQUEIREMENTS:
-	if i not in INSTALLED_PIP:
 
-		# print(i)
-
-		subprocess.call([sys.executable, "-m", "pip", "install", '--disable-pip-version-check', '--quiet', i])
-		REQUEIREMENTS.remove(i)
-
-if not REQUEIREMENTS:
-	print("Reloading...")
-	reload = True
+if "pip" not in missing_sys_req:
+	for i in REQUEIREMENTS:
+		if i not in get_installed():
+	
+			# print(i)
+	
+			subprocess.call([sys.executable, "-m", "pip", "install", '--disable-pip-version-check', '--quiet', i])
+			REQUEIREMENTS.remove(i)
+	
+	if not REQUEIREMENTS:
+		print("Reloading...")
+		reload = True
 
 zip_temp_dir = tempfile.gettempdir() + '/zip_temp/'
 zip_ids = dict()
@@ -112,66 +251,20 @@ if not os.path.isdir(config.log_location):
 		config.log_location ="./"
 
 
-def init_7z():
-	if config.get_os() =='Windows':
-		try:
-			subprocess.check_output(config._7z_command(['-h']))
-			return True
-		except:
-			traceback.print_exc()
-			import urllib.request
-			import zipfile
-			print("Downloading 7za.zip")
-
-			# Download the 7za.zip file and put it in the :
-			with urllib.request.urlopen("https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/7z.zip") as response, open(config._7z_parent_dir+ "/7z.zip", 'wb') as out_file:
-				shutil.copyfileobj(response, out_file)
-
-			if not os.path.isdir(config._7z_parent_dir):
-				os.makedirs(config._7z_parent_dir)
-
-			with zipfile.ZipFile(config._7z_parent_dir + '/7z.zip', 'r') as zip_ref:
-				zip_ref.extractall(config._7z_parent_dir)
-			try: os.remove(config._7z_parent_dir + '/7z.zip')
-			except: pass
-
-			if init_7z():
-				print("7za.zip downloaded")
-				return True
-			else:
-				print("7za.zip failed to download")
-				return False
-
-	if config.get_os() =='Linux':
-		try:
-			subprocess.check_output(config._7z_command(['-h']))
-			return True
-		except:
-			print("\033[1;31;40m   7za not found.Do you want to install ?   \033[0m")
-			zinstalll = input("Press y and Enter if you want ,otherwise just Enter.\n")
-			if zinstalll == "y" :
-				subprocess.call(['sudo', 'apt-get', 'install', 'p7zip-full'])
-
-				if init_7z():
-					print("7z installed")
-					return True
-				else:
-					print("7z failed to install")
-					return False
-
-init_7z()
 
 
-from send2trash import send2trash, TrashPermissionError
+if not disabled_func["trash"]:
+	from send2trash import send2trash, TrashPermissionError
 
 
 directory_explorer_header = '''
+
 <!DOCTYPE HTML>
 <!-- test1 -->
 <html>
 <meta http-equiv="Content-Type" content="text/html; charset=%s">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
+
 
 <title>%s</title>
 
@@ -200,6 +293,11 @@ html, body, input, textarea, select, button {
     scrollbar-color: #0f0f0f #454a4d;
 }
 
+
+.center {
+	text-align: center;
+	margin: auto;
+}
 
 .dir_arrow {
 	position: relative;
@@ -268,74 +366,77 @@ word-wrap: break-word;
   overflow: auto;
 }
 
-.popup{
-    position: fixed;
-    z-index: 99;
-    left: 50%%;
-    top: 50%%;
-    width: 100%%;
-    height: 100%%;
-    overflow: auto;
-    transition: all 300ms ease-in-out;
-    transform: translate(-50%%, -50%%) scale(1)
+
+.popup {
+	position: fixed;
+	z-index: 22;
+	left: 50%%;
+	top: 50%%;
+	width: 100%%;
+	height: 100%%;
+	overflow: none;
+	transition: all .5s ease-in-out;
+	transform: translate(-50%%, -50%%) scale(1)
 }
 
-#popup-box {
-    display: block;
-    position: fixed;
-    top: 50%%;
-    left: 50%%;
-    color: #AAA;
-    transition: all 300ms ease-in-out;
-    background: #222;
-    width: 95%%;
-    max-width: 600px;
-    z-index: 1;
-    text-align: center;
-    padding: 10px;
-    box-sizing: border-box;
-    font-family: "Open Sans", sans-serif;
-    max-height: 800px;
-    height:max-content;
-    min-height: 400px;
-}
-
-#popup-content{
-	max-width:95%%;
-	overflow: scroll;
+.popup-box {
+	display: block;
+	/*display: inline;*/
+	/*text-align: center;*/
+	position: fixed;
+	top: 50%%;
+	left: 50%%;
+	color: #BBB;
+	transition: all 400ms ease-in-out;
+	background: #222;
+	width: 95%%;
+	max-width: 500px;
+	z-index: 23;
+	padding: 20px;
+	box-sizing: border-box;
+	font-family: "Open Sans", sans-serif;
+	max-height: min(600px, 80%%);
+	height: max-content;
+	min-height: 300px;
+	overflow: auto;
+	border-radius: 6px;
+	text-align: center;
+	overflow-wrap: anywhere;
 }
 
 .popup-close-btn {
-    cursor: pointer;
-    position: absolute;
-    right: 20px;
-    top: 20px;
-    width: 30px;
-    height: 30px;
-    background: #222;
-    color: #fff;
-    font-size: 25px;
-    font-weight: 600;
-    line-height: 30px;
-    text-align: center;
-    border-radius: 50%%
+	cursor: pointer;
+	position: absolute;
+	right: 20px;
+	top: 20px;
+	width: 30px;
+	height: 30px;
+	background: #222;
+	color: #fff;
+	font-size: 25px;
+	font-weight: 600;
+	line-height: 30px;
+	text-align: center;
+	border-radius: 50%%
 }
 
-.popup:not(.active){
-    transform: translate(-50%%, -50%%) scale(0);
+.popup:not(.active) {
+	transform: translate(-50%%, -50%%) scale(0);
+	opacity: 0;
 }
 
 
-.popup.active #popup-box{
-    transform: translate(-50%%, -50%%) scale(1);
+.popup.active .popup-box {
+	transform: translate(-50%%, -50%%) scale(1);
+	opacity: 1;
 }
 
 
 
 .pagination {
   cursor: pointer;
-    width: 150px;
-    max-width: 800px
+  width: 150px;
+  max-width: 800px
 }
 
 .pagination {
@@ -359,9 +460,24 @@ word-wrap: break-word;
 }
 
 .pagination:active {
-    margin-top: 4px;
-    margin-left: 4px;
-    box-shadow: none
+	position: relative;
+  top: 4px;
+  left: 4px;
+  box-shadow: none
+}
+
+
+
+.menu_options {
+	background: #333;
+	width: 95%%;
+	padding: 5px;
+	margin: 5px;
+	text-align: left;
+}
+
+.menu_options:hover, .menu_options:focus {
+	background: #337;
 }
 
 
@@ -376,43 +492,64 @@ word-wrap: break-word;
 
 
     
-<div class="popup", id="popup-0">
-    <div id="popup-bg" class="modal_bg" style="background-color:rgba(0, 0, 0, 0.7);" onclick="popup_msg.togglePopup()"></div>
-    <div id="popup-box">
-        <div class="popup-close-btn" onclick="popup_msg.togglePopup()">&times;</div>
-    
-        <h1 id="popup-header"></h1>
-        <hr width="95%%" id="popup-hr">  <!-- if needed -->
-        
-        <div id="popup-content"></div>
-    </div>
-</div>
+<div id="popup-container">
+	
+	
 
 <h1 style="word-wrap: break-word;">%s</h1>
 <hr>
 
 
+<hr>
+<ul id= "linkss">
+<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>
+
+</ul>
+<hr>
+
+
 '''
 
-_js_script='''
-</ul>\n<hr>\n<div class=\'pagination\' onclick = "request_reload()">reload</div><br>
+_js_script = """
 
-<div class=\'pagination\' onclick = "Show_folder_maker()">Create Folder</div><br>
+<div class='pagination' onclick = "request_reload()">reload</div><br>
+
+<div class='pagination' onclick = "Show_folder_maker()">Create Folder</div><br>
 
 <br><hr><br><h2>Upload file</h2>
         <form ENCTYPE="multipart/form-data" method="post">
+        <input type="hidden" name="post-type" value="upload">
+        <input type="hidden" name="post-uid" value="12345">
         
-  <p>PassWord:&nbsp;&nbsp;</p><input name="txt" type="text" label="Password"><br>
+  <p>PassWord:&nbsp;&nbsp;</p><input name="password" type="text" label="Password"><br>
   <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple/><br><br>
 
-  <input type="submit" value="\u2B71 upload" style="background-color: #555; height: 30px; width: 100px"></form>\n
+  <input type="submit" value="&#10174; upload" style="background-color: #555; height: 30px; width: 100px"></form>
+
 <hr>
+
 <script>
 
 const r_li = %s;
 const f_li = %s;
 
 
+
+
+const log = console.log,
+	byId = document.getElementById.bind(document),
+	byClass = document.getElementsByClassName.bind(document),
+	byTag = document.getElementsByTagName.bind(document),
+	byName = document.getElementsByName.bind(document),
+	createElement = document.createElement.bind(document);
+
+String.prototype.toHtmlEntities = function() {
+  return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
+};
+
+function null_func(){
+	return true
+}
 function toggle_scroll() {
     document.body.classList.toggle('overflowHidden');
 }
@@ -423,126 +560,409 @@ function go_link(typee, locate){
 
 // getting all the links in the directory
 
-const linkd_li = document.getElementsByTagName('ul')[0];
 
-for (let i = 0; i < r_li.length; i++) {
-  // time to customize the links according to their formats
-
-  let ele = document.createElement('li');
-	let r= r_li[i];
-	let r_ = r.slice(1);
-	let name = f_li[i];
-	let link = document.createElement('a');
-	link.href = r_;
-	link.classList.add('all_link');
-
-	if(r.startsWith('d')){
-	// add DOWNLOAD FOLDER OPTION in it
-	// TODO: add download folder option by zipping it
-	// currently only shows folder size and its contents
-	link.innerHTML = "📂" + name;
-	link.classList.add('link');
-
-	ele.appendChild(link);
-
-	let dl = document.createElement('a');
-	dl.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b>〘↓〙</b></span>';
-	dl.href = go_link('dl', r_);  // download folder link: parent/dl?folder_name
-	dl.style.paddingLeft= '50px';
-
-	ele.insertAdjacentElement("beforeend",dl);
+class Tools {
+	// various tools for the page
+	sleep(ms) {
+		// sleeps for a given time in milliseconds
+		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 
-	if(r.startsWith('v')){
-	// if its a video, add play button at the end
-	// that will redirect to the video player
-	// clicking main link will download the video instead
+	set_brightness(n = 0) {
+		// sets the brightness of the screen
 
-	link.innerHTML = '🎥' + name;
-	link.classList.add('vid');
-	ele.appendChild(link);
-
-
-	let play = document.createElement('A');
-	play.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b>&nbsp▶&nbspPLAY&nbsp</b></span>';
-	play.href = go_link('vid', r_);  // video player link: parent/vid?video_name
-	play.style.paddingLeft= '50px';
-
-	ele.insertAdjacentElement("beforeend",play);
-	}
-
-	if(r.startsWith('f')){
-	link.innerHTML = '📄' + name;
-	link.classList.add('file');
-	ele.appendChild(link);
-
-	}
-	if(r.startsWith('h')){
-	link.innerHTML = '🔗' + name;
-	link.classList.add('html');
-	ele.appendChild(link);
-
-	}
-
-	if(true){
-		// recycling option for the files and folder
-		// files and folders are handled differently
-
-		if(r.startsWith('d')){
-			var xxx = "D";
+		var val;
+		var input_ = byId('brightness-input');
+		var brightness = byId('brightness');
+		if (n == 0) {
+			val = sessionStorage.getItem('bright');
+			if (val) {
+				val = parseInt(val);
+				input_.value = val;
+			} else {
+				n = 1;
+			}
 		}
-		else{
-			var xxx = "F";
+		if (n == 1) {
+			val = input_.value;
+			//   int to string
+			sessionStorage.setItem('bright', val);
 		}
-	const del = document.createElement('a');
-	del.innerHTML= '<span style="color: black; background-color: #40A4F7;"><b> ♻&nbsp;</b></span>';
-	del.onclick = run_recyle(go_link('recycle' + xxx, r_)); // recycle link: parent/recycle*?file_or_folder_name
-    del.style.paddingLeft= '50px';
 
-	ele.insertAdjacentElement("beforeend",del);
+		// to make sure opacity is not -1.11022e-16
+		if (val == 10) {brightness.style.opacity = 0;return;}
+
+
+		brightness.style.opacity = 0.7 - (val * 0.07);
+	}
+	
+
+	onlyInt(str){
+	if(this.is_defined(str.replace)){
+	return parseInt(str.replace(/\D+/g, ""))}
+	return 0;
+	}
+	
+	del_child(elm){
+		if(typeof(elm)=="string"){
+			elm = byId(elm)
+		}
+		
+		while (elm.firstChild) {
+			elm.removeChild(elm.lastChild);
+		}
+	}
+	toggle_bool(bool){
+		return bool !== true;
+	}
+	
+	exists(name){
+		return (typeof window[name] !== 'undefined')
+	}
+
+	hasClass(element, className, partial = false) {
+		if (partial) {
+			className = ' ' + className;
+		} else {
+			className = ' ' + className + ' ';
+		}
+
+		return (' ' + element.className + ' ').indexOf(className) > -1;
+	}
+
+	addClass(element, className) {
+		if (!this.hasClass(element, className)) {
+			element.classList.add(className);
+		}
+	}
+
+	enable_debug(){
+		if(!config.allow_Debugging){
+			alert("Debugging is not allowed");
+			return;
+		}
+		if(config.Debugging){
+			return
+		}
+		config.Debugging = true;
+		var script = createElement('script'); script.src="//cdn.jsdelivr.net/npm/eruda"; document.body.appendChild(script); script.onload = function () { eruda.init() };
 	}
 
 	
-  linkd_li.appendChild(ele);
+	is_in(item, array) {
+		return array.indexOf(item) > -1;
+	}
+	
+	is_defined(obj){
+		return typeof(obj) !== "undefined"
+	}
+
+	toggle_scroll(allow = 2, by = "someone") {
+		if (allow == 0) {
+			document.body.classList.add('overflowHidden');
+		} else if (allow == 1) {
+			document.body.classList.remove('overflowHidden');
+		} else {
+			document.body.classList.toggle('overflowHidden');
+		}
+	}
 }
+
+let tools = new Tools();
+
+
+
+
+class Config {
+	constructor(){
+		this.total_popup =0;
+		this.popup_msg_open = false
+	}
+}
+
+var config = new Config()
 
 
 class Popup_Msg {
-  constructor() {
-	  this.popup_obj = document.getElementById('popup-0');
-	  this.header = document.getElementById('popup-header');
-	  this.content = document.getElementById('popup-content');
-	  this.hr = document.getElementById('popup-hr');
-  }
+	constructor() {
+		this.create()
+		this.made_popup = false;
+		
+		this.init()
+	
+	}
+	
+	init(){
+		this.onclose = null_func;
+		this.scroll_disabled = false;
+	}
+	
+	
+	create() {
+		var that = this;
+		this.popup_id = config.total_popup;
+		this.popup_obj = createElement("div")
+		this.popup_obj.id = "popup-" + this.popup_id;
+		this.popup_obj.classList.add("popup")
+		
+		this.popup_bg = createElement("div")
+		this.popup_bg.classList.add("modal_bg")
+		this.popup_bg.id = "popup-bg-" + this.popup_id;
+		this.popup_bg.style.backgroundColor = "#000000EE";
+		this.popup_bg.onclick = function(){
+			that.close()
+		}
+		this.popup_obj.appendChild(this.popup_bg);
+		
+		var popup_box = createElement("div");
+		popup_box.classList.add("popup-box")
+		var close_btn = createElement("div");
+		close_btn.classList.add("popup-close-btn")
+		close_btn.onclick = function(){
+			that.close()
+		}
+		close_btn.innerHTML = "&times;";
+		popup_box.appendChild(close_btn)
+		
+		this.header = createElement("h1")
+		this.header.id = "popup-header-" + this.popup_id;
+		popup_box.appendChild(this.header)
+		
+		this.hr = createElement("popup-hr-" + this.popup_id);
+		this.hr.style.width = "95%%"
+		popup_box.appendChild(this.hr)
+		
+		this.content = createElement("div")
+		this.content.id = "popup-content-" + this.popup_id;
+		popup_box.appendChild(this.content)
+		
+		this.popup_obj.appendChild(popup_box)
+		
+		byId("popup-container").appendChild(this.popup_obj)
+		config.total_popup +=1;
+	}
+	
+	close(){
+		this.onclose()
+		this.dismiss()
+		config.popup_msg_open = false;
+	}
+	
+	hide(){
+		this.popup_obj.classList.remove("active");
+		tools.toggle_scroll(1)
+		
+	}
+	
+	dismiss(){
+		this.hide()
+		tools.del_child(this.header);
+		tools.del_child(this.content);
+		this.made_popup = false;
+	}
 
-  togglePopup(indx=0, on_or_off = null) {
-	  this.popup_obj.classList.toggle("active");
-	  toggle_scroll();
-  }
+	async togglePopup(toggle_scroll = true) {
+		if(!this.made_popup){return}
+		this.popup_obj.classList.toggle("active");
+		if(toggle_scroll){
+			tools.toggle_scroll();}
+		log(tools.hasClass(this.popup_obj, "active"))
+		if(!tools.hasClass(this.popup_obj, "active")) {
+		this.close()
+		}
+	}
+	
+	async open_popup(allow_scroll=false){
+		if(!this.made_popup){return}
+		this.popup_obj.classList.add("active");
+		if(!allow_scroll){
+			tools.toggle_scroll(0);
+			this.scroll_disabled = true;
+		}
+	}
 
-  createPopup(header, content, hr=true) {
-				   while (this.header.firstChild) {
-    this.header.removeChild(this.header.lastChild);
-  }
-  				while (this.content.firstChild) {
-    this.content.removeChild(this.content.lastChild);
-  }
-  				
-				  this.header.innerHTML = header;
-				  this.content.innerHTML = content;
-				  if(hr){
-					  this.hr.style.display = "block";
-				  }else{
-					  this.hr.style.display = "none";
-				  }
-			  }
+	async createPopup(header="", content="", hr = true) {
+		this.init()
+		this.made_popup = true;
+		if (typeof header === 'string' || header instanceof String){
+		this.header.innerHTML = header;}
+		else if(header instanceof Element){
+			this.header.appendChild(header)
+		}
+		
+		if (typeof content === 'string' || content instanceof String){
+		this.content.innerHTML = content;}
+		else if(content instanceof Element){
+			this.content.appendChild(content)
+		}
+
+		if (hr) {
+			this.hr.style.display = "block";
+		} else {
+			this.hr.style.display = "none";
+		}
+	}
 }
 
 
 let popup_msg = new Popup_Msg();
 
+
+class ContextMenu {
+	constructor(){
+		this.old_name = null;
+	}
+	async on_result(self){
+		var data = false;
+		if(self.status == 200){
+			data =  JSON.parse(self.responseText);}
+			
+		popup_msg.close()
+		await tools.sleep(300)
+		
+		if(data){
+			popup_msg.createPopup(data[0], data[1]);
+		}else{
+			popup_msg.createPopup("Failed", "Server didn't respond<br>response: "+self.status);
+		}
+	popup_msg.open_popup()
+
+	}
+	menu_click(action, link, more_data=null){
+		var that = this
+		var url = ".";
+		var xhr = new XMLHttpRequest();
+		xhr.open("POST", url);
+	
+		xhr.onreadystatechange = function () {
+		
+	   if (this.readyState === 4) {
+	   	that.on_result(this)
+	   }};
+	
+		var formData = new FormData();
+		formData.append("post-type", action);
+		formData.append("post-uid", 123456); 
+		formData.append("name", link); 
+		formData.append("data", more_data)
+		xhr.send(formData);
+	
+}
+
+	rename_data(){
+		var new_name= byId("rename").value;
+		popup_msg.close()
+		this.menu_click("rename", this.old_name, new_name)
+		// popup_msg.createPopup("Done!", "New name: "+new_name)
+		// popup_msg.open_popup()
+	}
+
+	rename(file){
+		
+		popup_msg.close()
+		popup_msg.createPopup("Rename", "Enter new name: <input id='rename' type='text'><br><br><div class='pagination center' onclick='context_menu.rename_data()'>Change!</div>");
+		popup_msg.open_popup()
+		this.old_name = file;
+		byId("rename").value = file;
+		byId("rename").focus()
+	}
+
+	show_menus(file, type){
+		var that = this;
+		var menu = createElement("div")
+		
+		if(type =="video"){
+			var watch_online = createElement("div")
+			watch_online.innerHTML = "▶️".toHtmlEntities() + " Watch Online"
+			watch_online.classList.add("menu_options")
+			watch_online.onclick = function(){
+				window.open(go_link('vid', file), '_blank');
+				popup_msg.close()
+				//that.menu_click('video', file);
+			}
+			menu.appendChild(watch_online)
+		}
+		
+		if(type=="folder"){
+			var dl_zip = createElement("div")
+			dl_zip.innerHTML = "🗃️".toHtmlEntities() + " Download as Zip"
+			dl_zip.classList.add("menu_options")
+			dl_zip.onclick = function(){
+				popup_msg.close()
+				window.open(go_link('dl', file), '_blank');
+			}
+			menu.appendChild(dl_zip)
+		}
+		
+		var rename = createElement("div")
+		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
+		rename.classList.add("menu_options")
+		rename.onclick = function(){
+			that.rename(file)
+		}
+		menu.appendChild(rename)
+		
+		var del = createElement("div")
+		del.innerHTML = "🗑️".toHtmlEntities() + " Delete"
+		del.classList.add("menu_options")
+		var xxx = 'F'
+		if(type=="folder"){
+			xxx = 'D'
+		}
+		del.onclick = function(){
+		that.menu_click('del-f', file);};
+		log(file, type)
+		menu.appendChild(del)
+			
+		var del_P = createElement("div")
+		del_P.innerHTML = "🔥".toHtmlEntities() + " Delete permanently"
+		del_P.classList.add("menu_options")
+		function r_u_sure(){
+			popup_msg.close()
+			var box = createElement("div")
+			var msggg = createElement("p")
+			msggg.innerHTML = "This can't be undone!!!"
+			box.appendChild(msggg)
+			var y_btn = createElement("div")
+			y_btn.innerHTML ="Continue"
+			y_btn.className = "pagination center"
+			y_btn.onclick = function(){
+				that.menu_click('del-p', file);};
+		
+			var n_btn = createElement("div")
+			n_btn.innerHTML= "Cancel"
+			n_btn.className ="pagination center"
+			n_btn.onclick = popup_msg.close;
+			
+			box.appendChild(y_btn)
+			box.appendChild(n_btn)
+			popup_msg.createPopup("Are you sure?", box)
+			popup_msg.open_popup()
+			}
+		del_P.onclick= r_u_sure
+		menu.appendChild(del_P)
+	
+	
+		
+		var property = createElement("div")
+		property.innerHTML = "ℹ️".toHtmlEntities() + " Properties"
+		property.classList.add("menu_options")
+		property.onclick = function(){
+		that.menu_click('info', file);};
+		menu.appendChild(property)
+		
+		
+		popup_msg.createPopup("Menu", menu)
+		popup_msg.open_popup()
+	}
+}
+
+var context_menu = new ContextMenu()
+//context_menu.show_menus("next", "video")
+
+
 function Show_folder_maker(){
-    popup_msg.createPopup("Create Folder", "Enter folder name: <input id='folder-name' type='text'><br><br><div class=\'pagination\' onclick='create_folder()'>Create</div>");
+    popup_msg.createPopup("Create Folder", "Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='create_folder()'>Create</div>");
     popup_msg.togglePopup();
 }
 
@@ -552,10 +972,11 @@ function show_response(url, add_reload_btn=true){
         if (xhr.readyState == XMLHttpRequest.DONE) {
             let msg = xhr.responseText;
 			if(add_reload_btn){
-				msg = msg + "<br><br><div class=\'pagination\' onclick='window.location.reload()'>Reload🔄️</div>";
+				msg = msg + "<br><br><div class='pagination' onclick='window.location.reload()'>Refresh🔄️</div>";
 			}
+			popup_msg.close()
             popup_msg.createPopup("Result", msg);
-            popup_msg.togglePopup();
+            popup_msg.open_popup();
         }
     }
     xhr.open('GET', url , true);
@@ -580,11 +1001,103 @@ function run_recyle(url){
     }
 }
 
+
+const linkd_li = document.getElementsByTagName('ul')[0];
+
+for (let i = 0; i < r_li.length; i++) {
+  // time to customize the links according to their formats
+
+	let type = null;
+
+	let ele = document.createElement('li');
+	let r= r_li[i];
+	let r_ = r.slice(1);
+	let name = f_li[i];
+	let link = document.createElement('a');
+	link.href = r_;
+	link.classList.add('all_link');
+
+	if(r.startsWith('d')){
+	// add DOWNLOAD FOLDER OPTION in it
+	// TODO: add download folder option by zipping it
+	// currently only shows folder size and its contents
+
+	type = "folder"
+	link.innerHTML = "📂".toHtmlEntities() + name;
+	link.classList.add('link');
+
+	ele.appendChild(link);
+
+	}
+
+	if(r.startsWith('v')){
+	// if its a video, add play button at the end
+	// that will redirect to the video player
+	// clicking main link will download the video instead
+
+	type = 'video';
+
+	link.innerHTML = '🎥'.toHtmlEntities() + name;
+	link.classList.add('vid');
+	ele.appendChild(link);
+	
+	}
+	
+	if(r.startsWith('i')){
+
+	type = 'image'
+	link.innerHTML = '🌉'.toHtmlEntities() + name;
+	link.classList.add('file');
+	ele.appendChild(link);
+
+	}
+
+	if(r.startsWith('f')){
+
+	type = 'file'
+	link.innerHTML = '📄'.toHtmlEntities() + name;
+	link.classList.add('file');
+	ele.appendChild(link);
+
+	}
+	if(r.startsWith('h')){
+	type = 'html'
+	link.innerHTML = '🔗'.toHtmlEntities() + name;
+	link.classList.add('html');
+	ele.appendChild(link);
+
+	}
+
+	// recycling option for the files and folder
+	// files and folders are handled differently
+	var xxx = "F"
+	if(r.startsWith('d')){
+		xxx = "D";
+	}
+
+	var context = createElement('span');
+	context.className = "pagination"
+	context.innerHTML= '<b>&nbsp;&hellip;&nbsp;</b>';
+	context.style.marginLeft= '50px';
+	context.onclick = function(){log(r_, 1); context_menu.show_menus(r_, type);}
+
+	ele.insertAdjacentElement("beforeend",context);
+	
+	var hrr = createElement("hr")
+	ele.insertAdjacentElement("beforeend",hrr);
+
+
+
+
+  linkd_li.appendChild(ele);
+}
+
+
 </script>
 
 </body>
 </html>
-'''
+"""
 
 # directory_explorer_body_1=
 
@@ -1193,15 +1706,16 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				self._headers_buffer = []
 			self._headers_buffer.append(("%s %d %s\r\n" %
 					(self.protocol_version, code, message)).encode(
-						'latin-1', 'strict'))
+						'utf-8', 'strict'))
 
 	def send_header(self, keyword, value):
 		"""Send a MIME header to the headers buffer."""
 		if self.request_version != 'HTTP/0.9':
+			#print(("%s: %s\r\n" % (keyword, value)))
 			if not hasattr(self, '_headers_buffer'):
 				self._headers_buffer = []
 			self._headers_buffer.append(
-				("%s: %s\r\n" % (keyword, value)).encode('latin-1', 'strict'))
+				("%s: %s\r\n" % (keyword, value)).encode('utf-8', 'strict'))
 
 		if keyword.lower() == 'connection':
 			if value.lower() == 'close':
@@ -1358,22 +1872,24 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def do_POST(self):
 		"""Serve a POST request."""
-		self.range = None # bug fix
+		self.range = None # bug patch
 
 		r, info = self.deal_post_data()
 		print((r, info, "by: ", self.client_address))
 		f = io.BytesIO()
-		f.write(b'<!DOCTYPE html>')
-		f.write(b"<html>\n<title>Upload Result Page</title>\n")
-		f.write(b"<body>\n<h2>Upload Result Page</h2>\n")
-		f.write(b"<hr>\n")
-		if r:
-			f.write(b"<strong>Success:</strong>")
+
+		
+		if r==True:
+			head = "Success"
+		elif r==False:
+			head = "Failed"
 		else:
-			f.write(b"<strong>Failed:</strong>")
-		f.write(info.encode())
-		f.write(("<br><a href=\"%s\">back</a>" % self.headers['referer']).encode())
-		f.write(b"<hr><small>Powerd By: bones7456")
+			head = r
+		
+		body = info
+		import json
+		
+		f.write(json.dumps([head, body]).encode())
 
 		length = f.tell()
 		f.seek(0)
@@ -1381,73 +1897,360 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.send_header("Content-type", "text/html")
 		self.send_header("Content-Length", str(length))
 		self.end_headers()
+
 		if f:
+			print(69*111111)
 			self.copyfile(f, self.wfile)
 			f.close()
 		
 	def deal_post_data(self):
-		uploaded_files = []
+		boundary = None
+		uid = None
+		num = 0
+		post_type = None
+		
+		refresh = "<br><div class='pagination center' onclick='window.location.reload()'>Refresh🔄️</div>"
+
+		def get(show=True, strip=False, self=self):
+			"""
+			show: print line
+			strip: strip \r\n at end
+			"""
+			nonlocal num, remainbytes
+			line = self.rfile.readline()
+			if show:
+				print(num, line)
+				num+=1
+			remainbytes -= len(line)
+	
+			if strip and line.endswith(b"\r\n"):
+				line = line.rpartition(b"\r\n")[0]
+
+			return line
+			
+		def pass_bound(self=self):
+			nonlocal remainbytes
+			line = get(0)
+			if not boundary in line:
+				return (False, "Content NOT begin with boundary")
+
+		def get_type(line=None, self=self):
+			nonlocal remainbytes
+			if not line:
+				line = get()
+			try:
+				return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
+			except: return None
+			
+		def skip(self=self):
+			get(0)
+			
+		def handle_files(self=self):
+			nonlocal remainbytes
+			uploaded_files = [] # Uploaded folder list
+			
+			# pass boundary
+			pass_bound()
+			
+			
+			# PASSWORD SYSTEM
+			if get_type()!="password":
+				return (False, "Invalid request")
+			
+			
+			skip()
+			password= get(0)
+			print('post password: ',  password)
+			if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
+				return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
+
+			pass_bound()
+			
+			
+			while remainbytes > 0:
+				line =get()
+
+				fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
+				if not fn:
+					return (False, "Can't find out file name...")
+				path = self.translate_path(self.path).replace("/", os.sep)
+				fn = os.path.join(path, fn[0])
+				line = get(0) # content type
+				line = get(0) # line gap
+				
+				# ORIGINAL FILE STARTS FROM HERE
+				try:
+					out = open(fn, 'wb')
+				except IOError:
+					return (False, "Can't create file to write, do you have permission to write?")
+				else:
+					with out:					
+						preline = get(0)
+						while remainbytes > 0:
+							line = get(0)
+							if boundary in line:
+								preline = preline[0:-1]
+								if preline.endswith(b'\r'):
+									preline = preline[0:-1]
+								out.write(preline)
+								uploaded_files.append(fn)
+								break
+							else:
+								out.write(preline)
+								preline = line
+								
+
+			return (True, ("<!DOCTYPE html><html>\n<title>Upload Result Page</title>\n<body>\n<h2>Upload Result Page</h2>\n<hr>\nFile '%s' upload success!" % ",".join(uploaded_files)) +"<br><a href=\"%s\">back</a>" % self.headers['referer'] + refresh)
+			
+			
+		def del_data(self=self):
+			
+			if disabled_func["trash"]:
+				return (False, "Trash not available. Please contact the Host...")
+			
+			# pass boundary
+			pass_bound()
+			
+			
+			# File link to move to recycle bin
+			if get_type()!="name":
+				return (False, "Invalid request")
+			
+			
+			skip()
+			filename = get(strip=1).decode()
+			
+			path = self.translate_path(self.path)
+
+			xpath = self.translate_path(posixpath.join(self.path, filename))
+			#print(tools.text_box(xpath))
+			print('send2trash "%s" by: %s'%(xpath, uid))
+			
+			bool = False
+			try:
+				send2trash(xpath)
+				msg = "Successfully Moved To Recycle bin"+refresh
+				bool = True
+			except TrashPermissionError:
+				msg = "Recycling unavailable! Try deleting permanently..."
+			except Exception as e:
+				traceback.print_exc()
+				msg = "<b>" + xpath + "<b>" + e.__class__.__name__ + " : " + str(e) 
+				
+			return (bool, msg)
+				
+			
+			
+		def del_permanently(self=self):
+			
+			# pass boundary
+			pass_bound()
+			
+			
+			# File link to move to recycle bin
+			if get_type()!="name":
+				return (False, "Invalid request")
+			
+			
+			skip()
+			filename = get(strip=1).decode()
+			
+			path = self.translate_path(self.path)
+
+			xpath = self.translate_path(posixpath.join(self.path, filename))
+			#print(tools.text_box(xpath))
+			print('Perm. DELETED "%s" by: %s'%(xpath, uid))
+			
+
+			try:
+				if os.path.isfile(xpath): os.remove(xpath)
+				else: shutil.rmtree(xpath)
+				
+				return (True, "PERMANENTLY DELETED  " + xpath +refresh)
+				
+				
+			except Exception as e:
+				return (False, "<b>" + xpath + "<b>" + e.__class__.__name__ + " : " + str(e)) 
+				
+
+		def rename(self=self):
+			# pass boundary
+			pass_bound()
+			
+			
+			# File link to move to recycle bin
+			if get_type()!="name":
+				return (False, "Invalid request")
+			
+			
+			skip()
+			filename = get(strip=1).decode()
+			
+			pass_bound()
+			
+			if get_type()!="data":
+				return (False, "Invalid request")
+			
+			
+			skip()
+			new_name = get(strip=1).decode()
+			 
+			
+			path = self.translate_path(self.path)
+			#print(tools.text_box(filename))
+			xpath = self.translate_path(posixpath.join(self.path, filename))
+			
+			new_path = self.translate_path(posixpath.join(self.path, new_name))
+			#print(tools.text_box(xpath))
+			print('Renamed "%s" by: %s'%(xpath, uid))
+			
+	
+			try:
+				os.rename(xpath, new_path)
+				return (True, "Rename successful!" + refresh)
+			except Exception as e:
+				return (False, "<b>" + xpath + "<b>" + e.__class__.__name__ + " : " + str(e) )
+		
+		
+		def info(self=self):
+			
+				
+			# pass boundary
+			pass_bound()
+			
+			
+			# File link to move to recycle bin
+			if get_type()!="name":
+				return (False, "Invalid request")
+			
+			
+			skip()
+			filename = get(strip=1).decode()
+
+			
+			path = self.translate_path(self.path)
+			#print(tools.text_box(filename))
+			xpath = self.translate_path(posixpath.join(self.path, filename))
+			#print(tools.text_box(xpath))
+			print('Info Checked "%s" by: %s'%(xpath, uid))
+			
+			data = {}
+			data["Name"] = filename
+			if os.path.isfile(xpath):
+				data["Type"] = "File"
+				if "." in filename:
+					data["Extension"] = filename.rpartition(".")[2]
+					
+				size = int(os.path.getsize(xpath))
+			
+			elif os.path.isdir(xpath):
+				data["Type"] = "Folder"
+				size = get_dir_size(xpath)
+		
+			data["Size"] = humanbytes(size) + " (%i bytes)"%size
+			
+			def get_dt(time):
+				return datetime.datetime.fromtimestamp(time)
+			
+			data["Created on"] = get_dt(os.path.getctime(xpath))
+			data["Last Modified"] = get_dt(os.path.getmtime(xpath))
+			data["Last Accessed"] = get_dt(os.path.getatime(xpath))
+			
+			body = """
+<style>
+table {
+  font-family: arial, sans-serif;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td, th {
+  border: 1px solid #00BFFF;
+  text-align: left;
+  padding: 8px;
+}
+
+tr:nth-child(even) {
+  background-color: #111;
+}
+</style>
+
+<table>
+  <tr>
+    <th>About</th>
+    <th>Info</th>
+  </tr>
+  """
+			for i in data.keys():
+				body += "<tr><td>%s</td><td>%s</td></tr>"%(i, data[i])
+			body += "</table>"
+				
+			return ("Properties", body)
+				
+			
+			
+		
+		while 0:
+			line = get()
+			
+		
 		content_type = self.headers['content-type']
+		#print(self.headers)
+		
 		if not content_type:
 			return (False, "Content-Type header doesn't contain boundary")
 		boundary = content_type.split("=")[1].encode()
+		
 		remainbytes = int(self.headers['content-length'])
-		line = self.rfile.readline()
-		remainbytes -= len(line)
-		if not boundary in line:
-			return (False, "Content NOT begin with boundary")
-		line = self.rfile.readline()
-		remainbytes -= len(line)
-		line = self.rfile.readline()
-		remainbytes -= len(line)
+		
 
-		# PASSWORD SYSTEM
+		pass_bound()# LINE 1
+		
+		# get post type
+		if get_type()=="post-type":
+			skip() # newline
+		else:
+			return (False, "Invalid post request")
+		
+		line = get()
+		handle_type = line.decode().strip() # post type LINE 3
+		
+		pass_bound() #boundary for password or guid of user
+		
+		if get_type()=="post-uid":
+			skip() # newline
+		else:
+			return (False, "Unknown User request")
+			
+		uid = get() # uid LINE 5
 
-		password= self.rfile.readline()
-		print('post password: ',  password)
-		if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
-			return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
+		##################################
 
+		# HANDLE USER PERMISSION BY CHECKING UID
 
-		remainbytes -= len(password)
-		line = self.rfile.readline()
-		remainbytes -= len(line)
-		if not boundary in line:
-			return (False, "Content NOT begin with boundary")
-		while remainbytes > 0:
-			line = self.rfile.readline()
-			remainbytes -= len(line)
-			fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
-			if not fn:
-				return (False, "Can't find out file name...")
-			path = self.translate_path(self.path)
-			fn = os.path.join(path, fn[0])
-			line = self.rfile.readline()
-			remainbytes -= len(line)
-			line = self.rfile.readline()
-			remainbytes -= len(line)
-			try:
-				out = open(fn, 'wb')
-			except IOError:
-				return (False, "Can't create file to write, do you have permission to write?")
-			else:
-				with out:                    
-					preline = self.rfile.readline()
-					remainbytes -= len(preline)
-					while remainbytes > 0:
-						line = self.rfile.readline()
-						remainbytes -= len(line)
-						if boundary in line:
-							preline = preline[0:-1]
-							if preline.endswith(b'\r'):
-								preline = preline[0:-1]
-							out.write(preline)
-							uploaded_files.append(fn)
-							break
-						else:
-							out.write(preline)
-							preline = line
-		return (True, "File '%s' upload success!" % ",".join(uploaded_files))
+		##################################
+
+		if handle_type == "upload":
+			return handle_files()
+			
+		
+		elif handle_type == "test":
+			while remainbytes > 0:
+				line =get()
+
+		elif handle_type == "del-f":
+			return del_data()
+			
+		elif handle_type == "del-p":
+			return del_permanently()
+
+		elif handle_type=="rename":
+			return rename()
+			
+		elif handle_type=="info":
+			return info()
+
+		return (True, "Something")
 
 
 
@@ -1522,39 +2325,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.end_headers()
 			return f
 
-
-		elif spathsplit[-2].startswith("recycleD%3F") or spathsplit[-1].startswith("recycleF%3F"):
-			# RECYCLES THE DIRECTORY
-			# print("==================== current path", path)
-			
-			xpath = path.replace("recycleD?", "", 1).replace("recycleF?", "", 1)
-			if xpath.endswith(("/","\\")):
-				# print(xpath)
-				xpath = xpath[:-1]
-			print("Recycling", xpath)
-			msg = "<!doctype HTML><h1>Moved To Recycle Bin/Trash successfully  " + xpath + "</h1>"
-			try:
-				try:
-					send2trash(xpath)
-				except TrashPermissionError:
-					if os.path.isfile(xpath): os.remove(xpath)
-					else: shutil.rmtree(xpath)
-					msg = msg = "<!doctype HTML><h1>Recycling unavailable. FORCE DELETING  " + xpath + "</h1>"
-			except Exception as e:
-				print(e)
-				msg = "<!doctype HTML><h1>Recycling failed  " + xpath + "</h1><br>" + e.__class__.__name__ + " : " + str(e) 
-			
-			encoded = msg.encode('utf-8', 'surrogateescape')
-
-			f = io.BytesIO()
-			f.write(encoded)
-			
-			f.seek(0)
-			self.send_response(HTTPStatus.OK)
-			self.send_header("Content-type", "text/html; charset=%s" % 'utf-8')
-			self.send_header("Content-Length", str(len(encoded)))
-			self.end_headers()
-			return f
 
 		elif spathsplit[-1].startswith('dlY%3F'):
 			# print("=="*10, "\n\n")
@@ -1684,9 +2454,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		elif spathsplit[-1].startswith('vid%3F') or os.path.exists(path):
 			# SEND VIDEO PLAYER
-			if spathsplit[-1].startswith('vid%3F') and self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])).startswith('video/'):
+			if spathsplit[-1].startswith('vid%3F') and self.guess_type(os.path.join(pathtemp[0],  pathtemp[-1][4:])).startswith('video/'):
 
-				self.path= spathtemp[0] +'/'+ spathtemp[1][6:]
+				self.path= "/".join(spathsplit[:-1]+ [spathtemp[1][6:],])
+				#print(tools.text_box(self.path))
 				path=os.path.join(pathtemp[0],  pathtemp[1][4:])
 				
 				r = []
@@ -1711,7 +2482,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])) not in ['video/mp4', 'video/ogg', 'video/webm']:
 					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
 				else:
-					ctype = self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:]))
+					ctype = self.guess_type("/".join([pathtemp[0],  spathsplit[-1][6:]]))
 					r.append('''
 <!-- stolen from http://plyr.io -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/RaSan147/httpserver_with_many_feat@main/video.css" />
@@ -1894,7 +2665,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		f_li = [] # file_names
 
 		
-		r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
+		# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
 		for name in list:
 			fullname = os.path.join(path, name)
 			displayname = linkname = name
@@ -1914,6 +2685,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 				elif self.guess_type(linkname).startswith('video/'):
 					r_li.append('v'+ urllib.parse.quote(linkname, errors='surrogatepass'))
+					f_li.append(html.escape(displayname, quote=False))
+					
+				elif self.guess_type(linkname).startswith('image/'):
+					r_li.append('i'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 
 				else:
@@ -1993,6 +2768,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		words = path.split('/')
 		words = filter(None, words)
 		path = self.directory
+		#print(self.directory)
 		for word in words:
 			if os.path.dirname(word) or word in (os.curdir, os.pardir):
 				# Ignore components that are not a simple file/directory name
@@ -2414,17 +3190,23 @@ def _get_best_family(*address):
 
 import socket
 def get_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.settimeout(0)
-    try:
-        # doesn't even have to be reachable
-        s.connect(('10.255.255.255', 1))
-        IP = s.getsockname()[0]
-    except Exception:
-        IP = '127.0.0.1'
-    finally:
-        s.close()
-    return IP
+			s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+			s.settimeout(0)
+			try:
+				# doesn't even have to be reachable
+				s.connect(('10.255.255.255', 1))
+				IP = s.getsockname()[0]
+			except:
+				try:
+					if config.get_os()=="Android":
+						IP = s.connect(("192.168.43.1",  1))
+						IP = s.getsockname()[0]
+						# Assigning this variable because Android does't return actual IP when hosting a hotspot
+				except (socket.herror, OSError):
+					IP = '127.0.0.1'
+			finally:
+				s.close()
+			return IP
 
 
 def test(HandlerClass=BaseHTTPRequestHandler,
@@ -2447,7 +3229,8 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	host, port = httpd.socket.getsockname()[:2]
 	url_host = f'[{host}]' if ':' in host else host
 	hostname = socket.gethostname()
-	local_ip = get_ip()
+	local_ip = config.IP if config.IP else get_ip()
+	config.IP= local_ip
 
 	print(
 		f"Serving HTTP on {host} port {port} \n" #TODO: need to check since the output is "Serving HTTP on :: port 6969"
@@ -2479,6 +3262,7 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 
 if __name__ == '__main__':
 	import argparse
+
 	
 
 	parser = argparse.ArgumentParser()
@@ -2487,7 +3271,7 @@ if __name__ == '__main__':
 	parser.add_argument('--bind', '-b', metavar='ADDRESS',
 						help='Specify alternate bind address '
 							 '[default: all interfaces]')
-	parser.add_argument('--directory', '-d', default=config.ftp_dir,
+	parser.add_argument('--directory', '-d', default=config.get_default_dir(),
 						help='Specify alternative directory '
 						'[default:current directory]')
 	parser.add_argument('port', action='store',
