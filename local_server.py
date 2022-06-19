@@ -158,9 +158,10 @@ def init_requirements():
 		print(tools.text_box("Missing required packages: " + ', '.join(missing)))
 		if config.get_os()=='Linux':
 			print("***SUDO MAY REQUIRE***")
-		if config.linux_installer()==None:
-			promt = 'n'
-		else:
+
+		promt = config.linux_installer() if config.get_os()=='Linux' else True
+			 
+		if promt:
 			promt = input("Do you want to install them? (y/n) ")
 
 		if promt=='y':
