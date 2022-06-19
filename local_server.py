@@ -19,7 +19,7 @@ class Config:
 		self.log_location = "G:/py-server/"  # fallback log_location = "./"
 		self.allow_web_log = True # if you want to see some important LOG in browser, may contain your important information
 		self.default_zip = "7z" # or "zipfile" to use python built in zip module
-		
+
 		self.MAIN_FILE = os.path.realpath(__file__)
 		self.MAIN_FILE_dir = os.path.dirname(self.MAIN_FILE)
 		print(self.MAIN_FILE)
@@ -45,7 +45,7 @@ class Config:
 			if 'ANDROID_STORAGE' in os.environ:
 				#self.IP = "192.168.43.1"
 				return 'Android'
-		
+
 		return out
 
 	def get_default_dir(self):
@@ -84,7 +84,7 @@ class Tools:
 			"dash"  : "-",
 			"udash": "_"
 		}
-		
+
 	def text_box(self, text, style = "equal"):
 		term_col = shutil.get_terminal_size()[0]
 
@@ -118,7 +118,7 @@ REQUEIREMENTS= ['send2trash',]
 
 import subprocess
 import sys
-import tempfile, random, string
+import tempfile, random, string, json
 
 
 import traceback
@@ -175,7 +175,7 @@ def init_requirements():
 						missing.remove("pip")
 
 				if '7z' in missing:
-					
+
 					import urllib.request
 					import zipfile
 					print("Downloading 7za.zip")
@@ -198,12 +198,12 @@ def init_requirements():
 					else:
 						print("7za.zip failed to download")
 
-			
+
 		else:
 			print("Please install missing packages to use FULL FUNCTIONALITY")
-		
+
 	return missing
-		
+
 
 missing_sys_req = init_requirements()
 disabled_func = {
@@ -213,11 +213,11 @@ disabled_func = {
 if "pip" in missing_sys_req:
 	print("'Trash/Recycle bin' disabled")
 	disabled_func["trash"] = True
-	
+
 if "7z" in missing_sys_req:
 	print("'Download folder as Zip' disabled")
 	disabled_func["7z"] = True
-	
+
 
 reload = False
 
@@ -225,15 +225,20 @@ reload = False
 if "pip" not in missing_sys_req:
 	for i in REQUEIREMENTS:
 		if i not in get_installed():
-	
+
 			# print(i)
-	
+
 			subprocess.call([sys.executable, "-m", "pip", "install", '--disable-pip-version-check', '--quiet', i])
 			REQUEIREMENTS.remove(i)
-	
+
 	if not REQUEIREMENTS:
 		print("Reloading...")
 		reload = True
+
+
+if config.get_os() == "Android":
+	disabled_func["7z"] = True #7z is not supported. will add termux support later
+
 
 zip_temp_dir = tempfile.gettempdir() + '/zip_temp/'
 zip_ids = dict()
@@ -474,6 +479,7 @@ word-wrap: break-word;
 	padding: 5px;
 	margin: 5px;
 	text-align: left;
+	cursor: pointer;
 }
 
 .menu_options:hover, .menu_options:focus {
@@ -483,18 +489,18 @@ word-wrap: break-word;
 
 </style>
 
-<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.png?raw=true" type="image/png"> 
+<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.png?raw=true" type="image/png">
 
 
-</head> 
+</head>
 <body>
 
 
 
-    
+
 <div id="popup-container">
-	
-	
+
+
 
 <h1 style="word-wrap: break-word;">%s</h1>
 <hr>
@@ -520,7 +526,7 @@ _js_script = """
         <form ENCTYPE="multipart/form-data" method="post">
         <input type="hidden" name="post-type" value="upload">
         <input type="hidden" name="post-uid" value="12345">
-        
+
   <p>PassWord:&nbsp;&nbsp;</p><input name="password" type="text" label="Password"><br>
   <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple/><br><br>
 
@@ -595,19 +601,19 @@ class Tools {
 
 		brightness.style.opacity = 0.7 - (val * 0.07);
 	}
-	
+
 
 	onlyInt(str){
 	if(this.is_defined(str.replace)){
 	return parseInt(str.replace(/\D+/g, ""))}
 	return 0;
 	}
-	
+
 	del_child(elm){
 		if(typeof(elm)=="string"){
 			elm = byId(elm)
 		}
-		
+
 		while (elm.firstChild) {
 			elm.removeChild(elm.lastChild);
 		}
@@ -615,7 +621,7 @@ class Tools {
 	toggle_bool(bool){
 		return bool !== true;
 	}
-	
+
 	exists(name){
 		return (typeof window[name] !== 'undefined')
 	}
@@ -648,11 +654,11 @@ class Tools {
 		var script = createElement('script'); script.src="//cdn.jsdelivr.net/npm/eruda"; document.body.appendChild(script); script.onload = function () { eruda.init() };
 	}
 
-	
+
 	is_in(item, array) {
 		return array.indexOf(item) > -1;
 	}
-	
+
 	is_defined(obj){
 		return typeof(obj) !== "undefined"
 	}
@@ -687,24 +693,24 @@ class Popup_Msg {
 	constructor() {
 		this.create()
 		this.made_popup = false;
-		
+
 		this.init()
-	
+
 	}
-	
+
 	init(){
 		this.onclose = null_func;
 		this.scroll_disabled = false;
 	}
-	
-	
+
+
 	create() {
 		var that = this;
 		this.popup_id = config.total_popup;
 		this.popup_obj = createElement("div")
 		this.popup_obj.id = "popup-" + this.popup_id;
 		this.popup_obj.classList.add("popup")
-		
+
 		this.popup_bg = createElement("div")
 		this.popup_bg.classList.add("modal_bg")
 		this.popup_bg.id = "popup-bg-" + this.popup_id;
@@ -713,7 +719,7 @@ class Popup_Msg {
 			that.close()
 		}
 		this.popup_obj.appendChild(this.popup_bg);
-		
+
 		var popup_box = createElement("div");
 		popup_box.classList.add("popup-box")
 		var close_btn = createElement("div");
@@ -723,37 +729,37 @@ class Popup_Msg {
 		}
 		close_btn.innerHTML = "&times;";
 		popup_box.appendChild(close_btn)
-		
+
 		this.header = createElement("h1")
 		this.header.id = "popup-header-" + this.popup_id;
 		popup_box.appendChild(this.header)
-		
+
 		this.hr = createElement("popup-hr-" + this.popup_id);
 		this.hr.style.width = "95%%"
 		popup_box.appendChild(this.hr)
-		
+
 		this.content = createElement("div")
 		this.content.id = "popup-content-" + this.popup_id;
 		popup_box.appendChild(this.content)
-		
+
 		this.popup_obj.appendChild(popup_box)
-		
+
 		byId("popup-container").appendChild(this.popup_obj)
 		config.total_popup +=1;
 	}
-	
+
 	close(){
 		this.onclose()
 		this.dismiss()
 		config.popup_msg_open = false;
 	}
-	
+
 	hide(){
 		this.popup_obj.classList.remove("active");
 		tools.toggle_scroll(1)
-		
+
 	}
-	
+
 	dismiss(){
 		this.hide()
 		tools.del_child(this.header);
@@ -771,7 +777,7 @@ class Popup_Msg {
 		this.close()
 		}
 	}
-	
+
 	async open_popup(allow_scroll=false){
 		if(!this.made_popup){return}
 		this.popup_obj.classList.add("active");
@@ -789,7 +795,7 @@ class Popup_Msg {
 		else if(header instanceof Element){
 			this.header.appendChild(header)
 		}
-		
+
 		if (typeof content === 'string' || content instanceof String){
 		this.content.innerHTML = content;}
 		else if(content instanceof Element){
@@ -816,10 +822,10 @@ class ContextMenu {
 		var data = false;
 		if(self.status == 200){
 			data =  JSON.parse(self.responseText);}
-			
+
 		popup_msg.close()
 		await tools.sleep(300)
-		
+
 		if(data){
 			popup_msg.createPopup(data[0], data[1]);
 		}else{
@@ -833,20 +839,20 @@ class ContextMenu {
 		var url = ".";
 		var xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
-	
+
 		xhr.onreadystatechange = function () {
-		
+
 	   if (this.readyState === 4) {
 	   	that.on_result(this)
 	   }};
-	
+
 		var formData = new FormData();
 		formData.append("post-type", action);
-		formData.append("post-uid", 123456); 
-		formData.append("name", link); 
+		formData.append("post-uid", 123456);
+		formData.append("name", link);
 		formData.append("data", more_data)
 		xhr.send(formData);
-	
+
 }
 
 	rename_data(){
@@ -858,7 +864,7 @@ class ContextMenu {
 	}
 
 	rename(file){
-		
+
 		popup_msg.close()
 		popup_msg.createPopup("Rename", "Enter new name: <input id='rename' type='text'><br><br><div class='pagination center' onclick='context_menu.rename_data()'>Change!</div>");
 		popup_msg.open_popup()
@@ -870,7 +876,7 @@ class ContextMenu {
 	show_menus(file, type){
 		var that = this;
 		var menu = createElement("div")
-		
+
 		if(type =="video"){
 			var watch_online = createElement("div")
 			watch_online.innerHTML = "▶️".toHtmlEntities() + " Watch Online"
@@ -882,7 +888,7 @@ class ContextMenu {
 			}
 			menu.appendChild(watch_online)
 		}
-		
+
 		if(type=="folder"){
 			var dl_zip = createElement("div")
 			dl_zip.innerHTML = "🗃️".toHtmlEntities() + " Download as Zip"
@@ -893,7 +899,7 @@ class ContextMenu {
 			}
 			menu.appendChild(dl_zip)
 		}
-		
+
 		var rename = createElement("div")
 		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
 		rename.classList.add("menu_options")
@@ -901,7 +907,7 @@ class ContextMenu {
 			that.rename(file)
 		}
 		menu.appendChild(rename)
-		
+
 		var del = createElement("div")
 		del.innerHTML = "🗑️".toHtmlEntities() + " Delete"
 		del.classList.add("menu_options")
@@ -913,7 +919,7 @@ class ContextMenu {
 		that.menu_click('del-f', file);};
 		log(file, type)
 		menu.appendChild(del)
-			
+
 		var del_P = createElement("div")
 		del_P.innerHTML = "🔥".toHtmlEntities() + " Delete permanently"
 		del_P.classList.add("menu_options")
@@ -928,12 +934,12 @@ class ContextMenu {
 			y_btn.className = "pagination center"
 			y_btn.onclick = function(){
 				that.menu_click('del-p', file);};
-		
+
 			var n_btn = createElement("div")
 			n_btn.innerHTML= "Cancel"
 			n_btn.className ="pagination center"
 			n_btn.onclick = popup_msg.close;
-			
+
 			box.appendChild(y_btn)
 			box.appendChild(n_btn)
 			popup_msg.createPopup("Are you sure?", box)
@@ -941,19 +947,25 @@ class ContextMenu {
 			}
 		del_P.onclick= r_u_sure
 		menu.appendChild(del_P)
-	
-	
-		
+
+
+
 		var property = createElement("div")
 		property.innerHTML = "ℹ️".toHtmlEntities() + " Properties"
 		property.classList.add("menu_options")
 		property.onclick = function(){
 		that.menu_click('info', file);};
 		menu.appendChild(property)
-		
-		
+
+
 		popup_msg.createPopup("Menu", menu)
 		popup_msg.open_popup()
+	}
+
+	create_folder(){
+
+    let folder_name = document.getElementById('folder-name').value;
+    this.menu_click('new folder', folder_name)
 	}
 }
 
@@ -962,7 +974,7 @@ var context_menu = new ContextMenu()
 
 
 function Show_folder_maker(){
-    popup_msg.createPopup("Create Folder", "Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='create_folder()'>Create</div>");
+    popup_msg.createPopup("Create Folder", "Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='context_menu.create_folder()'>Create</div>");
     popup_msg.togglePopup();
 }
 
@@ -983,13 +995,6 @@ function show_response(url, add_reload_btn=true){
     xhr.send(null);
 }
 
-function create_folder(){
-    let folder_name = document.getElementById('folder-name').value;
-    let folder_link = go_link('mkdir', folder_name);
-
-    popup_msg.togglePopup();
-    show_response(folder_link);
-}
 
 function reload(){
     show_response("?reload?");
@@ -1040,9 +1045,9 @@ for (let i = 0; i < r_li.length; i++) {
 	link.innerHTML = '🎥'.toHtmlEntities() + name;
 	link.classList.add('vid');
 	ele.appendChild(link);
-	
+
 	}
-	
+
 	if(r.startsWith('i')){
 
 	type = 'image'
@@ -1082,7 +1087,7 @@ for (let i = 0; i < r_li.length; i++) {
 	context.onclick = function(){log(r_, 1); context_menu.show_menus(r_, type);}
 
 	ele.insertAdjacentElement("beforeend",context);
-	
+
 	var hrr = createElement("hr")
 	ele.insertAdjacentElement("beforeend",hrr);
 
@@ -1218,20 +1223,21 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 	"""
 	Get the size of a directory and all its subdirectories.
 
-	start_path: path to start calculating from 
+	start_path: path to start calculating from
 	limit (int): maximum folder size, if bigger returns "2big"
 	return_list (bool): if True returns a tuple of (total folder size, list of contents)
 	full_dir (bool): if True returns a full path, else relative path
 	"""
 	if return_list: r=[]
 	total_size = 0
-	start_path = start_path[:-1]
-	
+	start_path = os.path.normpath(start_path)
+
 	for dirpath, dirnames, filenames in os.walk(start_path, onerror= print):
 		for f in filenames:
 			fp = os.path.join(dirpath, f)
-			if return_list: r.append(fp if full_dir else f)
-			
+			if return_list: 
+				r.append(fp if full_dir else fp.replace(start_path, "", 1))
+
 			if not os.path.islink(fp):
 				total_size += os.path.getsize(fp)
 			if limit!=None and total_size>limit:
@@ -1249,7 +1255,7 @@ def humanbytes(B):
 	GB = (KB ** 3) # 1,073,741,824
 	TB = (KB ** 4) # 1,099,511,627,776
 	ret=''
-	
+
 	if B>=TB:
 		ret+= '%i TB  '%(B//TB)
 		B%=TB
@@ -1266,7 +1272,7 @@ def humanbytes(B):
 		ret+= '%i bytes'%B
 
 	return ret
-	
+
 
 
 
@@ -1780,7 +1786,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 						 (self.address_string(),
 						  self.log_date_time_string(),
 						  format%args))
-						  
+
 		with open(config.log_location + 'log.txt','a+') as f:
 			f.write("\n\n" + "%s - - [%s] %s\n" %
 						 (self.address_string(),
@@ -1875,20 +1881,23 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.range = None # bug patch
 
 		r, info = self.deal_post_data()
+		if r == None:
+			if info=='get-json':
+				return self.list_directory_json()
 		print((r, info, "by: ", self.client_address))
 		f = io.BytesIO()
 
-		
+
 		if r==True:
 			head = "Success"
 		elif r==False:
 			head = "Failed"
 		else:
 			head = r
-		
+
 		body = info
-		import json
-		
+
+
 		f.write(json.dumps([head, body]).encode())
 
 		length = f.tell()
@@ -1902,14 +1911,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			print(69*111111)
 			self.copyfile(f, self.wfile)
 			f.close()
-		
+
 	def deal_post_data(self):
 		boundary = None
 		uid = None
 		num = 0
 		post_type = None
-		
-		refresh = "<br><div class='pagination center' onclick='window.location.reload()'>Refresh🔄️</div>"
+
+		refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh🔄️</div>"
+
+
+		def get_rel_path(filename):
+			return urllib.parse.unquote(posixpath.join(self.path, filename), errors='surrogatepass')
+
 
 		def get(show=True, strip=False, self=self):
 			"""
@@ -1922,12 +1936,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				print(num, line)
 				num+=1
 			remainbytes -= len(line)
-	
+
 			if strip and line.endswith(b"\r\n"):
 				line = line.rpartition(b"\r\n")[0]
 
 			return line
-			
+
 		def pass_bound(self=self):
 			nonlocal remainbytes
 			line = get(0)
@@ -1941,23 +1955,23 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			try:
 				return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
 			except: return None
-			
+
 		def skip(self=self):
 			get(0)
-			
+
 		def handle_files(self=self):
 			nonlocal remainbytes
 			uploaded_files = [] # Uploaded folder list
-			
+
 			# pass boundary
 			pass_bound()
-			
-			
+
+
 			# PASSWORD SYSTEM
 			if get_type()!="password":
 				return (False, "Invalid request")
-			
-			
+
+
 			skip()
 			password= get(0)
 			print('post password: ',  password)
@@ -1965,26 +1979,27 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
 
 			pass_bound()
-			
-			
+
+
 			while remainbytes > 0:
 				line =get()
 
 				fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
 				if not fn:
 					return (False, "Can't find out file name...")
-				path = self.translate_path(self.path).replace("/", os.sep)
+				path = self.translate_path(self.path)
+
 				fn = os.path.join(path, fn[0])
 				line = get(0) # content type
 				line = get(0) # line gap
-				
+
 				# ORIGINAL FILE STARTS FROM HERE
 				try:
 					out = open(fn, 'wb')
 				except IOError:
 					return (False, "Can't create file to write, do you have permission to write?")
 				else:
-					with out:					
+					with out:
 						preline = get(0)
 						while remainbytes > 0:
 							line = get(0)
@@ -1998,34 +2013,36 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 							else:
 								out.write(preline)
 								preline = line
-								
+
 
 			return (True, ("<!DOCTYPE html><html>\n<title>Upload Result Page</title>\n<body>\n<h2>Upload Result Page</h2>\n<hr>\nFile '%s' upload success!" % ",".join(uploaded_files)) +"<br><a href=\"%s\">back</a>" % self.headers['referer'] + refresh)
-			
-			
+
+
 		def del_data(self=self):
-			
+
 			if disabled_func["trash"]:
 				return (False, "Trash not available. Please contact the Host...")
-			
+
 			# pass boundary
 			pass_bound()
-			
-			
+
+
 			# File link to move to recycle bin
 			if get_type()!="name":
 				return (False, "Invalid request")
-			
-			
+
+
 			skip()
 			filename = get(strip=1).decode()
-			
-			path = self.translate_path(self.path)
+
+
+			path = get_rel_path(filename)
 
 			xpath = self.translate_path(posixpath.join(self.path, filename))
 			#print(tools.text_box(xpath))
+
 			print('send2trash "%s" by: %s'%(xpath, uid))
-			
+
 			bool = False
 			try:
 				send2trash(xpath)
@@ -2035,127 +2052,137 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				msg = "Recycling unavailable! Try deleting permanently..."
 			except Exception as e:
 				traceback.print_exc()
-				msg = "<b>" + xpath + "<b>" + e.__class__.__name__ + " : " + str(e) 
-				
+				msg = "<b>" + path + "<b>" + e.__class__.__name__ + " : " + str(e)
+
 			return (bool, msg)
-				
-			
-			
+
+
+
 		def del_permanently(self=self):
-			
+
 			# pass boundary
 			pass_bound()
-			
-			
+
+
 			# File link to move to recycle bin
 			if get_type()!="name":
 				return (False, "Invalid request")
-			
-			
+
+
 			skip()
 			filename = get(strip=1).decode()
-			
-			path = self.translate_path(self.path)
+
+
+			path = get_rel_path(filename)
 
 			xpath = self.translate_path(posixpath.join(self.path, filename))
 			#print(tools.text_box(xpath))
+
 			print('Perm. DELETED "%s" by: %s'%(xpath, uid))
-			
+
 
 			try:
 				if os.path.isfile(xpath): os.remove(xpath)
 				else: shutil.rmtree(xpath)
-				
-				return (True, "PERMANENTLY DELETED  " + xpath +refresh)
-				
-				
+
+				return (True, "PERMANENTLY DELETED  " + path +refresh)
+
+
 			except Exception as e:
-				return (False, "<b>" + xpath + "<b>" + e.__class__.__name__ + " : " + str(e)) 
-				
+				return (False, "<b>" + path + "<b>" + e.__class__.__name__ + " : " + str(e))
+
 
 		def rename(self=self):
 			# pass boundary
 			pass_bound()
-			
-			
+
+
 			# File link to move to recycle bin
 			if get_type()!="name":
 				return (False, "Invalid request")
-			
-			
+
+
 			skip()
 			filename = get(strip=1).decode()
-			
+
 			pass_bound()
-			
+
 			if get_type()!="data":
 				return (False, "Invalid request")
-			
-			
+
+
 			skip()
 			new_name = get(strip=1).decode()
-			 
-			
-			path = self.translate_path(self.path)
+
+
+			path = get_rel_path(filename)
+
+
 			#print(tools.text_box(filename))
 			xpath = self.translate_path(posixpath.join(self.path, filename))
-			
+
+
 			new_path = self.translate_path(posixpath.join(self.path, new_name))
+
 			#print(tools.text_box(xpath))
 			print('Renamed "%s" by: %s'%(xpath, uid))
-			
-	
+
+
 			try:
 				os.rename(xpath, new_path)
 				return (True, "Rename successful!" + refresh)
 			except Exception as e:
-				return (False, "<b>" + xpath + "<b>" + e.__class__.__name__ + " : " + str(e) )
-		
-		
+				return (False, "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) )
+
+
 		def info(self=self):
-			
-				
+
+
 			# pass boundary
 			pass_bound()
-			
-			
+
+
 			# File link to move to recycle bin
 			if get_type()!="name":
 				return (False, "Invalid request")
-			
-			
+
+
 			skip()
 			filename = get(strip=1).decode()
 
-			
-			path = self.translate_path(self.path)
+
+
+			path = get_rel_path(filename)
+
 			#print(tools.text_box(filename))
 			xpath = self.translate_path(posixpath.join(self.path, filename))
+
 			#print(tools.text_box(xpath))
 			print('Info Checked "%s" by: %s'%(xpath, uid))
-			
+
 			data = {}
 			data["Name"] = filename
 			if os.path.isfile(xpath):
 				data["Type"] = "File"
 				if "." in filename:
 					data["Extension"] = filename.rpartition(".")[2]
-					
+
 				size = int(os.path.getsize(xpath))
-			
+
 			elif os.path.isdir(xpath):
 				data["Type"] = "Folder"
 				size = get_dir_size(xpath)
-		
+
 			data["Size"] = humanbytes(size) + " (%i bytes)"%size
-			
+			data["Path"] = path
+
 			def get_dt(time):
 				return datetime.datetime.fromtimestamp(time)
-			
+
 			data["Created on"] = get_dt(os.path.getctime(xpath))
 			data["Last Modified"] = get_dt(os.path.getmtime(xpath))
 			data["Last Accessed"] = get_dt(os.path.getatime(xpath))
-			
+
 			body = """
 <style>
 table {
@@ -2184,44 +2211,74 @@ tr:nth-child(even) {
 			for i in data.keys():
 				body += "<tr><td>%s</td><td>%s</td></tr>"%(i, data[i])
 			body += "</table>"
-				
+
 			return ("Properties", body)
-				
-			
-			
-		
+
+
+		def new_folder(self=self):
+
+
+			# pass boundary
+			pass_bound()
+
+
+			# File link to move to recycle bin
+			if get_type()!="name":
+				return (False, "Invalid request")
+
+
+			skip()
+			filename = get(strip=1).decode()
+
+
+
+			path = get_rel_path(filename)
+
+			#print(tools.text_box(filename))
+			xpath = self.translate_path(posixpath.join(self.path, filename))
+
+			#print(tools.text_box(xpath))
+			print('Info Checked "%s" by: %s'%(xpath, uid))
+
+			try:
+				os.makedirs(xpath)
+				return (True, "New Folder Created:  " + path +refresh)
+
+			except Exception as e:
+				return (False, "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) )
+
 		while 0:
 			line = get()
-			
-		
+
+
 		content_type = self.headers['content-type']
-		#print(self.headers)
-		
+		print(self.headers)
+
 		if not content_type:
 			return (False, "Content-Type header doesn't contain boundary")
 		boundary = content_type.split("=")[1].encode()
-		
+
 		remainbytes = int(self.headers['content-length'])
-		
+
 
 		pass_bound()# LINE 1
-		
+
 		# get post type
 		if get_type()=="post-type":
 			skip() # newline
 		else:
 			return (False, "Invalid post request")
-		
+
 		line = get()
 		handle_type = line.decode().strip() # post type LINE 3
-		
+
 		pass_bound() #boundary for password or guid of user
-		
+
 		if get_type()=="post-uid":
 			skip() # newline
 		else:
 			return (False, "Unknown User request")
-			
+
 		uid = get() # uid LINE 5
 
 		##################################
@@ -2232,23 +2289,29 @@ tr:nth-child(even) {
 
 		if handle_type == "upload":
 			return handle_files()
-			
-		
+
+
 		elif handle_type == "test":
 			while remainbytes > 0:
 				line =get()
 
 		elif handle_type == "del-f":
 			return del_data()
-			
+
 		elif handle_type == "del-p":
 			return del_permanently()
 
 		elif handle_type=="rename":
 			return rename()
-			
+
 		elif handle_type=="info":
 			return info()
+
+		elif handle_type == "new folder":
+			return new_folder()
+
+		elif handle_type == "get-json":
+			return (None, "get-json")
 
 		return (True, "Something")
 
@@ -2284,7 +2347,7 @@ tr:nth-child(even) {
 		spathtemp= os.path.split(self.path)
 		pathtemp= os.path.split(path)
 		spathsplit = self.path.split('/')
-		
+
 		filename = None
 
 		if self.path == '/favicon.ico':
@@ -2292,107 +2355,91 @@ tr:nth-child(even) {
 			self.send_header('Location','https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
 			self.end_headers()
 			return None
-			
 
 
-		
+
+
 		print('path',path, '\nself.path',self.path, '\nspathtemp',spathtemp, '\npathtemp',pathtemp, '\nspathsplit',spathsplit)
 
 		if spathsplit[-1] == "?reload?":
 			# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
 			reload = True
-			
+
 			httpd.server_close()
 			httpd.shutdown()
 
-		elif pathtemp[-1].startswith("mkdir?"):
-			# print(pathtemp)
-			try:
-				os.mkdir(os.path.join(pathtemp[0], pathtemp[1][6:]))
-				msg = "Directory created!"
-			except Exception as e:
-				msg = "Failed To Create folder " + pathtemp[1][6:] + "</h1><br>" + e.__class__.__name__ + " : " + str(e) 
-			
-			encoded = msg.encode('utf-8', 'surrogateescape')
-
-			f = io.BytesIO()
-			f.write(encoded)
-			
-			f.seek(0)
-			self.send_response(HTTPStatus.OK)
-			self.send_header("Content-type", "text/html; charset=%s" % 'utf-8')
-			self.send_header("Content-Length", str(len(encoded)))
-			self.end_headers()
-			return f
-
-
 		elif spathsplit[-1].startswith('dlY%3F'):
-			# print("=="*10, "\n\n")
-			filename = pathtemp[-1][4:-29]
-			# print("filename", filename)
-			id = pathtemp[-1][-24:]
-			# print("id", id)
-			loc = zip_temp_dir
-			zip_name = id + '.zip'
-			zip_path = os.path.join(str(loc), zip_name)
-			zip_source = os.path.join(pathtemp[0], pathtemp[-1][4:-29])
+			msg = False
+			if disabled_func["7z"]:
+				msg = "Zip function is not available, please Contact the host"
+			else:
+				# print("=="*10, "\n\n")
+				filename = pathtemp[-1][4:-29]
+				# print("filename", filename)
+				id = pathtemp[-1][-24:]
+				# print("id", id)
+				loc = zip_temp_dir
+				zip_name = id + '.zip'
+				zip_path = os.path.join(str(loc), zip_name)
+				zip_source = os.path.join(pathtemp[0], pathtemp[-1][4:-29])
 
-			# print('zip_ids', zip_ids)
+				# print('zip_ids', zip_ids)
 
-			# print(id in zip_ids.keys())
-			# print(id in zip_in_progress)
+				# print(id in zip_ids.keys())
+				# print(id in zip_in_progress)
 
-			xpath = pathtemp[0] +'\\' + pathtemp[-1][4:-29]
+				xpath = pathtemp[0] +'\\' + pathtemp[-1][4:-29]
 
-			try:
-				if id in zip_ids.keys():
-					path = zip_path
-					filename = zip_ids[id] + ".zip"
+				try:
+					if id in zip_ids.keys():
+						path = zip_path
+						filename = zip_ids[id] + ".zip"
 
-					if not os.path.isfile(path):
-						zip_ids.pop(id)
+						if not os.path.isfile(path):
+							zip_ids.pop(id)
 
 
-				if id in zip_in_progress:
-					while id in zip_in_progress:
-						time.sleep(1)
-					path = zip_path
-					filename = zip_ids[id] + ".zip"
+					if id in zip_in_progress:
+						while id in zip_in_progress:
+							time.sleep(1)
+						path = zip_path
+						filename = zip_ids[id] + ".zip"
 
-				if not (id in zip_ids.keys() or id in zip_in_progress):
-					zip_in_progress.append(id)
+					if not (id in zip_ids.keys() or id in zip_in_progress):
+						zip_in_progress.append(id)
 
-					# print("Downloading", filename, "from", id)
-					# print("==================== current path", str(loc))
-					# print("==================== to zip path ", str(pathtemp[-1][4:-29]))
-					
-					
-					# print(' '.join([_7z_parent_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]]))
-					subprocess.call(config._7z_command(['a', '-mx=0', zip_path , zip_source]))
-					zip_in_progress.remove(id)
-					zip_ids[id] = filename
-					path = zip_path
-					filename = zip_ids[id] + ".zip"
-			except Exception as e:
-				traceback.print_exc()
-				
-				msg = "<!doctype HTML><h1>Zipping failed  " + xpath + "</h1><br>" + e.__class__.__name__ 
-				
-				if config.allow_web_log:
-					msg += " : " + str(e) + "\n\n\n" + traceback.format_exc().replace("\n", "<br>")
-					msg += "<br><br><b>7z location:</b> " + config._7z_parent_dir +  config._7z_location
-					msg += "<br><br><b>Command</b> " + ' '.join(config._7z_command(['a', '-mx=0', zip_path , zip_source]))
-					msg += "<br><br>"
-					msg += ' '.join(map(str, ['path',path, '<br>self.path',self.path, '<br>spathtemp',spathtemp, '<br>pathtemp',pathtemp, '<br>spathsplit',spathsplit]))
-					msg += "<br><br>"
-					msg += ' '.join(map(str, ['loc',loc, '<br>id',id, '<br>zip_name',zip_name, '<br>zip_path',zip_path, '<br>zip_ids',zip_ids, '<br>zip_in_progress',zip_in_progress]))
-					msg += "<br><br>"
+						# print("Downloading", filename, "from", id)
+						# print("==================== current path", str(loc))
+						# print("==================== to zip path ", str(pathtemp[-1][4:-29]))
 
+
+						# print(' '.join([_7z_parent_dir+'/7z/7za', 'a', '-mx=0', str(loc)+'\\'+id+'.zip', pathtemp[0] +'\\' + pathtemp[-1][4:-29]]))
+						subprocess.call(config._7z_command(['a', '-mx=0', zip_path , zip_source]))
+						zip_in_progress.remove(id)
+						zip_ids[id] = filename
+						path = zip_path
+						filename = zip_ids[id] + ".zip"
+				except Exception as e:
+					traceback.print_exc()
+
+					msg = "<!doctype HTML><h1>Zipping failed  " + xpath + "</h1><br>" + e.__class__.__name__
+
+					if config.allow_web_log:
+						msg += " : " + str(e) + "\n\n\n" + traceback.format_exc().replace("\n", "<br>")
+						msg += "<br><br><b>7z location:</b> " + config._7z_parent_dir +  config._7z_location
+						msg += "<br><br><b>Command</b> " + ' '.join(config._7z_command(['a', '-mx=0', zip_path , zip_source]))
+						msg += "<br><br>"
+						msg += ' '.join(map(str, ['path',path, '<br>self.path',self.path, '<br>spathtemp',spathtemp, '<br>pathtemp',pathtemp, '<br>spathsplit',spathsplit]))
+						msg += "<br><br>"
+						msg += ' '.join(map(str, ['loc',loc, '<br>id',id, '<br>zip_name',zip_name, '<br>zip_path',zip_path, '<br>zip_ids',zip_ids, '<br>zip_in_progress',zip_in_progress]))
+						msg += "<br><br>"
+
+			if msg:
 				encoded = msg.encode('utf-8', 'surrogateescape')
 
 				f = io.BytesIO()
 				f.write(encoded)
-				
+
 				f.seek(0)
 
 				self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -2402,32 +2449,34 @@ tr:nth-child(even) {
 				return f
 
 		elif self.path.endswith('/') and spathsplit[-2].startswith('dl%3F'):
-			
-			path= self.translate_path('/'.join(spathsplit[:-2])+'/'+spathsplit[-2][5:]+'/')
-			if not os.path.isdir(path):
-				outp = "<!DOCTYPE HTML><h1>Directory not found</h1>"
+			if disabled_func["7z"]:
+				outp = "Zip function is not available, please Contact the host"
 			else:
-				# print('init')
-				total_size, r = get_dir_size(path, 8*1024*1024*1024, True)  # max size limit = 8GB
-				id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))+'_'+ str(time.time())
-				id += '0'*(25-len(id))
-				# print(total_size)
-				too_big= total_size=='2big'
-				# print(too_big)
-				print("Directory size: " + str(total_size))
-				outp='<!DOCTYPE HTML><h1>The folder size is too big</h1>\
-					' if too_big else """<!DOCTYPE HTML><h1> Download will start shortly</h1>
-					<br><br>
-					<iframe src="../dlY%3F"""+spathsplit[-2][5:] +"%3Fid="+id+"""" style="display:none;border: transparent;" height="600px" width="900px"
-					onload="this.style.display = 'block'"></iframe>
-					<pre style='font-size:20px; font-weight: 600;'><b>Directory size:</b> """ + humanbytes(total_size) + """</pre>
-					<br><br>The directory has:\n<hr>"""+ ("\n".join(['<u>'+i+'</u><br>' for i in r]) + """
-					<script>//window.open("../dlY%3F"""+spathsplit[-2][5:] +"%3Fid="+id+'", "_blank");</script>')
+				path= self.translate_path('/'.join(spathsplit[:-2])+'/'+spathsplit[-2][5:]+'/')
+				if not os.path.isdir(path):
+					outp = "<!DOCTYPE HTML><h1>Directory not found</h1>"
+				else:
+					# print('init')
+					total_size, r = get_dir_size(path, 8*1024*1024*1024, True, False)  # max size limit = 8GB
+					id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))+'_'+ str(time.time())
+					id += '0'*(25-len(id))
+					print(total_size, r)
+					too_big= total_size=='2big'
+					# print(too_big)
+					print("Directory size: " + str(total_size))
+					outp='<!DOCTYPE HTML><h1>The folder size is too big</h1>\
+						' if too_big else """<!DOCTYPE HTML><h1> Download will start shortly</h1>
+						<br><br>
+						<iframe src="../dlY%3F"""+spathsplit[-2][5:] +"%3Fid="+id+"""" style="display:none;border: transparent;" height="600px" width="900px"
+						onload="this.style.display = 'block'"></iframe>
+						<pre style='font-size:20px; font-weight: 600;'><b>Directory size:</b> """ + humanbytes(total_size) + """</pre>
+						<br><br>The directory has:\n<hr>"""+ ("\n".join(['<u>'+i+'</u><br>' for i in r]) + """
+						<script>//window.open("../dlY%3F"""+spathsplit[-2][5:] +"%3Fid="+id+'", "_blank");</script>')
 			encoded = outp.encode('utf-8', 'surrogateescape')
 
 			f = io.BytesIO()
 			f.write(encoded)
-			
+
 			f.seek(0)
 			self.send_response(HTTPStatus.OK)
 			self.send_header("Content-type", "text/html; charset=%s" % 'utf-8')
@@ -2459,7 +2508,7 @@ tr:nth-child(even) {
 				self.path= "/".join(spathsplit[:-1]+ [spathtemp[1][6:],])
 				#print(tools.text_box(self.path))
 				path=os.path.join(pathtemp[0],  pathtemp[1][4:])
-				
+
 				r = []
 				try:
 					displaypath = urllib.parse.unquote(self.path,
@@ -2492,12 +2541,12 @@ tr:nth-child(even) {
 
 <div id="container">
 	<video controls crossorigin playsinline data-poster="https://i.imgur.com/jQZ5DoV.jpg" id="player">
-	
+
 	<source src="%s" type="%s"/>
 	<a href="%s" download>Download</a>
 	</video>
 
-	
+
 <script src="https://cdn.plyr.io/3.6.9/demo.js" crossorigin="anonymous"></script>
 	</div><br>'''%(self.path, ctype, self.path))
 
@@ -2515,7 +2564,7 @@ tr:nth-child(even) {
 				self.send_header("Content-Length", str(len(encoded)))
 				self.end_headers()
 				return f
-	
+
 		f = None
 		if os.path.isdir(path):
 			parts = urllib.parse.urlsplit(self.path)
@@ -2534,6 +2583,7 @@ tr:nth-child(even) {
 					path = index
 					break
 			else:
+				#print(path)
 				return self.list_directory(path)
 
 		# check for trailing "/" which should return 404. See Issue17324
@@ -2545,9 +2595,9 @@ tr:nth-child(even) {
 			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 			return None
 
-		
-		
-		
+
+
+
 
 		else:
 			ctype = self.guess_type(path)
@@ -2591,7 +2641,7 @@ tr:nth-child(even) {
 					self.send_header('Content-type', ctype)
 					self.send_header('Accept-Ranges', 'bytes')
 
-					
+
 					if last is None or last >= file_len:
 						last = file_len - 1
 					response_length = last - first + 1
@@ -2600,13 +2650,13 @@ tr:nth-child(even) {
 									'bytes %s-%s/%s' % (first, last, file_len))
 					self.send_header('Content-Length', str(response_length))
 
-					
+
 
 				else:
 					self.send_response(HTTPStatus.OK)
 					self.send_header("Content-type", ctype)
 					self.send_header("Content-Length", str(fs[6]))
-					
+
 				self.send_header("Last-Modified",
 								self.date_time_string(fs.st_mtime))
 				self.send_header("Content-Disposition", 'filename="%s"' % (os.path.basename(path) if filename is None else filename))
@@ -2615,11 +2665,50 @@ tr:nth-child(even) {
 			except:
 				f.close()
 				raise
-				
 
-		
 
-		
+
+
+	def list_directory_json(self, path):
+		"""Helper to produce a directory listing (JSON).
+		Return json file of available files and folders"""
+
+		try:
+			list = os.listdir(path)
+		except OSError:
+			self.send_error(
+				HTTPStatus.NOT_FOUND,
+				"No permission to list directory")
+			return None
+		list.sort(key=lambda a: a.lower())
+		dir_dict = {"paths": [], "names":[]}
+
+
+		for name in list:
+			fullname = os.path.join(path, name)
+			print(fullname)
+			displayname = linkname = name
+
+
+			_is_dir_ = True
+			if os.path.isdir(fullname):
+				displayname = name + "/"
+				linkname = name + "/"
+			elif os.path.islink(fullname):
+				displayname = name + "@"
+
+			dir_dict["paths"].append(urllib.parse.quote(linkname, errors='surrogatepass'))
+			dir_dict["names"].append(html.escape(displayname, quote=False))
+
+		encoded = json.dumps(dir_dict).encode("utf-8", 'surrogateescape')
+		f = io.BytesIO()
+		f.write(encoded)
+		f.seek(0)
+		self.send_response(HTTPStatus.OK)
+		self.send_header("Content-type", "application/json; charset=%s" % "utf-8")
+		self.send_header("Content-Length", str(len(encoded)))
+		self.end_headers()
+		return f
 
 	def list_directory(self, path):
 		"""Helper to produce a directory listing (absent index.html).
@@ -2629,6 +2718,7 @@ tr:nth-child(even) {
 		interface the same as for send_head().
 
 		"""
+		print(path)
 		try:
 			list = os.listdir(path)
 		except OSError:
@@ -2648,7 +2738,7 @@ tr:nth-child(even) {
 
 
 		title = self.get_titles(displaypath)
-		
+
 		r.append(directory_explorer_header%(enc, title, self.dir_navigator(displaypath)))
 		'''r.append('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" '
 				 '"http://www.w3.org/TR/html4/strict.dtd">')
@@ -2664,7 +2754,7 @@ tr:nth-child(even) {
 				 # h  : HTML
 		f_li = [] # file_names
 
-		
+
 		# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
 		for name in list:
 			fullname = os.path.join(path, name)
@@ -2686,7 +2776,7 @@ tr:nth-child(even) {
 				elif self.guess_type(linkname).startswith('video/'):
 					r_li.append('v'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
-					
+
 				elif self.guess_type(linkname).startswith('image/'):
 					r_li.append('i'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
@@ -2697,10 +2787,9 @@ tr:nth-child(even) {
 			if _is_dir_:
 				r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
-			
-			r
 
-			
+
+
 				# Note: a link to a directory displays with @ and links with /
 		# r.append('')
 
@@ -2745,7 +2834,7 @@ tr:nth-child(even) {
 			r.append(tag)
 
 		return '<span class="dir_arrow">&#10151;</span>'.join(r)
-			
+
 
 	def translate_path(self, path):
 		"""Translate a /-separated PATH to the local filename syntax.
@@ -2776,7 +2865,7 @@ tr:nth-child(even) {
 			path = os.path.join(path, word)
 		if trailing_slash:
 			path += '/'
-		return path
+		return os.path.normpath(path) # fix OS based path issue
 
 	def copyfile(self, source, outputfile):
 		"""Copy all data between two file objects.
@@ -2793,12 +2882,12 @@ tr:nth-child(even) {
 
 		"""
 
-		
+
 		if not self.range:
 			source.read(1)
 			source.seek(0)
 			shutil.copyfileobj(source, outputfile)
-			
+
 		else:
 			# SimpleHTTPRequestHandler uses shutil.copyfileobj, which doesn't let
 			# you stop the copying before the end of the file.
@@ -3244,7 +3333,7 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 		print("\nKeyboard interrupt received, exiting.")
 		if not reload:
 			sys.exit(0)
-		
+
 	except OSError:
 		print("\nOSError received, exiting.")
 		if not reload:
@@ -3260,10 +3349,12 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 		return super().server_bind()
 
 
+
+
 if __name__ == '__main__':
 	import argparse
 
-	
+
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--cgi', action='store_true',
