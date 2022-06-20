@@ -13,7 +13,7 @@ class Config:
 		self.WIN_ftp_dir= 'G:\\'
 		# DEFAULT PORT TO LAUNCH SERVER
 		self.IP = None # will be assigned by checking
-		self.all_port= 6969
+		self.port= 6969
 		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
 		self.PASSWORD= "SECret".encode('utf-8')
 		self.log_location = "G:/py-server/"  # fallback log_location = "./"
@@ -71,6 +71,9 @@ class Config:
 			return 'yum'
 		else:
 			return None
+			
+	def address(self):
+		return "%s:%i"%(self.IP, self.port)
 
 
 
@@ -279,6 +282,9 @@ function request_reload()
 {
     fetch('/?reload?');
 }
+
+const public_url = "%s";
+
 </script>
 
 
@@ -537,6 +543,7 @@ _js_script = """
 
 <script>
 
+
 const r_li = %s;
 const f_li = %s;
 
@@ -673,6 +680,14 @@ class Tools {
 			document.body.classList.toggle('overflowHidden');
 		}
 	}
+	
+	download(dataurl, filename=null) {
+  const link = document.createElement("a");
+  link.href = dataurl;
+  link.download = filename;
+  link.click();
+}
+
 }
 
 let tools = new Tools();
@@ -874,20 +889,22 @@ class ContextMenu {
 		byId("rename").focus()
 	}
 
-	show_menus(file, type){
+	show_menus(file, name,type){
+
 		var that = this;
 		var menu = createElement("div")
 
 		if(type =="video"){
-			var watch_online = createElement("div")
-			watch_online.innerHTML = "▶️".toHtmlEntities() + " Watch Online"
-			watch_online.classList.add("menu_options")
-			watch_online.onclick = function(){
-				window.open(go_link('vid', file), '_blank');
+			var download = createElement("div")
+			download.innerHTML = "⬇️".toHtmlEntities() + " Download"
+			download.classList.add("menu_options")
+			download.onclick = function(){
+				tools.download(file, name);
 				popup_msg.close()
-				//that.menu_click('video', file);
 			}
-			menu.appendChild(watch_online)
+			menu.appendChild(download)
+			
+			var copy_url = ""
 		}
 
 		if(type=="folder"){
@@ -1044,10 +1061,12 @@ for (let i = 0; i < r_li.length; i++) {
 	type = 'video';
 
 	link.innerHTML = '🎥'.toHtmlEntities() + name;
+	link.href = go_link("vid", r_)
 	link.classList.add('vid');
 	ele.appendChild(link);
 
 	}
+
 
 	if(r.startsWith('i')){
 
@@ -1085,7 +1104,7 @@ for (let i = 0; i < r_li.length; i++) {
 	context.className = "pagination"
 	context.innerHTML= '<b>&nbsp;&hellip;&nbsp;</b>';
 	context.style.marginLeft= '50px';
-	context.onclick = function(){log(r_, 1); context_menu.show_menus(r_, type);}
+	context.onclick = function(){log(r_, 1); context_menu.show_menus(r_, name,type);}
 
 	ele.insertAdjacentElement("beforeend",context);
 
@@ -2527,7 +2546,8 @@ tr:nth-child(even) {
 				r.append('<meta http-equiv="Content-Type" '
 						'content="text/html; charset=%s">' % enc)
 				r.append('<title>%s</title>\n</head>' % title)"""
-				r.append(directory_explorer_header%(enc, title, self.dir_navigator(displaypath)))
+				r.append(directory_explorer_header%(enc, title,
+				 config.address(), self.dir_navigator(displaypath)))
 
 				if self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])) not in ['video/mp4', 'video/ogg', 'video/webm']:
 					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
@@ -2740,7 +2760,8 @@ tr:nth-child(even) {
 
 		title = self.get_titles(displaypath)
 
-		r.append(directory_explorer_header%(enc, title, self.dir_navigator(displaypath)))
+		r.append(directory_explorer_header%(enc, title,
+		config.address(), self.dir_navigator(displaypath)))
 		'''r.append('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" '
 				 '"http://www.w3.org/TR/html4/strict.dtd">')
 		r.append('<meta http-equiv="Content-Type" '
@@ -3325,7 +3346,7 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	print(
 		f"Serving HTTP on {host} port {port} \n" #TODO: need to check since the output is "Serving HTTP on :: port 6969"
 		f"(http://{url_host}:{port}/) ...\n" #TODO: need to check since the output is "(http://[::]:6969/) ..."
-		f"Server is probably running on http://{local_ip}:{port}"
+		f"Server is probably running on {config.address()}"
 
 	)
 	try:
@@ -3367,7 +3388,7 @@ if __name__ == '__main__':
 						help='Specify alternative directory '
 						'[default:current directory]')
 	parser.add_argument('port', action='store',
-						default=config.all_port, type=int,
+						default=config.port, type=int,
 						nargs='?',
 						help='Specify alternate port [default: 8000]')
 	args = parser.parse_args()
@@ -3379,6 +3400,8 @@ if __name__ == '__main__':
 	else:
 		handler_class = partial(SimpleHTTPRequestHandler,
 								directory=args.directory)
+								
+	config.port = args.port
 
 	if not reload:
 		if sys.version_info>(3,7,2):
