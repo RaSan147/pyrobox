@@ -3346,7 +3346,7 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	print(
 		f"Serving HTTP on {host} port {port} \n" #TODO: need to check since the output is "Serving HTTP on :: port 6969"
 		f"(http://{url_host}:{port}/) ...\n" #TODO: need to check since the output is "(http://[::]:6969/) ..."
-		f"Server is probably running on {config.address()}"
+		f"Server is probably running on http://{config.address()}"
 
 	)
 	try:
