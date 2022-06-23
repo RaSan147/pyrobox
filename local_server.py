@@ -73,7 +73,7 @@ class Config:
 			return None
 			
 	def address(self):
-		return "%s:%i"%(self.IP, self.port)
+		return "http://%s:%i"%(self.IP, self.port)
 
 
 
