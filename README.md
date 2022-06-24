@@ -60,14 +60,16 @@ Basic FEATURES
 ----------------------------------------------------------------
 * DOWNLOAD AND VIDEO STREAM WITH **PAUSE AND RESUME**
 * UPLOAD WITH **PASSWORD**
+* MULTIPLE FILE **UPLOAD**
+* RENAME
 * FOLDER DOWNLOAD as **ZIP** (uses temp folder)
 * VIDEO PLAYER
-* **DELETE FILE** FROM REMOTE (TO RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
-* File manager like NAVIGATION BAR
+* **DELETE FILE** (MOVE TO RECYCLE BIN)
+* PERMANENTLY DELETE
+* `File manager` like `NAVIGATION BAR`
 * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
-* MULTIPLE FILE **UPLOAD**
 * FOLDER CREATION
-* Pop-up messages (from my Web leach repo)
+* Pop-up messages UI(from my Web leach repo)
 * More comming soon
 
  TODO:
