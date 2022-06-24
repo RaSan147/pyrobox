@@ -20,14 +20,14 @@ Installation
    * Like this `192.168.0.100:6969/`
 # On Linux
 
-On Linux give permissions by
-                      ```
-                      sudo chmod +x local_Server.py
-                      ```
-run like a script with 
-                      ```
-                      ./local_Server.py
-                      ```
+On Linux give permissions by :
+```
+   $sudo chmod +x local_Server.py
+```
+run like a script with :
+```
+   $./local_Server.py
+```
 
    
 
