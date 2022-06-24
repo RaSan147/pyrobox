@@ -1899,26 +1899,34 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def do_POST(self):
 		"""Serve a POST request."""
 		self.range = None # bug patch
-
-		r, info = self.deal_post_data()
-		if r == None:
-			if info=='get-json':
-				return self.list_directory_json()
-		print((r, info, "by: ", self.client_address))
+		DO_NOT_JSON = False # wont convert r, info to json
+		
+		
 		f = io.BytesIO()
 
+
+		post_type, r, info = self.deal_post_data()
+		if post_type=='get-json':
+				return self.list_directory_json()
+				
+		if post_type== "upload":
+			DO_NOT_JSON = True
+			
+			
+		print((r, type, info, "by: ", self.client_address))
 
 		if r==True:
 			head = "Success"
 		elif r==False:
 			head = "Failed"
+		
 		else:
 			head = r
 
 		body = info
 
 
-		f.write(json.dumps([head, body]).encode())
+		f.write(((head + body) if DO_NOT_JSON else json.dumps([head, body])).encode())
 
 		length = f.tell()
 		f.seek(0)
@@ -1928,7 +1936,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.end_headers()
 
 		if f:
-			print(69*111111)
 			self.copyfile(f, self.wfile)
 			f.close()
 
@@ -1938,7 +1945,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		num = 0
 		post_type = None
 
-		refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh🔄️</div>"
+		refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
 
 
 		def get_rel_path(filename):
@@ -1985,6 +1992,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			# pass boundary
 			pass_bound()
+			
+			uploading_path = self.path
 
 
 			# PASSWORD SYSTEM
@@ -2035,7 +2044,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 								preline = line
 
 
-			return (True, ("<!DOCTYPE html><html>\n<title>Upload Result Page</title>\n<body>\n<h2>Upload Result Page</h2>\n<hr>\nFile '%s' upload success!" % ",".join(uploaded_files)) +"<br><a href=\"%s\">back</a>" % self.headers['referer'] + refresh)
+			return (True, ("<!DOCTYPE html><html>\n<title>Upload Result Page</title>\n<body>\n<h2>Upload Result Page</h2>\n<hr>\nFile '%s' upload success!" % ",".join(uploaded_files)) +"<br><br><h2><a href=\"%s\">back</a></h2>" % uploading_path)
 
 
 		def del_data(self=self):
@@ -2181,7 +2190,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			print('Info Checked "%s" by: %s'%(xpath, uid))
 
 			data = {}
-			data["Name"] = filename
+			data["Name"] = urllib.parse.unquote(filename, errors= 'surrogatepass')
 			if os.path.isfile(xpath):
 				data["Type"] = "File"
 				if "." in filename:
@@ -2306,9 +2315,11 @@ tr:nth-child(even) {
 		# HANDLE USER PERMISSION BY CHECKING UID
 
 		##################################
+		
+		r, info = (True, "Something")
 
 		if handle_type == "upload":
-			return handle_files()
+			r, info = handle_files()
 
 
 		elif handle_type == "test":
@@ -2316,25 +2327,25 @@ tr:nth-child(even) {
 				line =get()
 
 		elif handle_type == "del-f":
-			return del_data()
+			r, info = del_data()
 
 		elif handle_type == "del-p":
-			return del_permanently()
+			r, info = del_permanently()
 
 		elif handle_type=="rename":
-			return rename()
+			r, info = rename()
 
 		elif handle_type=="info":
-			return info()
+			r, info = info()
 
 		elif handle_type == "new folder":
-			return new_folder()
+			r, info = new_folder()
 
 		elif handle_type == "get-json":
-			return (None, "get-json")
+			r, info = (None, "get-json")
 
-		return (True, "Something")
-
+		
+		return handle_type, r, info
 
 
 	def send_head(self):
@@ -2690,9 +2701,11 @@ tr:nth-child(even) {
 
 
 
-	def list_directory_json(self, path):
+	def list_directory_json(self, path=None):
 		"""Helper to produce a directory listing (JSON).
 		Return json file of available files and folders"""
+		if path == None:
+			path = self.translate_path(self.path)
 
 		try:
 			list = os.listdir(path)
