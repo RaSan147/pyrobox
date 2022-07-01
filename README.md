@@ -58,28 +58,24 @@ Basic FEATURES
 
  Extra FEATURES 
 ----------------------------------------------------------------
-* DOWNLOAD AND VIDEO STREAM WITH **PAUSE AND RESUME**
-* UPLOAD WITH **PASSWORD**
-* MULTIPLE FILE **UPLOAD**
-* RENAME
-* FOLDER DOWNLOAD as **ZIP** (uses temp folder)
-* VIDEO PLAYER
-* **DELETE FILE** (MOVE TO RECYCLE BIN)
-* PERMANENTLY DELETE
-* `File manager` like `NAVIGATION BAR`
-* RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
-* FOLDER CREATION
-* Pop-up messages UI(from my Web leach repo)
-* More comming soon
+* 🔽 DOWNLOAD AND VIDEO STREAM WITH **PAUSE AND RESUME**
+* 🔼 UPLOAD WITH **PASSWORD**
+* 📈 MULTIPLE FILE **UPLOAD**
+* 📝 RENAME
+* 📁 FOLDER DOWNLOAD as **ZIP** (uses temp folder)
+* ⏯ VIDEO PLAYER
+* 🔁 **DELETE FILE** (MOVE TO RECYCLE BIN)
+* 🔥 PERMANENTLY DELETE
+* ⛓ `File manager` like `NAVIGATION BAR`
+* 🧨 RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
+* 🆕 FOLDER CREATION
+* 💬 Pop-up messages UI(from my Web leach repo)
+* 🔜 More comming soon
 
  TODO:
 --------------------------------------------------------------
 
 * RIGHT CLICK CONTEXT MENU
-* Context menu coming soon 
-  <img src="https://user-images.githubusercontent.com/34002411/174422718-e19d33b2-4937-47d7-bcc2-610141c1e437.jpg" width=200>
-
-
 * Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
 * Backup code if Reload causes unhandled issue and can't be accessed
@@ -87,3 +83,9 @@ Basic FEATURES
 * User login and user based permission set. 🔑
 
 # Support for more features
+
+Context menu:
+--------------------------------------------------------------
+  <img src="https://user-images.githubusercontent.com/34002411/174422718-e19d33b2-4937-47d7-bcc2-610141c1e437.jpg" width=200>
+
+
