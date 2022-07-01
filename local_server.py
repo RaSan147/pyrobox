@@ -88,11 +88,15 @@ class Tools:
 			"udash": "_"
 		}
 
-	def text_box(self, text, style = "equal"):
+	def text_box(self, *text, style = "equal"):
+		text = " ".join(map(str, text))
 		term_col = shutil.get_terminal_size()[0]
 
 		s = self.styles[style] if style in self.styles else style
-		return (f"\n\n{s*term_col}\n{str(text).center(term_col)}\n{'='*term_col}\n\n")
+		tt = ""
+		for i in text.split("\n"):
+			tt += i.center(term_col) + "\n"
+		return (f"\n\n{s*term_col}\n{tt}{s*term_col}\n\n")
 
 tools = Tools()
 config = Config()
@@ -1886,7 +1890,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			try:
 				self.copyfile(f, self.wfile)
 			except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-				print(e.__class__.__name__, e)
+				print(tools.text_box(e.__class__.__name__, e,"\nby ", self.client_address))
 			finally:
 				f.close()
 
@@ -1902,12 +1906,14 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		DO_NOT_JSON = False # wont convert r, info to json
 		
 		
-		f = io.BytesIO()
 
-
-		post_type, r, info = self.deal_post_data()
+		try:
+			post_type, r, info = self.deal_post_data()
+		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+			print(tools.text_box(e.__class__.__name__, e,"\nby ", self.client_address))
+			return
 		if post_type=='get-json':
-				return self.list_directory_json()
+			return self.list_directory_json()
 				
 		if post_type== "upload":
 			DO_NOT_JSON = True
@@ -1926,12 +1932,22 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		body = info
 
 
-		f.write(((head + body) if DO_NOT_JSON else json.dumps([head, body])).encode())
+		f = io.BytesIO()
+
+		if DO_NOT_JSON:
+			data = (head + body)
+			content_type = 'text/html'
+		else:
+			data = json.dumps([head, body])
+			content_type = 'application/json'
+		
+		
+		f.write(data.encode('utf-8'))
 
 		length = f.tell()
 		f.seek(0)
 		self.send_response(200)
-		self.send_header("Content-type", "text/html")
+		self.send_header("Content-type", content_type)
 		self.send_header("Content-Length", str(length))
 		self.end_headers()
 
@@ -1944,6 +1960,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		uid = None
 		num = 0
 		post_type = None
+		blank = 0 # blank is used to check if the post is empty or Connection Aborted
 
 		refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
 
@@ -1957,8 +1974,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			show: print line
 			strip: strip \r\n at end
 			"""
-			nonlocal num, remainbytes
+			nonlocal num, remainbytes, blank
+
 			line = self.rfile.readline()
+
+			if line == b'':
+				blank += 1
+			else:
+				blank = 0
+			if blank>=10:
+				self.send_error(408, "Request Timeout")
+				time.sleep(1) # wait for the client to close the connection
+				
+				raise ConnectionAbortedError
 			if show:
 				print(num, line)
 				num+=1
