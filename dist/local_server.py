@@ -2593,21 +2593,21 @@ tr:nth-child(even) {
 				else:
 					ctype = self.guess_type("/".join([pathtemp[0],  spathsplit[-1][6:]]))
 					r.append('''
-<!-- stolen from http://plyr.io -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/RaSan147/httpserver_with_many_feat@main/video.css" />
-
-<link rel="preload" as="font" crossorigin type="font/woff2" href="https://cdn.plyr.io/static/fonts/gordita-medium.woff2" />
-<link rel="preload" as="font" crossorigin type="font/woff2" href="https://cdn.plyr.io/static/fonts/gordita-bold.woff2" />
+<!-- using from http://plyr.io -->
+<link rel="stylesheet" href="https://raw.githack.com/RaSan147/py_httpserver_Ult/main/assets/video.css" />
 
 <div id="container">
-	<video controls crossorigin playsinline data-poster="https://i.imgur.com/jQZ5DoV.jpg" id="player">
+	<video controls crossorigin playsinline data-poster="https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg" id="player">
 
 	<source src="%s" type="%s"/>
 	<a href="%s" download>Download</a>
 	</video>
 
 
-<script src="https://cdn.plyr.io/3.6.9/demo.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.2/plyr.min.js" crossorigin="anonymous"></script>
+<script>
+  const player = new Plyr('#player');
+</script>
 	</div><br>'''%(self.path, ctype, self.path))
 
 				r.append('<br><a href="%s"><div class=\'pagination\'>Download</div></a></li>'
@@ -2990,6 +2990,7 @@ tr:nth-child(even) {
 		'.py': 'text/plain',
 		'.c': 'text/plain',
 		'.h': 'text/plain',
+		'.css': 'text/css'
 		})
 
 
