@@ -2045,6 +2045,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if not fn:
 					return (False, "Can't find out file name...")
 				path = self.translate_path(self.path)
+				rltv_path = posixpath.join(self.path, fn[0]
 
 				fn = os.path.join(path, fn[0])
 				line = get(0) # content type
@@ -2052,11 +2053,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 				# ORIGINAL FILE STARTS FROM HERE
 				try:
-					out = open(fn, 'wb')
-				except IOError:
-					return (False, "Can't create file to write, do you have permission to write?")
-				else:
-					with out:
+					with open(fn, 'wb') as out:
 						preline = get(0)
 						while remainbytes > 0:
 							line = get(0)
@@ -2065,11 +2062,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 								if preline.endswith(b'\r'):
 									preline = preline[0:-1]
 								out.write(preline)
-								uploaded_files.append(fn)
+								uploaded_files.append(rltv_path,)
 								break
 							else:
 								out.write(preline)
 								preline = line
+								
+				except IOError:
+					return (False, "Can't create file to write, do you have permission to write?")
+				
 
 
 			return (True, ("<!DOCTYPE html><html>\n<title>Upload Result Page</title>\n<body>\n<h2>Upload Result Page</h2>\n<hr>\nFile '%s' upload success!" % ",".join(uploaded_files)) +"<br><br><h2><a href=\"%s\">back</a></h2>" % uploading_path)
@@ -2192,7 +2193,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return (False, "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) )
 
 
-		def info(self=self):
+		def get_info(self=self):
 
 
 			# pass boundary
@@ -2364,7 +2365,7 @@ tr:nth-child(even) {
 			r, info = rename()
 
 		elif handle_type=="info":
-			r, info = info()
+			r, info = get_info()
 
 		elif handle_type == "new folder":
 			r, info = new_folder()
@@ -2593,21 +2594,21 @@ tr:nth-child(even) {
 				else:
 					ctype = self.guess_type("/".join([pathtemp[0],  spathsplit[-1][6:]]))
 					r.append('''
-<!-- stolen from http://plyr.io -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/RaSan147/httpserver_with_many_feat@main/video.css" />
-
-<link rel="preload" as="font" crossorigin type="font/woff2" href="https://cdn.plyr.io/static/fonts/gordita-medium.woff2" />
-<link rel="preload" as="font" crossorigin type="font/woff2" href="https://cdn.plyr.io/static/fonts/gordita-bold.woff2" />
+<!-- using from http://plyr.io -->
+<link rel="stylesheet" href="https://raw.githack.com/RaSan147/py_httpserver_Ult/main/assets/video.css" />
 
 <div id="container">
-	<video controls crossorigin playsinline data-poster="https://i.imgur.com/jQZ5DoV.jpg" id="player">
+	<video controls crossorigin playsinline data-poster="https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg" id="player">
 
 	<source src="%s" type="%s"/>
 	<a href="%s" download>Download</a>
 	</video>
 
 
-<script src="https://cdn.plyr.io/3.6.9/demo.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.2/plyr.min.js" crossorigin="anonymous"></script>
+<script>
+  const player = new Plyr('#player');
+</script>
 	</div><br>'''%(self.path, ctype, self.path))
 
 				r.append('<br><a href="%s"><div class=\'pagination\'>Download</div></a></li>'
@@ -2990,6 +2991,7 @@ tr:nth-child(even) {
 		'.py': 'text/plain',
 		'.c': 'text/plain',
 		'.h': 'text/plain',
+		'.css': 'text/css'
 		})
 
 
