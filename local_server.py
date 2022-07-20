@@ -2052,11 +2052,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 				# ORIGINAL FILE STARTS FROM HERE
 				try:
-					out = open(fn, 'wb')
-				except IOError:
-					return (False, "Can't create file to write, do you have permission to write?")
-				else:
-					with out:
+					with open(fn, 'wb') as out:
 						preline = get(0)
 						while remainbytes > 0:
 							line = get(0)
@@ -2070,6 +2066,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 							else:
 								out.write(preline)
 								preline = line
+								
+				except IOError:
+					return (False, "Can't create file to write, do you have permission to write?")
+				
 
 
 			return (True, ("<!DOCTYPE html><html>\n<title>Upload Result Page</title>\n<body>\n<h2>Upload Result Page</h2>\n<hr>\nFile '%s' upload success!" % ",".join(uploaded_files)) +"<br><br><h2><a href=\"%s\">back</a></h2>" % uploading_path)
@@ -2192,7 +2192,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return (False, "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) )
 
 
-		def info(self=self):
+		def get_info(self=self):
 
 
 			# pass boundary
@@ -2364,7 +2364,7 @@ tr:nth-child(even) {
 			r, info = rename()
 
 		elif handle_type=="info":
-			r, info = info()
+			r, info = get_info()
 
 		elif handle_type == "new folder":
 			r, info = new_folder()
