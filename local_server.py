@@ -2045,6 +2045,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if not fn:
 					return (False, "Can't find out file name...")
 				path = self.translate_path(self.path)
+				rltv_path = posixpath.join(self.path, fn[0])
 
 				fn = os.path.join(path, fn[0])
 				line = get(0) # content type
@@ -2061,7 +2062,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 								if preline.endswith(b'\r'):
 									preline = preline[0:-1]
 								out.write(preline)
-								uploaded_files.append(fn)
+								uploaded_files.append(rltv_path,)
 								break
 							else:
 								out.write(preline)
