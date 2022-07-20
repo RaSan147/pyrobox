@@ -2045,7 +2045,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if not fn:
 					return (False, "Can't find out file name...")
 				path = self.translate_path(self.path)
-				rltv_path = posixpath.join(self.path, fn[0]
+				rltv_path = posixpath.join(self.path, fn[0])
 
 				fn = os.path.join(path, fn[0])
 				line = get(0) # content type
