@@ -61,16 +61,20 @@ class Config:
 
 	def linux_installer(self):
 		# detect if apt or yum is installed
+		sudo = ""
+		if shutil.which("sudo"):
+			sudo = "sudo "
 		if shutil.which('pkg'):
-			return 'pkg'
-		elif shutil.which('apt'):
-			return 'apt'
-		elif shutil.which('apt-get'):
-			return 'apt-get'
-		elif shutil.which('yum'):
-			return 'yum'
-		else:
-			return None
+			return sudo + 'pkg'
+		if shutil.which('apt'):
+			return sudo + 'apt'
+		if shutil.which('apt-get'):
+			return sudo + 'apt-get'
+		if shutil.which('yum'):
+			return sudo + 'yum'
+		
+		
+		return None
 			
 	def address(self):
 		return "http://%s:%i"%(self.IP, self.port)
@@ -174,7 +178,7 @@ def init_requirements():
 		if promt=='y':
 			if config.get_os()=='Linux':
 				MISSING = [missing_dict[i] for i in missing]
-				subprocess.call(['sudo', config.linux_installer(), 'install', '-y'] + MISSING)
+				subprocess.call([config.linux_installer(), 'install', '-y'] + MISSING)
 
 			if config.get_os()=='Windows':
 				if 'pip' in missing:
