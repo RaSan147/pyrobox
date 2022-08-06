@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+__version__ = "0.6"
+
+__all__ = [
+	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
+	"SimpleHTTPRequestHandler",
+
+]
+
 from platform import system as platform_system
 import os
 import shutil
@@ -13,7 +21,7 @@ class Config:
 		self.WIN_ftp_dir= 'G:\\'
 		# DEFAULT PORT TO LAUNCH SERVER
 		self.IP = None # will be assigned by checking
-		self.port= 6969
+		self.port= 6969 # DEFAULT PORT TO LAUNCH SERVER
 		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
 		self.PASSWORD= "SECret".encode('utf-8')
 		self.log_location = "G:/py-server/"  # fallback log_location = "./"
@@ -61,16 +69,20 @@ class Config:
 
 	def linux_installer(self):
 		# detect if apt or yum is installed
+		sudo = ""
+		if shutil.which("sudo"):
+			sudo = "sudo "
 		if shutil.which('pkg'):
-			return 'pkg'
-		elif shutil.which('apt'):
-			return 'apt'
-		elif shutil.which('apt-get'):
-			return 'apt-get'
-		elif shutil.which('yum'):
-			return 'yum'
-		else:
-			return None
+			return sudo + 'pkg'
+		if shutil.which('apt'):
+			return sudo + 'apt'
+		if shutil.which('apt-get'):
+			return sudo + 'apt-get'
+		if shutil.which('yum'):
+			return sudo + 'yum'
+		
+		
+		return None
 			
 	def address(self):
 		return "http://%s:%i"%(self.IP, self.port)
@@ -174,7 +186,7 @@ def init_requirements():
 		if promt=='y':
 			if config.get_os()=='Linux':
 				MISSING = [missing_dict[i] for i in missing]
-				subprocess.call(['sudo', config.linux_installer(), 'install', '-y'] + MISSING)
+				subprocess.call([config.linux_installer(), 'install', '-y'] + MISSING)
 
 			if config.get_os()=='Windows':
 				if 'pip' in missing:
@@ -237,7 +249,11 @@ if "pip" not in missing_sys_req:
 			# print(i)
 
 			subprocess.call([sys.executable, "-m", "pip", "install", '--disable-pip-version-check', '--quiet', i])
-			REQUEIREMENTS.remove(i)
+			if i not in get_installed():
+				disabled_func[i] = True
+			else:
+				REQUEIREMENTS.remove(i)
+				
 
 	if not REQUEIREMENTS:
 		print("Reloading...")
@@ -284,7 +300,7 @@ directory_explorer_header = '''
 <script>
 function request_reload()
 {
-    fetch('/?reload?');
+	fetch('/?reload?');
 }
 
 const public_url = "%s";
@@ -301,12 +317,12 @@ body{
 }
 
 html, body, input, textarea, select, button {
-    border-color: #736b5e;
-    color: #e8e6e3;
-    background-color: #181a1b;
+	border-color: #736b5e;
+	color: #e8e6e3;
+	background-color: #181a1b;
 }
 * {
-    scrollbar-color: #0f0f0f #454a4d;
+	scrollbar-color: #0f0f0f #454a4d;
 }
 
 
@@ -318,7 +334,7 @@ html, body, input, textarea, select, button {
 .dir_arrow {
 	position: relative;
 	top: -3px;
-    padding: 4px;
+	padding: 4px;
 	color: #e8e6e3;
 	font-size: 12px;
 	}
@@ -456,23 +472,23 @@ word-wrap: break-word;
 }
 
 .pagination {
-    font: bold 20px Arial;
-    text-decoration: none;
-    background-color: #8a8b8d6b;
-    color: #1f83b6;
-    padding: 2px 6px;
-    border-top: 1px solid #828d94;
-    box-shadow: 4px 4px #5050506b;
-    border-left: 1px solid #828D94;
+	font: bold 20px Arial;
+	text-decoration: none;
+	background-color: #8a8b8d6b;
+	color: #1f83b6;
+	padding: 2px 6px;
+	border-top: 1px solid #828d94;
+	box-shadow: 4px 4px #5050506b;
+	border-left: 1px solid #828D94;
 }
 
 .pagination:hover {
-    background-color:  #4e4f506b;
-    color: #00b7ff;
-    box-shadow: 4px 4px #8d8d8d6b;
-    border: none;
-    border-right: 1px solid #959fa5;
-    border-bottom: 1px solid #959fa5
+	background-color:  #4e4f506b;
+	color: #00b7ff;
+	box-shadow: 4px 4px #8d8d8d6b;
+	border: none;
+	border-right: 1px solid #959fa5;
+	border-bottom: 1px solid #959fa5
 }
 
 .pagination:active {
@@ -534,9 +550,9 @@ _js_script = """
 <div class='pagination' onclick = "Show_folder_maker()">Create Folder</div><br>
 
 <br><hr><br><h2>Upload file</h2>
-        <form ENCTYPE="multipart/form-data" method="post">
-        <input type="hidden" name="post-type" value="upload">
-        <input type="hidden" name="post-uid" value="12345">
+		<form ENCTYPE="multipart/form-data" method="post">
+		<input type="hidden" name="post-type" value="upload">
+		<input type="hidden" name="post-uid" value="12345">
 
   <p>PassWord:&nbsp;&nbsp;</p><input name="password" type="text" label="Password"><br>
   <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple/><br><br>
@@ -569,7 +585,7 @@ function null_func(){
 	return true
 }
 function toggle_scroll() {
-    document.body.classList.toggle('overflowHidden');
+	document.body.classList.toggle('overflowHidden');
 }
 
 function go_link(typee, locate){
@@ -585,35 +601,6 @@ class Tools {
 		// sleeps for a given time in milliseconds
 		return new Promise(resolve => setTimeout(resolve, ms));
 	}
-
-	set_brightness(n = 0) {
-		// sets the brightness of the screen
-
-		var val;
-		var input_ = byId('brightness-input');
-		var brightness = byId('brightness');
-		if (n == 0) {
-			val = sessionStorage.getItem('bright');
-			if (val) {
-				val = parseInt(val);
-				input_.value = val;
-			} else {
-				n = 1;
-			}
-		}
-		if (n == 1) {
-			val = input_.value;
-			//   int to string
-			sessionStorage.setItem('bright', val);
-		}
-
-		// to make sure opacity is not -1.11022e-16
-		if (val == 10) {brightness.style.opacity = 0;return;}
-
-
-		brightness.style.opacity = 0.7 - (val * 0.07);
-	}
-
 
 	onlyInt(str){
 	if(this.is_defined(str.replace)){
@@ -863,7 +850,7 @@ class ContextMenu {
 		xhr.onreadystatechange = function () {
 
 	   if (this.readyState === 4) {
-	   	that.on_result(this)
+		   that.on_result(this)
 	   }};
 
 		var formData = new FormData();
@@ -986,8 +973,8 @@ class ContextMenu {
 
 	create_folder(){
 
-    let folder_name = document.getElementById('folder-name').value;
-    this.menu_click('new folder', folder_name)
+	let folder_name = document.getElementById('folder-name').value;
+	this.menu_click('new folder', folder_name)
 	}
 }
 
@@ -996,39 +983,39 @@ var context_menu = new ContextMenu()
 
 
 function Show_folder_maker(){
-    popup_msg.createPopup("Create Folder", "Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='context_menu.create_folder()'>Create</div>");
-    popup_msg.togglePopup();
+	popup_msg.createPopup("Create Folder", "Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='context_menu.create_folder()'>Create</div>");
+	popup_msg.togglePopup();
 }
 
 function show_response(url, add_reload_btn=true){
   var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState == XMLHttpRequest.DONE) {
-            let msg = xhr.responseText;
+	xhr.onreadystatechange = function() {
+		if (xhr.readyState == XMLHttpRequest.DONE) {
+			let msg = xhr.responseText;
 			if(add_reload_btn){
 				msg = msg + "<br><br><div class='pagination' onclick='window.location.reload()'>Refresh🔄️</div>";
 			}
 			popup_msg.close()
-            popup_msg.createPopup("Result", msg);
-            popup_msg.open_popup();
-        }
-    }
-    xhr.open('GET', url , true);
-    xhr.send(null);
+			popup_msg.createPopup("Result", msg);
+			popup_msg.open_popup();
+		}
+	}
+	xhr.open('GET', url , true);
+	xhr.send(null);
 }
 
 
 function reload(){
-    show_response("?reload?");
+	show_response("?reload?");
 }
 
 function run_recyle(url){
-    return function(){
-        show_response(url);
-    }
+	return function(){
+		show_response(url);
+	}
 }
 
-
+tools.del_child("linkss");
 const linkd_li = document.getElementsByTagName('ul')[0];
 
 for (let i = 0; i < r_li.length; i++) {
@@ -1141,23 +1128,6 @@ and CGIHTTPRequestHandler for CGI scripts.
 It does, however, optionally implement HTTP/1.1 persistent connections,
 as of version 0.3.
 
-Notes on CGIHTTPRequestHandler
-------------------------------
-
-This class implements GET and POST requests to cgi-bin scripts.
-
-If the os.fork() function is not present (e.g. on Windows),
-subprocess.Popen() is used as a fallback, with slightly altered semantics.
-
-In all cases, the implementation is intentionally naive -- all
-requests are executed synchronously.
-
-SECURITY WARNING: DON'T USE THIS CODE UNLESS YOU ARE INSIDE A FIREWALL
--- it may execute arbitrary Python code or external programs.
-
-Note that status code 200 is sent prior to execution of a CGI script, so
-scripts cannot send other status codes such as 302 (redirect).
-
 XXX To do:
 
 - log requests even later (to capture byte count)
@@ -1166,60 +1136,7 @@ XXX To do:
 """
 
 
-# See also:
-#
-# HTTP Working Group										T. Berners-Lee
-# INTERNET-DRAFT											R. T. Fielding
-# <draft-ietf-http-v10-spec-00.txt>					 H. Frystyk Nielsen
-# Expires September 8, 1995								  March 8, 1995
-#
-# URL: http://www.ics.uci.edu/pub/ietf/http/draft-ietf-http-v10-spec-00.txt
-#
-# and
-#
-# Network Working Group									  R. Fielding
-# Request for Comments: 2616									   et al
-# Obsoletes: 2068											  June 1999
-# Category: Standards Track
-#
-# URL: http://www.faqs.org/rfcs/rfc2616.html
 
-# Log files
-# ---------
-#
-# Here's a quote from the NCSA httpd docs about log file format.
-#
-# | The logfile format is as follows. Each line consists of:
-# |
-# | host rfc931 authuser [DD/Mon/YYYY:hh:mm:ss] "request" ddd bbbb
-# |
-# |		host: Either the DNS name or the IP number of the remote client
-# |		rfc931: Any information returned by identd for this person,
-# |				- otherwise.
-# |		authuser: If user sent a userid for authentication, the user name,
-# |				  - otherwise.
-# |		DD: Day
-# |		Mon: Month (calendar name)
-# |		YYYY: Year
-# |		hh: hour (24-hour format, the machine's timezone)
-# |		mm: minutes
-# |		ss: seconds
-# |		request: The first line of the HTTP request as sent by the client.
-# |		ddd: the status code returned by the server, - if not available.
-# |		bbbb: the total number of bytes sent,
-# |			  *not including the HTTP/1.0 header*, - if not available
-# |
-# | You can determine the name of the file accessed through request.
-#
-# (Actually, the latter is only true if you know the server configuration
-# at the time the request was made!)
-
-__version__ = "0.6"
-
-__all__ = [
-	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
-	"SimpleHTTPRequestHandler", "CGIHTTPRequestHandler",
-]
 
 import copy
 import datetime
@@ -1378,76 +1295,6 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
 class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 	"""HTTP request handler base class.
-
-	The following explanation of HTTP serves to guide you through the
-	code as well as to expose any misunderstandings I may have about
-	HTTP (so you don't need to read the code to figure out I'm wrong
-	:-).
-
-	HTTP (HyperText Transfer Protocol) is an extensible protocol on
-	top of a reliable stream transport (e.g. TCP/IP).  The protocol
-	recognizes three parts to a request:
-
-	1. One line identifying the request type and path
-	2. An optional set of RFC-822-style headers
-	3. An optional data part
-
-	The headers and data are separated by a blank line.
-
-	The first line of the request has the form
-
-	<command> <path> <version>
-
-	where <command> is a (case-sensitive) keyword such as GET or POST,
-	<path> is a string containing path information for the request,
-	and <version> should be the string "HTTP/1.0" or "HTTP/1.1".
-	<path> is encoded using the URL encoding scheme (using %xx to signify
-	the ASCII character with hex code xx).
-
-	The specification specifies that lines are separated by CRLF but
-	for compatibility with the widest range of clients recommends
-	servers also handle LF.  Similarly, whitespace in the request line
-	is treated sensibly (allowing multiple spaces between components
-	and allowing trailing whitespace).
-
-	Similarly, for output, lines ought to be separated by CRLF pairs
-	but most clients grok LF characters just fine.
-
-	If the first line of the request has the form
-
-	<command> <path>
-
-	(i.e. <version> is left out) then this is assumed to be an HTTP
-	0.9 request; this form has no optional headers and data part and
-	the reply consists of just the data.
-
-	The reply form of the HTTP 1.x protocol again has three parts:
-
-	1. One line giving the response code
-	2. An optional set of RFC-822-style headers
-	3. The data
-
-	Again, the headers and data are separated by a blank line.
-
-	The response code line has the form
-
-	<version> <responsecode> <responsestring>
-
-	where <version> is the protocol version ("HTTP/1.0" or "HTTP/1.1"),
-	<responsecode> is a 3-digit response code indicating success or
-	failure of the request, and <responsestring> is an optional
-	human-readable string explaining what the response code means.
-
-	This server parses the request and the headers, and then calls a
-	function specific to the request type (<command>).  Specifically,
-	a request SPAM will be handled by a method do_SPAM().  If no
-	such method exists the server sends an error response to the
-	client.  If it exists, it is called with no arguments:
-
-	do_SPAM()
-
-	Note that the request name is case sensitive (i.e. SPAM and spam
-	are different requests).
 
 	The various request details are stored in instance variables:
 
@@ -1876,11 +1723,27 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	"""
 
 	server_version = "SimpleHTTP/" + __version__
+	
+	if not mimetypes.inited:
+		mimetypes.init() # try to read system mime.types
+	extensions_map = mimetypes.types_map.copy()
+	extensions_map.update({
+		'': 'application/octet-stream', # Default
+		'.py': 'text/plain',
+		'.c': 'text/plain',
+		'.h': 'text/plain',
+		'.css': 'text/css',
+
+		'.gz': 'application/gzip',
+		'.Z': 'application/octet-stream',
+		'.bz2': 'application/x-bzip2',
+		'.xz': 'application/x-xz',
+	})
 
 	def __init__(self, *args, directory=None, **kwargs):
 		if directory is None:
 			directory = os.getcwd()
-		self.directory = directory
+		self.directory = os.fspath(directory)
 		super().__init__(*args, **kwargs)
 
 	def do_GET(self):
@@ -2262,8 +2125,8 @@ tr:nth-child(even) {
 
 <table>
   <tr>
-    <th>About</th>
-    <th>Info</th>
+	<th>About</th>
+	<th>Info</th>
   </tr>
   """
 			for i in data.keys():
@@ -2636,6 +2499,7 @@ tr:nth-child(even) {
 							 parts[3], parts[4])
 				new_url = urllib.parse.urlunsplit(new_parts)
 				self.send_header("Location", new_url)
+				self.send_header("Content-Length", "0")
 				self.end_headers()
 				return None
 			for index in "index.html", "index.htm":
@@ -2658,74 +2522,79 @@ tr:nth-child(even) {
 
 
 
+		# else:
+		
 
-
-		else:
+		try:
 			ctype = self.guess_type(path)
 			f = open(path, 'rb')
-			try:
-				fs = os.fstat(f.fileno())
+			fs = os.fstat(f.fileno())
 
-				file_len = fs[6]
-				if self.range and first >= file_len: # PAUSE AND RESUME SUPPORT
-					self.send_error(416, 'Requested Range Not Satisfiable')
-					return None
-				# Use browser cache if possible
-				if ("If-Modified-Since" in self.headers
-						and "If-None-Match" not in self.headers):
-					# compare If-Modified-Since and time of last file modification
-					try:
-						ims = email.utils.parsedate_to_datetime(
-							self.headers["If-Modified-Since"])
-					except (TypeError, IndexError, OverflowError, ValueError):
-						# ignore ill-formed values
-						pass
-					else:
-						if ims.tzinfo is None:
-							# obsolete format with no timezone, cf.
-							# https://tools.ietf.org/html/rfc7231#section-7.1.1.1
-							ims = ims.replace(tzinfo=datetime.timezone.utc)
-						if ims.tzinfo is datetime.timezone.utc:
-							# compare to UTC datetime of last modification
-							last_modif = datetime.datetime.fromtimestamp(
-								fs.st_mtime, datetime.timezone.utc)
-							# remove microseconds, like in If-Modified-Since
-							last_modif = last_modif.replace(microsecond=0)
-
-							if last_modif <= ims:
-								self.send_response(HTTPStatus.NOT_MODIFIED)
-								self.end_headers()
-								f.close()
-								return None
-				if self.range:
-					self.send_response(206)
-					self.send_header('Content-type', ctype)
-					self.send_header('Accept-Ranges', 'bytes')
-
-
-					if last is None or last >= file_len:
-						last = file_len - 1
-					response_length = last - first + 1
-
-					self.send_header('Content-Range',
-									'bytes %s-%s/%s' % (first, last, file_len))
-					self.send_header('Content-Length', str(response_length))
-
-
-
+			file_len = fs[6]
+			if self.range and first >= file_len: # PAUSE AND RESUME SUPPORT
+				self.send_error(416, 'Requested Range Not Satisfiable')
+				return None
+			# Use browser cache if possible
+			if ("If-Modified-Since" in self.headers
+					and "If-None-Match" not in self.headers):
+				# compare If-Modified-Since and time of last file modification
+				try:
+					ims = email.utils.parsedate_to_datetime(
+						self.headers["If-Modified-Since"])
+				except (TypeError, IndexError, OverflowError, ValueError):
+					# ignore ill-formed values
+					pass
 				else:
-					self.send_response(HTTPStatus.OK)
-					self.send_header("Content-type", ctype)
-					self.send_header("Content-Length", str(fs[6]))
+					if ims.tzinfo is None:
+						# obsolete format with no timezone, cf.
+						# https://tools.ietf.org/html/rfc7231#section-7.1.1.1
+						ims = ims.replace(tzinfo=datetime.timezone.utc)
+					if ims.tzinfo is datetime.timezone.utc:
+						# compare to UTC datetime of last modification
+						last_modif = datetime.datetime.fromtimestamp(
+							fs.st_mtime, datetime.timezone.utc)
+						# remove microseconds, like in If-Modified-Since
+						last_modif = last_modif.replace(microsecond=0)
 
-				self.send_header("Last-Modified",
-								self.date_time_string(fs.st_mtime))
-				self.send_header("Content-Disposition", 'filename="%s"' % (os.path.basename(path) if filename is None else filename))
-				self.end_headers()
-				return f
-			except:
-				f.close()
-				raise
+						if last_modif <= ims:
+							self.send_response(HTTPStatus.NOT_MODIFIED)
+							self.end_headers()
+							f.close()
+							return None
+			if self.range:
+				self.send_response(206)
+				self.send_header('Content-type', ctype)
+				self.send_header('Accept-Ranges', 'bytes')
+
+
+				if last is None or last >= file_len:
+					last = file_len - 1
+				response_length = last - first + 1
+
+				self.send_header('Content-Range',
+								'bytes %s-%s/%s' % (first, last, file_len))
+				self.send_header('Content-Length', str(response_length))
+
+
+
+			else:
+				self.send_response(HTTPStatus.OK)
+				self.send_header("Content-type", ctype)
+				self.send_header("Content-Length", str(fs[6]))
+
+			self.send_header("Last-Modified",
+							self.date_time_string(fs.st_mtime))
+			self.send_header("Content-Disposition", 'filename="%s"' % (os.path.basename(path) if filename is None else filename))
+			self.end_headers()
+			return f
+			
+		except OSError:
+			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+			return None
+
+		except:
+			f.close()
+			raise
 
 
 
@@ -2737,17 +2606,17 @@ tr:nth-child(even) {
 			path = self.translate_path(self.path)
 
 		try:
-			list = os.listdir(path)
+			dir_list = os.listdir(path)
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
 				"No permission to list directory")
 			return None
-		list.sort(key=lambda a: a.lower())
+		dir_list.sort(key=lambda a: a.lower())
 		dir_dict = {"paths": [], "names":[]}
 
 
-		for name in list:
+		for name in dir_list:
 			fullname = os.path.join(path, name)
 			print(fullname)
 			displayname = linkname = name
@@ -2781,15 +2650,15 @@ tr:nth-child(even) {
 		interface the same as for send_head().
 
 		"""
-		print(path)
+		# print(path)
 		try:
-			list = os.listdir(path)
+			dir_list = os.listdir(path)
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
 				"No permission to list directory")
 			return None
-		list.sort(key=lambda a: a.lower())
+		dir_list.sort(key=lambda a: a.lower())
 		r = []
 		try:
 			displaypath = urllib.parse.unquote(self.path,
@@ -2804,8 +2673,7 @@ tr:nth-child(even) {
 
 		r.append(directory_explorer_header%(enc, title,
 		config.address(), self.dir_navigator(displaypath)))
-		'''r.append('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" '
-				 '"http://www.w3.org/TR/html4/strict.dtd">')
+		'''r.append('<!DOCTYPE html>')
 		r.append('<meta http-equiv="Content-Type" '
 				 'content="text/html; charset=%s">' % enc)
 		r.append('<title>%s</title>\n</head>' % title)'''
@@ -2820,7 +2688,7 @@ tr:nth-child(even) {
 
 
 		# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
-		for name in list:
+		for name in dir_list:
 			fullname = os.path.join(path, name)
 			displayname = linkname = name
 			# Append / for directories or @ for symbolic links
@@ -2834,6 +2702,11 @@ tr:nth-child(even) {
 				_is_dir_ =False
 				__, ext = posixpath.splitext(fullname)
 				if ext=='.html':
+					r.append('<li><a class= "%s" href="%s">%s</a></li>'
+					% ("link", urllib.parse.quote(linkname,
+										  errors='surrogatepass'),
+					   html.escape(displayname, quote=False)))
+					
 					r_li.append('h'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 
@@ -2846,9 +2719,19 @@ tr:nth-child(even) {
 					f_li.append(html.escape(displayname, quote=False))
 
 				else:
+					
+					r.append('<li><a class= "%s" href="%s">%s</a></li>'
+					% ("file", urllib.parse.quote(linkname,
+										  errors='surrogatepass'),
+					   html.escape(displayname, quote=False)))
+					   
 					r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 			if _is_dir_:
+				r.append('<li><a href="%s">%s</a></li>'
+					% (urllib.parse.quote(linkname,
+										  errors='surrogatepass'),
+					   html.escape(displayname, quote=False)))
 				r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
 
@@ -2980,356 +2863,13 @@ tr:nth-child(even) {
 		ext = ext.lower()
 		if ext in self.extensions_map:
 			return self.extensions_map[ext]
-		else:
-			return self.extensions_map['']
-
-	if not mimetypes.inited:
-		mimetypes.init() # try to read system mime.types
-	extensions_map = mimetypes.types_map.copy()
-	extensions_map.update({
-		'': 'application/octet-stream', # Default
-		'.py': 'text/plain',
-		'.c': 'text/plain',
-		'.h': 'text/plain',
-		'.css': 'text/css'
-		})
+		guess, _ = mimetypes.guess_type(path)
+		if guess:
+			return guess
+		
+		return self.extensions_map[''] #return 'application/octet-stream'
 
 
-# Utilities for CGIHTTPRequestHandler
-
-def _url_collapse_path(path):
-	"""
-	Given a URL path, remove extra '/'s and '.' path elements and collapse
-	any '..' references and returns a collapsed path.
-
-	Implements something akin to RFC-2396 5.2 step 6 to parse relative paths.
-	The utility of this function is limited to is_cgi method and helps
-	preventing some security attacks.
-
-	Returns: The reconstituted URL, which will always start with a '/'.
-
-	Raises: IndexError if too many '..' occur within the path.
-
-	"""
-	# Query component should not be involved.
-	path, _, query = path.partition('?')
-	path = urllib.parse.unquote(path)
-
-	# Similar to os.path.split(os.path.normpath(path)) but specific to URL
-	# path semantics rather than local operating system semantics.
-	path_parts = path.split('/')
-	head_parts = []
-	for part in path_parts[:-1]:
-		if part == '..':
-			head_parts.pop() # IndexError if more '..' than prior parts
-		elif part and part != '.':
-			head_parts.append( part )
-	if path_parts:
-		tail_part = path_parts.pop()
-		if tail_part:
-			if tail_part == '..':
-				head_parts.pop()
-				tail_part = ''
-			elif tail_part == '.':
-				tail_part = ''
-	else:
-		tail_part = ''
-
-	if query:
-		tail_part = '?'.join((tail_part, query))
-
-	splitpath = ('/' + '/'.join(head_parts), tail_part)
-	collapsed_path = "/".join(splitpath)
-
-	return collapsed_path
-
-
-
-nobody = None
-
-def nobody_uid():
-	"""Internal routine to get nobody's uid"""
-	global nobody
-	if nobody:
-		return nobody
-	try:
-		import pwd
-	except ImportError:
-		return -1
-	try:
-		nobody = pwd.getpwnam('nobody')[2]
-	except KeyError:
-		nobody = 1 + max(x[2] for x in pwd.getpwall())
-	return nobody
-
-
-def executable(path):
-	"""Test for executable file."""
-	return os.access(path, os.X_OK)
-
-
-class CGIHTTPRequestHandler(SimpleHTTPRequestHandler):
-
-	"""Complete HTTP server with GET, HEAD and POST commands.
-
-	GET and HEAD also support running CGI scripts.
-
-	The POST command is *only* implemented for CGI scripts.
-
-	"""
-
-	# Determine platform specifics
-	have_fork = hasattr(os, 'fork')
-
-	# Make rfile unbuffered -- we need to read one line and then pass
-	# the rest to a subprocess, so we can't use buffered input.
-	rbufsize = 0
-
-	def do_POST(self):
-		"""Serve a POST request.
-
-		This is only implemented for CGI scripts.
-
-		"""
-
-		if self.is_cgi():
-			self.run_cgi()
-		else:
-			self.send_error(
-				HTTPStatus.NOT_IMPLEMENTED,
-				"Can only POST to CGI scripts")
-
-	def send_head(self):
-		"""Version of send_head that support CGI scripts"""
-		if self.is_cgi():
-			return self.run_cgi()
-		else:
-			return SimpleHTTPRequestHandler.send_head(self)
-
-	def is_cgi(self):
-		"""Test whether self.path corresponds to a CGI script.
-
-		Returns True and updates the cgi_info attribute to the tuple
-		(dir, rest) if self.path requires running a CGI script.
-		Returns False otherwise.
-
-		If any exception is raised, the caller should assume that
-		self.path was rejected as invalid and act accordingly.
-
-		The default implementation tests whether the normalized url
-		path begins with one of the strings in self.cgi_directories
-		(and the next character is a '/' or the end of the string).
-
-		"""
-		collapsed_path = _url_collapse_path(self.path)
-		dir_sep = collapsed_path.find('/', 1)
-		head, tail = collapsed_path[:dir_sep], collapsed_path[dir_sep+1:]
-		if head in self.cgi_directories:
-			self.cgi_info = head, tail
-			return True
-		return False
-
-
-	cgi_directories = ['/cgi-bin', '/htbin']
-
-	def is_executable(self, path):
-		"""Test whether argument path is an executable file."""
-		return executable(path)
-
-	def is_python(self, path):
-		"""Test whether argument path is a Python script."""
-		head, tail = os.path.splitext(path)
-		return tail.lower() in (".py", ".pyw")
-
-	def run_cgi(self):
-		"""Execute a CGI script."""
-		dir, rest = self.cgi_info
-		path = dir + '/' + rest
-		i = path.find('/', len(dir)+1)
-		while i >= 0:
-			nextdir = path[:i]
-			nextrest = path[i+1:]
-
-			scriptdir = self.translate_path(nextdir)
-			if os.path.isdir(scriptdir):
-				dir, rest = nextdir, nextrest
-				i = path.find('/', len(dir)+1)
-			else:
-				break
-
-		# find an explicit query string, if present.
-		rest, _, query = rest.partition('?')
-
-		# dissect the part after the directory name into a script name &
-		# a possible additional path, to be stored in PATH_INFO.
-		i = rest.find('/')
-		if i >= 0:
-			script, rest = rest[:i], rest[i:]
-		else:
-			script, rest = rest, ''
-
-		scriptname = dir + '/' + script
-		scriptfile = self.translate_path(scriptname)
-		if not os.path.exists(scriptfile):
-			self.send_error(
-				HTTPStatus.NOT_FOUND,
-				"No such CGI script (%r)" % scriptname)
-			return
-		if not os.path.isfile(scriptfile):
-			self.send_error(
-				HTTPStatus.FORBIDDEN,
-				"CGI script is not a plain file (%r)" % scriptname)
-			return
-		ispy = self.is_python(scriptname)
-		if self.have_fork or not ispy:
-			if not self.is_executable(scriptfile):
-				self.send_error(
-					HTTPStatus.FORBIDDEN,
-					"CGI script is not executable (%r)" % scriptname)
-				return
-
-		# Reference: http://hoohoo.ncsa.uiuc.edu/cgi/env.html
-		# XXX Much of the following could be prepared ahead of time!
-		env = copy.deepcopy(os.environ)
-		env['SERVER_SOFTWARE'] = self.version_string()
-		env['SERVER_NAME'] = self.server.server_name
-		env['GATEWAY_INTERFACE'] = 'CGI/1.1'
-		env['SERVER_PROTOCOL'] = self.protocol_version
-		env['SERVER_PORT'] = str(self.server.server_port)
-		env['REQUEST_METHOD'] = self.command
-		uqrest = urllib.parse.unquote(rest)
-		env['PATH_INFO'] = uqrest
-		env['PATH_TRANSLATED'] = self.translate_path(uqrest)
-		env['SCRIPT_NAME'] = scriptname
-		if query:
-			env['QUERY_STRING'] = query
-		env['REMOTE_ADDR'] = self.client_address[0]
-		authorization = self.headers.get("authorization")
-		if authorization:
-			authorization = authorization.split()
-			if len(authorization) == 2:
-				import base64, binascii
-				env['AUTH_TYPE'] = authorization[0]
-				if authorization[0].lower() == "basic":
-					try:
-						authorization = authorization[1].encode('ascii')
-						authorization = base64.decodebytes(authorization).\
-										decode('ascii')
-					except (binascii.Error, UnicodeError):
-						pass
-					else:
-						authorization = authorization.split(':')
-						if len(authorization) == 2:
-							env['REMOTE_USER'] = authorization[0]
-		# XXX REMOTE_IDENT
-		if self.headers.get('content-type') is None:
-			env['CONTENT_TYPE'] = self.headers.get_content_type()
-		else:
-			env['CONTENT_TYPE'] = self.headers['content-type']
-		length = self.headers.get('content-length')
-		if length:
-			env['CONTENT_LENGTH'] = length
-		referer = self.headers.get('referer')
-		if referer:
-			env['HTTP_REFERER'] = referer
-		accept = []
-		for line in self.headers.getallmatchingheaders('accept'):
-			if line[:1] in "\t\n\r ":
-				accept.append(line.strip())
-			else:
-				accept = accept + line[7:].split(',')
-		env['HTTP_ACCEPT'] = ','.join(accept)
-		ua = self.headers.get('user-agent')
-		if ua:
-			env['HTTP_USER_AGENT'] = ua
-		co = filter(None, self.headers.get_all('cookie', []))
-		cookie_str = ', '.join(co)
-		if cookie_str:
-			env['HTTP_COOKIE'] = cookie_str
-		# XXX Other HTTP_* headers
-		# Since we're setting the env in the parent, provide empty
-		# values to override previously set values
-		for k in ('QUERY_STRING', 'REMOTE_HOST', 'CONTENT_LENGTH',
-				  'HTTP_USER_AGENT', 'HTTP_COOKIE', 'HTTP_REFERER'):
-			env.setdefault(k, "")
-
-		self.send_response(HTTPStatus.OK, "Script output follows")
-		self.flush_headers()
-
-		decoded_query = query.replace('+', ' ')
-
-		if self.have_fork:
-			# Unix -- fork as we should
-			args = [script]
-			if '=' not in decoded_query:
-				args.append(decoded_query)
-			nobody = nobody_uid()
-			self.wfile.flush() # Always flush before forking
-			pid = os.fork()
-			if pid != 0:
-				# Parent
-				pid, sts = os.waitpid(pid, 0)
-				# throw away additional data [see bug #427345]
-				while select.select([self.rfile], [], [], 0)[0]:
-					if not self.rfile.read(1):
-						break
-				if sts:
-					self.log_error("CGI script exit status %#x", sts)
-				return
-			# Child
-			try:
-				try:
-					os.setuid(nobody)
-				except OSError:
-					pass
-				os.dup2(self.rfile.fileno(), 0)
-				os.dup2(self.wfile.fileno(), 1)
-				os.execve(scriptfile, args, env)
-			except:
-				self.server.handle_error(self.request, self.client_address)
-				os._exit(127)
-
-		else:
-			# Non-Unix -- use subprocess
-			cmdline = [scriptfile]
-			if self.is_python(scriptfile):
-				interp = sys.executable
-				if interp.lower().endswith("w.exe"):
-					# On Windows, use python.exe, not pythonw.exe
-					interp = interp[:-5] + interp[-4:]
-				cmdline = [interp, '-u'] + cmdline
-			if '=' not in query:
-				cmdline.append(query)
-			self.log_message("command: %s", subprocess.list2cmdline(cmdline))
-			try:
-				nbytes = int(length)
-			except (TypeError, ValueError):
-				nbytes = 0
-			p = subprocess.Popen(cmdline,
-								 stdin=subprocess.PIPE,
-								 stdout=subprocess.PIPE,
-								 stderr=subprocess.PIPE,
-								 env = env
-								 )
-			if self.command.lower() == "post" and nbytes > 0:
-				data = self.rfile.read(nbytes)
-			else:
-				data = None
-			# throw away additional data [see bug #427345]
-			while select.select([self.rfile._sock], [], [], 0)[0]:
-				if not self.rfile._sock.recv(1):
-					break
-			stdout, stderr = p.communicate(data)
-			self.wfile.write(stdout)
-			if stderr:
-				self.log_error('%s', stderr)
-			p.stderr.close()
-			p.stdout.close()
-			status = p.returncode
-			if status:
-				self.log_error("CGI script exit status %#x", status)
-			else:
-				self.log_message("CGI script exited OK")
 
 
 def _get_best_family(*address):
@@ -3406,12 +2946,20 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 
 
 class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
+	
+	def handle_error(self, request, client_address):
+		pass
+	
 	def server_bind(self):
 		# suppress exception when protocol is IPv4
 		with contextlib.suppress(Exception):
 			self.socket.setsockopt(
 				socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
 		return super().server_bind()
+
+	def finish_request(self, request, client_address):
+			self.RequestHandlerClass(request, client_address, self,
+									directory=args.directory)
 
 
 
@@ -3422,8 +2970,7 @@ if __name__ == '__main__':
 
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--cgi', action='store_true',
-					   help='Run as CGI Server')
+	
 	parser.add_argument('--bind', '-b', metavar='ADDRESS',
 						help='Specify alternate bind address '
 							 '[default: all interfaces]')
@@ -3438,10 +2985,8 @@ if __name__ == '__main__':
 	if args.directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
 		print(config.ftp_dir, "not found!\nReseting directory to current directory")
 		args.directory = "."
-	if args.cgi:
-		handler_class = CGIHTTPRequestHandler
-	else:
-		handler_class = partial(SimpleHTTPRequestHandler,
+
+	handler_class = partial(SimpleHTTPRequestHandler,
 								directory=args.directory)
 								
 	config.port = args.port
