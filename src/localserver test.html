@@ -1,0 +1,844 @@
+
+
+
+<!DOCTYPE HTML>
+<!-- test1 -->
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<title>Viewing IDM 6.40 build 11 incl Patch [32bit + 64bit] [CrackingPatching]</title>
+
+<script>
+function request_reload()
+{
+	fetch('/?reload?');
+}
+
+const public_url = "http://192.168.0.100:9999";
+
+</script>
+
+
+
+
+<style type="text/css">
+body{
+  position: relative;
+  min-height: 100vh;
+}
+
+html, body, input, textarea, select, button {
+	border-color: #736b5e;
+	color: #e8e6e3;
+	background-color: #181a1b;
+}
+* {
+	scrollbar-color: #0f0f0f #454a4d;
+}
+
+h1 {
+    transform: rotate(90deg);
+    transform-origin: left top;
+    overflow: auto;
+    
+}
+
+#dirs {
+    display: inline-block;
+    transform: rotate(90deg);
+    transform-origin: left top;
+}
+
+.center {
+	text-align: center;
+	margin: auto;
+}
+
+.dir_arrow {
+	position: relative;
+	top: -3px;
+	padding: 4px;
+	color: #e8e6e3;
+	font-size: 12px;
+	}
+
+
+
+a{
+  line-height: 200%;
+  font-size: 20px;
+  font-weight: 600;
+  font-family: 'Gill Sans, Gill Sans MT, Calibri, Trebuchet MS, sans-serif';
+  text-decoration: none;
+  color: #00BFFF;
+}
+
+.all_link{
+word-wrap: break-word;
+}
+
+.link{
+  color: #1589FF;
+  /* background-color: #1589FF; */
+}
+
+.vid{
+  color: #8A2BE2;
+  font-weight: 300;
+}
+
+.file{
+  font-weight: 300;
+  color: #c07cf7;
+  font-weight: 400;
+}
+
+
+#footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 2.5rem;			/* Footer height */
+}
+
+
+.overflowHidden {
+	overflow: hidden !important
+}
+
+
+/* POPUP CSS */
+
+.modal_bg{
+  display: inherit;
+  position: fixed;
+  z-index: 1;
+  padding-top: inherit;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+
+.popup {
+	position: fixed;
+	z-index: 22;
+	left: 50%;
+	top: 50%;
+	width: 100%;
+	height: 100%;
+	overflow: none;
+	transition: all .5s ease-in-out;
+	transform: translate(-50%, -50%) scale(1)
+}
+
+.popup-box {
+	display: block;
+	/*display: inline;*/
+	/*text-align: center;*/
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	color: #BBB;
+	transition: all 400ms ease-in-out;
+	background: #222;
+	width: 95%;
+	max-width: 500px;
+	z-index: 23;
+	padding: 20px;
+	box-sizing: border-box;
+	font-family: "Open Sans", sans-serif;
+	max-height: min(600px, 80%);
+	height: max-content;
+	min-height: 300px;
+	overflow: auto;
+	border-radius: 6px;
+	text-align: center;
+	overflow-wrap: anywhere;
+}
+
+.popup-close-btn {
+	cursor: pointer;
+	position: absolute;
+	right: 20px;
+	top: 20px;
+	width: 30px;
+	height: 30px;
+	background: #222;
+	color: #fff;
+	font-size: 25px;
+	font-weight: 600;
+	line-height: 30px;
+	text-align: center;
+	border-radius: 50%
+}
+
+.popup:not(.active) {
+	transform: translate(-50%, -50%) scale(0);
+	opacity: 0;
+}
+
+
+.popup.active .popup-box {
+	transform: translate(-50%, -50%) scale(1);
+	opacity: 1;
+}
+
+
+
+.pagination {
+  cursor: pointer;
+  width: 150px;
+  max-width: 800px
+}
+
+.pagination {
+	font: bold 20px Arial;
+	text-decoration: none;
+	background-color: #8a8b8d6b;
+	color: #1f83b6;
+	padding: 2px 6px;
+	border-top: 1px solid #828d94;
+	box-shadow: 4px 4px #5050506b;
+	border-left: 1px solid #828D94;
+}
+
+.pagination:hover {
+	background-color:  #4e4f506b;
+	color: #00b7ff;
+	box-shadow: 4px 4px #8d8d8d6b;
+	border: none;
+	border-right: 1px solid #959fa5;
+	border-bottom: 1px solid #959fa5
+}
+
+.pagination:active {
+	position: relative;
+  top: 4px;
+  left: 4px;
+  box-shadow: none
+}
+
+
+
+.menu_options {
+	background: #333;
+	width: 95%;
+	padding: 5px;
+	margin: 5px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.menu_options:hover, .menu_options:focus {
+	background: #337;
+}
+
+
+</style>
+
+<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.png?raw=true" type="image/png">
+
+
+</head>
+<body>
+
+
+
+
+<div id="popup-container">
+
+
+
+<h1 style="overflow: auto;white-space: nowrap;"><a href='/'>&#127968; HOME</a><span class="dir_arrow">&#10151;</span><a href='/IDM%206.40%20build%2011%20incl%20Patch%20%5B32bit%20%2B%2064bit%5D%20%5BCrackingPatching%5D/'>IDM 6.40 build 11 incl Patch [32bit + 64bit] [CrackingPatching]</a><span class="dir_arrow">&#10151;</span><a href='/IDM%206.40%20build%2011%20incl%20Patch%20%5B32bit%20%2B%2064bit%5D%20%5BCrackingPatching%5D//'></a></h1>
+<hr>
+
+
+<hr>
+<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>
+
+<ul id= "linkss">
+
+
+
+<li><a class= "file" href="How%20to%20Install.txt">How to Install.txt</a></li>
+<li><a class= "file" href="idman640build11.exe">idman640build11.exe</a></li>
+<li><a class= "file" href="Like%20Us%20Facebook.URL">Like Us Facebook.URL</a></li>
+<li><a class= "file" href="Password.txt">Password.txt</a></li>
+<li><a href="Patch/">Patch/</a></li>
+<li><a class= "file" href="Support%20Us%20CrackingPatching.com.URL">Support Us CrackingPatching.com.URL</a></li>
+</ul><hr>
+
+
+<div class='pagination' onclick = "request_reload()">reload</div><br>
+
+<div class='pagination' onclick = "Show_folder_maker()">Create Folder</div><br>
+
+<br><hr><br><h2>Upload file</h2>
+		<form ENCTYPE="multipart/form-data" method="post">
+		<input type="hidden" name="post-type" value="upload">
+		<input type="hidden" name="post-uid" value="12345">
+
+  <p>PassWord:&nbsp;&nbsp;</p><input name="password" type="text" label="Password"><br>
+  <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple/><br><br>
+
+  <input type="submit" value="&#10174; upload" style="background-color: #555; height: 30px; width: 100px"></form>
+
+<hr>
+
+<script>
+
+
+const r_li = ['fHow%20to%20Install.txt', 'fidman640build11.exe', 'fLike%20Us%20Facebook.URL', 'fPassword.txt', 'dPatch/', 'fSupport%20Us%20CrackingPatching.com.URL'];
+const f_li = ['How to Install.txt', 'idman640build11.exe', 'Like Us Facebook.URL', 'Password.txt', 'Patch/', 'Support Us CrackingPatching.com.URL'];
+
+
+
+
+const log = console.log,
+	byId = document.getElementById.bind(document),
+	byClass = document.getElementsByClassName.bind(document),
+	byTag = document.getElementsByTagName.bind(document),
+	byName = document.getElementsByName.bind(document),
+	createElement = document.createElement.bind(document);
+
+String.prototype.toHtmlEntities = function() {
+  return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
+};
+
+function null_func(){
+	return true
+}
+function toggle_scroll() {
+	document.body.classList.toggle('overflowHidden');
+}
+
+function go_link(typee, locate){
+  // function to generate link for different types of actions
+  return typee+"%3F"+locate;}
+
+// getting all the links in the directory
+
+
+class Tools {
+	// various tools for the page
+	sleep(ms) {
+		// sleeps for a given time in milliseconds
+		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+
+	onlyInt(str){
+	if(this.is_defined(str.replace)){
+	return parseInt(str.replace(/\D+/g, ""))}
+	return 0;
+	}
+
+	del_child(elm){
+		if(typeof(elm)=="string"){
+			elm = byId(elm)
+		}
+
+		while (elm.firstChild) {
+			elm.removeChild(elm.lastChild);
+		}
+	}
+	toggle_bool(bool){
+		return bool !== true;
+	}
+
+	exists(name){
+		return (typeof window[name] !== 'undefined')
+	}
+
+	hasClass(element, className, partial = false) {
+		if (partial) {
+			className = ' ' + className;
+		} else {
+			className = ' ' + className + ' ';
+		}
+
+		return (' ' + element.className + ' ').indexOf(className) > -1;
+	}
+
+	addClass(element, className) {
+		if (!this.hasClass(element, className)) {
+			element.classList.add(className);
+		}
+	}
+
+	enable_debug(){
+		if(!config.allow_Debugging){
+			alert("Debugging is not allowed");
+			return;
+		}
+		if(config.Debugging){
+			return
+		}
+		config.Debugging = true;
+		var script = createElement('script'); script.src="//cdn.jsdelivr.net/npm/eruda"; document.body.appendChild(script); script.onload = function () { eruda.init() };
+	}
+
+
+	is_in(item, array) {
+		return array.indexOf(item) > -1;
+	}
+
+	is_defined(obj){
+		return typeof(obj) !== "undefined"
+	}
+
+	toggle_scroll(allow = 2, by = "someone") {
+		if (allow == 0) {
+			document.body.classList.add('overflowHidden');
+		} else if (allow == 1) {
+			document.body.classList.remove('overflowHidden');
+		} else {
+			document.body.classList.toggle('overflowHidden');
+		}
+	}
+	
+	download(dataurl, filename=null) {
+  const link = document.createElement("a");
+  link.href = dataurl;
+  link.download = filename;
+  link.click();
+}
+
+}
+
+let tools = new Tools();
+
+
+
+
+class Config {
+	constructor(){
+		this.total_popup =0;
+		this.popup_msg_open = false
+	}
+}
+
+var config = new Config()
+
+
+class Popup_Msg {
+	constructor() {
+		this.create()
+		this.made_popup = false;
+
+		this.init()
+
+	}
+
+	init(){
+		this.onclose = null_func;
+		this.scroll_disabled = false;
+	}
+
+
+	create() {
+		var that = this;
+		this.popup_id = config.total_popup;
+		this.popup_obj = createElement("div")
+		this.popup_obj.id = "popup-" + this.popup_id;
+		this.popup_obj.classList.add("popup")
+
+		this.popup_bg = createElement("div")
+		this.popup_bg.classList.add("modal_bg")
+		this.popup_bg.id = "popup-bg-" + this.popup_id;
+		this.popup_bg.style.backgroundColor = "#000000EE";
+		this.popup_bg.onclick = function(){
+			that.close()
+		}
+		this.popup_obj.appendChild(this.popup_bg);
+
+		var popup_box = createElement("div");
+		popup_box.classList.add("popup-box")
+		var close_btn = createElement("div");
+		close_btn.classList.add("popup-close-btn")
+		close_btn.onclick = function(){
+			that.close()
+		}
+		close_btn.innerHTML = "&times;";
+		popup_box.appendChild(close_btn)
+
+		this.header = createElement("h1")
+		this.header.id = "popup-header-" + this.popup_id;
+		popup_box.appendChild(this.header)
+
+		this.hr = createElement("popup-hr-" + this.popup_id);
+		this.hr.style.width = "95%"
+		popup_box.appendChild(this.hr)
+
+		this.content = createElement("div")
+		this.content.id = "popup-content-" + this.popup_id;
+		popup_box.appendChild(this.content)
+
+		this.popup_obj.appendChild(popup_box)
+
+		byId("popup-container").appendChild(this.popup_obj)
+		config.total_popup +=1;
+	}
+
+	close(){
+		this.onclose()
+		this.dismiss()
+		config.popup_msg_open = false;
+	}
+
+	hide(){
+		this.popup_obj.classList.remove("active");
+		tools.toggle_scroll(1)
+
+	}
+
+	dismiss(){
+		this.hide()
+		tools.del_child(this.header);
+		tools.del_child(this.content);
+		this.made_popup = false;
+	}
+
+	async togglePopup(toggle_scroll = true) {
+		if(!this.made_popup){return}
+		this.popup_obj.classList.toggle("active");
+		if(toggle_scroll){
+			tools.toggle_scroll();}
+		log(tools.hasClass(this.popup_obj, "active"))
+		if(!tools.hasClass(this.popup_obj, "active")) {
+		this.close()
+		}
+	}
+
+	async open_popup(allow_scroll=false){
+		if(!this.made_popup){return}
+		this.popup_obj.classList.add("active");
+		if(!allow_scroll){
+			tools.toggle_scroll(0);
+			this.scroll_disabled = true;
+		}
+	}
+
+	async createPopup(header="", content="", hr = true) {
+		this.init()
+		this.made_popup = true;
+		if (typeof header === 'string' || header instanceof String){
+		this.header.innerHTML = header;}
+		else if(header instanceof Element){
+			this.header.appendChild(header)
+		}
+
+		if (typeof content === 'string' || content instanceof String){
+		this.content.innerHTML = content;}
+		else if(content instanceof Element){
+			this.content.appendChild(content)
+		}
+
+		if (hr) {
+			this.hr.style.display = "block";
+		} else {
+			this.hr.style.display = "none";
+		}
+	}
+}
+
+
+let popup_msg = new Popup_Msg();
+
+
+class ContextMenu {
+	constructor(){
+		this.old_name = null;
+	}
+	async on_result(self){
+		var data = false;
+		if(self.status == 200){
+			data =  JSON.parse(self.responseText);}
+
+		popup_msg.close()
+		await tools.sleep(300)
+
+		if(data){
+			popup_msg.createPopup(data[0], data[1]);
+		}else{
+			popup_msg.createPopup("Failed", "Server didn't respond<br>response: "+self.status);
+		}
+	popup_msg.open_popup()
+
+	}
+	menu_click(action, link, more_data=null){
+		var that = this
+		var url = ".";
+		var xhr = new XMLHttpRequest();
+		xhr.open("POST", url);
+
+		xhr.onreadystatechange = function () {
+
+	   if (this.readyState === 4) {
+		   that.on_result(this)
+	   }};
+
+		var formData = new FormData();
+		formData.append("post-type", action);
+		formData.append("post-uid", 123456);
+		formData.append("name", link);
+		formData.append("data", more_data)
+		xhr.send(formData);
+
+}
+
+	rename_data(){
+		var new_name= byId("rename").value;
+		popup_msg.close()
+		this.menu_click("rename", this.old_name, new_name)
+		// popup_msg.createPopup("Done!", "New name: "+new_name)
+		// popup_msg.open_popup()
+	}
+
+	rename(file){
+
+		popup_msg.close()
+		popup_msg.createPopup("Rename", "Enter new name: <input id='rename' type='text'><br><br><div class='pagination center' onclick='context_menu.rename_data()'>Change!</div>");
+		popup_msg.open_popup()
+		this.old_name = file;
+		byId("rename").value = file;
+		byId("rename").focus()
+	}
+
+	show_menus(file, name,type){
+
+		var that = this;
+		var menu = createElement("div")
+
+		if(type =="video"){
+			var download = createElement("div")
+			download.innerHTML = "⬇️".toHtmlEntities() + " Download"
+			download.classList.add("menu_options")
+			download.onclick = function(){
+				tools.download(file, name);
+				popup_msg.close()
+			}
+			menu.appendChild(download)
+			
+			var copy_url = ""
+		}
+
+		if(type=="folder"){
+			var dl_zip = createElement("div")
+			dl_zip.innerHTML = "🗃️".toHtmlEntities() + " Download as Zip"
+			dl_zip.classList.add("menu_options")
+			dl_zip.onclick = function(){
+				popup_msg.close()
+				window.open(go_link('dl', file), '_blank');
+			}
+			menu.appendChild(dl_zip)
+		}
+
+		var rename = createElement("div")
+		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
+		rename.classList.add("menu_options")
+		rename.onclick = function(){
+			that.rename(file)
+		}
+		menu.appendChild(rename)
+
+		var del = createElement("div")
+		del.innerHTML = "🗑️".toHtmlEntities() + " Delete"
+		del.classList.add("menu_options")
+		var xxx = 'F'
+		if(type=="folder"){
+			xxx = 'D'
+		}
+		del.onclick = function(){
+		that.menu_click('del-f', file);};
+		log(file, type)
+		menu.appendChild(del)
+
+		var del_P = createElement("div")
+		del_P.innerHTML = "🔥".toHtmlEntities() + " Delete permanently"
+		del_P.classList.add("menu_options")
+		function r_u_sure(){
+			popup_msg.close()
+			var box = createElement("div")
+			var msggg = createElement("p")
+			msggg.innerHTML = "This can't be undone!!!"
+			box.appendChild(msggg)
+			var y_btn = createElement("div")
+			y_btn.innerHTML ="Continue"
+			y_btn.className = "pagination center"
+			y_btn.onclick = function(){
+				that.menu_click('del-p', file);};
+
+			var n_btn = createElement("div")
+			n_btn.innerHTML= "Cancel"
+			n_btn.className ="pagination center"
+			n_btn.onclick = popup_msg.close;
+
+			box.appendChild(y_btn)
+			box.appendChild(n_btn)
+			popup_msg.createPopup("Are you sure?", box)
+			popup_msg.open_popup()
+			}
+		del_P.onclick= r_u_sure
+		menu.appendChild(del_P)
+
+
+
+		var property = createElement("div")
+		property.innerHTML = "ℹ️".toHtmlEntities() + " Properties"
+		property.classList.add("menu_options")
+		property.onclick = function(){
+		that.menu_click('info', file);};
+		menu.appendChild(property)
+
+
+		popup_msg.createPopup("Menu", menu)
+		popup_msg.open_popup()
+	}
+
+	create_folder(){
+
+	let folder_name = document.getElementById('folder-name').value;
+	this.menu_click('new folder', folder_name)
+	}
+}
+
+var context_menu = new ContextMenu()
+//context_menu.show_menus("next", "video")
+
+
+function Show_folder_maker(){
+	popup_msg.createPopup("Create Folder", "Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='context_menu.create_folder()'>Create</div>");
+	popup_msg.togglePopup();
+}
+
+function show_response(url, add_reload_btn=true){
+  var xhr = new XMLHttpRequest();
+	xhr.onreadystatechange = function() {
+		if (xhr.readyState == XMLHttpRequest.DONE) {
+			let msg = xhr.responseText;
+			if(add_reload_btn){
+				msg = msg + "<br><br><div class='pagination' onclick='window.location.reload()'>Refresh🔄️</div>";
+			}
+			popup_msg.close()
+			popup_msg.createPopup("Result", msg);
+			popup_msg.open_popup();
+		}
+	}
+	xhr.open('GET', url , true);
+	xhr.send(null);
+}
+
+
+function reload(){
+	show_response("?reload?");
+}
+
+function run_recyle(url){
+	return function(){
+		show_response(url);
+	}
+}
+
+tools.del_child("linkss");
+const linkd_li = document.getElementsByTagName('ul')[0];
+
+for (let i = 0; i < r_li.length; i++) {
+  // time to customize the links according to their formats
+
+	let type = null;
+
+	let ele = document.createElement('li');
+	let r= r_li[i];
+	let r_ = r.slice(1);
+	let name = f_li[i];
+	let link = document.createElement('a');
+	link.href = r_;
+	link.classList.add('all_link');
+
+	if(r.startsWith('d')){
+	// add DOWNLOAD FOLDER OPTION in it
+	// TODO: add download folder option by zipping it
+	// currently only shows folder size and its contents
+
+	type = "folder"
+	link.innerHTML = "📂".toHtmlEntities() + name;
+	link.classList.add('link');
+
+	ele.appendChild(link);
+
+	}
+
+	if(r.startsWith('v')){
+	// if its a video, add play button at the end
+	// that will redirect to the video player
+	// clicking main link will download the video instead
+
+	type = 'video';
+
+	link.innerHTML = '🎥'.toHtmlEntities() + name;
+	link.href = go_link("vid", r_)
+	link.classList.add('vid');
+	ele.appendChild(link);
+
+	}
+
+
+	if(r.startsWith('i')){
+
+	type = 'image'
+	link.innerHTML = '🌉'.toHtmlEntities() + name;
+	link.classList.add('file');
+	ele.appendChild(link);
+
+	}
+
+	if(r.startsWith('f')){
+
+	type = 'file'
+	link.innerHTML = '📄'.toHtmlEntities() + name;
+	link.classList.add('file');
+	ele.appendChild(link);
+
+	}
+	if(r.startsWith('h')){
+	type = 'html'
+	link.innerHTML = '🔗'.toHtmlEntities() + name;
+	link.classList.add('html');
+	ele.appendChild(link);
+
+	}
+
+	// recycling option for the files and folder
+	// files and folders are handled differently
+	var xxx = "F"
+	if(r.startsWith('d')){
+		xxx = "D";
+	}
+
+	var context = createElement('span');
+	context.className = "pagination"
+	context.innerHTML= '<b>&nbsp;&hellip;&nbsp;</b>';
+	context.style.marginLeft= '50px';
+	context.onclick = function(){log(r_, 1); context_menu.show_menus(r_, name,type);}
+
+	ele.insertAdjacentElement("beforeend",context);
+
+	var hrr = createElement("hr")
+	ele.insertAdjacentElement("beforeend",hrr);
+
+
+
+
+  linkd_li.appendChild(ele);
+}
+
+
+</script>
+
+</body>
+</html>

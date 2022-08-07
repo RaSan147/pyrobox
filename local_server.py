@@ -16,12 +16,12 @@ class Config:
 	def __init__(self):
 		# DEFAULT DIRECTORY TO LAUNCH SERVER
 		self.ftp_dir = "." # DEFAULT DIRECTORY TO LAUNCH SERVER
-		self.ANDROID_ftp_dir= "/storage/emulated/0/"
+		self.ANDROID_ftp_dir = "/storage/emulated/0/"
 		self.LINUX_ftp_dir = "~/"
 		self.WIN_ftp_dir= 'G:\\'
 		# DEFAULT PORT TO LAUNCH SERVER
 		self.IP = None # will be assigned by checking
-		self.port= 6969 # DEFAULT PORT TO LAUNCH SERVER
+		self.port= 6969  # DEFAULT PORT TO LAUNCH SERVER
 		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
 		self.PASSWORD= "SECret".encode('utf-8')
 		self.log_location = "G:/py-server/"  # fallback log_location = "./"
@@ -251,9 +251,10 @@ if "pip" not in missing_sys_req:
 			subprocess.call([sys.executable, "-m", "pip", "install", '--disable-pip-version-check', '--quiet', i])
 			if i not in get_installed():
 				disabled_func[i] = True
+				
+			
 			else:
 				REQUEIREMENTS.remove(i)
-				
 
 	if not REQUEIREMENTS:
 		print("Reloading...")
@@ -370,6 +371,11 @@ word-wrap: break-word;
   font-weight: 400;
 }
 
+
+#dir-tree {
+	word-wrap: break-word;
+	max-width: 95vw;
+}
 
 #footer {
   position: absolute;
@@ -529,7 +535,7 @@ word-wrap: break-word;
 
 
 
-<h1 style="word-wrap: break-word;">%s</h1>
+<h1 id="dir-tree">%s</h1>
 <hr>
 
 
@@ -1108,6 +1114,11 @@ for (let i = 0; i < r_li.length; i++) {
   linkd_li.appendChild(ele);
 }
 
+
+var dir_tree = byId("dir-tree");
+dir_tree.style.overflow = "auto";
+dir_tree.style.whiteSpace = "nowrap";
+dir_tree.scrollLeft = dir_tree.scrollWidth;
 
 </script>
 
@@ -2711,10 +2722,18 @@ tr:nth-child(even) {
 					f_li.append(html.escape(displayname, quote=False))
 
 				elif self.guess_type(linkname).startswith('video/'):
+					r.append('<li><a class= "%s" href="%s">%s</a></li>'
+					% ("vid", urllib.parse.quote(linkname,
+										  errors='surrogatepass'),
+					   html.escape(displayname, quote=False)))
 					r_li.append('v'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 
 				elif self.guess_type(linkname).startswith('image/'):
+					r.append('<li><a class= "%s" href="%s">%s</a></li>'
+					% ("file", urllib.parse.quote(linkname,
+										  errors='surrogatepass'),
+					   html.escape(displayname, quote=False)))
 					r_li.append('i'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 
