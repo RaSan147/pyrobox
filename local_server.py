@@ -543,13 +543,13 @@ word-wrap: break-word;
 <ul id= "linkss">
 <a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>
 
-</ul>
-<hr>
-
-
 '''
 
 _js_script = """
+
+</ul>
+<hr>
+
 
 <div class='pagination' onclick = "request_reload()">reload</div><br>
 
@@ -2689,7 +2689,7 @@ tr:nth-child(even) {
 				 'content="text/html; charset=%s">' % enc)
 		r.append('<title>%s</title>\n</head>' % title)'''
 		#r.append('<body>\n<h1>%s</h1>' % title)
-		r.append('<hr>\n<ul id= "linkss">')
+		# r.append('<hr>\n<ul id= "linkss">')
 		r_li= [] # type + file_link
 				 # f  : File
 				 # d  : Directory
