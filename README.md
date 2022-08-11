@@ -70,11 +70,13 @@ Basic FEATURES
 * 🧨 RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
 * 🆕 FOLDER CREATION
 * 💬 Pop-up messages UI(from my Web leach repo)
+* 🌐 If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (also vulnerable, since you can't control access *yet*)
 * 🔜 More comming soon
 
  TODO:
 --------------------------------------------------------------
 
+* Copy stream URL for videos to play with any video player
 * RIGHT CLICK CONTEXT MENU
 * Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
