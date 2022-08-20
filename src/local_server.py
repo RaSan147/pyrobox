@@ -190,7 +190,7 @@ def init_requirements():
 
 			if config.get_os()=='Windows':
 				if 'pip' in missing:
-					subprocess.call(sys.executable, '-m', 'ensurepip')
+					subprocess.call([sys.executable, '-m', 'ensurepip'])
 					if "pip" in get_installed():
 						missing.remove("pip")
 
@@ -531,7 +531,7 @@ word-wrap: break-word;
 
 
 
-<div id="popup-container">
+<div id="popup-container"></div>
 
 
 
@@ -1180,7 +1180,7 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 	return_list (bool): if True returns a tuple of (total folder size, list of contents)
 	full_dir (bool): if True returns a full path, else relative path
 	"""
-	if return_list: r=[]
+	r=[] #if return_list
 	total_size = 0
 	start_path = os.path.normpath(start_path)
 
@@ -1289,7 +1289,7 @@ DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
 
 class HTTPServer(socketserver.TCPServer):
 
-	allow_reuse_address = 1	# Seems to make sense in testing environment
+	allow_reuse_address = True	# Seems to make sense in testing environment
 
 	def server_bind(self):
 		"""Override server_bind to store the server name."""
@@ -1502,7 +1502,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			method = getattr(self, mname)
 			method()
 			self.wfile.flush() #actually send the response if not already done.
-		except socket.timeout as e:
+		except (TimeoutError, socket.timeout) as e:
 			#a read or a write timed out.  Discard this connection
 			self.log_error("Request timed out: %r", e)
 			self.close_connection = True
@@ -2455,14 +2455,11 @@ tr:nth-child(even) {
 
 				title = self.get_titles(displaypath)
 
-				"""r.append('<!DOCTYPE HTML>')
-				r.append('<html>\n<head>')
-				r.append('<meta http-equiv="Content-Type" '
-						'content="text/html; charset=%s">' % enc)
-				r.append('<title>%s</title>\n</head>' % title)"""
 				r.append(directory_explorer_header%(enc, title,
 				 config.address(), self.dir_navigator(displaypath)))
 
+
+				r.append("</ul>")
 				if self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])) not in ['video/mp4', 'video/ogg', 'video/webm']:
 					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
 				else:
