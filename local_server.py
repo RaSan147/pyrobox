@@ -2478,7 +2478,33 @@ tr:nth-child(even) {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.2/plyr.min.js" crossorigin="anonymous"></script>
 <script>
-  const player = new Plyr('#player');
+  //const player = new Plyr('#player');
+  var controls =
+[
+    'play-large', // The large play button in the center
+    //'restart', // Restart playback
+    'rewind', // Rewind by the seek time (default 10 seconds)
+    'play', // Play/pause playback
+    'fast-forward', // Fast forward by the seek time (default 10 seconds)
+    'progress', // The progress bar and scrubber for playback and buffering
+    //'current-time', // The current time of playback
+    //'duration', // The full duration of the media
+    'mute', // Toggle mute
+    'volume', // Volume control
+    //'captions', // Toggle captions
+    'settings', // Settings menu
+    //'pip', // Picture-in-picture (currently Safari only)
+    //'airplay', // Airplay (currently Safari only)
+    //'download', // Show a download button with a link to either the current source or a custom URL you specify in your options
+    'fullscreen' // Toggle fullscreen
+];
+
+//CUSTOMIZE MORE USING THIS:
+// https://stackoverflow.com/a/61577582/11071949
+
+var player = new Plyr('#player', { controls });
+
+
 </script>
 	</div><br>'''%(self.path, ctype, self.path))
 
