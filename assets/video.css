@@ -1,66 +1,66 @@
 @charset "UTF-8";
 
 :root {
-    --plyr-color-main: rgb(0, 179, 255);
+	--plyr-color-main: rgb(0, 179, 255);
 	--plyr-color-shadow: rgba(0, 179, 255, .4);
-    --plyr-font-size-base: 13px;
-    --plyr-font-size-small: 12px;
-    --plyr-font-size-time: 11px;
-    --plyr-font-size-badges: 9px;
-    --plyr-font-size-menu: var(--plyr-font-size-base);
-    --plyr-font-weight-regular: 500;
-    --plyr-font-weight-bold: 600;
-    --plyr-font-size-captions-medium: 18px;
-    --plyr-font-size-captions-large: 21px
+	--plyr-font-size-base: 13px;
+	--plyr-font-size-small: 12px;
+	--plyr-font-size-time: 11px;
+	--plyr-font-size-badges: 9px;
+	--plyr-font-size-menu: var(--plyr-font-size-base);
+	--plyr-font-weight-regular: 500;
+	--plyr-font-weight-bold: 600;
+	--plyr-font-size-captions-medium: 18px;
+	--plyr-font-size-captions-large: 21px
 }
 
 
 
 audio,
 video {
-    display: inline-block
+	display: inline-block
 }
 
 audio:not([controls]) {
-    display: none;
-    height: 0
+	display: none;
+	height: 0
 }
 
 body {
-    align-items: center;
-    flex-direction: column;
-    min-height: 100%;
-    max-width: 100%;
+	align-items: center;
+	flex-direction: column;
+	min-height: 100%;
+	max-width: 100%;
 }
 
 audio,
 img,
 video {
-    max-width: 100%;
-    vertical-align: middle
+	max-width: 100%;
+	vertical-align: middle
 }
 
 .plyr {
-    border-radius: 6px;
-    box-shadow: 0 2px 15px var(--plyr-color-shadow);
-    margin: 16px auto
+	border-radius: 6px;
+	box-shadow: 0 2px 15px var(--plyr-color-shadow);
+	margin: 16px auto
 }
 
 .plyr.plyr--audio {
-    max-width: 480px
+	max-width: 480px
 }
 
 .plyr__video-wrapper:after {
-    border: 1px solid rgba(0, 0, 0, .15);
-    border-radius: inherit;
-    bottom: 0;
-    content: "";
-    left: 0;
-    pointer-events: none;
-    position: absolute;
-    right: 0;
-    top: 0;
-    z-index: 3
+	border: 1px solid rgba(0, 0, 0, .15);
+	border-radius: inherit;
+	bottom: 0;
+	content: "";
+	left: 0;
+	pointer-events: none;
+	position: absolute;
+	right: 0;
+	top: 0;
+	z-index: 3
 }
 
 
@@ -115,6 +115,9 @@ video {
 	transition: box-shadow .3s ease;
 	z-index: 0;
 }
+
+
+
 
 .plyr {
 	font-family: Arial, Helvetica, sans-serif; /* Override font-family */
@@ -199,6 +202,9 @@ video {
 		padding: calc(var(--plyr-control-spacing, 10px)*2)
 	}
 	
+}
+
+@media(max-width:480px) {
 	.plyr__volume {
 		display: none; /* Hide volume slider on Android */
 	}
