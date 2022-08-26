@@ -204,11 +204,6 @@ video {
 	
 }
 
-@media(max-width:480px) {
-	.plyr__volume {
-		display: none; /* Hide volume slider on Android */
-	}
-}
 
 @media(min-width:768px) {
 	.plyr__captions {
@@ -773,6 +768,13 @@ a.plyr__control:before {
 @media(max-width:767px) {
 	.plyr__time+.plyr__time {
 		display: none
+	}
+}
+
+
+@media(max-width:480px) {
+	.plyr__volume {
+		display: none; /* Hide volume slider on Android */
 	}
 }
 
