@@ -116,6 +116,10 @@ video {
 	z-index: 0;
 }
 
+.plyr {
+	font-family: Arial, Helvetica, sans-serif; /* Override font-family */
+}
+
 .plyr audio,
 .plyr iframe,
 .plyr video {
@@ -193,6 +197,10 @@ video {
 		font-size: var(--plyr-font-size-base, 15px);
 		padding: 20px;
 		padding: calc(var(--plyr-control-spacing, 10px)*2)
+	}
+	
+	.plyr__volume {
+		display: none; /* Hide volume slider on Android */
 	}
 }
 

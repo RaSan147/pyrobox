@@ -2487,10 +2487,10 @@ tr:nth-child(even) {
     'play', // Play/pause playback
     'fast-forward', // Fast forward by the seek time (default 10 seconds)
     'progress', // The progress bar and scrubber for playback and buffering
-    //'current-time', // The current time of playback
-    //'duration', // The full duration of the media
+    'current-time', // The current time of playback
+    'duration', // The full duration of the media
     'mute', // Toggle mute
-    'volume', // Volume control
+    'volume', // Volume control // Will be hidden on Android as they have Device Volume controls
     //'captions', // Toggle captions
     'settings', // Settings menu
     //'pip', // Picture-in-picture (currently Safari only)
