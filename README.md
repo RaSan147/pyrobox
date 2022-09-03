@@ -22,11 +22,11 @@ Installation
 
 On Linux give permissions by :
 ```
-   $sudo chmod +x local_Server.py
+$sudo chmod +x local_Server.py
 ```
 run like a script with :
 ```
-   $./local_Server.py
+$./local_Server.py
 ```
 
    
