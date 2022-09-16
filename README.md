@@ -9,9 +9,11 @@ Server side requirement
 * Python 3.7 or higher [^1]
 * Basic knowledge about Python
 * `send2trash` pip package (will be auto installed when the code runs)
-* (for windows) no need to download 7z (from here), it will be automatically downloaded
+* (for windows) no need to download 7z[^2] (from here), it will be automatically downloaded
 
 [^1]: Making a working version to support till 3.4, but not sure will maintain that. Also not recommended since it got EOL)
+[^2]: Planning to drop using 7z and use Python `zipfile`
+
 Installation
 ----------------------------------------------------------------
 1. Download the `local_server.py`
@@ -23,11 +25,11 @@ Installation
 
 On Linux give permissions by :
 ```
-$sudo chmod +x local_Server.py
+$sudo chmod +x local_server.py
 ```
 run like a script with :
 ```
-$./local_Server.py
+$./local_server.py
 ```
 
    
@@ -42,7 +44,7 @@ Customization
    - ii) or add `-d` or `--directory` command line argument when launching the program
         - `local_server.py -d .` to launch the server in current directory (where the file is)
         - `local_server.py -d "D:\Server\Public folder\"`  (Use Double-Quotation while directory has space)
-        - `local_server.py -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter)
+        - `local_server.py -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter, unless your terminal thinks otherwise)
  1. To change port number
     - i) just edit the code for permanent change  
     - ii) or add the port number at the end of the command line arg  
