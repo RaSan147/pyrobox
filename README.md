@@ -6,11 +6,12 @@
 
 Server side requirement
 ----------------------------------------------------------------
-* Python 3.7 or higher (need to test lower versions)
+* Python 3.7 or higher [^1]
 * Basic knowledge about Python
 * `send2trash` pip package (will be auto installed when the code runs)
 * (for windows) no need to download 7z (from here), it will be automatically downloaded
 
+[^1]: Making a working version to support till 3.4, but not sure will maintain that. Also not recommended since it got EOL)
 Installation
 ----------------------------------------------------------------
 1. Download the `local_server.py`
