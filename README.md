@@ -76,6 +76,9 @@ Basic FEATURES
  TODO:
 --------------------------------------------------------------
 
+* Show upload progress (almost done)
+* Use HTML5 drag and drop uploader
+* Show thumbnails, for png and jpg (how to do with just standard library?), For others, just show extension.
 * Copy stream URL for videos to play with any video player
 * RIGHT CLICK CONTEXT MENU
 * Add side bar to do something 🤔
