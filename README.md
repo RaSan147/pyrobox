@@ -79,16 +79,16 @@ Basic FEATURES
  TODO:
 --------------------------------------------------------------
 
-- [ ] #31 (almost done)
-* #32
-* #33, for png and jpg (how to do with just standard library?), For others, just show extension.
-* Copy stream URL for videos to play with any video player
-* RIGHT CLICK CONTEXT MENU
-* Add side bar to do something 🤔
+* https://github.com/RaSan147/py_httpserver_Ult/issues/31 Show upload progress (almost done)
+* https://github.com/RaSan147/py_httpserver_Ult/issues/32 Use HTML5 drag and drop uploader
+* https://github.com/RaSan147/py_httpserver_Ult/issues/33 Show thumbnails, for png and jpg (how to do with just standard library?), For others, just show extension.
+* https://github.com/RaSan147/py_httpserver_Ult/issues/34 Copy stream URL for videos to play with any video player
+* https://github.com/RaSan147/py_httpserver_Ult/issues/35 RIGHT CLICK CONTEXT MENU
+* https://github.com/RaSan147/py_httpserver_Ult/issues/36 Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
-* Backup code if Reload causes unhandled issue and can't be accessed
-* command line arg for passwords (vulnerable on reload)
-* User login and user based permission set. 🔑
+* https://github.com/RaSan147/py_httpserver_Ult/issues/37 Backup code if Reload causes unhandled issue and can't be accessed
+* https://github.com/RaSan147/py_httpserver_Ult/issues/38 command line arg for passwords (vulnerable on reload)
+* https://github.com/RaSan147/py_httpserver_Ult/issues/39 User login and user based permission set. 🔑
 
 # Support for more features
 
