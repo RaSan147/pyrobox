@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 __version__ = "0.6"
-
+enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
 	"SimpleHTTPRequestHandler",
@@ -141,7 +141,6 @@ import tempfile, random, string, json
 
 
 import traceback
-import platform
 
 import pkg_resources as pkg_r, importlib
 
@@ -489,7 +488,7 @@ word-wrap: break-word;
 }
 
 .pagination:hover {
-	background-color:  #4e4f506b;
+	background-color: #4e4f506b;
 	color: #00b7ff;
 	box-shadow: 4px 4px #8d8d8d6b;
 	border: none;
@@ -522,6 +521,14 @@ word-wrap: break-word;
 
 </style>
 
+<noscript>
+<style>
+.jsonly{
+display: none !important
+}
+</style>
+</noscript>
+
 <link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.png?raw=true" type="image/png">
 
 
@@ -551,12 +558,13 @@ _js_script = """
 <hr>
 
 
-<div class='pagination' onclick = "request_reload()">reload</div><br>
-
+<div class='pagination jsonly' onclick = "request_reload()">RELOAD 🧹</div>
+<noscript><a href="/?reload?" class='pagination'>RELOAD 🧹</a></noscript>
+<br>
 <div class='pagination' onclick = "Show_folder_maker()">Create Folder</div><br>
 
 <br><hr><br><h2>Upload file</h2>
-		<form ENCTYPE="multipart/form-data" method="post">
+		<form ENCTYPE="multipart/form-data" method="post" id="uploader">
 		<input type="hidden" name="post-type" value="upload">
 		<input type="hidden" name="post-uid" value="12345">
 
@@ -565,6 +573,9 @@ _js_script = """
 
   <input type="submit" value="&#10174; upload" style="background-color: #555; height: 30px; width: 100px"></form>
 
+<br>
+<p id="task"></p>
+<p id="status"></p>
 <hr>
 
 <script>
@@ -572,6 +583,36 @@ _js_script = """
 
 const r_li = %s;
 const f_li = %s;
+
+
+document.getElementById("uploader").addEventListener('submit', e => {
+  e.preventDefault()
+
+  const formData = new FormData(e.target)
+  const filenames = formData.getAll('files').map(v => v.name).join(', ')
+  const request = new XMLHttpRequest()
+  request.open(e.target.method, e.target.action)
+  request.timeout = 3600000;
+  
+  request.onreadystatechange = () => {
+    if(request.readyState === XMLHttpRequest.DONE) {
+      let message = `${request.status}: ${request.statusText}`
+      if(request.status === 204) message = 'Success'
+      if(request.status === 0) message = 'Connection failed'
+      document.getElementById('status').textContent = message
+    }
+  }
+  
+  request.upload.onprogress = e => {
+    let message = e.loaded === e.total ? 'Saving...' : `${Math.floor(100*e.loaded/e.total)}%%`
+    document.getElementById("status").textContent = message
+  }
+  
+  request.send(formData)
+  
+  document.getElementById('task').textContent = `Uploading :`
+  document.getElementById('status').textContent = '0%%'
+})
 
 
 
@@ -1754,7 +1795,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def __init__(self, *args, directory=None, **kwargs):
 		if directory is None:
 			directory = os.getcwd()
-		self.directory = os.fspath(directory)
+		self.directory = directory #os.fspath(directory)
 		super().__init__(*args, **kwargs)
 
 	def do_GET(self):
@@ -2450,7 +2491,7 @@ tr:nth-child(even) {
 				except UnicodeDecodeError:
 					displaypath = urllib.parse.unquote(path)
 				displaypath = html.escape(displaypath, quote=False)
-				enc = sys.getfilesystemencoding()
+				
 
 
 				title = self.get_titles(displaypath)
@@ -2476,7 +2517,7 @@ tr:nth-child(even) {
 	</video>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.2/plyr.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous"></script>
 <script>
   //const player = new Plyr('#player');
   var controls =
@@ -2700,7 +2741,6 @@ var player = new Plyr('#player', { controls });
 		except UnicodeDecodeError:
 			displaypath = urllib.parse.unquote(path)
 		displaypath = html.escape(displaypath, quote=False)
-		enc = sys.getfilesystemencoding()
 
 
 		title = self.get_titles(displaypath)
@@ -2918,13 +2958,11 @@ def _get_best_family(*address):
 	infos = socket.getaddrinfo(
 		*address,
 		type=socket.SOCK_STREAM,
-		flags=socket.AI_PASSIVE,
+		flags=socket.AI_PASSIVE
 	)
 	family, type, proto, canonname, sockaddr = next(iter(infos))
 	return family, sockaddr
 
-
-import socket
 def get_ip():
 			s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			s.settimeout(0)
@@ -3050,5 +3088,5 @@ if __name__ == '__main__':
 			)
 
 if reload == True:
-	subprocess.call([sys.executable, config.MAIN_FILE, *sys.argv[1:]])
+	subprocess.call([sys.executable, config.MAIN_FILE] + sys.argv[1:])
 	sys.exit(0)

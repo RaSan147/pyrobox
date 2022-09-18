@@ -2667,7 +2667,7 @@ tr:nth-child(even) {
 	</video>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.2/plyr.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous"></script>
 <script>
   //const player = new Plyr('#player');
   var controls =
