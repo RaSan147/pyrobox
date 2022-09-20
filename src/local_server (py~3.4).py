@@ -143,19 +143,19 @@ import tempfile, random, string, json
 import traceback
 
 import importlib
-
+#import pkg_resources as pkg_r
 
 def get_installed():
 	use_pkg = 0 # py 3.4 compat
 	try:
 		import pkg_resources as pkg_r
-		importlib.reload(pkg_r)
+		#importlib.reload(pkg_r)
 		use_pkg = 1
 	except ImportError:
-		pass
+		traceback.print_exc()
 
 	if use_pkg:
-		importlib.reload(pkg_r)
+		#importlib.reload(pkg_r)
 		return [pkg.key for pkg in pkg_r.working_set]
 	return list(sys.modules.keys())
 
@@ -200,8 +200,8 @@ def init_requirements():
 			if config.get_os()=='Windows':
 				if 'pip' in missing:
 					subprocess.call([sys.executable, '-m', 'ensurepip'])
-					if sys.version_info<(3,5,0):
-						subprocess.call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip==19.1.1'])
+					if sys.version_info<(3,6,0):
+						subprocess.call([sys.executable, '-m', 'pip', 'install', 'pip==19.1.1'])
 					else:
 						subprocess.call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip'])
 					# WILL NOT WORK ON PY 3.4 SINCE PIP USE F-STRINGS
@@ -253,6 +253,7 @@ if "7z" in missing_sys_req:
 	print("'Download folder as Zip' disabled")
 	disabled_func["7z"] = True
 
+if disabled_func["trash"]: print("Try re-running the program")
 
 reload = False
 
