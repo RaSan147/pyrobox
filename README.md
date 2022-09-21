@@ -1,4 +1,4 @@
-# Help Needed
+### Help Needed
 # py_httpserver_Ult
 
 ` Note ` UPLOAD PASSWORD: `SECret`
@@ -11,7 +11,7 @@ Server side requirement
 * `send2trash` pip package (will be auto installed when the code runs)
 * (for windows) no need to download 7z[^2] (from here), it will be automatically downloaded
 
-[^1]: Making a working version to support till 3.4, but not sure will maintain that. Also not recommended since it got EOL)
+[^1]: [3.4 compat](https://github.com/RaSan147/py_httpserver_Ult/blob/main/src/local_server%20(py%7E3.4).py) version to support till 3.4, but will not maintain that often. Also not recommended since it got EOL)
 [^2]: Planning to drop using 7z and use Python `zipfile`
 
 Installation
@@ -91,6 +91,7 @@ Basic FEATURES
 * https://github.com/RaSan147/py_httpserver_Ult/issues/39 User login and user based permission set. 🔑
 
 # Support for more features
+
 
 Context menu:
 --------------------------------------------------------------
