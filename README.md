@@ -6,7 +6,7 @@
 
 Server side requirement
 ----------------------------------------------------------------
-* Python 3.7 or higher [^1]
+* Python 3.7 or higher. Older support available.[^1]
 * Basic knowledge about Python
 * `send2trash` pip package (will be auto installed when the code runs)
 * (for windows) no need to download 7z[^2] (from here), it will be automatically downloaded
