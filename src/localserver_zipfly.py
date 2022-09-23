@@ -917,13 +917,13 @@ class ContextMenu {
 		// popup_msg.open_popup()
 	}
 
-	rename(file){
+	rename(link, name){
 
 		popup_msg.close()
 		popup_msg.createPopup("Rename", "Enter new name: <input id='rename' type='text'><br><br><div class='pagination center' onclick='context_menu.rename_data()'>Change!</div>");
 		popup_msg.open_popup()
-		this.old_name = file;
-		byId("rename").value = file;
+		this.old_name = link;
+		byId("rename").value = name;
 		byId("rename").focus()
 	}
 
@@ -960,7 +960,7 @@ class ContextMenu {
 		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
 		rename.classList.add("menu_options")
 		rename.onclick = function(){
-			that.rename(file)
+			that.rename(file, name)
 		}
 		menu.appendChild(rename)
 
