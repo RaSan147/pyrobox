@@ -41,7 +41,7 @@ Server side requirement
 Installation
 ----------------------------------------------------------------
 1. Download the `local_server.py`
-2. yes, only the `local_Server.py`. Other files are not necessary.
+2. yes, only the `local_server.py`. Other files are not necessary.
 3. Install Python 3.7 or higher and run the `local_server.py`
 4. The server will show your ip and port, use that with and local device browser under the same network
    * Like this `192.168.0.100:6969/`
