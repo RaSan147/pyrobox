@@ -4,15 +4,39 @@
 ` Note ` UPLOAD PASSWORD: `SECret`
 # Requesting for more suggesions and ideas
 
+Basic FEATURES
+----------------------------------------------------------------
+* File Hosting system (Serve files from local Storage system)
+* Access Shared File System from Multiple Devices
+
+ Extra FEATURES 
+----------------------------------------------------------------
+* 🔽 DOWNLOAD AND VIDEO STREAM WITH **PAUSE AND RESUME**
+* 🔼 UPLOAD WITH **PASSWORD**
+* 📈 MULTIPLE FILE **UPLOAD**
+* 📝 RENAME
+* 📁 FOLDER DOWNLOAD as **ZIP** (uses temp folder)[^1]
+* ⏯ VIDEO PLAYER
+* 🔁 **DELETE FILE** (MOVE TO RECYCLE BIN)
+* 🔥 PERMANENTLY DELETE
+* ⛓ `File manager` like `NAVIGATION BAR`
+* 🧨 RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
+* 🆕 FOLDER CREATION
+* 💬 Pop-up messages UI(from my Web leach repo)
+* 🌐 If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (also vulnerable, since you can't control access *yet*)
+* 🔜 More comming soon
+
+[^1]: Currently using 7zip which requires temp directory to create the zip. But on my way to depricate 7zip use.
+
 Server side requirement
 ----------------------------------------------------------------
-* Python 3.7 or higher. Older support available.[^1]
+* Python 3.7 or higher. Older support available.[^2]
 * Basic knowledge about Python
 * `send2trash` pip package (will be auto installed when the code runs)
-* (for windows) no need to download 7z[^2] (from here), it will be automatically downloaded
+* (for windows) no need to download 7z[^1] (from here), it will be automatically downloaded
 
-[^1]: [3.4 compat](https://github.com/RaSan147/py_httpserver_Ult/blob/main/src/local_server%20(py%7E3.4).py) version to support till 3.4, but will not maintain that often. Also not recommended since it got EOL)
-[^2]: Planning to drop using 7z and use Python `zipfile`
+[^2]: [3.4 compat](https://github.com/RaSan147/py_httpserver_Ult/blob/main/src/local_server%20(py%7E3.4).py) version to support till 3.4, but will not maintain that often. Also not recommended since it got EOL)
+
 
 Installation
 ----------------------------------------------------------------
@@ -53,28 +77,6 @@ Customization
 
 1. To specify alternate bind address
     - Add bind add `-bind {address}`
-
-Basic FEATURES
-----------------------------------------------------------------
-* File Hosting system (Serve files from local Storage system)
-* Access Shared File System from Multiple Devices
-
- Extra FEATURES 
-----------------------------------------------------------------
-* 🔽 DOWNLOAD AND VIDEO STREAM WITH **PAUSE AND RESUME**
-* 🔼 UPLOAD WITH **PASSWORD**
-* 📈 MULTIPLE FILE **UPLOAD**
-* 📝 RENAME
-* 📁 FOLDER DOWNLOAD as **ZIP** (uses temp folder)
-* ⏯ VIDEO PLAYER
-* 🔁 **DELETE FILE** (MOVE TO RECYCLE BIN)
-* 🔥 PERMANENTLY DELETE
-* ⛓ `File manager` like `NAVIGATION BAR`
-* 🧨 RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
-* 🆕 FOLDER CREATION
-* 💬 Pop-up messages UI(from my Web leach repo)
-* 🌐 If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (also vulnerable, since you can't control access *yet*)
-* 🔜 More comming soon
 
  TODO:
 --------------------------------------------------------------
