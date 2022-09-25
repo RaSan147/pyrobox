@@ -595,17 +595,17 @@ document.getElementById("uploader").addEventListener('submit', e => {
   request.timeout = 3600000;
   
   request.onreadystatechange = () => {
-    if(request.readyState === XMLHttpRequest.DONE) {
-      let message = `${request.status}: ${request.statusText}`
-      if(request.status === 204) message = 'Success'
-      if(request.status === 0) message = 'Connection failed'
-      document.getElementById('status').textContent = message
-    }
+	if(request.readyState === XMLHttpRequest.DONE) {
+	  let message = `${request.status}: ${request.statusText}`
+	  if(request.status === 204) message = 'Success'
+	  if(request.status === 0) message = 'Connection failed'
+	  document.getElementById('status').textContent = message
+	}
   }
   
   request.upload.onprogress = e => {
-    let message = e.loaded === e.total ? 'Saving...' : `${Math.floor(100*e.loaded/e.total)}%%`
-    document.getElementById("status").textContent = message
+	let message = e.loaded === e.total ? 'Saving...' : `${Math.floor(100*e.loaded/e.total)}%%`
+	document.getElementById("status").textContent = message
   }
   
   request.send(formData)
@@ -1269,37 +1269,48 @@ def humanbytes(B):
 def list_dir(start_path = '.', full_dir=True, both=False):
 	b =[]
 	p =[]
+
+	size = 0
+
 	for dirpath, dirnames, filenames in os.walk(start_path, onerror= print):
 		for f in filenames:
 			fp = os.path.join(dirpath, f)
-			
+
+			size += os.path.getsize(fp)
 			if both:
 				b.append((fp, fp.replace(start_path, "", 1)))
 			
 			elif full_dir:
-			 	p.append(fp)
+				p.append(fp)
 			else:
-			 	p.append(fp.replace(start_path, "", 1))
-			 	
+				p.append(fp.replace(start_path, "", 1))
+	print('counted upto', size)
 	if both:
-		return b
+		return size, b
 
-	return p
-	
+	return size, p
+
 def gen_zip(path):
 	import zipfly
-	
-	fm = list_dir(path , both=True)
+
+	size, fm = list_dir(path , both=True)
 	paths = []
 	for i,j in fm:
 		paths.append({"fs": i, "n":j})
 	
-	zfly = zipfly.ZipFly(paths = paths)
+	print('zipping', len(fm), 'files')
 
+	zfly = zipfly.ZipFly(paths = paths, storesize=size)
+
+	prediction = None
+	try:
+		prediction = zfly.buffer_prediction_size()
+	except zipfly.LargePredictionSize as e:
+		print (e)
 	generator = zfly.generator()
 	
 
-	return generator
+	return prediction, generator
 
 
 # PAUSE AND RESUME FEATURE ----------------------------------------
@@ -2485,10 +2496,22 @@ tr:nth-child(even) {
 			self.send_response(HTTPStatus.OK)
 			self.send_header("Content-type", "application/octet-stream")
 			self.send_header("Content-Disposition", 'filename="%s.zip"' % (os.path.basename(path)))
+			self.send_header("accept-ranges", "none")
+			self.send_header('Connection', 'keep-alive')
+
+
+			size, generator = gen_zip(path)
+
+			# if size:
+			# 	self.send_header("Content-Length", str(size))
+			
 			self.end_headers()
 			self.is_zip_file = True
-						
-			return gen_zip(path)
+			
+			print(self.headers)
+			
+			print("FLY")
+			return generator
 
 			
 			if disabled_func["7z"]:
@@ -2573,7 +2596,6 @@ tr:nth-child(even) {
 				if self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])) not in ['video/mp4', 'video/ogg', 'video/webm']:
 					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
 				else:
-					
 					ctype = self.guess_type("/".join([pathtemp[0],  spathsplit[-1][6:]]))
 					r.append('''
 <!-- using from http://plyr.io  -->
@@ -2584,12 +2606,10 @@ tr:nth-child(even) {
 	<video controls crossorigin playsinline data-poster="https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg" id="player">
 
 	<source src="%s" type="%s"/>
-
 	</video>
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous"></script>
-
 
 
 <!-- 
@@ -2603,7 +2623,7 @@ tr:nth-child(even) {
 
 <script>
 
-//var script = document.createElement('script'); script.src="//cdn.jsdelivr.net/npm/eruda"; document.body.appendChild(script); script.onload = function () { eruda.init() };
+//var script = document.createElement('script'); script.src = "//cdn.jsdelivr.net/npm/eruda"; document.body.appendChild(script); script.onload = function () { eruda.init() };
 
 
 
@@ -2613,154 +2633,148 @@ const log = console.log,
 	byTag = document.getElementsByTagName.bind(document),
 	byName = document.getElementsByName.bind(document),
 	createElement = document.createElement.bind(document);
-	
-	
 
-  //const player = new Plyr('#player');
-  var controls =
-[
-    'play-large', // The large play button in the center
-    //'restart', // Restart playback
-    'rewind', // Rewind by the seek time (default 10 seconds)
-    'play', // Play/pause playback
-    'fast-forward', // Fast forward by the seek time (default 10 seconds)
-    'progress', // The progress bar and scrubber for playback and buffering
-    'current-time', // The current time of playback
-    'duration', // The full duration of the media
-    'mute', // Toggle mute
-    'volume', // Volume control // Will be hidden on Android as they have Device Volume controls
-    //'captions', // Toggle captions
-    'settings', // Settings menu
-    //'pip', // Picture-in-picture (currently Safari only)
-    //'airplay', // Airplay (currently Safari only)
-    //'download', // Show a download button with a link to either the current source or a custom URL you specify in your options
-    'fullscreen' // Toggle fullscreen
-];
+
+
+//const player = new Plyr('#player');
+var controls =
+	[
+		'play-large', // The large play button in the center
+		//'restart', // Restart playback
+		'rewind', // Rewind by the seek time (default 10 seconds)
+		'play', // Play/pause playback
+		'fast-forward', // Fast forward by the seek time (default 10 seconds)
+		'progress', // The progress bar and scrubber for playback and buffering
+		'current-time', // The current time of playback
+		'duration', // The full duration of the media
+		'mute', // Toggle mute
+		'volume', // Volume control // Will be hidden on Android as they have Device Volume controls
+		//'captions', // Toggle captions
+		'settings', // Settings menu
+		//'pip', // Picture-in-picture (currently Safari only)
+		//'airplay', // Airplay (currently Safari only)
+		//'download', // Show a download button with a link to either the current source or a custom URL you specify in your options
+		'fullscreen' // Toggle fullscreen
+	];
 
 //CUSTOMIZE MORE USING THIS:
 // https://stackoverflow.com/a/61577582/11071949
 
 var player = new Plyr('#player', { controls });
 
-player.eventListeners.forEach(function(eventListener) {
-    if(eventListener.type === 'dblclick') {
-        eventListener.element.removeEventListener(eventListener.type, eventListener.callback, eventListener.options);
-    }
+player.eventListeners.forEach(function (eventListener) {
+	if (eventListener.type === 'dblclick') {
+		eventListener.element.removeEventListener(eventListener.type, eventListener.callback, eventListener.options);
+	}
 });
 
 
 //function create_time_overlay(){
-	const skip_ol = createElement("div");
-	// ol.classList.add("plyr__control--overlaid");
-	skip_ol.id = "plyr__time_skip"
-	const skip_text = createElement("p")
-	skip_text.id = "skipped_time"
-	skip_ol.appendChild(skip_text)
-	byClass("plyr")[0].appendChild(skip_ol)
+const skip_ol = createElement("div");
+// ol.classList.add("plyr__control--overlaid");
+skip_ol.id = "plyr__time_skip"
+
+byClass("plyr")[0].appendChild(skip_ol)
 //}
 
 //create_time_overlay()
 
-class multiclick_counter{
-  constructor(){
-  this.timers = [];
+class multiclick_counter {
+	constructor() {
+		this.timers = [];
 
-	this.count = 0;
-	this.reseted = 0;
-	this.last_side = null;
-  }
-	
-	clicked(){
-	  this.count +=1
-    var xcount = this.count;
-    this.timers.push(setTimeout(this.reset.bind(this, xcount), 500));
-    
-    return this.count
+		this.count = 0;
+		this.reseted = 0;
+		this.last_side = null;
 	}
-	
-	reset_count(n){
-	  console.log("reset")
-	  this.reseted = this.count
-	  this.count=n
-    for (var i = 0; i < this.timers.length; i++)
-{
-    clearTimeout(this.timers[i]);
-}
-    this.timer = []
+
+	clicked() {
+		this.count += 1
+		var xcount = this.count;
+		this.timers.push(setTimeout(this.reset.bind(this, xcount), 500));
+
+		return this.count
+	}
+
+	reset_count(n) {
+		console.log("reset")
+		this.reseted = this.count
+		this.count = n
+		for (var i = 0; i < this.timers.length; i++) {
+			clearTimeout(this.timers[i]);
+		}
+		this.timer = []
 
 	}
-	
-	reset(xcount){
-	  if(this.count>xcount){return}
-    this.count = 0;
-    this.last_side = null;
-    this.reseted = 0;
-    skip_ol.style.opacity = "0";
-    this.timer = []
+
+	reset(xcount) {
+		if (this.count > xcount) { return }
+		this.count = 0;
+		this.last_side = null;
+		this.reseted = 0;
+		skip_ol.style.opacity = "0";
+		this.timer = []
 	}
-	
+
 }
 
 var counter = new multiclick_counter();
 
 
 const poster = byClass("plyr__poster")[0]
-  
-  poster.onclick = function(e) {
-    const count = counter.clicked()
-  	
-  	if(count<2){return}
-      // e = Mouse click event.
-      
-      
-      const rect = e.target.getBoundingClientRect();
-      const x = e.clientX - rect.left; //x position within the element.
-      const y = e.clientY - rect.top;  //y position within the element.
-      console.log("Left? : " + x + " ; Top? : " + y + ".");
-      
-      const width = e.target.offsetWidth;
-      const perc = x*100/width;
-      
-      var panic = true;
-      var last_click = counter.last_side
 
-      if(last_click==null){
-        panic = false
-      }
-      if(perc<40){
-      	counter.last_side = "L"
-      	if(panic && last_click!="L"){
-      	  counter.reset_count(1)
-      	  return
-      	}
-      	
-      	skip_ol.style.opacity = "0.9";
-      	player.rewind()
-      	skip_text.innerText = "- "+ ((count-1)*10) + "sec";
+poster.onclick = function (e) {
+	const count = counter.clicked()
 
-      }
-      else if(perc>60){
-      counter.last_side = "R"
-      if(panic && last_click!="R"){
-      	  counter.reset_count(1)
-      	  return
-      	}
-      	
-      	skip_ol.style.opacity = "0.9";
-      	last_click = "R"
-      	player.forward()
-      	skip_text.innerText = "+ "+ ((count-1)*10) + "sec";
+	if (count < 2) { return }
 
-      
-      }
-      else{
-        player.togglePlay()
-        counter.last_click = "C"
-      }
-      
-    }
-    
-    
+	const rect = e.target.getBoundingClientRect();
+	const x = e.clientX - rect.left; //x position within the element.
+	const y = e.clientY - rect.top;  //y position within the element.
+	console.log("Left? : " + x + " ; Top? : " + y + ".");
+
+	const width = e.target.offsetWidth;
+	const perc = x * 100 / width;
+
+	var panic = true;
+	var last_click = counter.last_side
+
+	if (last_click == null) {
+		panic = false
+	}
+	if (perc < 40) {
+		counter.last_side = "L"
+		if (panic && last_click != "L") {
+			counter.reset_count(1)
+			return
+		}
+
+		skip_ol.style.opacity = "0.9";
+		player.rewind()
+		skip_ol.innerText = "⫷⪡" + "\n" + ((count - 1) * 10) + "s";
+
+	}
+	else if (perc > 60) {
+		counter.last_side = "R"
+		if (panic && last_click != "R") {
+			counter.reset_count(1)
+			return
+		}
+
+		skip_ol.style.opacity = "0.9";
+		last_click = "R"
+		player.forward()
+		skip_ol.innerText = "⪢⫸ " + "\n" + ((count - 1) * 10) + "s";
+
+
+	}
+	else {
+		player.togglePlay()
+		counter.last_click = "C"
+	}
+
+}
+
 </script>
 
 	</div><br>'''%(self.path, ctype))

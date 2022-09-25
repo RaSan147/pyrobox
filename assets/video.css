@@ -13,7 +13,7 @@
 	--plyr-font-size-captions-medium: 18px;
 	--plyr-font-size-captions-large: 21px;
 	--plyr-control-spacing: 10px;
-	--plyr-control-padding:3px
+	--plyr-control-padding: 3px
 }
 
 
@@ -46,8 +46,8 @@ video {
 	border-radius: 6px;
 	box-shadow: 0 2px 15px var(--plyr-color-shadow);
 	margin: 16px auto;
-	
-	
+
+
 	-webkit-user-select: none;
 	-khtml-user-select: none;
 	-moz-user-select: none;
@@ -130,7 +130,8 @@ video {
 
 
 .plyr {
-	font-family: Arial, Helvetica, sans-serif; /* Override font-family */
+	font-family: Arial, Helvetica, sans-serif;
+	/* Override font-family */
 }
 
 .plyr audio,
@@ -784,13 +785,15 @@ a.plyr__control:before {
 
 @media(max-width:480px) {
 	.plyr__controls__item+.plyr__volume {
-		display: none; /* Hide volume slider on Android */
+		display: none;
+		/* Hide volume slider on Android */
 	}
 }
 
 @media(max-width:320px) {
 	.plyr__controls .plyr__controls__item:first-child {
-		display: none; /* Hide rewind in extremely small screen */
+		display: none;
+		/* Hide rewind in extremely small screen */
 	}
 }
 
@@ -1518,20 +1521,18 @@ a.plyr__control:before {
 
 #plyr__time_skip {
 	background: #333333bb;
-
-	/*background: var(--plyr-video-control-background-hover, var(--plyr-color-main, var(--plyr-color-main, #00b2ff)));*/
-
 	border: 0;
-	border-radius: 100%;
+	border-radius: 50%;
 	color: #fff;
-	/*color: var(--plyr-video-control-color, #fff);*/
-	display: block;
 	left: 50%;
-	/*width: 50%;*/
-	height: 50%;
+	min-width: 60px;
+	width: 90px;
+	display: table-cell;
+	text-align: center;
+	vertical-align: middle;
+	max-height: 90px;
 	opacity: 0;
 	padding: 15px;
-	/*padding: calc(var(--plyr-control-spacing, 10px)*1.5);*/
 	position: absolute;
 	top: 50%;
 	transform: translate(-50%, -50%);

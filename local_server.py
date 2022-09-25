@@ -917,13 +917,13 @@ class ContextMenu {
 		// popup_msg.open_popup()
 	}
 
-	rename(file){
+	rename(link, name){
 
 		popup_msg.close()
 		popup_msg.createPopup("Rename", "Enter new name: <input id='rename' type='text'><br><br><div class='pagination center' onclick='context_menu.rename_data()'>Change!</div>");
 		popup_msg.open_popup()
-		this.old_name = file;
-		byId("rename").value = file;
+		this.old_name = link;
+		byId("rename").value = name;
 		byId("rename").focus()
 	}
 
@@ -960,7 +960,7 @@ class ContextMenu {
 		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
 		rename.classList.add("menu_options")
 		rename.onclick = function(){
-			that.rename(file)
+			that.rename(file, name)
 		}
 		menu.appendChild(rename)
 
@@ -2030,7 +2030,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return (bool, msg)
 
 
-
 		def del_permanently(self=self):
 
 			# pass boundary
@@ -2343,6 +2342,14 @@ tr:nth-child(even) {
 			httpd.server_close()
 			httpd.shutdown()
 
+		########################################################
+		#    TO	TEST ASSETS
+		# elif spathsplit[1]=="@assets":
+		# 	path = "./assets/"+ "/".join(spathsplit[2:])
+		#
+		########################################################
+
+
 		elif spathsplit[-1].startswith('dlY%3F'):
 			msg = False
 			if disabled_func["7z"]:
@@ -2460,21 +2467,21 @@ tr:nth-child(even) {
 			return f
 
 
-		elif spathtemp[0].startswith('/drive%3E'):
-			# SWITCH TO A DIFFERENT DRIVE ON WINDOWS
-			# NOT WORKING YET
+		# elif spathtemp[0].startswith('/drive%3E'):
+		# 	# SWITCH TO A DIFFERENT DRIVE ON WINDOWS
+		# 	# NOT WORKING YET
 
-			if os.path.isdir(spathtemp[0][9:]+':\\'):
-				self.path = spathtemp[0][9]+':\\'
-				self.directory = self.path
-				try: self.path += spathtemp[0][10:]
-				except: pass
-				self.path = spathtemp[1]
-				path = self.translate_path(self.path)
+		# 	if os.path.isdir(spathtemp[0][9:]+':\\'):
+		# 		self.path = spathtemp[0][9]+':\\'
+		# 		self.directory = self.path
+		# 		try: self.path += spathtemp[0][10:]
+		# 		except: pass
+		# 		self.path = spathtemp[1]
+		# 		path = self.translate_path(self.path)
 
-				#print('path',path, '\nself.path',self.path)
-				spathtemp= os.path.split(self.path)
-				pathtemp= os.path.split(path)
+		# 		#print('path',path, '\nself.path',self.path)
+		# 		spathtemp= os.path.split(self.path)
+		# 		pathtemp= os.path.split(path)
 
 		elif spathsplit[-1].startswith('vid%3F') or os.path.exists(path):
 			# SEND VIDEO PLAYER
@@ -2501,55 +2508,195 @@ tr:nth-child(even) {
 
 
 				r.append("</ul>")
+
+
 				if self.guess_type(os.path.join(pathtemp[0],  spathsplit[-1][6:])) not in ['video/mp4', 'video/ogg', 'video/webm']:
 					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
 				else:
 					ctype = self.guess_type("/".join([pathtemp[0],  spathsplit[-1][6:]]))
 					r.append('''
-<!-- using from http://plyr.io -->
+<!-- using from http://plyr.io  -->
 <link rel="stylesheet" href="https://raw.githack.com/RaSan147/py_httpserver_Ult/main/assets/video.css" />
+
 
 <div id="container">
 	<video controls crossorigin playsinline data-poster="https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg" id="player">
 
 	<source src="%s" type="%s"/>
-	<a href="%s" download>Download</a>
 	</video>
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous"></script>
+
+
+<!-- 
+
+<script src="/@assets/plyr.min.js" crossorigin="anonymous"></script>
+<script src="/@assets/player.js">
+</script>
+<link rel="stylesheet" href="/@assets/video.css" /> 
+
+-->
+
 <script>
-  //const player = new Plyr('#player');
-  var controls =
-[
-    'play-large', // The large play button in the center
-    //'restart', // Restart playback
-    'rewind', // Rewind by the seek time (default 10 seconds)
-    'play', // Play/pause playback
-    'fast-forward', // Fast forward by the seek time (default 10 seconds)
-    'progress', // The progress bar and scrubber for playback and buffering
-    'current-time', // The current time of playback
-    'duration', // The full duration of the media
-    'mute', // Toggle mute
-    'volume', // Volume control // Will be hidden on Android as they have Device Volume controls
-    //'captions', // Toggle captions
-    'settings', // Settings menu
-    //'pip', // Picture-in-picture (currently Safari only)
-    //'airplay', // Airplay (currently Safari only)
-    //'download', // Show a download button with a link to either the current source or a custom URL you specify in your options
-    'fullscreen' // Toggle fullscreen
-];
+
+//var script = document.createElement('script'); script.src = "//cdn.jsdelivr.net/npm/eruda"; document.body.appendChild(script); script.onload = function () { eruda.init() };
+
+
+
+const log = console.log,
+	byId = document.getElementById.bind(document),
+	byClass = document.getElementsByClassName.bind(document),
+	byTag = document.getElementsByTagName.bind(document),
+	byName = document.getElementsByName.bind(document),
+	createElement = document.createElement.bind(document);
+
+
+
+//const player = new Plyr('#player');
+var controls =
+	[
+		'play-large', // The large play button in the center
+		//'restart', // Restart playback
+		'rewind', // Rewind by the seek time (default 10 seconds)
+		'play', // Play/pause playback
+		'fast-forward', // Fast forward by the seek time (default 10 seconds)
+		'progress', // The progress bar and scrubber for playback and buffering
+		'current-time', // The current time of playback
+		'duration', // The full duration of the media
+		'mute', // Toggle mute
+		'volume', // Volume control // Will be hidden on Android as they have Device Volume controls
+		//'captions', // Toggle captions
+		'settings', // Settings menu
+		//'pip', // Picture-in-picture (currently Safari only)
+		//'airplay', // Airplay (currently Safari only)
+		//'download', // Show a download button with a link to either the current source or a custom URL you specify in your options
+		'fullscreen' // Toggle fullscreen
+	];
 
 //CUSTOMIZE MORE USING THIS:
 // https://stackoverflow.com/a/61577582/11071949
 
 var player = new Plyr('#player', { controls });
 
+player.eventListeners.forEach(function (eventListener) {
+	if (eventListener.type === 'dblclick') {
+		eventListener.element.removeEventListener(eventListener.type, eventListener.callback, eventListener.options);
+	}
+});
+
+
+//function create_time_overlay(){
+const skip_ol = createElement("div");
+// ol.classList.add("plyr__control--overlaid");
+skip_ol.id = "plyr__time_skip"
+
+byClass("plyr")[0].appendChild(skip_ol)
+//}
+
+//create_time_overlay()
+
+class multiclick_counter {
+	constructor() {
+		this.timers = [];
+
+		this.count = 0;
+		this.reseted = 0;
+		this.last_side = null;
+	}
+
+	clicked() {
+		this.count += 1
+		var xcount = this.count;
+		this.timers.push(setTimeout(this.reset.bind(this, xcount), 500));
+
+		return this.count
+	}
+
+	reset_count(n) {
+		console.log("reset")
+		this.reseted = this.count
+		this.count = n
+		for (var i = 0; i < this.timers.length; i++) {
+			clearTimeout(this.timers[i]);
+		}
+		this.timer = []
+
+	}
+
+	reset(xcount) {
+		if (this.count > xcount) { return }
+		this.count = 0;
+		this.last_side = null;
+		this.reseted = 0;
+		skip_ol.style.opacity = "0";
+		this.timer = []
+	}
+
+}
+
+var counter = new multiclick_counter();
+
+
+const poster = byClass("plyr__poster")[0]
+
+poster.onclick = function (e) {
+	const count = counter.clicked()
+
+	if (count < 2) { return }
+
+	const rect = e.target.getBoundingClientRect();
+	const x = e.clientX - rect.left; //x position within the element.
+	const y = e.clientY - rect.top;  //y position within the element.
+	console.log("Left? : " + x + " ; Top? : " + y + ".");
+
+	const width = e.target.offsetWidth;
+	const perc = x * 100 / width;
+
+	var panic = true;
+	var last_click = counter.last_side
+
+	if (last_click == null) {
+		panic = false
+	}
+	if (perc < 40) {
+		counter.last_side = "L"
+		if (panic && last_click != "L") {
+			counter.reset_count(1)
+			return
+		}
+
+		skip_ol.style.opacity = "0.9";
+		player.rewind()
+		skip_ol.innerText = "⫷⪡" + "\n" + ((count - 1) * 10) + "s";
+
+	}
+	else if (perc > 60) {
+		counter.last_side = "R"
+		if (panic && last_click != "R") {
+			counter.reset_count(1)
+			return
+		}
+
+		skip_ol.style.opacity = "0.9";
+		last_click = "R"
+		player.forward()
+		skip_ol.innerText = "⪢⫸ " + "\n" + ((count - 1) * 10) + "s";
+
+
+	}
+	else {
+		player.togglePlay()
+		counter.last_click = "C"
+	}
+
+}
 
 </script>
-	</div><br>'''%(self.path, ctype, self.path))
+	
+</div><br>'''%(self.path, ctype))
 
-				r.append('<br><a href="%s"><div class=\'pagination\'>Download</div></a></li>'
+				r.append('<br><a href="%s"  download><div class=\'pagination\'>Download</div></a></li>'
 					% self.path)
 
 
