@@ -1520,23 +1520,20 @@ a.plyr__control:before {
 
 
 #plyr__time_skip {
-	background: #333333bb;
+	background: #111111cc;
 	border: 0;
 	border-radius: 50%;
 	color: #fff;
 	left: 50%;
 	min-width: 60px;
 	width: 90px;
-	display: table-cell;
-	text-align: center;
-	vertical-align: middle;
 	max-height: 90px;
 	opacity: 0;
-	padding: 15px;
+	padding-top: 20px;
 	position: absolute;
 	top: 50%;
-	transform: translate(-50%, -50%);
 	transition: 1s;
 	z-index: 3;
-	pointer-events: none
+	pointer-events: none;
+	box-shadow: 0px 0px 45px #000000;
 }

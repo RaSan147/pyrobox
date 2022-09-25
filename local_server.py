@@ -2346,7 +2346,7 @@ tr:nth-child(even) {
 		#    TO	TEST ASSETS
 		# elif spathsplit[1]=="@assets":
 		# 	path = "./assets/"+ "/".join(spathsplit[2:])
-		#
+		
 		########################################################
 
 
@@ -2531,10 +2531,10 @@ tr:nth-child(even) {
 
 <!-- 
 
-<script src="/@assets/plyr.min.js" crossorigin="anonymous"></script>
-<script src="/@assets/player.js">
-</script>
+<script src="/@assets/plyr.min.js"></script>
+<script src="/@assets/player.js"></script>
 <link rel="stylesheet" href="/@assets/video.css" /> 
+
 
 -->
 
