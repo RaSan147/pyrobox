@@ -2668,7 +2668,7 @@ poster.onclick = function (e) {
 
 		skip_ol.style.opacity = "0.9";
 		player.rewind()
-		skip_ol.innerText = "⫷⪡" + "\n" + ((count - 1) * 10) + "s";
+		skip_ol.innerText = "⫷⪡" + "\\n" + ((count - 1) * 10) + "s";
 
 	}
 	else if (perc > 60) {
@@ -2681,7 +2681,7 @@ poster.onclick = function (e) {
 		skip_ol.style.opacity = "0.9";
 		last_click = "R"
 		player.forward()
-		skip_ol.innerText = "⪢⫸ " + "\n" + ((count - 1) * 10) + "s";
+		skip_ol.innerText = "⪢⫸ " + "\\n" + ((count - 1) * 10) + "s";
 
 
 	}
@@ -2696,7 +2696,7 @@ poster.onclick = function (e) {
 	
 </div><br>'''%(self.path, ctype))
 
-				r.append('<br><a href="%s"  download><div class=\'pagination\'>Download</div></a></li>'
+				r.append('<br><a href="%s"  download class=\'pagination\'>Download</a></li>'
 					% self.path)
 
 
