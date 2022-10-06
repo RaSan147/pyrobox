@@ -2344,8 +2344,8 @@ tr:nth-child(even) {
 
 		########################################################
 		#    TO	TEST ASSETS
-		# elif spathsplit[1]=="@assets":
-		# 	path = "./assets/"+ "/".join(spathsplit[2:])
+		#elif spathsplit[1]=="@assets":
+		#	path = "./assets/"+ "/".join(spathsplit[2:])
 		
 		########################################################
 
@@ -2531,9 +2531,9 @@ tr:nth-child(even) {
 
 <!-- 
 
+<link rel="stylesheet" href="/@assets/video.css" /> 
 <script src="/@assets/plyr.min.js"></script>
 <script src="/@assets/player.js"></script>
-<link rel="stylesheet" href="/@assets/video.css" /> 
 
 
 -->
@@ -2660,6 +2660,9 @@ poster.onclick = function (e) {
 		panic = false
 	}
 	if (perc < 40) {
+	  if(player.currentTime==0){
+	    return
+	  }
 		counter.last_side = "L"
 		if (panic && last_click != "L") {
 			counter.reset_count(1)
@@ -2672,6 +2675,9 @@ poster.onclick = function (e) {
 
 	}
 	else if (perc > 60) {
+	if(player.currentTime==player.duration){
+    return
+  }
 		counter.last_side = "R"
 		if (panic && last_click != "R") {
 			counter.reset_count(1)
