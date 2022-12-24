@@ -53,9 +53,10 @@ curl https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_ser
 chmod +x local_server.py # give permissions
 ./local_server.py # run like a script
 ```
+CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 
-Customization
-----------------------------------------------------------------
+
+# Customization
 1. Simply running the code will create a server on `D:\ Drive` for windows on `Port: 6969`
 1. On browser (same device as server), go to `localhost:port_number` to see the output
 1. To change the server running directory, 
@@ -94,4 +95,46 @@ Context menu:
 --------------------------------------------------------------
   <img src="https://user-images.githubusercontent.com/34002411/174422718-e19d33b2-4937-47d7-bcc2-610141c1e437.jpg" width=200>
 
+# FAQ:
+<details>
+  <summary>Using WSL, "PIP not found"</summary>
+  
+  Run this to install `pip3` and add `pip` to path
+  ```
+  sudo apt -y purge python3-pip
+  sudo python3 -m pip uninstall pip
+  sudo apt -y install python3-pip
+  pip install --upgrade pip
+  echo "export PATH=\"${HOME}/.local/bin:$PATH\"" >>"${HOME}"/.bashrc
+  ```
+  Re-running the file should work.
+</details>
+
+<details>
+  <summary>Using Linux, "PIP not found"</summary>
+  
+  Run this to install `pip3`
+  ```
+  sudo apt -y purge python3-pip
+  sudo python3 -m pip uninstall pip
+  sudo apt -y install python3-pip
+  pip install --upgrade pip
+  ```
+  Re-running the file should work.
+</details>
+
+<details>
+  <summary>USE "local_server" like command "youtube_dl"</summary>
+  
+  **Unfortunately this is not possible yet**, I'll make sure this feature works when publish it in `PyPI pip`
+</details>
+
+<details>
+  <summary>Delete not working in WSL</summary>
+  
+  Actually its working, unfortunately Windows don't have access to the WSL recycle bin so it can't show the file
+  And to make things worse, **you need to manually clear WSL recyle bin** from `~/.local/share/Trash`
+  
+  **SO I'D RECOMMAND USING DELETE PARMANENTLY**
+</details>
 
