@@ -59,7 +59,7 @@ $./local_server.py
 
 Customization
 ----------------------------------------------------------------
-1. Simply running the code will create a server on `G:\ Drive` for windows on `Port: 6969`
+1. Simply running the code will create a server on `D:\ Drive` for windows on `Port: 6969`
 1. On browser (same device as server), go to `localhost:port_number` to see the output
 1. To change the server running directory, 
    - i) either edit the code  
