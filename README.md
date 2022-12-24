@@ -130,10 +130,10 @@ Context menu:
 </details>
 
 <details>
-  <summary>Delete not working in WSL</summary>
+  <summary>Delete (Move to Recycle), But WHERE ARE THEY?? [LINUX]</summary>
   
-  Actually its working, unfortunately Windows don't have access to the WSL recycle bin so it can't show the file
-  And to make things worse, **you need to manually clear WSL recyle bin** from `~/.local/share/Trash`
+  Actually the feature is working fine, unfortunately NO-GUI mode linux and WSL don't recycle bin, so you can't find it!
+  And to make things worse, **you need to manually clear the recyle bin** from `~/.local/share/Trash`
   
   **SO I'D RECOMMAND USING DELETE PARMANENTLY**
 </details>
