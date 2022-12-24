@@ -49,7 +49,7 @@ Installation
 ### On Linux (Optional)
 To run code directly like a script on a linux machine. Just paste these lines on a terminal.
 ```
-wget https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py # download script
+curl https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py -O # download script and replace old version
 chmod +x local_server.py # give permissions
 ./local_server.py # run like a script
 ```
