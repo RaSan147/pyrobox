@@ -47,14 +47,11 @@ Installation
    * Like this `192.168.0.100:6969/`
 
 ### On Linux (Optional)
-To run code directly like a script,
-On Terminal give permissions by :
+To run code directly like a script on a linux machine. Just paste these lines on a terminal.
 ```
-$sudo chmod +x local_server.py
-```
-run like a script with :
-```
-$./local_server.py
+curl https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py -O # download script and replace old version
+chmod +x local_server.py # give permissions
+./local_server.py # run like a script
 ```
 
 Customization
