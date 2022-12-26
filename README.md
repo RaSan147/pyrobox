@@ -138,3 +138,9 @@ Context menu:
   **SO I'D RECOMMAND USING DELETE PARMANENTLY**
 </details>
 
+# Thanks to:
+1. https://github.com/bones7456/bones7456/blob/master/SimpleHTTPServerWithUpload.py (the guy who made upload possible)
+2. https://gist.github.com/UniIsland/3346170 (the guy who made multiple file upload possible)
+3. https://github.com/SethMMorton/natsort (sorting titles)
+4. https://github.com/sandes/zipfly (*modified* lets you see the zip progress)
+5. https://github.com/sampotts/plyr (*improved* video player)
