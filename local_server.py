@@ -13,7 +13,7 @@ import os
 
 
 
-
+endl = "\n"
 
 class Config:
 	def __init__(self):
@@ -243,11 +243,39 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 			if not os.path.islink(fp):
 				total_size += os.path.getsize(fp)
 			if limit!=None and total_size>limit:
-				print('counted upto', total_size)
+				# print('counted upto', total_size)
 				if return_list: return -1, False
 				return -1
 	if return_list: return total_size, r
 	return total_size
+
+
+def fmbytes(B):
+	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
+	B = B
+	KB = 1024
+	MB = (KB ** 2) # 1,048,576
+	GB = (KB ** 3) # 1,073,741,824
+	TB = (KB ** 4) # 1,099,511,627,776
+
+
+	if B/TB>1:
+		return '%.2f TB  '%(B/TB)
+		B%=TB
+	if B/GB>1:
+		return '%.2f GB  '%(B/GB)
+		B%=GB
+	if B/MB>1:
+		return '%.2f MB  '%(B/MB)
+		B%=MB
+	if B/KB>1:
+		return '%.2f KB  '%(B/KB)
+		B%=KB
+	if B>1:
+		return '%i bytes'%B
+
+	return "%i byte"%B
+
 
 def humanbytes(B):
 	'Return the given bytes as a human friendly KB, MB, GB, or TB string'
@@ -1180,7 +1208,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			DO_NOT_JSON = True
 
 
-		print((r, type, info, "by: ", self.client_address))
+		print((r, post_type, "by: ", self.client_address))
 
 		if r==True:
 			head = "Success"
@@ -2030,11 +2058,13 @@ tr:nth-child(even) {
 				 # v  : Video
 				 # h  : HTML
 		f_li = [] # file_names
-
+		s_li = [] # size list
+		
 		r_folders = [] # no js
 		r_files = [] # no js
 
-		LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li>'
+
+		LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li><hr>'
 
 
 		# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
@@ -2050,6 +2080,7 @@ tr:nth-child(even) {
 				displayname = name + "@"
 			else:
 				_is_dir_ =False
+				size = fmbytes(os.path.getsize(fullname))
 				__, ext = posixpath.splitext(fullname)
 				if ext=='.html':
 					r_files.append(LIST_STRING % ("link", urllib.parse.quote(linkname,
@@ -2084,12 +2115,15 @@ tr:nth-child(even) {
 					r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 			if _is_dir_:
+				size=0
 				r_folders.append(LIST_STRING % ("", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
 										html.escape(displayname, quote=False)))
 
 				r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
+			
+			s_li.append(size)
 
 
 
@@ -2097,8 +2131,10 @@ tr:nth-child(even) {
 		r.extend(r_files)
 
 		r.append(_js_script.safe_substitute(PY_LINK_LIST=str(r_li),
-											PY_FILE_LIST=str(f_li)))
-
+											PY_FILE_LIST=str(f_li),
+											PY_FILE_SIZE =str(s_li)))
+											
+						
 		encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 		f = io.BytesIO()
 		f.write(encoded)
@@ -2121,18 +2157,18 @@ tr:nth-child(even) {
 		"""Makes each part of the header directory accessible like links
 		just like file manager, but with less CSS"""
 
-		dirs = path.split('/')
+		dirs = re.sub("/{2,}", "/", path).split('/')
 		urls = ['/']
 		names = ['&#127968; HOME']
 		r = []
 
-		for i in range(1, len(dirs)):
+		for i in range(1, len(dirs)-1):
 			dir = dirs[i]
-			urls.append(urls[i-1] + urllib.parse.quote(dir, errors='surrogatepass' )+ '/')
+			urls.append(urls[i-1] + urllib.parse.quote(dir, errors='surrogatepass' )+ '/' if not dir.endswith('/') else "")
 			names.append(dir)
 
 		for i in range(len(names)):
-			tag = "<a href='" + urls[i] + "'>" + names[i] + "</a>"
+			tag = "<a class='dir_turns' href='" + urls[i] + "'>" + names[i] + "</a>"
 			r.append(tag)
 
 		return '<span class="dir_arrow">&#10151;</span>'.join(r)
@@ -2375,10 +2411,24 @@ button {
 	font-size: 12px;
 }
 
-
+.disable_selection {
+	-webkit-touch-callout: none;
+	/* iOS Safari */
+	-webkit-user-select: none;
+	/* Safari */
+	-khtml-user-select: none;
+	/* Konqueror HTML */
+	-moz-user-select: none;
+	/* Old versions of Firefox */
+	-ms-user-select: none;
+	/* Internet Explorer/Edge */
+	user-select: none;
+	/* Non-prefixed version, currently */
+	-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
 
 a {
-	line-height: 200%;
+	/*line-height: 200%;*/
 	font-size: 20px;
 	font-weight: 600;
 	font-family: 'Gill Sans, Gill Sans MT, Calibri, Trebuchet MS, sans-serif';
@@ -2388,19 +2438,50 @@ a {
 	letter-spacing: .1em;
 }
 
-.all_link {
-	font-size: .9em;
-	word-wrap: break-all;
-	/*float: left;*/
-}
-
-.all_link_container {
+.dir_item {
 	display: inline;
-	font-family: 'Open Sans';
-	padding: 8px;
-	border: solid 2px;
 }
 
+
+
+.all_link {
+	display: block;
+	white-space: wrap;
+	font-family: "Open Sans", sans-serif;
+	overflow-wrap: anywhere;
+	position: relative;
+	border-radius: 5px;
+}
+
+.dir_item:active .link_name {
+	color: red;
+}
+
+.dir_item:active .all_link, .dir_item:hover .all_link {
+	background-color: #25a2c222;
+}
+
+.link_name {
+	display: inline-block;
+	font-size: .8em;
+	word-wrap: break-all;
+	padding: 8px;
+	left: 50px;
+	position: relative;
+}
+
+.link_icon {
+	display: inline-block;
+	font-size: 2em;
+	left:0%;
+	width: 40px;
+}
+
+
+
+.context_menu {
+	margin-left: 10px;
+}
 
 
 .link {
@@ -2420,10 +2501,123 @@ a {
 }
 
 
+
+::-webkit-scrollbar-track {
+	background: #222;
+}
+
+::-webkit-scrollbar {
+	width: 7px;
+	height: 7px;
+	opacity: 0.3;
+}
+
+::-webkit-scrollbar:hover {
+	opacity: 0.9;
+}
+
+::-webkit-scrollbar-thumb {
+	background: #333;
+	border-radius: 10px;
+}
+
+:hover::-webkit-scrollbar-thumb {
+	background: #666;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #aaa;
+}
+
+
+
 #dir-tree {
 	word-wrap: break-word;
-	max-width: 95vw;
+	max-width: 98vw;
+	border: #075baf 2px solid;
+	border-radius: 5px;
+	background-color: #0d29379f;
+	padding: 0 5px;
+	height: 50px;
 }
+
+.dir_turns {
+	padding: 4px;
+	border-radius: 5px;
+	font-size: .6em;
+
+}
+
+.dir_turns:hover {
+	background-color: #90cdeb82;
+	color: #ffffff;
+}
+
+
+
+#drag-file-list {
+	width: 98%;
+	max-height: 300px;
+	overflow: auto;
+	padding: 20px 0;
+	align-items: center;
+}
+
+.upload-file-item {
+  display: block;
+  border: 1px solid #ddd;
+  margin-top: -1px; /* Prevent double borders */
+  background-color: #f6f6f6;
+  padding: 12px;
+  text-decoration: none;
+  font-size: 18px;
+  color: black;
+  position: relative;
+  border-radius: 5px;
+  
+  max-width: 100%;
+}
+
+.file-size, .link_size {
+	font-size: .6em;
+	background-color: #19a6c979;
+	padding: 2px;
+	display: inline-block;
+	color: #fff;
+	bo
+	line-height: auto;
+	
+}
+
+.file-size, .file-remove, .link_icon {
+	border-radius: 4px;
+	white-space: nowrap;
+	
+	position: absolute;
+  top: 50%;
+  transform: translate(0%, -50%);
+}
+
+
+
+.file-name, .link_name {
+	display: inline-block;
+	word-wrap: break-all;
+	width: 70%;
+}
+
+.link_name {
+	width: calc(100% - 57px);
+}
+
+.file-remove {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 23px;
+  right: 0%;
+
+}
+
 
 #footer {
 	position: absolute;
@@ -2578,9 +2772,81 @@ a {
 
 ul{
 	list-style-type: none; /* Remove bullets */
-  padding-left: 5px;
-  margin: 0; 
+	padding-left: 5px;
+	margin: 0; 
 }
+
+#upload-pass {
+	background-color: #000;
+	padding: 5px;
+	border-radius: 4px;
+	font: 1.5em sans-serif;
+}
+
+#upload-pass-box {
+	/* make text field larger */
+	font-size: 1.5em;
+	border: #aa00ff solid 2px;;
+	border-radius: 4px;
+	background-color: #0f0f0f;
+}
+
+
+#upload-box {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.drag-area{
+	border: 2px dashed #fff;
+	height: 300px;
+	width: 95%;
+	border-radius: 5px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+}
+.drag-area.active{
+	border: 2px solid #fff;
+}
+.drag-area .drag-icon{
+	font-size: 100px;
+	color: #fff;
+}
+.drag-area header{
+	font-size: 25px;
+	font-weight: 500;
+	color: #fff;
+}
+.drag-area span{
+	font-size: 20px;
+	font-weight: 500;
+	color: #fff;
+	margin: 10px 0 15px 0;
+}
+.drag-area button, #submit-btn{
+	padding: 10px 25px;
+	font-size: 20px;
+	font-weight: 500;
+	outline: none;
+	background: #fff;
+	color: #5256ad;
+	border-radius: 5px;
+	border: solid 2px #00ccff;
+	cursor: pointer;
+}
+
+
+
+
+
+
+
+
+
+
+
 </style>
 
 <noscript>
@@ -2630,49 +2896,93 @@ _js_script = Template(r"""
 
 <br>
 <hr><br>
-<h2>Upload file</h2>
+
+
 <form ENCTYPE="multipart/form-data" method="post" id="uploader">
+	
+	
+	<center>
+	<h1><u>Upload file</u></h1> 
+ 
+ 
 	<input type="hidden" name="post-type" value="upload">
 	<input type="hidden" name="post-uid" value="12345">
-
-	<p>PassWord:&nbsp;&nbsp;</p><input name="password" type="text" label="Password"><br>
-	<p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br>
-
-	<input type="submit" value="&#10174; upload" style="background-color: #555; height: 30px; width: 100px">
+	
+<span id="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" id="upload-pass-box">
+	<br><br>
+	<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
+	<div id="upload-box">
+	<div class="drag-area">
+		<div class="drag-icon">⬆️</div>
+		<header>Drag & Drop to Upload File</header>
+		<span>OR</span>
+		<button id="drag-browse">Browse File</button>
+		<input type="file" name="file" multiple hidden>
+	</div>
+	</div>
+	
+	
+	<h2 id="has-selected-up" style="display:none">Selected Files</h2>
+	</center>
+	<div id="drag-file-list">
+	<!--// List of file-->
+	</div>
+	
+	<center><input id="submit-btn" type="submit" value="&#10174; upload"></center>
 </form>
 
+
+
 <br>
-<p id="task"></p>
-<p id="status"></p>
+<center><div id="upload-task" style="display:none;font-size:20px;font-weight:700">
+<p id="upload-status"></p>
+<progress id="upload-progress" value="0" max="100" style="width:300px"> </progress>
+</div></center>
 <hr>
 
 <script>
 
 const r_li = ${PY_LINK_LIST};
 const f_li = ${PY_FILE_LIST};
+const s_li = ${PY_FILE_SIZE};
 
 document.getElementById("uploader").addEventListener('submit', e => {
 	e.preventDefault()
 	const formData = new FormData(e.target)
-	const filenames = formData.getAll('files').map(v => v.name).join(', ')
+
+
+	const status = document.getElementById("upload-status")
+	const progress = document.getElementById("upload-progress")
+	
+	var prog = 0;
+	var msg = "";
+	
+	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
 	const request = new XMLHttpRequest()
 	request.open(e.target.method, e.target.action)
 	request.timeout = 3600000;
 	request.onreadystatechange = () => {
 		if (request.readyState === XMLHttpRequest.DONE) {
-			let message = `${request.status}: ${request.statusText}`
-			if (request.status === 204) message = 'Success'
-			if (request.status === 0) message = 'Connection failed'
-			document.getElementById('status').textContent = message
+			msg = `${request.status}: ${request.statusText}`
+			if (request.status === 204 || request.status === 200) msg = 'Success'
+			if (request.status === 0) msg = 'Connection failed'
+			status.innerText = msg
 		}
 	}
 	request.upload.onprogress = e => {
-		let message = e.loaded === e.total ? 'Saving...' : `${Math.floor(100*e.loaded/e.total)}%`
-		document.getElementById("status").textContent = message
+		prog = Math.floor(100*e.loaded/e.total)
+		if(e.loaded === e.total){
+			msg ='Saving...'
+		}else{
+			msg = `Uploading : ${prog}%`
+		}
+		status.innerText = msg
+		progress.value = prog
+
 	}
+	status.innerText = `Uploading : 0%`
+	document.getElementById('upload-task').style.display = 'block'
 	request.send(formData)
-	document.getElementById('task').textContent = `Uploading :`
-	document.getElementById('status').textContent = '0%'
 })
 const log = console.log,
 	byId = document.getElementById.bind(document),
@@ -2697,6 +3007,18 @@ function go_link(typee, locate) {
 	return locate + "?" + typee;
 }
 // getting all the links in the directory
+
+class Config {
+	constructor() {
+		this.total_popup = 0;
+		this.popup_msg_open = false;
+		this.allow_Debugging = true
+		this.Debugging = false;
+	}
+}
+var config = new Config()
+
+
 class Tools {
 	// various tools for the page
 	sleep(ms) {
@@ -2773,15 +3095,37 @@ class Tools {
 		link.download = filename;
 		link.click();
 	}
+	
+	
+	copy_2(ev, textToCopy) {
+		// navigator clipboard api needs a secure context (https)
+		if (navigator.clipboard && window.isSecureContext) {
+			// navigator clipboard api method'
+			return navigator.clipboard.writeText(textToCopy);
+		} else {
+			// text area method
+			let textArea = document.createElement("textarea");
+			textArea.value = textToCopy;
+			// make the textarea out of viewport
+			textArea.style.position = "fixed";
+			textArea.style.left = "-999999px";
+			textArea.style.top = "-999999px";
+			document.body.appendChild(textArea);
+			textArea.focus();
+			textArea.select();
+			return new Promise((res, rej) => {
+				// here the magic happens
+				document.execCommand('copy') ? res() : rej();
+				textArea.remove();
+			});
+		}
+}
 }
 let tools = new Tools();
-class Config {
-	constructor() {
-		this.total_popup = 0;
-		this.popup_msg_open = false
-	}
-}
-var config = new Config()
+
+//tools.enable_debug()
+
+
 class Popup_Msg {
 	constructor() {
 		this.create()
@@ -2907,6 +3251,8 @@ class ContextMenu {
 	}
 	menu_click(action, link, more_data = null) {
 		var that = this
+		popup_msg.close()
+		
 		var url = ".";
 		var xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
@@ -2924,7 +3270,7 @@ class ContextMenu {
 	}
 	rename_data() {
 		var new_name = byId("rename").value;
-		popup_msg.close()
+
 		this.menu_click("rename", this.old_name, new_name)
 		// popup_msg.createPopup("Done!", "New name: "+new_name)
 		// popup_msg.open_popup()
@@ -2942,6 +3288,15 @@ class ContextMenu {
 	show_menus(file, name, type) {
 		var that = this;
 		var menu = createElement("div")
+		
+		var new_tab = createElement("div")
+			new_tab.innerHTML = "↗️".toHtmlEntities() + " New tab"
+			new_tab.classList.add("menu_options")
+			new_tab.onclick = function() {
+				window.open(file, '_blank');
+				popup_msg.close()
+			}
+			menu.appendChild(new_tab)
 		if (type == "video") {
 			var download = createElement("div")
 			download.innerHTML = "⬇️".toHtmlEntities() + " Download"
@@ -2964,6 +3319,18 @@ class ContextMenu {
 			}
 			menu.appendChild(dl_zip)
 		}
+		
+		var copy = createElement("div")
+		copy.innerHTML = "⧉".toHtmlEntities() + " Copy link"
+		copy.classList.add("menu_options")
+		copy.onclick = function(ev) {
+			popup_msg.close()
+			let fake_a = document.createElement("a")
+			fake_a.href = file;
+			tools.copy_2(ev, fake_a.href)
+		}
+		menu.appendChild(copy)
+		
 		var rename = createElement("div")
 		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
 		rename.classList.add("menu_options")
@@ -3011,7 +3378,7 @@ class ContextMenu {
 		del_P.onclick = r_u_sure
 		menu.appendChild(del_P)
 		var property = createElement("div")
-		property.innerHTML = "ℹ️".toHtmlEntities() + " Properties"
+		property.innerHTML = "&#9432;" + " Properties"
 		property.classList.add("menu_options")
 		property.onclick = function() {
 			that.menu_click('info', file);
@@ -3060,29 +3427,50 @@ function run_recyle(url) {
 		show_response(url);
 	}
 }
+
+function insertAfter(newNode, existingNode) {
+	existingNode.parentNode.insertBefore(newNode, existingNode.nextSibling);
+}
+
+
+
+
+
 tools.del_child("linkss");
-const folder_li = document.createElement('ul');
-const file_li = document.createElement("ul")
+const folder_li = document.createElement('div');
+const file_li = document.createElement("div")
 for (let i = 0; i < r_li.length; i++) {
 	// time to customize the links according to their formats
 	var folder = false
 	let type = null;
-	let ele = document.createElement('li');
 	let r = r_li[i];
 	let r_ = r.slice(1);
 	let name = f_li[i];
-	let link = document.createElement('a');
+	
+	let item = document.createElement('div'); 
+	item.classList.add("dir_item")
+	
+	
+	let link = document.createElement('a');// both icon and title, display:flex
 	link.href = r_;
 	link.classList.add('all_link');
-	let l_box = document.createElement("div")
-	l_box.classList.add("all_link_container")
+	link.classList.add("disable_selection")
+	let l_icon = document.createElement("span")
+	// this will go inside "link" 1st
+	l_icon.classList.add("link_icon")
+	
+	let l_box = document.createElement("span")
+	// this will go inside "link" 2nd
+	l_box.classList.add("link_name")
+	
+
 	if (r.startsWith('d')) {
 		// add DOWNLOAD FOLDER OPTION in it
 		// TODO: add download folder option by zipping it
 		// currently only shows folder size and its contents
 		type = "folder"
 		folder = true
-		l_box.innerHTML = "📂".toHtmlEntities();
+		l_icon.innerHTML = "📂".toHtmlEntities();
 		l_box.classList.add('link');
 	}
 	if (r.startsWith('v')) {
@@ -3090,53 +3478,67 @@ for (let i = 0; i < r_li.length; i++) {
 		// that will redirect to the video player
 		// clicking main link will download the video instead
 		type = 'video';
-		l_box.innerHTML = '🎥'.toHtmlEntities();
+		l_icon.innerHTML = '🎥'.toHtmlEntities();
 		link.href = go_link("vid", r_)
 		l_box.classList.add('vid');
 	}
 	if (r.startsWith('i')) {
 		type = 'image'
-		l_box.innerHTML = '🌉'.toHtmlEntities();
+		l_icon.innerHTML = '🌉'.toHtmlEntities();
 		l_box.classList.add('file');
 	}
 	if (r.startsWith('f')) {
 		type = 'file'
-		l_box.innerHTML = '📄'.toHtmlEntities();
+		l_icon.innerHTML = '📄'.toHtmlEntities();
 		l_box.classList.add('file');
 	}
 	if (r.startsWith('h')) {
 		type = 'html'
-		l_box.innerHTML = '🔗'.toHtmlEntities();
+		l_icon.innerHTML = '🔗'.toHtmlEntities();
 		l_box.classList.add('html');
 	}
 
-	l_box.innerHTML += "&nbsp;" + name;
-
-
-
+	link.appendChild(l_icon)
+	
+	l_box.innerText = " " + name;
+	
+	if(s_li[i]){
+		l_box.appendChild(document.createElement("br"))
+		console.log(s_li[i])
+		let s = document.createElement("span")
+		s.className= "link_size"
+		s.innerText = s_li[i]
+		l_box.appendChild(s)
+	}
 	link.appendChild(l_box)
-	ele.appendChild(link);
+	
+	// var context = createElement('span');
+	// context.className = "pagination context_menu"
+	// context.innerHTML = '<b>&nbsp;&vellip;&nbsp;</b>';
+
+	link.oncontextmenu = function(ev) {
+		ev.preventDefault()
+		log(r_, 1);
+		context_menu.show_menus(r_, name, type);
+		return false;
+	}
+	
+	item.appendChild(link);
+	//item.appendChild(context);
 	// recycling option for the files and folder
 	// files and folders are handled differently
 	var xxx = "F"
 	if (r.startsWith('d')) {
 		xxx = "D";
 	}
-	var context = createElement('span');
-	context.className = "pagination context_menu"
-	context.innerHTML = '<b>&nbsp;&hellip;&nbsp;</b>';
-	context.style.marginLeft = '50px';
-	context.onclick = function() {
-		log(r_, 1);
-		context_menu.show_menus(r_, name, type);
-	}
-	ele.insertAdjacentElement("beforeend", context);
+	
+	
 	var hrr = createElement("hr")
-	ele.insertAdjacentElement("beforeend", hrr);
+	item.appendChild(hrr);
 	if (folder) {
-		folder_li.appendChild(ele);
+		folder_li.appendChild(item);
 	} else {
-		file_li.appendChild(ele)
+		file_li.appendChild(item)
 	}
 }
 var dir_container = document.getElementById("content_list")
@@ -3150,10 +3552,128 @@ dir_tree.scrollLeft = dir_tree.scrollWidth;
 
 </script>
 
+
+<script>
+//selecting all required elements
+var uploader = document.getElementById("uploader");
+const dropArea = document.querySelector(".drag-area"),
+dragText = dropArea.querySelector("header"),
+button = dropArea.querySelector("button"),
+input = dropArea.querySelector("input");
+let files; //this is a global variable and we'll use it inside multiple functions
+file_display = document.getElementById("drag-file-list");
+
+button.onclick = (e)=>{
+	e.preventDefault();
+	input.click(); //if user click on the button then the input also clicked
+}
+
+input.addEventListener("change", function(){
+	//getting user select file and [0] this means if user select multiple files then we'll select only the first one
+	files = this.files;
+	dropArea.classList.add("active");
+	showFiles(); //calling function
+});
+
+
+//If user Drag File Over DropArea
+dropArea.addEventListener("dragover", (event)=>{
+	event.preventDefault(); //preventing from default behaviour
+	dropArea.classList.add("active");
+	dragText.textContent = "Release to Upload File";
+});
+
+//If user leave dragged File from DropArea
+dropArea.addEventListener("dragleave", ()=>{
+	dropArea.classList.remove("active");
+	dragText.textContent = "Drag & Drop to Upload File";
+});
+
+//If user drop File on DropArea
+dropArea.addEventListener("drop", (event)=>{
+	event.preventDefault(); //preventing from default behaviour
+	//getting user select file and [0] this means if user select multiple files then we'll select only the first one
+	files = event.dataTransfer.files;
+	showFiles(); //calling function
+});
+
+function removeFileFromFileList(index) {
+	const formData = new FormData(uploader)
+	const dt = new DataTransfer()
+	// const input = document.getElementById('files')
+	// const { files } = input
+
+	for (let i = 0; i < files.length; i++) {
+	const file = files[i]
+	if (index !== i)
+		dt.items.add(file) // here you exclude the file. thus removing it.
+	}
+	
+	files = dt.files
+	input.files = dt.files // Assign the updates list
+	showFiles()
+}
+
+function showFiles() {
+	tools.del_child(file_display)
+	let heading = document.getElementById("has-selected-up")
+	if(files.length){
+		heading.style.display = "block"
+	} else {
+		heading.style.display = "none"
+	}
+	for (let i = 0; i <files.length; i++) {
+		showFile(files[i], i);
+	}
+}
+
+function showFile(file, index){
+	// console.log(file.name)
+	let filename = file.name;
+	let size = file.size;
+
+	let item = document.createElement("div");
+	item.className = "upload-file-item";
+	item.innerHTML = `
+			<span class="file-name">${filename}</span>
+			<span class="file-size">${size} bytes</span>
+
+		<span class="file-remove" onclick="removeFileFromFileList(${index})">&times;</span>
+	`;
+
+	file_display.appendChild(item);
+
+
+
+	// let fileType = file.type; //getting selected file type
+	// let validExtensions = ["image/jpeg", "image/jpg", "image/png"]; //adding some valid image extensions in array
+	// if(validExtensions.includes(fileType)){ //if user selected file is an image file
+		// let fileReader = new FileReader(); //creating new FileReader object
+		// fileReader.onload = ()=>{
+			// let fileURL = fileReader.result; //passing user file source in fileURL variable
+				// UNCOMMENT THIS BELOW LINE. I GOT AN ERROR WHILE UPLOADING THIS POST SO I COMMENTED IT
+			// let imgTag = `<img src="${fileURL}" alt="image">`; //creating an img tag and passing user selected file source inside src attribute
+			// dropArea.innerHTML = imgTag; //adding that created img tag inside dropArea container
+		// }
+		// fileReader.readAsDataURL(file);
+	// }else{
+		// alert("This is not an Image File!");
+		// dropArea.classList.remove("active");
+		// dragText.textContent = "Drag & Drop to Upload File";
+	// }
+}
+
+
+
+</script>
+
+
+
 <p>v3</p>
 </body>
 
 </html>
+
 
 """)
 
