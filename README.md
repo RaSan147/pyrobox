@@ -99,8 +99,8 @@ Context menu:
 # FAQ:
 <details>
   <summary>Using WSL, "PIP not found"</summary>
-  
-  Run this to install `pip3` and add `pip` to path
+ 
+  > Run this to install `pip3` and add `pip` to path 
   ```
   sudo apt -y purge python3-pip
   sudo python3 -m pip uninstall pip
@@ -108,35 +108,34 @@ Context menu:
   pip install --upgrade pip
   echo "export PATH=\"${HOME}/.local/bin:$PATH\"" >>"${HOME}"/.bashrc
   ```
-  Re-running the file should work.
+  > Re-running the file should work.
 </details>
 
 <details>
   <summary>Using Linux, "PIP not found"</summary>
   
-  Run this to install `pip3`
+  > Run this to install `pip3` 
   ```
   sudo apt -y purge python3-pip
   sudo python3 -m pip uninstall pip
   sudo apt -y install python3-pip
   pip install --upgrade pip
   ```
-  Re-running the file should work.
+  > Re-running the file should work.
 </details>
 
 <details>
   <summary>USE "local_server" like command "youtube_dl"</summary>
   
-  **Unfortunately this is not possible yet**, I'll make sure this feature works when publish it in `PyPI pip`
+  > **Unfortunately this is not possible yet**, I'll make sure this feature works when publish it in `PyPI pip`
 </details>
 
 <details>
   <summary>Deleted (Move to Recycle), But WHERE ARE THEY?? [on LINUX & WSL]</summary>
   
-  Actually the feature is working fine, unfortunately NO-GUI mode linux and WSL don't recycle bin, so you can't find it!
-  And to make things worse, **you need to manually clear the recyle bin** from `~/.local/share/Trash`
-  
-  **SO I'D RECOMMAND USING DELETE PARMANENTLY**
+  > Actually the feature is working fine, unfortunately NO-GUI mode linux and WSL don't recycle bin, so you can't find it!
+  > And to make things worse, **you need to manually clear the recyle bin** from `~/.local/share/Trash`
+  > **SO I'D RECOMMAND USING DELETE PARMANENTLY**
 </details>
 
 # Thanks to:
