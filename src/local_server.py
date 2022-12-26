@@ -243,12 +243,13 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 			if not os.path.islink(fp):
 				total_size += os.path.getsize(fp)
 			if limit!=None and total_size>limit:
-				print('counted upto', total_size)
+				# print('counted upto', total_size)
 				if return_list: return -1, False
 				return -1
 	if return_list: return total_size, r
 	return total_size
 	
+
 def fmbytes(B):
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
 	B = B
@@ -1103,7 +1104,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			DO_NOT_JSON = True
 
 
-		print((r, type, info, "by: ", self.client_address))
+		print((r, post_type, "by: ", self.client_address))
 
 		if r==True:
 			head = "Success"
@@ -1732,9 +1733,6 @@ tr:nth-child(even) {
 				zid = zip_manager.get_id(path, dir_size)
 				title = "Creating ZIP"
 				
-				
-				#print("="*50, endl, self.dir_navigator(displaypath))
-
 				head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 														PY_PUBLIC_URL=config.address(),
 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
@@ -1811,7 +1809,6 @@ tr:nth-child(even) {
 
 				title = self.get_titles(displaypath)
 
-				#print("="*50, endl, self.dir_navigator(displaypath))
 				r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 																PY_PUBLIC_URL=config.address(),
 																PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
@@ -1963,6 +1960,7 @@ tr:nth-child(even) {
 		r_folders = [] # no js
 		r_files = [] # no js
 
+
 		LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li><hr>'
 
 
@@ -2029,13 +2027,11 @@ tr:nth-child(even) {
 		r.extend(r_folders)
 		r.extend(r_files)
 
-		print(69)
 		r.append(_js_script().safe_substitute(PY_LINK_LIST=str(r_li),
 											PY_FILE_LIST=str(f_li),
 											PY_FILE_SIZE =str(s_li)))
 											
 						
-		print(99)
 		encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 		f = io.BytesIO()
 		f.write(encoded)
@@ -2059,7 +2055,7 @@ tr:nth-child(even) {
 		just like file manager, but with less CSS"""
 
 		dirs = re.sub("/{2,}", "/", path).split('/')
-		print(path, dirs)
+		#print(path, dirs)
 		urls = ['/']
 		names = ['&#127968; HOME']
 		r = []
