@@ -15,27 +15,27 @@ Basic FEATURES
 * 🔼 UPLOAD WITH **PASSWORD**
 * 📈 MULTIPLE FILE **UPLOAD**
 * 📝 RENAME
-* 📁 FOLDER DOWNLOAD as **ZIP** (uses temp folder)[^1]
+* 📁 FOLDER DOWNLOAD as **ZIP** (uses temp folder)
 * ⏯ VIDEO PLAYER
 * 🔁 **DELETE FILE** (MOVE TO RECYCLE BIN)
 * 🔥 PERMANENTLY DELETE
 * ⛓ `File manager` like `NAVIGATION BAR`
+* 📑 Right click Context menu (Tap n hold on touch device)
 * 🧨 RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
 * 🆕 FOLDER CREATION
 * 💬 Pop-up messages UI(from my Web leach repo)
 * 🌐 If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (also vulnerable, since you can't control access *yet*)
+* 🧬 Clone entire directory from Host to Client with least changes (last modified preserved)
 * 🔜 More comming soon
 
-[^1]: Currently using 7zip which requires temp directory to create the zip. But on my way to depricate 7zip use.
 
 Server side requirement
 ----------------------------------------------------------------
-* Python 3.7 or higher. Older support available.[^2]
+* Python 3.7 or higher. Older support available.[^1]
 * Basic knowledge about Python
-* `send2trash` pip package (will be auto installed when the code runs)
-* (for windows) no need to download 7z[^1] (from here), it will be automatically downloaded
+* `send2trash`, `natsort` pip package (if missing, will be auto installed when the code runs)
 
-[^2]: [3.4 compat](https://github.com/RaSan147/py_httpserver_Ult/blob/main/src/local_server%20(py%7E3.4).py) version to support till 3.4, but will not maintain that often. Also not recommended since it got EOL)
+[^1]: [3.4 compat](https://github.com/RaSan147/py_httpserver_Ult/blob/main/src/local_server%20(py%7E3.4).py) version to support till 3.4, but will not maintain that often. Also not recommended since it got EOL)
 
 
 Installation
@@ -93,6 +93,7 @@ CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 
 Context menu:
 --------------------------------------------------------------
+  **Right click on any file link**
   <img src="https://user-images.githubusercontent.com/34002411/174422718-e19d33b2-4937-47d7-bcc2-610141c1e437.jpg" width=200>
 
 # FAQ:
