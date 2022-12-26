@@ -9,49 +9,93 @@
 
 <br>
 <hr><br>
-<h2>Upload file</h2>
+
+
 <form ENCTYPE="multipart/form-data" method="post" id="uploader">
+	
+	
+	<center>
+	<h1><u>Upload file</u></h1> 
+ 
+ 
 	<input type="hidden" name="post-type" value="upload">
 	<input type="hidden" name="post-uid" value="12345">
-
-	<p>PassWord:&nbsp;&nbsp;</p><input name="password" type="text" label="Password"><br>
-	<p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br>
-
-	<input type="submit" value="&#10174; upload" style="background-color: #555; height: 30px; width: 100px">
+	
+<span id="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" id="upload-pass-box">
+	<br><br>
+	<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
+	<div id="upload-box">
+	<div class="drag-area">
+		<div class="drag-icon">⬆️</div>
+		<header>Drag & Drop to Upload File</header>
+		<span>OR</span>
+		<button id="drag-browse">Browse File</button>
+		<input type="file" name="file" multiple hidden>
+	</div>
+	</div>
+	
+	
+	<h2 id="has-selected-up" style="display:none">Selected Files</h2>
+	</center>
+	<div id="drag-file-list">
+	<!--// List of file-->
+	</div>
+	
+	<center><input id="submit-btn" type="submit" value="&#10174; upload"></center>
 </form>
 
+
+
 <br>
-<p id="task"></p>
-<p id="status"></p>
+<center><div id="upload-task" style="display:none;font-size:20px;font-weight:700">
+<p id="upload-status"></p>
+<progress id="upload-progress" value="0" max="100" style="width:300px"> </progress>
+</div></center>
 <hr>
 
 <script>
 
 const r_li = ${PY_LINK_LIST};
 const f_li = ${PY_FILE_LIST};
+const s_li = ${PY_FILE_SIZE};
 
 document.getElementById("uploader").addEventListener('submit', e => {
 	e.preventDefault()
 	const formData = new FormData(e.target)
-	const filenames = formData.getAll('files').map(v => v.name).join(', ')
+
+
+	const status = document.getElementById("upload-status")
+	const progress = document.getElementById("upload-progress")
+	
+	var prog = 0;
+	var msg = "";
+	
+	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
 	const request = new XMLHttpRequest()
 	request.open(e.target.method, e.target.action)
 	request.timeout = 3600000;
 	request.onreadystatechange = () => {
 		if (request.readyState === XMLHttpRequest.DONE) {
-			let message = `${request.status}: ${request.statusText}`
-			if (request.status === 204) message = 'Success'
-			if (request.status === 0) message = 'Connection failed'
-			document.getElementById('status').textContent = message
+			msg = `${request.status}: ${request.statusText}`
+			if (request.status === 204 || request.status === 200) msg = 'Success'
+			if (request.status === 0) msg = 'Connection failed'
+			status.innerText = msg
 		}
 	}
 	request.upload.onprogress = e => {
-		let message = e.loaded === e.total ? 'Saving...' : `${Math.floor(100*e.loaded/e.total)}%`
-		document.getElementById("status").textContent = message
+		prog = Math.floor(100*e.loaded/e.total)
+		if(e.loaded === e.total){
+			msg ='Saving...'
+		}else{
+			msg = `Uploading : ${prog}%`
+		}
+		status.innerText = msg
+		progress.value = prog
+
 	}
+	status.innerText = `Uploading : 0%`
+	document.getElementById('upload-task').style.display = 'block'
 	request.send(formData)
-	document.getElementById('task').textContent = `Uploading :`
-	document.getElementById('status').textContent = '0%'
 })
 const log = console.log,
 	byId = document.getElementById.bind(document),
@@ -76,6 +120,18 @@ function go_link(typee, locate) {
 	return locate + "?" + typee;
 }
 // getting all the links in the directory
+
+class Config {
+	constructor() {
+		this.total_popup = 0;
+		this.popup_msg_open = false;
+		this.allow_Debugging = true
+		this.Debugging = false;
+	}
+}
+var config = new Config()
+
+
 class Tools {
 	// various tools for the page
 	sleep(ms) {
@@ -152,15 +208,37 @@ class Tools {
 		link.download = filename;
 		link.click();
 	}
+	
+	
+	copy_2(ev, textToCopy) {
+		// navigator clipboard api needs a secure context (https)
+		if (navigator.clipboard && window.isSecureContext) {
+			// navigator clipboard api method'
+			return navigator.clipboard.writeText(textToCopy);
+		} else {
+			// text area method
+			let textArea = document.createElement("textarea");
+			textArea.value = textToCopy;
+			// make the textarea out of viewport
+			textArea.style.position = "fixed";
+			textArea.style.left = "-999999px";
+			textArea.style.top = "-999999px";
+			document.body.appendChild(textArea);
+			textArea.focus();
+			textArea.select();
+			return new Promise((res, rej) => {
+				// here the magic happens
+				document.execCommand('copy') ? res() : rej();
+				textArea.remove();
+			});
+		}
+}
 }
 let tools = new Tools();
-class Config {
-	constructor() {
-		this.total_popup = 0;
-		this.popup_msg_open = false
-	}
-}
-var config = new Config()
+
+//tools.enable_debug()
+
+
 class Popup_Msg {
 	constructor() {
 		this.create()
@@ -286,6 +364,8 @@ class ContextMenu {
 	}
 	menu_click(action, link, more_data = null) {
 		var that = this
+		popup_msg.close()
+		
 		var url = ".";
 		var xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
@@ -303,7 +383,7 @@ class ContextMenu {
 	}
 	rename_data() {
 		var new_name = byId("rename").value;
-		popup_msg.close()
+
 		this.menu_click("rename", this.old_name, new_name)
 		// popup_msg.createPopup("Done!", "New name: "+new_name)
 		// popup_msg.open_popup()
@@ -321,6 +401,15 @@ class ContextMenu {
 	show_menus(file, name, type) {
 		var that = this;
 		var menu = createElement("div")
+		
+		var new_tab = createElement("div")
+			new_tab.innerHTML = "↗️".toHtmlEntities() + " New tab"
+			new_tab.classList.add("menu_options")
+			new_tab.onclick = function() {
+				window.open(file, '_blank');
+				popup_msg.close()
+			}
+			menu.appendChild(new_tab)
 		if (type == "video") {
 			var download = createElement("div")
 			download.innerHTML = "⬇️".toHtmlEntities() + " Download"
@@ -343,6 +432,18 @@ class ContextMenu {
 			}
 			menu.appendChild(dl_zip)
 		}
+		
+		var copy = createElement("div")
+		copy.innerHTML = "⧉".toHtmlEntities() + " Copy link"
+		copy.classList.add("menu_options")
+		copy.onclick = function(ev) {
+			popup_msg.close()
+			let fake_a = document.createElement("a")
+			fake_a.href = file;
+			tools.copy_2(ev, fake_a.href)
+		}
+		menu.appendChild(copy)
+		
 		var rename = createElement("div")
 		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
 		rename.classList.add("menu_options")
@@ -390,7 +491,7 @@ class ContextMenu {
 		del_P.onclick = r_u_sure
 		menu.appendChild(del_P)
 		var property = createElement("div")
-		property.innerHTML = "ℹ️".toHtmlEntities() + " Properties"
+		property.innerHTML = "&#9432;" + " Properties"
 		property.classList.add("menu_options")
 		property.onclick = function() {
 			that.menu_click('info', file);
@@ -439,29 +540,50 @@ function run_recyle(url) {
 		show_response(url);
 	}
 }
+
+function insertAfter(newNode, existingNode) {
+	existingNode.parentNode.insertBefore(newNode, existingNode.nextSibling);
+}
+
+
+
+
+
 tools.del_child("linkss");
-const folder_li = document.createElement('ul');
-const file_li = document.createElement("ul")
+const folder_li = document.createElement('div');
+const file_li = document.createElement("div")
 for (let i = 0; i < r_li.length; i++) {
 	// time to customize the links according to their formats
 	var folder = false
 	let type = null;
-	let ele = document.createElement('li');
 	let r = r_li[i];
 	let r_ = r.slice(1);
 	let name = f_li[i];
-	let link = document.createElement('a');
+	
+	let item = document.createElement('div'); 
+	item.classList.add("dir_item")
+	
+	
+	let link = document.createElement('a');// both icon and title, display:flex
 	link.href = r_;
 	link.classList.add('all_link');
-	let l_box = document.createElement("div")
-	l_box.classList.add("all_link_container")
+	link.classList.add("disable_selection")
+	let l_icon = document.createElement("span")
+	// this will go inside "link" 1st
+	l_icon.classList.add("link_icon")
+	
+	let l_box = document.createElement("span")
+	// this will go inside "link" 2nd
+	l_box.classList.add("link_name")
+	
+
 	if (r.startsWith('d')) {
 		// add DOWNLOAD FOLDER OPTION in it
 		// TODO: add download folder option by zipping it
 		// currently only shows folder size and its contents
 		type = "folder"
 		folder = true
-		l_box.innerHTML = "📂".toHtmlEntities();
+		l_icon.innerHTML = "📂".toHtmlEntities();
 		l_box.classList.add('link');
 	}
 	if (r.startsWith('v')) {
@@ -469,53 +591,67 @@ for (let i = 0; i < r_li.length; i++) {
 		// that will redirect to the video player
 		// clicking main link will download the video instead
 		type = 'video';
-		l_box.innerHTML = '🎥'.toHtmlEntities();
+		l_icon.innerHTML = '🎥'.toHtmlEntities();
 		link.href = go_link("vid", r_)
 		l_box.classList.add('vid');
 	}
 	if (r.startsWith('i')) {
 		type = 'image'
-		l_box.innerHTML = '🌉'.toHtmlEntities();
+		l_icon.innerHTML = '🌉'.toHtmlEntities();
 		l_box.classList.add('file');
 	}
 	if (r.startsWith('f')) {
 		type = 'file'
-		l_box.innerHTML = '📄'.toHtmlEntities();
+		l_icon.innerHTML = '📄'.toHtmlEntities();
 		l_box.classList.add('file');
 	}
 	if (r.startsWith('h')) {
 		type = 'html'
-		l_box.innerHTML = '🔗'.toHtmlEntities();
+		l_icon.innerHTML = '🔗'.toHtmlEntities();
 		l_box.classList.add('html');
 	}
 
-	l_box.innerHTML += "&nbsp;" + name;
-
-
-
+	link.appendChild(l_icon)
+	
+	l_box.innerText = " " + name;
+	
+	if(s_li[i]){
+		l_box.appendChild(document.createElement("br"))
+		console.log(s_li[i])
+		let s = document.createElement("span")
+		s.className= "link_size"
+		s.innerText = s_li[i]
+		l_box.appendChild(s)
+	}
 	link.appendChild(l_box)
-	ele.appendChild(link);
+	
+	// var context = createElement('span');
+	// context.className = "pagination context_menu"
+	// context.innerHTML = '<b>&nbsp;&vellip;&nbsp;</b>';
+
+	link.oncontextmenu = function(ev) {
+		ev.preventDefault()
+		log(r_, 1);
+		context_menu.show_menus(r_, name, type);
+		return false;
+	}
+	
+	item.appendChild(link);
+	//item.appendChild(context);
 	// recycling option for the files and folder
 	// files and folders are handled differently
 	var xxx = "F"
 	if (r.startsWith('d')) {
 		xxx = "D";
 	}
-	var context = createElement('span');
-	context.className = "pagination context_menu"
-	context.innerHTML = '<b>&nbsp;&hellip;&nbsp;</b>';
-	context.style.marginLeft = '50px';
-	context.onclick = function() {
-		log(r_, 1);
-		context_menu.show_menus(r_, name, type);
-	}
-	ele.insertAdjacentElement("beforeend", context);
+	
+	
 	var hrr = createElement("hr")
-	ele.insertAdjacentElement("beforeend", hrr);
+	item.appendChild(hrr);
 	if (folder) {
-		folder_li.appendChild(ele);
+		folder_li.appendChild(item);
 	} else {
-		file_li.appendChild(ele)
+		file_li.appendChild(item)
 	}
 }
 var dir_container = document.getElementById("content_list")
@@ -528,6 +664,123 @@ dir_tree.scrollLeft = dir_tree.scrollWidth;
 
 
 </script>
+
+
+<script>
+//selecting all required elements
+var uploader = document.getElementById("uploader");
+const dropArea = document.querySelector(".drag-area"),
+dragText = dropArea.querySelector("header"),
+button = dropArea.querySelector("button"),
+input = dropArea.querySelector("input");
+let files; //this is a global variable and we'll use it inside multiple functions
+file_display = document.getElementById("drag-file-list");
+
+button.onclick = (e)=>{
+	e.preventDefault();
+	input.click(); //if user click on the button then the input also clicked
+}
+
+input.addEventListener("change", function(){
+	//getting user select file and [0] this means if user select multiple files then we'll select only the first one
+	files = this.files;
+	dropArea.classList.add("active");
+	showFiles(); //calling function
+});
+
+
+//If user Drag File Over DropArea
+dropArea.addEventListener("dragover", (event)=>{
+	event.preventDefault(); //preventing from default behaviour
+	dropArea.classList.add("active");
+	dragText.textContent = "Release to Upload File";
+});
+
+//If user leave dragged File from DropArea
+dropArea.addEventListener("dragleave", ()=>{
+	dropArea.classList.remove("active");
+	dragText.textContent = "Drag & Drop to Upload File";
+});
+
+//If user drop File on DropArea
+dropArea.addEventListener("drop", (event)=>{
+	event.preventDefault(); //preventing from default behaviour
+	//getting user select file and [0] this means if user select multiple files then we'll select only the first one
+	files = event.dataTransfer.files;
+	showFiles(); //calling function
+});
+
+function removeFileFromFileList(index) {
+	const formData = new FormData(uploader)
+	const dt = new DataTransfer()
+	// const input = document.getElementById('files')
+	// const { files } = input
+
+	for (let i = 0; i < files.length; i++) {
+	const file = files[i]
+	if (index !== i)
+		dt.items.add(file) // here you exclude the file. thus removing it.
+	}
+	
+	files = dt.files
+	input.files = dt.files // Assign the updates list
+	showFiles()
+}
+
+function showFiles() {
+	tools.del_child(file_display)
+	let heading = document.getElementById("has-selected-up")
+	if(files.length){
+		heading.style.display = "block"
+	} else {
+		heading.style.display = "none"
+	}
+	for (let i = 0; i <files.length; i++) {
+		showFile(files[i], i);
+	}
+}
+
+function showFile(file, index){
+	// console.log(file.name)
+	let filename = file.name;
+	let size = file.size;
+
+	let item = document.createElement("div");
+	item.className = "upload-file-item";
+	item.innerHTML = `
+			<span class="file-name">${filename}</span>
+			<span class="file-size">${size} bytes</span>
+
+		<span class="file-remove" onclick="removeFileFromFileList(${index})">&times;</span>
+	`;
+
+	file_display.appendChild(item);
+
+
+
+	// let fileType = file.type; //getting selected file type
+	// let validExtensions = ["image/jpeg", "image/jpg", "image/png"]; //adding some valid image extensions in array
+	// if(validExtensions.includes(fileType)){ //if user selected file is an image file
+		// let fileReader = new FileReader(); //creating new FileReader object
+		// fileReader.onload = ()=>{
+			// let fileURL = fileReader.result; //passing user file source in fileURL variable
+				// UNCOMMENT THIS BELOW LINE. I GOT AN ERROR WHILE UPLOADING THIS POST SO I COMMENTED IT
+			// let imgTag = `<img src="${fileURL}" alt="image">`; //creating an img tag and passing user selected file source inside src attribute
+			// dropArea.innerHTML = imgTag; //adding that created img tag inside dropArea container
+		// }
+		// fileReader.readAsDataURL(file);
+	// }else{
+		// alert("This is not an Image File!");
+		// dropArea.classList.remove("active");
+		// dragText.textContent = "Drag & Drop to Upload File";
+	// }
+}
+
+
+
+</script>
+
+
 
 <p>v3</p>
 </body>

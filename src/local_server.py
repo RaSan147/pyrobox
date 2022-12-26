@@ -13,7 +13,7 @@ import os
 
 
 
-
+endl = "\n"
 
 class Config:
 	def __init__(self):
@@ -26,7 +26,7 @@ class Config:
 		self.IP = None # will be assigned by checking
 
 		# DEFAULT PORT TO LAUNCH SERVER
-		self.port= 45645  # DEFAULT PORT TO LAUNCH SERVER
+		self.port= 45454  # DEFAULT PORT TO LAUNCH SERVER
 
 		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
 		self.PASSWORD= "SECret".encode('utf-8')
@@ -248,6 +248,33 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 				return -1
 	if return_list: return total_size, r
 	return total_size
+	
+def fmbytes(B):
+	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
+	B = B
+	KB = 1024
+	MB = (KB ** 2) # 1,048,576
+	GB = (KB ** 3) # 1,073,741,824
+	TB = (KB ** 4) # 1,099,511,627,776
+
+
+	if B/TB>1:
+		return '%.2f TB  '%(B/TB)
+		B%=TB
+	if B/GB>1:
+		return '%.2f GB  '%(B/GB)
+		B%=GB
+	if B/MB>1:
+		return '%.2f MB  '%(B/MB)
+		B%=MB
+	if B/KB>1:
+		return '%.2f KB  '%(B/KB)
+		B%=KB
+	if B>1:
+		return '%i bytes'%B
+
+	return "%i byte"%B
+
 
 def humanbytes(B):
 	'Return the given bytes as a human friendly KB, MB, GB, or TB string'
@@ -1704,6 +1731,9 @@ tr:nth-child(even) {
 			try:
 				zid = zip_manager.get_id(path, dir_size)
 				title = "Creating ZIP"
+				
+				
+				#print("="*50, endl, self.dir_navigator(displaypath))
 
 				head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 														PY_PUBLIC_URL=config.address(),
@@ -1781,6 +1811,7 @@ tr:nth-child(even) {
 
 				title = self.get_titles(displaypath)
 
+				#print("="*50, endl, self.dir_navigator(displaypath))
 				r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 																PY_PUBLIC_URL=config.address(),
 																PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
@@ -1916,6 +1947,7 @@ tr:nth-child(even) {
 		title = self.get_titles(displaypath)
 
 
+		#print("="*50, endl, self.dir_navigator(displaypath))
 		r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 														PY_PUBLIC_URL=config.address(),
 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
@@ -1926,11 +1958,12 @@ tr:nth-child(even) {
 				 # v  : Video
 				 # h  : HTML
 		f_li = [] # file_names
-
+		s_li = [] # size list
+		
 		r_folders = [] # no js
 		r_files = [] # no js
 
-		LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li>'
+		LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li><hr>'
 
 
 		# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
@@ -1946,6 +1979,7 @@ tr:nth-child(even) {
 				displayname = name + "@"
 			else:
 				_is_dir_ =False
+				size = fmbytes(os.path.getsize(fullname))
 				__, ext = posixpath.splitext(fullname)
 				if ext=='.html':
 					r_files.append(LIST_STRING % ("link", urllib.parse.quote(linkname,
@@ -1980,22 +2014,28 @@ tr:nth-child(even) {
 					r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 			if _is_dir_:
+				size=0
 				r_folders.append(LIST_STRING % ("", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
 										html.escape(displayname, quote=False)))
 
 				r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
+			
+			s_li.append(size)
 
 
 
 		r.extend(r_folders)
 		r.extend(r_files)
 
-
+		print(69)
 		r.append(_js_script().safe_substitute(PY_LINK_LIST=str(r_li),
-											PY_FILE_LIST=str(f_li)))
-
+											PY_FILE_LIST=str(f_li),
+											PY_FILE_SIZE =str(s_li)))
+											
+						
+		print(99)
 		encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 		f = io.BytesIO()
 		f.write(encoded)
@@ -2018,18 +2058,19 @@ tr:nth-child(even) {
 		"""Makes each part of the header directory accessible like links
 		just like file manager, but with less CSS"""
 
-		dirs = path.split('/')
+		dirs = re.sub("/{2,}", "/", path).split('/')
+		print(path, dirs)
 		urls = ['/']
 		names = ['&#127968; HOME']
 		r = []
 
-		for i in range(1, len(dirs)):
+		for i in range(1, len(dirs)-1):
 			dir = dirs[i]
-			urls.append(urls[i-1] + urllib.parse.quote(dir, errors='surrogatepass' )+ '/')
+			urls.append(urls[i-1] + urllib.parse.quote(dir, errors='surrogatepass' )+ '/' if not dir.endswith('/') else "")
 			names.append(dir)
 
 		for i in range(len(names)):
-			tag = "<a href='" + urls[i] + "'>" + names[i] + "</a>"
+			tag = "<a class='dir_turns' href='" + urls[i] + "'>" + names[i] + "</a>"
 			r.append(tag)
 
 		return '<span class="dir_arrow">&#10151;</span>'.join(r)
