@@ -1526,7 +1526,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			body = """
 <style>
 table {
-  font-family: arial, sans-serif;
   border-collapse: collapse;
   width: 100%;
 }
@@ -1780,7 +1779,7 @@ tr:nth-child(even) {
 
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
-		
+
 
 
 		url_path, query, fragment = URL_MANAGER(self.path)
@@ -2027,7 +2026,7 @@ tr:nth-child(even) {
 		interface the same as for send_head().
 
 		"""
-		
+
 		url_path, query, fragment = URL_MANAGER(self.path)
 
 		try:
@@ -2059,7 +2058,7 @@ tr:nth-child(even) {
 				 # h  : HTML
 		f_li = [] # file_names
 		s_li = [] # size list
-		
+
 		r_folders = [] # no js
 		r_files = [] # no js
 
@@ -2071,6 +2070,7 @@ tr:nth-child(even) {
 		for name in dir_list:
 			fullname = os.path.join(path, name)
 			displayname = linkname = name
+			size=0
 			# Append / for directories or @ for symbolic links
 			_is_dir_ = True
 			if os.path.isdir(fullname):
@@ -2115,14 +2115,13 @@ tr:nth-child(even) {
 					r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 			if _is_dir_:
-				size=0
 				r_folders.append(LIST_STRING % ("", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
 										html.escape(displayname, quote=False)))
 
 				r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
-			
+
 			s_li.append(size)
 
 
@@ -2133,8 +2132,8 @@ tr:nth-child(even) {
 		r.append(_js_script.safe_substitute(PY_LINK_LIST=str(r_li),
 											PY_FILE_LIST=str(f_li),
 											PY_FILE_SIZE =str(s_li)))
-											
-						
+
+
 		encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 		f = io.BytesIO()
 		f.write(encoded)
@@ -2395,6 +2394,7 @@ button {
 
 * {
 	scrollbar-color: #0f0f0f #454a4d;
+	font-family: "Open Sans", sans-serif;
 }
 
 
@@ -2431,7 +2431,6 @@ a {
 	/*line-height: 200%;*/
 	font-size: 20px;
 	font-weight: 600;
-	font-family: 'Gill Sans, Gill Sans MT, Calibri, Trebuchet MS, sans-serif';
 	text-decoration: none;
 	color: #00BFFF;
 
@@ -2447,7 +2446,6 @@ a {
 .all_link {
 	display: block;
 	white-space: wrap;
-	font-family: "Open Sans", sans-serif;
 	overflow-wrap: anywhere;
 	position: relative;
 	border-radius: 5px;
@@ -2495,9 +2493,7 @@ a {
 }
 
 .file {
-	/* font-weight: 300; */
 	color: #c07cf7;
-	/* font-weight: 400; */
 }
 
 
@@ -2574,28 +2570,27 @@ a {
   color: black;
   position: relative;
   border-radius: 5px;
-  
+
   max-width: 100%;
 }
 
 .file-size, .link_size {
 	font-size: .6em;
+	font-weight: 600;
 	background-color: #19a6c979;
-	padding: 2px;
+	padding: 3px;
 	display: inline-block;
 	color: #fff;
-	bo
-	line-height: auto;
-	
+	border-radius: 4px;
+
 }
 
 .file-size, .file-remove, .link_icon {
-	border-radius: 4px;
 	white-space: nowrap;
-	
+
 	position: absolute;
-  top: 50%;
-  transform: translate(0%, -50%);
+	top: 50%;
+	transform: translate(0%, -50%);
 }
 
 
@@ -2614,6 +2609,10 @@ a {
   padding: 12px 16px;
   cursor: pointer;
   font-size: 23px;
+  color: #fff;
+  background-color: #505050;
+  border-radius: 5px;
+  font-weight: 900;
   right: 0%;
 
 }
@@ -2675,7 +2674,6 @@ a {
 	z-index: 23;
 	padding: 20px;
 	box-sizing: border-box;
-	font-family: "Open Sans", sans-serif;
 	max-height: min(600px, 80%);
 	height: max-content;
 	min-height: 300px;
@@ -2773,7 +2771,7 @@ a {
 ul{
 	list-style-type: none; /* Remove bullets */
 	padding-left: 5px;
-	margin: 0; 
+	margin: 0;
 }
 
 #upload-pass {
@@ -2873,7 +2871,6 @@ ul{
 	<ul id="linkss">
 		<a href="../" id="prev_dir">&#128281; {Prev folder}</a>
 
-
 """)
 
 
@@ -2899,64 +2896,75 @@ _js_script = Template(r"""
 
 
 <form ENCTYPE="multipart/form-data" method="post" id="uploader">
-	
-	
+
+
 	<center>
-	<h1><u>Upload file</u></h1> 
- 
- 
-	<input type="hidden" name="post-type" value="upload">
-	<input type="hidden" name="post-uid" value="12345">
-	
-<span id="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" id="upload-pass-box">
-	<br><br>
-	<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
-	<div id="upload-box">
-	<div class="drag-area">
-		<div class="drag-icon">⬆️</div>
-		<header>Drag & Drop to Upload File</header>
-		<span>OR</span>
-		<button id="drag-browse">Browse File</button>
-		<input type="file" name="file" multiple hidden>
+		<h1><u>Upload file</u></h1>
+
+
+		<input type="hidden" name="post-type" value="upload">
+		<input type="hidden" name="post-uid" value="12345">
+
+		<span id="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" id="upload-pass-box">
+		<br><br>
+		<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
+		<div id="upload-box">
+			<div class="drag-area">
+				<div class="drag-icon">⬆️</div>
+				<header>Drag & Drop to Upload File</header>
+				<span>OR</span>
+				<button id="drag-browse">Browse File</button>
+				<input type="file" name="file" multiple hidden>
+			</div>
 	</div>
-	</div>
-	
-	
+
+
 	<h2 id="has-selected-up" style="display:none">Selected Files</h2>
-	</center>
-	<div id="drag-file-list">
+</center>
+<div id="drag-file-list">
 	<!--// List of file-->
-	</div>
-	
-	<center><input id="submit-btn" type="submit" value="&#10174; upload"></center>
+</div>
+
+<center><input id="submit-btn" type="submit" value="&#10174; upload"></center>
 </form>
 
 
 
 <br>
 <center><div id="upload-task" style="display:none;font-size:20px;font-weight:700">
-<p id="upload-status"></p>
-<progress id="upload-progress" value="0" max="100" style="width:300px"> </progress>
+	<p id="upload-status"></p>
+	<progress id="upload-progress" value="0" max="100" style="width:300px"> </progress>
 </div></center>
 <hr>
 
 <script>
+const log = console.log,
+	byId = document.getElementById.bind(document),
+	byClass = document.getElementsByClassName.bind(document),
+	byTag = document.getElementsByTagName.bind(document),
+	byName = document.getElementsByName.bind(document),
+	createElement = document.createElement.bind(document);
+
+
+String.prototype.toHtmlEntities = function() {
+	return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
+};
 
 const r_li = ${PY_LINK_LIST};
 const f_li = ${PY_FILE_LIST};
 const s_li = ${PY_FILE_SIZE};
 
-document.getElementById("uploader").addEventListener('submit', e => {
+byId("uploader").addEventListener('submit', e => {
 	e.preventDefault()
 	const formData = new FormData(e.target)
 
 
-	const status = document.getElementById("upload-status")
-	const progress = document.getElementById("upload-progress")
-	
+	const status = byId("upload-status")
+	const progress = byId("upload-progress")
+
 	var prog = 0;
 	var msg = "";
-	
+
 	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
 	const request = new XMLHttpRequest()
 	request.open(e.target.method, e.target.action)
@@ -2981,18 +2989,9 @@ document.getElementById("uploader").addEventListener('submit', e => {
 
 	}
 	status.innerText = `Uploading : 0%`
-	document.getElementById('upload-task').style.display = 'block'
+	byId('upload-task').style.display = 'block'
 	request.send(formData)
 })
-const log = console.log,
-	byId = document.getElementById.bind(document),
-	byClass = document.getElementsByClassName.bind(document),
-	byTag = document.getElementsByTagName.bind(document),
-	byName = document.getElementsByName.bind(document),
-	createElement = document.createElement.bind(document);
-String.prototype.toHtmlEntities = function() {
-	return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
-};
 
 function null_func() {
 	return true
@@ -3090,13 +3089,13 @@ class Tools {
 		}
 	}
 	download(dataurl, filename = null) {
-		const link = document.createElement("a");
+		const link = createElement("a");
 		link.href = dataurl;
 		link.download = filename;
 		link.click();
 	}
-	
-	
+
+
 	copy_2(ev, textToCopy) {
 		// navigator clipboard api needs a secure context (https)
 		if (navigator.clipboard && window.isSecureContext) {
@@ -3104,7 +3103,7 @@ class Tools {
 			return navigator.clipboard.writeText(textToCopy);
 		} else {
 			// text area method
-			let textArea = document.createElement("textarea");
+			let textArea = createElement("textarea");
 			textArea.value = textToCopy;
 			// make the textarea out of viewport
 			textArea.style.position = "fixed";
@@ -3252,7 +3251,7 @@ class ContextMenu {
 	menu_click(action, link, more_data = null) {
 		var that = this
 		popup_msg.close()
-		
+
 		var url = ".";
 		var xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
@@ -3288,7 +3287,7 @@ class ContextMenu {
 	show_menus(file, name, type) {
 		var that = this;
 		var menu = createElement("div")
-		
+
 		var new_tab = createElement("div")
 			new_tab.innerHTML = "↗️".toHtmlEntities() + " New tab"
 			new_tab.classList.add("menu_options")
@@ -3319,18 +3318,18 @@ class ContextMenu {
 			}
 			menu.appendChild(dl_zip)
 		}
-		
+
 		var copy = createElement("div")
 		copy.innerHTML = "⧉".toHtmlEntities() + " Copy link"
 		copy.classList.add("menu_options")
 		copy.onclick = function(ev) {
 			popup_msg.close()
-			let fake_a = document.createElement("a")
+			let fake_a = createElement("a")
 			fake_a.href = file;
 			tools.copy_2(ev, fake_a.href)
 		}
 		menu.appendChild(copy)
-		
+
 		var rename = createElement("div")
 		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
 		rename.classList.add("menu_options")
@@ -3388,7 +3387,7 @@ class ContextMenu {
 		popup_msg.open_popup()
 	}
 	create_folder() {
-		let folder_name = document.getElementById('folder-name').value;
+		let folder_name = byId('folder-name').value;
 		this.menu_click('new folder', folder_name)
 	}
 }
@@ -3437,8 +3436,8 @@ function insertAfter(newNode, existingNode) {
 
 
 tools.del_child("linkss");
-const folder_li = document.createElement('div');
-const file_li = document.createElement("div")
+const folder_li = createElement('div');
+const file_li = createElement("div")
 for (let i = 0; i < r_li.length; i++) {
 	// time to customize the links according to their formats
 	var folder = false
@@ -3446,23 +3445,23 @@ for (let i = 0; i < r_li.length; i++) {
 	let r = r_li[i];
 	let r_ = r.slice(1);
 	let name = f_li[i];
-	
-	let item = document.createElement('div'); 
+
+	let item = createElement('div');
 	item.classList.add("dir_item")
-	
-	
-	let link = document.createElement('a');// both icon and title, display:flex
+
+
+	let link = createElement('a');// both icon and title, display:flex
 	link.href = r_;
 	link.classList.add('all_link');
 	link.classList.add("disable_selection")
-	let l_icon = document.createElement("span")
+	let l_icon = createElement("span")
 	// this will go inside "link" 1st
 	l_icon.classList.add("link_icon")
-	
-	let l_box = document.createElement("span")
+
+	let l_box = createElement("span")
 	// this will go inside "link" 2nd
 	l_box.classList.add("link_name")
-	
+
 
 	if (r.startsWith('d')) {
 		// add DOWNLOAD FOLDER OPTION in it
@@ -3499,22 +3498,19 @@ for (let i = 0; i < r_li.length; i++) {
 	}
 
 	link.appendChild(l_icon)
-	
+
 	l_box.innerText = " " + name;
-	
+
 	if(s_li[i]){
-		l_box.appendChild(document.createElement("br"))
-		console.log(s_li[i])
-		let s = document.createElement("span")
+		l_box.appendChild(createElement("br"))
+
+		let s = createElement("span")
 		s.className= "link_size"
 		s.innerText = s_li[i]
 		l_box.appendChild(s)
 	}
 	link.appendChild(l_box)
-	
-	// var context = createElement('span');
-	// context.className = "pagination context_menu"
-	// context.innerHTML = '<b>&nbsp;&vellip;&nbsp;</b>';
+
 
 	link.oncontextmenu = function(ev) {
 		ev.preventDefault()
@@ -3522,7 +3518,7 @@ for (let i = 0; i < r_li.length; i++) {
 		context_menu.show_menus(r_, name, type);
 		return false;
 	}
-	
+
 	item.appendChild(link);
 	//item.appendChild(context);
 	// recycling option for the files and folder
@@ -3531,8 +3527,8 @@ for (let i = 0; i < r_li.length; i++) {
 	if (r.startsWith('d')) {
 		xxx = "D";
 	}
-	
-	
+
+
 	var hrr = createElement("hr")
 	item.appendChild(hrr);
 	if (folder) {
@@ -3541,7 +3537,7 @@ for (let i = 0; i < r_li.length; i++) {
 		file_li.appendChild(item)
 	}
 }
-var dir_container = document.getElementById("content_list")
+var dir_container = byId("content_list")
 dir_container.appendChild(folder_li)
 dir_container.appendChild(file_li)
 var dir_tree = byId("dir-tree");
@@ -3555,13 +3551,13 @@ dir_tree.scrollLeft = dir_tree.scrollWidth;
 
 <script>
 //selecting all required elements
-var uploader = document.getElementById("uploader");
+var uploader = byId("uploader");
 const dropArea = document.querySelector(".drag-area"),
 dragText = dropArea.querySelector("header"),
 button = dropArea.querySelector("button"),
 input = dropArea.querySelector("input");
 let files; //this is a global variable and we'll use it inside multiple functions
-file_display = document.getElementById("drag-file-list");
+file_display = byId("drag-file-list");
 
 button.onclick = (e)=>{
 	e.preventDefault();
@@ -3600,7 +3596,7 @@ dropArea.addEventListener("drop", (event)=>{
 function removeFileFromFileList(index) {
 	const formData = new FormData(uploader)
 	const dt = new DataTransfer()
-	// const input = document.getElementById('files')
+	// const input = byId('files')
 	// const { files } = input
 
 	for (let i = 0; i < files.length; i++) {
@@ -3608,7 +3604,7 @@ function removeFileFromFileList(index) {
 	if (index !== i)
 		dt.items.add(file) // here you exclude the file. thus removing it.
 	}
-	
+
 	files = dt.files
 	input.files = dt.files // Assign the updates list
 	showFiles()
@@ -3616,7 +3612,7 @@ function removeFileFromFileList(index) {
 
 function showFiles() {
 	tools.del_child(file_display)
-	let heading = document.getElementById("has-selected-up")
+	let heading = byId("has-selected-up")
 	if(files.length){
 		heading.style.display = "block"
 	} else {
@@ -3628,11 +3624,10 @@ function showFiles() {
 }
 
 function showFile(file, index){
-	// console.log(file.name)
 	let filename = file.name;
 	let size = file.size;
 
-	let item = document.createElement("div");
+	let item = createElement("div");
 	item.className = "upload-file-item";
 	item.innerHTML = `
 			<span class="file-name">${filename}</span>
@@ -3643,24 +3638,6 @@ function showFile(file, index){
 
 	file_display.appendChild(item);
 
-
-
-	// let fileType = file.type; //getting selected file type
-	// let validExtensions = ["image/jpeg", "image/jpg", "image/png"]; //adding some valid image extensions in array
-	// if(validExtensions.includes(fileType)){ //if user selected file is an image file
-		// let fileReader = new FileReader(); //creating new FileReader object
-		// fileReader.onload = ()=>{
-			// let fileURL = fileReader.result; //passing user file source in fileURL variable
-				// UNCOMMENT THIS BELOW LINE. I GOT AN ERROR WHILE UPLOADING THIS POST SO I COMMENTED IT
-			// let imgTag = `<img src="${fileURL}" alt="image">`; //creating an img tag and passing user selected file source inside src attribute
-			// dropArea.innerHTML = imgTag; //adding that created img tag inside dropArea container
-		// }
-		// fileReader.readAsDataURL(file);
-	// }else{
-		// alert("This is not an Image File!");
-		// dropArea.classList.remove("active");
-		// dragText.textContent = "Drag & Drop to Upload File";
-	// }
 }
 
 
@@ -3673,7 +3650,6 @@ function showFile(file, index){
 </body>
 
 </html>
-
 
 """)
 
@@ -3697,9 +3673,9 @@ _video_script = Template(r"""
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous"></script>
 
-<!-- 
+<!--
 
-<link rel="stylesheet" href="/@assets/video.css" /> 
+<link rel="stylesheet" href="/@assets/video.css" />
 <script src="/@assets/plyr.min.js"></script>
 <script src="/@assets/player.js"></script>
 

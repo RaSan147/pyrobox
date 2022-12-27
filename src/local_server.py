@@ -248,7 +248,7 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 				return -1
 	if return_list: return total_size, r
 	return total_size
-	
+
 
 def fmbytes(B):
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
@@ -1676,7 +1676,7 @@ tr:nth-child(even) {
 
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
-		
+
 
 
 		url_path, query, fragment = URL_MANAGER(self.path)
@@ -1732,7 +1732,7 @@ tr:nth-child(even) {
 			try:
 				zid = zip_manager.get_id(path, dir_size)
 				title = "Creating ZIP"
-				
+
 				head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 														PY_PUBLIC_URL=config.address(),
 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
@@ -1923,7 +1923,7 @@ tr:nth-child(even) {
 		interface the same as for send_head().
 
 		"""
-		
+
 		url_path, query, fragment = URL_MANAGER(self.path)
 
 		try:
@@ -1944,7 +1944,6 @@ tr:nth-child(even) {
 		title = self.get_titles(displaypath)
 
 
-		#print("="*50, endl, self.dir_navigator(displaypath))
 		r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 														PY_PUBLIC_URL=config.address(),
 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
@@ -1956,7 +1955,7 @@ tr:nth-child(even) {
 				 # h  : HTML
 		f_li = [] # file_names
 		s_li = [] # size list
-		
+
 		r_folders = [] # no js
 		r_files = [] # no js
 
@@ -1968,6 +1967,7 @@ tr:nth-child(even) {
 		for name in dir_list:
 			fullname = os.path.join(path, name)
 			displayname = linkname = name
+			size=0
 			# Append / for directories or @ for symbolic links
 			_is_dir_ = True
 			if os.path.isdir(fullname):
@@ -2012,14 +2012,13 @@ tr:nth-child(even) {
 					r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 			if _is_dir_:
-				size=0
 				r_folders.append(LIST_STRING % ("", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
 										html.escape(displayname, quote=False)))
 
 				r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
-			
+
 			s_li.append(size)
 
 
@@ -2030,8 +2029,8 @@ tr:nth-child(even) {
 		r.append(_js_script().safe_substitute(PY_LINK_LIST=str(r_li),
 											PY_FILE_LIST=str(f_li),
 											PY_FILE_SIZE =str(s_li)))
-											
-						
+
+
 		encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 		f = io.BytesIO()
 		f.write(encoded)
@@ -2055,7 +2054,6 @@ tr:nth-child(even) {
 		just like file manager, but with less CSS"""
 
 		dirs = re.sub("/{2,}", "/", path).split('/')
-		#print(path, dirs)
 		urls = ['/']
 		names = ['&#127968; HOME']
 		r = []
