@@ -170,6 +170,9 @@ a {
 
 
 #dir-tree {
+	overflow-x: auto;
+	overflow-y: hidden;
+	white-space: nowrap;
 	word-wrap: break-word;
 	max-width: 98vw;
 	border: #075baf 2px solid;
@@ -477,8 +480,45 @@ ul{
 	cursor: pointer;
 }
 
+.toast-box {
+	z-index: 99;
 
+		position: fixed;
+		bottom: 0;
+		right: 0;
 
+		max-width: 100%;
+
+		overflow-wrap: anywhere;
+
+		transform: translateY(100%);
+		opacity: 0;
+
+		transition:
+		opacity 500ms,
+		transform 500ms;
+	}
+
+	.toast-box.visible {
+		transform: translateY(0);
+		opacity: 1;
+	}
+
+	.toast-body {
+		max-height: 100px;
+		overflow-y: auto;
+		margin: 28px;
+		padding: 10px;
+
+		font-size: 1em;
+		font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+		background-color: lightskyblue;
+		color: darkblue;
+	background-color: #005165ed;
+	color: #fff;
+
+		border-radius: 4px;
 
 
 
@@ -507,6 +547,11 @@ ul{
 
 <h1 id="dir-tree">${PY_DIR_TREE_NO_JS}</h1>
 <hr>
+
+<script>
+const dir_tree = document.getElementById("dir-tree");
+dir_tree.scrollLeft = dir_tree.scrollWidth;
+</script>
 
 <hr>
 <div id="content_list">

@@ -212,11 +212,12 @@ class Tools {
 	}
 
 
-	copy_2(ev, textToCopy) {
+	async copy_2(ev, textToCopy) {
 		// navigator clipboard api needs a secure context (https)
 		if (navigator.clipboard && window.isSecureContext) {
 			// navigator clipboard api method'
-			return navigator.clipboard.writeText(textToCopy);
+			await navigator.clipboard.writeText(textToCopy);
+			return 1
 		} else {
 			// text area method
 			let textArea = createElement("textarea");
@@ -228,17 +229,20 @@ class Tools {
 			document.body.appendChild(textArea);
 			textArea.focus();
 			textArea.select();
-			return new Promise((res, rej) => {
+			
+			let ok=0;
 				// here the magic happens
-				document.execCommand('copy') ? res() : rej();
-				textArea.remove();
-			});
+				if(document.execCommand('copy')) ok = 1
+				
+			textArea.remove();
+			return ok
+			
 		}
-}
+	}
 }
 let tools = new Tools();
 
-//tools.enable_debug()
+tools.enable_debug()
 
 
 class Popup_Msg {
@@ -346,6 +350,31 @@ class Popup_Msg {
 	}
 }
 let popup_msg = new Popup_Msg();
+
+class Toaster {
+	constructor() {
+		this.container = createElement("div")
+		this.container.classList.add("toast-box")
+		this.toaster = createElement("div")
+		this.toaster.classList.add("toast-body")
+		
+		this.container.appendChild(this.toaster)
+		document.body.appendChild(this.container)
+	}
+	
+	async toast(msg,time) {
+		var sleep = 3000;
+		this.toaster.innerText = msg;
+		this.container.classList.add("visible")
+		if(tools.is_defined(time)) sleep = time;
+		await tools.sleep(sleep)
+		this.container.classList.remove("visible")
+	}
+}
+
+let toaster = new Toaster()
+
+
 class ContextMenu {
 	constructor() {
 		this.old_name = null;
@@ -438,11 +467,16 @@ class ContextMenu {
 		var copy = createElement("div")
 		copy.innerHTML = "⧉".toHtmlEntities() + " Copy link"
 		copy.classList.add("menu_options")
-		copy.onclick = function(ev) {
+		copy.onclick = async function(ev) {
 			popup_msg.close()
 			let fake_a = createElement("a")
 			fake_a.href = file;
-			tools.copy_2(ev, fake_a.href)
+			let success = await tools.copy_2(ev, fake_a.href)
+			if(success){
+				toaster.toast("Link Copied!")
+			}else{
+				toaster.toast("Failed to copy!")
+			}
 		}
 		menu.appendChild(copy)
 
@@ -656,10 +690,7 @@ for (let i = 0; i < r_li.length; i++) {
 var dir_container = byId("content_list")
 dir_container.appendChild(folder_li)
 dir_container.appendChild(file_li)
-var dir_tree = byId("dir-tree");
-dir_tree.style.overflow = "auto";
-dir_tree.style.whiteSpace = "nowrap";
-dir_tree.scrollLeft = dir_tree.scrollWidth;
+
 
 
 </script>
@@ -762,7 +793,22 @@ function showFile(file, index){
 
 
 
-<p>v3</p>
+<p>v4 I 🫶 emoji!</p>
+
+
+<style>
+	.emoji {
+      border: 0;
+      width: 1.2em;
+      height: auto;
+      margin-bottom: -2px;
+    }
+</style>
+<script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js"></script><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+    <script>
+      // 
+      twemoji.parse(document.body);
+    </script>
 </body>
 
 </html>

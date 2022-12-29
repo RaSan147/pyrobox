@@ -7,10 +7,13 @@
 		<source src="${PY_VID_SOURCE}" type="${PY_CTYPE}" />
 	</video>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
+
+
+
+
 
 <!--
-
 <link rel="stylesheet" href="/@assets/video.css" />
 <script src="/@assets/plyr.min.js"></script>
 <script src="/@assets/player.js"></script>
@@ -28,6 +31,10 @@ const log = console.log,
 	byTag = document.getElementsByTagName.bind(document),
 	byName = document.getElementsByName.bind(document),
 	createElement = document.createElement.bind(document);
+	
+	
+
+
 //const player = new Plyr('#player');
 var controls = [
 	'play-large', // The large play button in the center
@@ -112,6 +119,7 @@ poster.onclick = function(e) {
 	const width = e.target.offsetWidth;
 	const perc = x * 100 / width;
 	var panic = true;
+	var change=10;
 	var last_click = counter.last_side
 	if (last_click == null) {
 		panic = false
@@ -120,14 +128,20 @@ poster.onclick = function(e) {
 		if (player.currentTime == 0) {
 			return
 		}
+		if (player.currentTime < 10) {
+			change = player.currentTime
+		}
 		counter.last_side = "L"
 		if (panic && last_click != "L") {
 			counter.reset_count(1)
 			return
 		}
 		skip_ol.style.opacity = "0.9";
-		player.rewind()
-		skip_ol.innerText = "⫷⪡" + "\\n" + ((count - 1) * 10) + "s";
+		player.rewind(change)
+		if(change!=10){
+			change = ((count - 1) * 10)
+		}
+		skip_ol.innerText = "⫷⪡" + "\\n" + change + "s";
 	} else if (perc > 60) {
 		if (player.currentTime == player.duration) {
 			return
@@ -137,10 +151,16 @@ poster.onclick = function(e) {
 			counter.reset_count(1)
 			return
 		}
+		if (player.currentTime > (player.duration-10)) {
+			change = player.currentTime - player.duration;
+		}
 		skip_ol.style.opacity = "0.9";
 		last_click = "R"
-		player.forward()
-		skip_ol.innerText = "⪢⫸ " + "\\n" + ((count - 1) * 10) + "s";
+		player.forward(change)
+		if(change!=10){
+			change = ((count - 1) * 10)
+		}
+		skip_ol.innerText = "⪢⫸ " + "\\n" + change + "s";
 	} else {
 		player.togglePlay()
 		counter.last_click = "C"

@@ -63,7 +63,7 @@ class Config:
 
 		out = platform_system()
 		if out=="Linux":
-			if 'ANDROID_STORAGE' in os.environ:
+			if hasattr(sys, 'getandroidapilevel'):
 				#self.IP = "192.168.43.1"
 				return 'Android'
 
@@ -397,8 +397,14 @@ class ZIP_Manager:
 		`zid`: id of the folder
 		`size`: size of the folder (optional)
 		"""
-		if disabled_func["zip"]:
+		def err(msg):
+			self.zip_in_progress.pop(zid, None)
+			self.assigend_zid.pop(path, None)
+			self.zip_id_status[zid] = "ERROR: " + msg
 			return False
+		if disabled_func["zip"]:
+			return err("ZIP FUNTION DISABLED")
+			
 
 
 		# run zipfly
@@ -417,6 +423,11 @@ class ZIP_Manager:
 		os.makedirs(self.zip_temp_dir, exist_ok=True)
 
 		fm = list_dir(path , both=True)
+		
+		if len(fm)==0:
+			return err("FOLDER HAS NO FILES")
+			
+
 		paths = []
 		for i,j in fm:
 			paths.append({"fs": i, "n":j})
@@ -434,13 +445,12 @@ class ZIP_Manager:
 				for chunk, c_size in zfly.generator():
 					zf.write(chunk)
 					archived_size += c_size
+					if source_size==0:
+						source_size+=1
 					self.zip_in_progress[zid] = (archived_size/source_size)*100
-		except Exception:
+		except Exception as e:
 			traceback.print_exc()
-			self.zip_in_progress.pop(zid, None)
-			self.assigend_zid.pop(path, None)
-			self.zip_id_status[zid] = "ERROR"
-			return False
+			return err(e)
 		self.zip_in_progress.pop(zid, None)
 		self.assigend_zid.pop(path, None)
 		self.zip_id_status[zid] = "DONE"
@@ -1681,7 +1691,7 @@ tr:nth-child(even) {
 
 		url_path, query, fragment = URL_MANAGER(self.path)
 
-		spathsplit = path.split(os.sep)
+		spathsplit = url_path.split("/")
 
 		filename = None
 
@@ -1707,7 +1717,8 @@ tr:nth-child(even) {
 		########################################################
 		#    TO	TEST ASSETS
 		#elif spathsplit[1]=="@assets":
-		#	path = "./assets/"+ "/".join(spathsplit[2:])
+		#	path = config.MAIN_FILE_dir+ "/../assets/"+ "/".join(spathsplit[2:])
+		#	print("USING ASSETS", path)
 
 		########################################################
 
@@ -1782,8 +1793,8 @@ tr:nth-child(even) {
 				progress = zip_manager.zip_in_progress[id]
 				return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
 
-			if zip_manager.zip_id_status[id] == "ERROR":
-				return self.return_txt(HTTPStatus.OK, "ERROR")
+			if zip_manager.zip_id_status[id].startswith("ERROR"):
+				return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
 
 
 
