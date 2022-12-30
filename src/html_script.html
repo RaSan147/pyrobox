@@ -242,8 +242,12 @@ class Tools {
 }
 let tools = new Tools();
 
-tools.enable_debug()
 
+
+
+'#########################################'
+tools.enable_debug() // TODO: Disable this in production
+'#########################################'
 
 class Popup_Msg {
 	constructor() {
@@ -257,21 +261,34 @@ class Popup_Msg {
 	}
 	create() {
 		var that = this;
-		this.popup_id = config.total_popup;
-		this.popup_obj = createElement("div")
-		this.popup_obj.id = "popup-" + this.popup_id;
-		this.popup_obj.classList.add("popup")
-		this.popup_bg = createElement("div")
-		this.popup_bg.classList.add("modal_bg")
-		this.popup_bg.id = "popup-bg-" + this.popup_id;
-		this.popup_bg.style.backgroundColor = "#000000EE";
-		this.popup_bg.onclick = function() {
+		let popup_id, popup_obj, popup_bg, close_btn, popup_box;
+		
+		popup_id = config.total_popup;
+		
+		
+		
+		popup_obj = createElement("div")
+		popup_obj.id = "popup-" + popup_id;
+		popup_obj.classList.add("popup")
+		
+		popup_bg = createElement("div")
+		popup_bg.classList.add("modal_bg")
+		popup_bg.id = "popup-bg-" + popup_id;
+		popup_bg.style.backgroundColor = "#000000EE";
+		popup_bg.onclick = function() {
 			that.close()
 		}
-		this.popup_obj.appendChild(this.popup_bg);
-		var popup_box = createElement("div");
+		
+		popup_obj.appendChild(popup_bg);
+		
+		this.popup_obj = popup_obj
+		this.popup_bg = popup_bg
+		
+		
+		popup_box = createElement("div");
 		popup_box.classList.add("popup-box")
-		var close_btn = createElement("div");
+		
+		close_btn = createElement("div");
 		close_btn.classList.add("popup-close-btn")
 		close_btn.onclick = function() {
 			that.close()
@@ -279,15 +296,16 @@ class Popup_Msg {
 		close_btn.innerHTML = "&times;";
 		popup_box.appendChild(close_btn)
 		this.header = createElement("h1")
-		this.header.id = "popup-header-" + this.popup_id;
+		this.header.id = "popup-header-" + popup_id;
 		popup_box.appendChild(this.header)
-		this.hr = createElement("popup-hr-" + this.popup_id);
+		this.hr = createElement("popup-hr-" + popup_id);
 		this.hr.style.width = "95%"
 		popup_box.appendChild(this.hr)
 		this.content = createElement("div")
-		this.content.id = "popup-content-" + this.popup_id;
+		this.content.id = "popup-content-" + popup_id;
 		popup_box.appendChild(this.content)
 		this.popup_obj.appendChild(popup_box)
+		
 		byId("popup-container").appendChild(this.popup_obj)
 		config.total_popup += 1;
 	}
@@ -347,6 +365,7 @@ class Popup_Msg {
 		} else {
 			this.hr.style.display = "none";
 		}
+		
 	}
 }
 let popup_msg = new Popup_Msg();
@@ -360,15 +379,22 @@ class Toaster {
 		
 		this.container.appendChild(this.toaster)
 		document.body.appendChild(this.container)
+		
+		this.BUSY = 0;
 	}
 	
+	
 	async toast(msg,time) {
+		// toaster is not safe as popup by design
 		var sleep = 3000;
+
+		this.BUSY = 1;
 		this.toaster.innerText = msg;
 		this.container.classList.add("visible")
 		if(tools.is_defined(time)) sleep = time;
 		await tools.sleep(sleep)
 		this.container.classList.remove("visible")
+		this.BUSY = 0
 	}
 }
 
@@ -434,7 +460,7 @@ class ContextMenu {
 		var menu = createElement("div")
 
 		var new_tab = createElement("div")
-			new_tab.innerHTML = "↗️".toHtmlEntities() + " New tab"
+			new_tab.innerText = "↗️" + " New tab"
 			new_tab.classList.add("menu_options")
 			new_tab.onclick = function() {
 				window.open(file, '_blank');
@@ -443,7 +469,7 @@ class ContextMenu {
 			menu.appendChild(new_tab)
 		if (type == "video") {
 			var download = createElement("div")
-			download.innerHTML = "⬇️".toHtmlEntities() + " Download"
+			download.innerText = "⬇️" + " Download"
 			download.classList.add("menu_options")
 			download.onclick = function() {
 				tools.download(file, name);
@@ -454,7 +480,7 @@ class ContextMenu {
 		}
 		if (type == "folder") {
 			var dl_zip = createElement("div")
-			dl_zip.innerHTML = "🗃️".toHtmlEntities() + " Download as Zip"
+			dl_zip.innerText = "🗃️" + " Download as Zip"
 			dl_zip.classList.add("menu_options")
 			dl_zip.onclick = function() {
 				popup_msg.close()
@@ -465,7 +491,7 @@ class ContextMenu {
 		}
 
 		var copy = createElement("div")
-		copy.innerHTML = "⧉".toHtmlEntities() + " Copy link"
+		copy.innerText = "⧉" + " Copy link"
 		copy.classList.add("menu_options")
 		copy.onclick = async function(ev) {
 			popup_msg.close()
@@ -481,14 +507,14 @@ class ContextMenu {
 		menu.appendChild(copy)
 
 		var rename = createElement("div")
-		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
+		rename.innerText = "✏️" + " Rename"
 		rename.classList.add("menu_options")
 		rename.onclick = function() {
 			that.rename(file, name)
 		}
 		menu.appendChild(rename)
 		var del = createElement("div")
-		del.innerHTML = "🗑️".toHtmlEntities() + " Delete"
+		del.innerText = "🗑️" + " Delete"
 		del.classList.add("menu_options")
 		var xxx = 'F'
 		if (type == "folder") {
@@ -500,7 +526,7 @@ class ContextMenu {
 		log(file, type)
 		menu.appendChild(del)
 		var del_P = createElement("div")
-		del_P.innerHTML = "🔥".toHtmlEntities() + " Delete permanently"
+		del_P.innerText = "🔥" + " Delete permanently"
 		del_P.classList.add("menu_options")
 
 		function r_u_sure() {
@@ -510,13 +536,13 @@ class ContextMenu {
 			msggg.innerHTML = "This can't be undone!!!"
 			box.appendChild(msggg)
 			var y_btn = createElement("div")
-			y_btn.innerHTML = "Continue"
+			y_btn.innerText = "Continue"
 			y_btn.className = "pagination center"
 			y_btn.onclick = function() {
 				that.menu_click('del-p', file);
 			};
 			var n_btn = createElement("div")
-			n_btn.innerHTML = "Cancel"
+			n_btn.innerText = "Cancel"
 			n_btn.className = "pagination center"
 			n_btn.onclick = popup_msg.close;
 			box.appendChild(y_btn)
@@ -527,7 +553,7 @@ class ContextMenu {
 		del_P.onclick = r_u_sure
 		menu.appendChild(del_P)
 		var property = createElement("div")
-		property.innerHTML = "&#9432;" + " Properties"
+		property.innerText = "ℹ️" + " Properties"
 		property.classList.add("menu_options")
 		property.onclick = function() {
 			that.menu_click('info', file);
@@ -793,22 +819,6 @@ function showFile(file, index){
 
 
 
-<p>v4 I 🫶 emoji!</p>
-
-
-<style>
-	.emoji {
-      border: 0;
-      width: 1.2em;
-      height: auto;
-      margin-bottom: -2px;
-    }
-</style>
-<script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js"></script><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
-    <script>
-      // 
-      twemoji.parse(document.body);
-    </script>
 </body>
 
 </html>

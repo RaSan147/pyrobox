@@ -1,3 +1,4 @@
 **/.private
 **/log.txt
 *.pyc
+*.bak
