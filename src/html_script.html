@@ -365,6 +365,8 @@ class Popup_Msg {
 		} else {
 			this.hr.style.display = "none";
 		}
+
+		twemoji.parse(this.popup_obj);
 		
 	}
 }
@@ -395,6 +397,9 @@ class Toaster {
 		await tools.sleep(sleep)
 		this.container.classList.remove("visible")
 		this.BUSY = 0
+
+		twemoji.parse(this.container);
+		
 	}
 }
 
@@ -818,8 +823,22 @@ function showFile(file, index){
 </script>
 
 
+
 <p>v4 I ❤️ emoji!</p>
 
+
+<style>
+	.emoji {
+	  border: 0;
+	  width: 1.2em;
+	  height: auto;
+	  margin-bottom: -2px;
+	}
+</style>
+<script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js"></script><script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+	<script>
+		twemoji.parse(document.body);
+	</script>
 </body>
 
 </html>
