@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-__version__ = "0.6"
+from http import server
+__version__ = "0.5"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -45,7 +45,7 @@ class Config:
 		self.MAIN_FILE = os.path.realpath(__file__)
 		self.MAIN_FILE_dir = os.path.dirname(self.MAIN_FILE)
 
-		print(self.MAIN_FILE)
+		print(tools.text_box("Running File: ",self.MAIN_FILE))
 
 		# OS DETECTION
 		self.OS = self.get_os()
@@ -98,9 +98,11 @@ import posixpath
 import shutil
 import socket # For gethostbyaddr()
 import socketserver
+import itertools
 import sys
 import time
 import urllib.parse
+import urllib.request
 import contextlib
 from functools import partial
 from http import HTTPStatus
@@ -151,8 +153,8 @@ class Custom_dict(dict):
 		super().__init__(*args, **kwargs)
 		self.__dict__ = self
 
-	def __call__(self, key):
-		return key in self
+	def __call__(self, *key):
+		return all([i in self for i in key])
 
 
 # FEATURES
@@ -185,13 +187,19 @@ def get_installed():
 
 
 disabled_func = {
-	"trash": False,
+	"send2trash": False,
+	"natsort": False,
 	"zip": False,
+	"update": False,
 }
 
 
+dep_modified = False
+
 
 def run_pip_install():
+	global dep_modified
+
 	import sysconfig
 	for i in REQUEIREMENTS:
 		if i not in get_installed():
@@ -206,14 +214,19 @@ def run_pip_install():
 				disabled_func[i] = True
 
 			else:
-				REQUEIREMENTS.remove(i)
+				dep_modified = True
 
-	if not REQUEIREMENTS:
+	if dep_modified:
 		print("Reloading...")
 		config.reload = True
 
 if config.run_req_check:
 	run_pip_install()
+
+
+if config.reload == True:
+	subprocess.call([sys.executable, config.MAIN_FILE] + sys.argv[1:])
+	sys.exit(0)
 
 
 #############################################
@@ -481,7 +494,7 @@ if not os.path.isdir(config.log_location):
 
 
 
-from send2trash import send2trash, TrashPermissionError
+if not disabled_func["send2trash"]: from send2trash import send2trash, TrashPermissionError
 import natsort
 
 
@@ -491,14 +504,21 @@ def _get_txt(path):
 def directory_explorer_header():
 	return Template(_get_txt("./html_page.html"))
 
+def _global_script():
+	return _get_txt("global_script.html")
+
 def _js_script():
-	return Template(_get_txt("html_script.html"))
+	return Template(_global_script() + _get_txt("html_script.html"))
 
 def _video_script():
-	return Template(_get_txt("html_vid.html"))
+	return Template(_global_script() + _get_txt("html_vid.html"))
 
 def _zip_script():
-	return Template(_get_txt("html_zip_page.html"))
+	return Template(_global_script() + _get_txt("html_zip_page.html"))
+
+def _admin_page():
+	return Template(_global_script() + _get_txt("html_admin.html"))
+
 
 
 """HTTP server classes.
@@ -563,7 +583,22 @@ def parse_byte_range(byte_range):
 
 
 
-from urllib.parse import urlparse, parse_qs
+# download file from url using urllib
+def fetch_url(url, file = None):
+	try:
+		with urllib.request.urlopen(url) as response:
+			data = response.read() # a `bytes` object
+			if not file:
+				return data
+			
+		with open(file, 'wb') as f:
+			f.write(data)
+		return True
+	except Exception:
+		traceback.print_exc()
+		return None
+
+
 def URL_MANAGER(url:str):
 	"""
 	returns a tuple of (`path`, `query_dict`, `fragment`)\n
@@ -575,22 +610,22 @@ def URL_MANAGER(url:str):
 	"""
 
 	# url = '/store?page=10&limit=15&price#dskjfhs'
-	parse_result = urlparse(url)
+	parse_result = urllib.parse.urlparse(url)
 
 
-	dict_result = Custom_dict(parse_qs(parse_result.query, keep_blank_values=True))
+	dict_result = Custom_dict(urllib.parse.parse_qs(parse_result.query, keep_blank_values=True))
 
 	return (parse_result.path, dict_result, parse_result.fragment)
 
 
 
 # Default error message template
-DEFAULT_ERROR_MESSAGE = """\
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
-		"http://www.w3.org/TR/html4/strict.dtd">
+DEFAULT_ERROR_MESSAGE = """
+<!DOCTYPE HTML>
+<html lang="en">
 <html>
 	<head>
-		<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+		<meta charset="utf-8">
 		<title>Error response</title>
 	</head>
 	<body>
@@ -736,6 +771,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 					"Bad HTTP/0.9 request type (%r)" % command)
 				return False
 		self.command, self.path = command, path
+
+		
+		# gh-87389: The purpose of replacing '//' with '/' is to protect
+		# against open redirect attacks possibly triggered if the path starts
+		# with '//' because http clients treat //path as an absolute URI
+		# without scheme (similar to http://path) rather than a path.
+		if self.path.startswith('//'):
+			self.path = '/' + self.path.lstrip('/')  # Reduce to a single /
 
 		# Examine the headers and look for a Connection directive.
 		try:
@@ -963,6 +1006,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		self.log_message(format, *args)
 
+	
+	# https://en.wikipedia.org/wiki/List_of_Unicode_characters#Control_codes
+	_control_char_table = str.maketrans(
+			{c: fr'\x{c:02x}' for c in itertools.chain(range(0x20), range(0x7f,0xa0))})
+	_control_char_table[ord('\\')] = r'\\'
+
+
 	def log_message(self, format, *args):
 		"""Log an arbitrary message.
 
@@ -979,12 +1029,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		every message.
 
 		"""
-
+		
+		message = format % args
+	
 		sys.stderr.write("%s - - [%s] %s\n" %
 						 (self.address_string(),
 						  self.log_date_time_string(),
-						  format%args))
-
+						  message.translate(self._control_char_table)))
+	
 		try:
 			# create config.log_location if it doesn't exist
 			os.makedirs(config.log_location, exist_ok=True)
@@ -1273,7 +1325,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		def del_data(self=self):
 
-			if disabled_func["trash"]:
+			if disabled_func["send2trash"]:
 				return (False, "Trash not available. Please contact the Host...")
 
 			# pass boundary
@@ -1704,6 +1756,16 @@ tr:nth-child(even) {
 
 		print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
 
+		########################################################
+		#    TO	TEST ASSETS
+		#if spathsplit[1]=="@assets":
+		#	path = config.MAIN_FILE_dir+ "/../assets/"+ "/".join(spathsplit[2:])
+		#	print("USING ASSETS", path)
+
+		########################################################
+
+		print(query("update", "run"))
+
 
 		if query("reload"):
 			# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
@@ -1712,13 +1774,41 @@ tr:nth-child(even) {
 			httpd.server_close()
 			httpd.shutdown()
 
-		########################################################
-		#    TO	TEST ASSETS
-		#elif spathsplit[1]=="@assets":
-		#	path = config.MAIN_FILE_dir+ "/../assets/"+ "/".join(spathsplit[2:])
-		#	print("USING ASSETS", path)
+		elif query("admin"):
+			title = "ADMIN PAGE"
+			displaypath = "/"
 
-		########################################################
+			head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+														PY_PUBLIC_URL=config.address(),
+														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
+			
+			tail = _admin_page().template
+			return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
+		
+		elif query("update"):
+			"""Check for update and return the latest version"""
+			data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+			if data:
+				data  = data.decode("utf-8").strip()
+				ret = json.dumps({"update_available": data > __version__, "latest_version": data})
+				return self.return_txt(HTTPStatus.OK, ret)
+			else:
+				return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+			
+		elif query("update_now"):
+			"""Run update"""
+			if disabled_func["update"]:
+				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
+			else:
+				data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
+				if data:
+					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
+				else:
+					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
+				
+				
+			
+
 
 		elif query("czip"):
 			"""Create ZIP task and return ID"""
@@ -1969,6 +2059,12 @@ tr:nth-child(even) {
 
 		LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li><hr>'
 
+		r.append("""
+				<div id="content_list">
+					<ul id="linkss">
+						<!-- CONTENT LIST (NO JS) -->
+				""")
+
 
 		# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
 		for name in dir_list:
@@ -2032,6 +2128,11 @@ tr:nth-child(even) {
 
 		r.extend(r_folders)
 		r.extend(r_files)
+
+		r.append("""</ul>
+					</div>
+					<!-- END CONTENT LIST (NO JS) -->
+				""")
 
 		r.append(_js_script().safe_substitute(PY_LINK_LIST=str(r_li),
 											PY_FILE_LIST=str(f_li),
@@ -2222,11 +2323,12 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	local_ip = config.IP if config.IP else get_ip()
 	config.IP= local_ip
 
-	print(
+	print(tools.text_box(
 		f"Serving HTTP on {host} port {port} \n" #TODO: need to check since the output is "Serving HTTP on :: port 6969"
 		f"(http://{url_host}:{port}/) ...\n" #TODO: need to check since the output is "(http://[::]:6969/) ..."
 		f"Server is probably running on {config.address()}"
-
+		, style="star"
+		)
 	)
 	try:
 		httpd.serve_forever()

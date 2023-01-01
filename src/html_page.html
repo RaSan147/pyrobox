@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <!-- test1 -->
-<html>
-<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<html lang="en">
+<meta charset="{UTF-8}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <head>
 <link href='https://fonts.googleapis.com/css?family=Open Sans' rel='stylesheet'>
@@ -9,9 +9,6 @@
 <title>${PY_PAGE_TITLE}</title>
 
 <script>
-function request_reload() {
-	fetch('/?reload');
-}
 const public_url = "${PY_PUBLIC_URL}";
 </script>
 
@@ -511,6 +508,13 @@ ul{
 }
 
 
+.update_text {
+	font-size: 1.5em;
+	padding: 5px;
+	margin: 5px;
+	border: solid 2px;
+	border-radius: 4px;
+}
 
 
 
@@ -541,6 +545,3 @@ dir_tree.scrollLeft = dir_tree.scrollWidth;
 </script>
 
 <hr>
-<div id="content_list">
-	<ul id="linkss">
-		<!-- CONTENT LIST (NO JS) -->
