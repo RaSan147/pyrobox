@@ -138,6 +138,16 @@ Context menu:
   > **SO I'D RECOMMAND USING DELETE PARMANENTLY**
 </details>
 
+<details>
+  <summary>Running on WINDOWS, but can't access with other device</summary>
+ 
+  > You probably have **FireWall ON** and Unconfigured.
+  > For your safety, I'd recommand you to allow Python on private network and run the server when your network is Private.
+  > IN SHORT: ALLOW PYTHON ON FIREWALL, RUN THE SERVER
+ 
+  > *note: allowed on private but using public network on firewall will cause similar issue, you gotta make both same or allow python both on public and private*
+</details>
+
 # Thanks to:
 1. https://github.com/bones7456/bones7456/blob/master/SimpleHTTPServerWithUpload.py (the guy who made upload possible)
 2. https://gist.github.com/UniIsland/3346170 (the guy who made multiple file upload possible)

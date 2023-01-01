@@ -3,7 +3,7 @@
 <hr>
 
 <div class='pagination jsonly' onclick="request_reload()">RELOAD 🧹</div>
-<noscript><a href="/?reload" class='pagination'>RELOAD 🧹</a></noscript>
+<noscript><a href="/?reload" class='pagination'>RELOAD 🧹</a><br></noscript>
 <br>
 <div class='pagination' onclick="Show_folder_maker()">Create Folder</div><br>
 
@@ -12,15 +12,15 @@
 
 
 <form ENCTYPE="multipart/form-data" method="post" id="uploader">
-	
-	
+
+
 	<center>
 		<h1><u>Upload file</u></h1>
-		
-		
+
+
 		<input type="hidden" name="post-type" value="upload">
 		<input type="hidden" name="post-uid" value="12345">
-		
+
 		<span id="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" id="upload-pass-box">
 		<br><br>
 		<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
@@ -33,8 +33,8 @@
 				<input type="file" name="file" multiple hidden>
 			</div>
 	</div>
-	
-	
+
+
 	<h2 id="has-selected-up" style="display:none">Selected Files</h2>
 </center>
 <div id="drag-file-list">
@@ -65,7 +65,7 @@ const log = console.log,
 String.prototype.toHtmlEntities = function() {
 	return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
 };
-	
+
 const r_li = ${PY_LINK_LIST};
 const f_li = ${PY_FILE_LIST};
 const s_li = ${PY_FILE_SIZE};
@@ -229,14 +229,14 @@ class Tools {
 			document.body.appendChild(textArea);
 			textArea.focus();
 			textArea.select();
-			
+
 			let ok=0;
 				// here the magic happens
 				if(document.execCommand('copy')) ok = 1
-				
+
 			textArea.remove();
 			return ok
-			
+
 		}
 	}
 }
@@ -262,15 +262,15 @@ class Popup_Msg {
 	create() {
 		var that = this;
 		let popup_id, popup_obj, popup_bg, close_btn, popup_box;
-		
+
 		popup_id = config.total_popup;
-		
-		
-		
+
+
+
 		popup_obj = createElement("div")
 		popup_obj.id = "popup-" + popup_id;
 		popup_obj.classList.add("popup")
-		
+
 		popup_bg = createElement("div")
 		popup_bg.classList.add("modal_bg")
 		popup_bg.id = "popup-bg-" + popup_id;
@@ -278,16 +278,16 @@ class Popup_Msg {
 		popup_bg.onclick = function() {
 			that.close()
 		}
-		
+
 		popup_obj.appendChild(popup_bg);
-		
+
 		this.popup_obj = popup_obj
 		this.popup_bg = popup_bg
-		
-		
+
+
 		popup_box = createElement("div");
 		popup_box.classList.add("popup-box")
-		
+
 		close_btn = createElement("div");
 		close_btn.classList.add("popup-close-btn")
 		close_btn.onclick = function() {
@@ -305,7 +305,7 @@ class Popup_Msg {
 		this.content.id = "popup-content-" + popup_id;
 		popup_box.appendChild(this.content)
 		this.popup_obj.appendChild(popup_box)
-		
+
 		byId("popup-container").appendChild(this.popup_obj)
 		config.total_popup += 1;
 	}
@@ -365,8 +365,6 @@ class Popup_Msg {
 		} else {
 			this.hr.style.display = "none";
 		}
-
-		twemoji.parse(this.popup_obj);
 		
 	}
 }
@@ -378,14 +376,14 @@ class Toaster {
 		this.container.classList.add("toast-box")
 		this.toaster = createElement("div")
 		this.toaster.classList.add("toast-body")
-		
+
 		this.container.appendChild(this.toaster)
 		document.body.appendChild(this.container)
-		
+
 		this.BUSY = 0;
 	}
-	
-	
+
+
 	async toast(msg,time) {
 		// toaster is not safe as popup by design
 		var sleep = 3000;
@@ -599,7 +597,7 @@ function show_response(url, add_reload_btn = true) {
 }
 
 function reload() {
-	show_response("?reload");
+	show_response("/?reload");
 }
 
 function run_recyle(url) {
@@ -633,6 +631,8 @@ for (let i = 0; i < r_li.length; i++) {
 
 	let link = createElement('a');// both icon and title, display:flex
 	link.href = r_;
+	link.title = name;
+
 	link.classList.add('all_link');
 	link.classList.add("disable_selection")
 	let l_icon = createElement("span")
@@ -692,7 +692,7 @@ for (let i = 0; i < r_li.length; i++) {
 	}
 	link.appendChild(l_box)
 
-	
+
 	link.oncontextmenu = function(ev) {
 		ev.preventDefault()
 		log(r_, 1);
