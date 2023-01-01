@@ -13,6 +13,7 @@ Basic FEATURES
 ----------------------------------------------------------------
 * 🔽 DOWNLOAD AND VIDEO STREAM WITH **PAUSE AND RESUME**
 * 🔼 UPLOAD WITH **PASSWORD**
+* 👌 HTML5 drag and drop uploader
 * 📈 MULTIPLE FILE **UPLOAD**
 * 📝 RENAME
 * 📁 FOLDER DOWNLOAD as **ZIP** (uses temp folder)
@@ -38,50 +39,52 @@ Server side requirement
 [^1]: [3.4 compat](https://github.com/RaSan147/py_httpserver_Ult/blob/main/src/local_server%20(py%7E3.4).py) version to support till 3.4, but will not maintain that often. Also not recommended since it got EOL)
 
 
-Installation
+# Installation
 ----------------------------------------------------------------
-1. Download the `local_server.py`
-2. yes, only the `local_server.py`. Other files are not necessary.
-3. Install Python 3.7 or higher and run the `local_server.py`
-4. The server will show your ip and port, use that with and local device browser under the same network
-   * Like this `192.168.0.100:6969/`
+  * **Install Python 3.7 or higher**
+  ### On Windows
+  1. Download the `local_server.py`. Yes, only the `local_server.py`. Other files are not necessary.
+  2. Or Use This Script on terminal where you want to save it.
+```
+curl -O local_server.py https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py # download script and replace old version
+local_server.py # run like a script
+```
+  3. The server will show your ip and port, use that with and local device browser under the same network
+     * Like this `192.168.0.100:6969/`
 
-### On Linux (Optional)
-To run code directly like a script on a linux machine. Just paste these lines on a terminal.
-```
-curl https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py -O # download script and replace old version
-chmod +x local_server.py # give permissions
-./local_server.py # run like a script
-```
+  ### On Linux
+  To run code directly like a script on a linux machine. Just paste these lines on a terminal.
+  ```
+  curl -O local_server.py https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py # download script and replace old version
+  chmod +x local_server.py # give permissions
+  ./local_server.py # run like a script
+  ```
 CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 
 
 # Customization
-1. Simply running the code will create a server on `D:\ Drive` for windows on `Port: 6969`
-1. On browser (same device as server), go to `localhost:port_number` to see the output
+1. Simply running the code on `Windows` will create a server on `D:\ Drive`on `Port: 6969`
+1. On browser (same device as server), go to `deviceIP:port_number` to see the output
 1. To change the server running directory, 
-   - i) either edit the code  
+   - i) either edit the code  (see `config` class at top)
    - ii) or add `-d` or `--directory` command line argument when launching the program
         - `local_server.py -d .` to launch the server in current directory (where the file is)
         - `local_server.py -d "D:\Server\Public folder\"`  (Use Double-Quotation while directory has space)
         - `local_server.py -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter, unless your terminal thinks otherwise)
  1. To change port number
-    - i) just edit the code for permanent change  
+    - i) just edit the code for permanent change  (see `config` class at top)
     - ii) or add the port number at the end of the command line arg  
        -  `local_server.py 45678`
        -  `local_server.py -d . 45678`
 
 1. To specify alternate bind address
-    - Add bind add `-bind {address}`
+    - Add bind add `-bind {address}` # idk if it works
 
  TODO:
 --------------------------------------------------------------
 
-* https://github.com/RaSan147/py_httpserver_Ult/issues/31 Show upload progress (almost done)
-* https://github.com/RaSan147/py_httpserver_Ult/issues/32 Use HTML5 drag and drop uploader
 * https://github.com/RaSan147/py_httpserver_Ult/issues/33 Show thumbnails, for png and jpg (how to do with just standard library?), For others, just show extension.
 * https://github.com/RaSan147/py_httpserver_Ult/issues/34 Copy stream URL for videos to play with any video player
-* https://github.com/RaSan147/py_httpserver_Ult/issues/35 RIGHT CLICK CONTEXT MENU
 * https://github.com/RaSan147/py_httpserver_Ult/issues/36 Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
 * https://github.com/RaSan147/py_httpserver_Ult/issues/37 Backup code if Reload causes unhandled issue and can't be accessed
