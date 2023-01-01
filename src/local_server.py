@@ -404,7 +404,7 @@ class ZIP_Manager:
 			return False
 		if disabled_func["zip"]:
 			return err("ZIP FUNTION DISABLED")
-			
+
 
 
 		# run zipfly
@@ -423,10 +423,10 @@ class ZIP_Manager:
 		os.makedirs(self.zip_temp_dir, exist_ok=True)
 
 		fm = list_dir(path , both=True)
-		
+
 		if len(fm)==0:
 			return err("FOLDER HAS NO FILES")
-			
+
 
 		paths = []
 		for i,j in fm:
@@ -446,7 +446,7 @@ class ZIP_Manager:
 					zf.write(chunk)
 					archived_size += c_size
 					if source_size==0:
-						source_size+=1
+						source_size+=1 # prevent division by 0
 					self.zip_in_progress[zid] = (archived_size/source_size)*100
 		except Exception as e:
 			traceback.print_exc()
@@ -1738,8 +1738,6 @@ tr:nth-child(even) {
 			displaypath = html.escape(displaypath, quote=False)
 
 			filename = spathsplit[-2] + ".zip"
-
-
 
 
 			try:
