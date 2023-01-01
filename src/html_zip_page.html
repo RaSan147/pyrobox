@@ -42,8 +42,8 @@ function ping(url) {
 
 function run_dl() {
 	var a = document.createElement('a');
-	a.setAttribute('href', window.location.pathname + "?zip&zid=" + id + "&download");
-	a.setAttribute('download', filename);
+	a.href= window.location.pathname + "?zip&zid=" + id + "&download";
+	a.download = filename;
 	a.style.display = 'none';
 	document.body.appendChild(a);
 	a.click();

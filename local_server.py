@@ -63,7 +63,7 @@ class Config:
 
 		out = platform_system()
 		if out=="Linux":
-			if 'ANDROID_STORAGE' in os.environ:
+			if hasattr(sys, 'getandroidapilevel'):
 				#self.IP = "192.168.43.1"
 				return 'Android'
 
@@ -503,8 +503,15 @@ class ZIP_Manager:
 		`zid`: id of the folder
 		`size`: size of the folder (optional)
 		"""
-		if disabled_func["zip"]:
+		def err(msg):
+			self.zip_in_progress.pop(zid, None)
+			self.assigend_zid.pop(path, None)
+			self.zip_id_status[zid] = "ERROR: " + msg
 			return False
+		if disabled_func["zip"]:
+			return err("ZIP FUNTION DISABLED")
+
+
 
 
 		# run zipfly
@@ -523,6 +530,11 @@ class ZIP_Manager:
 		os.makedirs(self.zip_temp_dir, exist_ok=True)
 
 		fm = list_dir(path , both=True)
+
+		if len(fm)==0:
+			return err("FOLDER HAS NO FILES")
+
+
 		paths = []
 		for i,j in fm:
 			paths.append({"fs": i, "n":j})
@@ -540,13 +552,12 @@ class ZIP_Manager:
 				for chunk, c_size in zfly.generator():
 					zf.write(chunk)
 					archived_size += c_size
+					if source_size==0:
+						source_size+=1 # prevent division by 0
 					self.zip_in_progress[zid] = (archived_size/source_size)*100
-		except Exception:
+		except Exception as e:
 			traceback.print_exc()
-			self.zip_in_progress.pop(zid, None)
-			self.assigend_zid.pop(path, None)
-			self.zip_id_status[zid] = "ERROR"
-			return False
+			return err(e)
 		self.zip_in_progress.pop(zid, None)
 		self.assigend_zid.pop(path, None)
 		self.zip_id_status[zid] = "DONE"
@@ -1734,11 +1745,9 @@ tr:nth-child(even) {
 				self.send_header("Content-Type", ctype)
 				self.send_header("Content-Length", str(fs[6]))
 
-			# print(ctype, fs[6])
-
 			self.send_header("Last-Modified",
 							self.date_time_string(fs.st_mtime))
-			self.send_header("Content-Disposition", 'filename="%s"' % (os.path.basename(path) if filename is None else filename))
+			self.send_header("Content-Disposition", 'attachment; filename="%s"' % (os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
 			return f
@@ -1780,12 +1789,12 @@ tr:nth-child(even) {
 
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
-		
+
 
 
 		url_path, query, fragment = URL_MANAGER(self.path)
 
-		spathsplit = path.split(os.sep)
+		spathsplit = url_path.split("/")
 
 		filename = None
 
@@ -1832,7 +1841,9 @@ tr:nth-child(even) {
 				displaypath = urllib.parse.unquote(url_path)
 			displaypath = html.escape(displaypath, quote=False)
 
-			filename = spathsplit[-1]
+			filename = spathsplit[-2] + ".zip"
+
+
 			try:
 				zid = zip_manager.get_id(path, dir_size)
 				title = "Creating ZIP"
@@ -1842,7 +1853,7 @@ tr:nth-child(even) {
 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
 
 				tail = _zip_script.safe_substitute(PY_ZIP_ID = zid,
-				PY_ZIP_NAME = filename+".zip")
+				PY_ZIP_NAME = filename)
 				return self.return_txt(HTTPStatus.OK,
 				f"{head} {tail}")
 			except Exception:
@@ -1857,8 +1868,7 @@ tr:nth-child(even) {
 				return self.return_txt(HTTPStatus.OK, msg)
 
 
-			# print("=="*10, "\n\n")
-			filename = spathsplit[-1]
+			filename = spathsplit[-2] + ".zip"
 
 			id = query["zid"][0]
 
@@ -1872,7 +1882,6 @@ tr:nth-child(even) {
 
 			if zip_manager.zip_id_status[id] == "DONE":
 				if query("download"):
-					filename = os.path.basename(path) + ".zip"
 					path = zip_manager.zip_ids[id]
 
 					return self.return_file(path, first, last, filename)
@@ -1886,8 +1895,8 @@ tr:nth-child(even) {
 				progress = zip_manager.zip_in_progress[id]
 				return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
 
-			if zip_manager.zip_id_status[id] == "ERROR":
-				return self.return_txt(HTTPStatus.OK, "ERROR")
+			if zip_manager.zip_id_status[id].startswith("ERROR"):
+				return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
 
 
 
@@ -1955,7 +1964,6 @@ tr:nth-child(even) {
 					path = index
 					break
 			else:
-				#print(path)
 				return self.list_directory(path)
 
 		# check for trailing "/" which should return 404. See Issue17324
@@ -1994,7 +2002,6 @@ tr:nth-child(even) {
 
 		for name in dir_list:
 			fullname = os.path.join(path, name)
-			#print(fullname)
 			displayname = linkname = name
 
 
@@ -2027,7 +2034,7 @@ tr:nth-child(even) {
 		interface the same as for send_head().
 
 		"""
-		
+
 		url_path, query, fragment = URL_MANAGER(self.path)
 
 		try:
@@ -2059,7 +2066,7 @@ tr:nth-child(even) {
 				 # h  : HTML
 		f_li = [] # file_names
 		s_li = [] # size list
-		
+
 		r_folders = [] # no js
 		r_files = [] # no js
 
@@ -2071,6 +2078,7 @@ tr:nth-child(even) {
 		for name in dir_list:
 			fullname = os.path.join(path, name)
 			displayname = linkname = name
+			size=0
 			# Append / for directories or @ for symbolic links
 			_is_dir_ = True
 			if os.path.isdir(fullname):
@@ -2115,14 +2123,13 @@ tr:nth-child(even) {
 					r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 			if _is_dir_:
-				size=0
 				r_folders.append(LIST_STRING % ("", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
 										html.escape(displayname, quote=False)))
 
 				r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
-			
+
 			s_li.append(size)
 
 
@@ -2133,8 +2140,8 @@ tr:nth-child(even) {
 		r.append(_js_script.safe_substitute(PY_LINK_LIST=str(r_li),
 											PY_FILE_LIST=str(f_li),
 											PY_FILE_SIZE =str(s_li)))
-											
-						
+
+
 		encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 		f = io.BytesIO()
 		f.write(encoded)
@@ -2395,6 +2402,7 @@ button {
 
 * {
 	scrollbar-color: #0f0f0f #454a4d;
+	font-family: "Open Sans", sans-serif;
 }
 
 
@@ -2431,7 +2439,6 @@ a {
 	/*line-height: 200%;*/
 	font-size: 20px;
 	font-weight: 600;
-	font-family: 'Gill Sans, Gill Sans MT, Calibri, Trebuchet MS, sans-serif';
 	text-decoration: none;
 	color: #00BFFF;
 
@@ -2447,7 +2454,6 @@ a {
 .all_link {
 	display: block;
 	white-space: wrap;
-	font-family: "Open Sans", sans-serif;
 	overflow-wrap: anywhere;
 	position: relative;
 	border-radius: 5px;
@@ -2495,9 +2501,7 @@ a {
 }
 
 .file {
-	/* font-weight: 300; */
 	color: #c07cf7;
-	/* font-weight: 400; */
 }
 
 
@@ -2532,6 +2536,9 @@ a {
 
 
 #dir-tree {
+	overflow-x: auto;
+	overflow-y: hidden;
+	white-space: nowrap;
 	word-wrap: break-word;
 	max-width: 98vw;
 	border: #075baf 2px solid;
@@ -2574,28 +2581,27 @@ a {
   color: black;
   position: relative;
   border-radius: 5px;
-  
+
   max-width: 100%;
 }
 
 .file-size, .link_size {
 	font-size: .6em;
+	font-weight: 600;
 	background-color: #19a6c979;
-	padding: 2px;
+	padding: 3px;
 	display: inline-block;
 	color: #fff;
-	bo
-	line-height: auto;
-	
+	border-radius: 4px;
+
 }
 
 .file-size, .file-remove, .link_icon {
-	border-radius: 4px;
 	white-space: nowrap;
-	
+
 	position: absolute;
-  top: 50%;
-  transform: translate(0%, -50%);
+	top: 50%;
+	transform: translate(0%, -50%);
 }
 
 
@@ -2614,6 +2620,10 @@ a {
   padding: 12px 16px;
   cursor: pointer;
   font-size: 23px;
+  color: #fff;
+  background-color: #505050;
+  border-radius: 5px;
+  font-weight: 900;
   right: 0%;
 
 }
@@ -2675,7 +2685,6 @@ a {
 	z-index: 23;
 	padding: 20px;
 	box-sizing: border-box;
-	font-family: "Open Sans", sans-serif;
 	max-height: min(600px, 80%);
 	height: max-content;
 	min-height: 300px;
@@ -2764,16 +2773,11 @@ a {
 
 }
 
-#prev_dir{
-	background-color: #000;
-	padding: 3px 20px 8px 20px;
-	border-radius: 4px;
-}
 
 ul{
 	list-style-type: none; /* Remove bullets */
 	padding-left: 5px;
-	margin: 0; 
+	margin: 0;
 }
 
 #upload-pass {
@@ -2837,11 +2841,40 @@ ul{
 	cursor: pointer;
 }
 
+.toast-box {
+	z-index: 99;
+
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+	transform: translateY(100%);
+	opacity: 0;
+
+	transition:
+		opacity 500ms,
+		transform 500ms;
+}
+
+.toast-box.visible {
+	transform: translateY(0);
+	opacity: 1;
+}
 
 
+.toast-body {
+	max-height: 100px;
+	overflow-y: auto;
+	margin: 28px;
+	padding: 10px;
 
+	font-size: 1em;
+	background-color: #005165ed;
+	color: #fff;
 
-
+	border-radius: 4px;
+}
 
 
 
@@ -2868,11 +2901,15 @@ ul{
 <h1 id="dir-tree">${PY_DIR_TREE_NO_JS}</h1>
 <hr>
 
+<script>
+const dir_tree = document.getElementById("dir-tree");
+dir_tree.scrollLeft = dir_tree.scrollWidth;
+</script>
+
 <hr>
 <div id="content_list">
 	<ul id="linkss">
-		<a href="../" id="prev_dir">&#128281; {Prev folder}</a>
-
+		<!-- CONTENT LIST (NO JS) -->
 
 """)
 
@@ -2890,7 +2927,7 @@ _js_script = Template(r"""
 <hr>
 
 <div class='pagination jsonly' onclick="request_reload()">RELOAD 🧹</div>
-<noscript><a href="/?reload" class='pagination'>RELOAD 🧹</a></noscript>
+<noscript><a href="/?reload" class='pagination'>RELOAD 🧹</a><br></noscript>
 <br>
 <div class='pagination' onclick="Show_folder_maker()">Create Folder</div><br>
 
@@ -2899,64 +2936,75 @@ _js_script = Template(r"""
 
 
 <form ENCTYPE="multipart/form-data" method="post" id="uploader">
-	
-	
+
+
 	<center>
-	<h1><u>Upload file</u></h1> 
- 
- 
-	<input type="hidden" name="post-type" value="upload">
-	<input type="hidden" name="post-uid" value="12345">
-	
-<span id="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" id="upload-pass-box">
-	<br><br>
-	<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
-	<div id="upload-box">
-	<div class="drag-area">
-		<div class="drag-icon">⬆️</div>
-		<header>Drag & Drop to Upload File</header>
-		<span>OR</span>
-		<button id="drag-browse">Browse File</button>
-		<input type="file" name="file" multiple hidden>
+		<h1><u>Upload file</u></h1>
+
+
+		<input type="hidden" name="post-type" value="upload">
+		<input type="hidden" name="post-uid" value="12345">
+
+		<span id="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" id="upload-pass-box">
+		<br><br>
+		<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
+		<div id="upload-box">
+			<div class="drag-area">
+				<div class="drag-icon">⬆️</div>
+				<header>Drag & Drop to Upload File</header>
+				<span>OR</span>
+				<button id="drag-browse">Browse File</button>
+				<input type="file" name="file" multiple hidden>
+			</div>
 	</div>
-	</div>
-	
-	
+
+
 	<h2 id="has-selected-up" style="display:none">Selected Files</h2>
-	</center>
-	<div id="drag-file-list">
+</center>
+<div id="drag-file-list">
 	<!--// List of file-->
-	</div>
-	
-	<center><input id="submit-btn" type="submit" value="&#10174; upload"></center>
+</div>
+
+<center><input id="submit-btn" type="submit" value="&#10174; upload"></center>
 </form>
 
 
 
 <br>
 <center><div id="upload-task" style="display:none;font-size:20px;font-weight:700">
-<p id="upload-status"></p>
-<progress id="upload-progress" value="0" max="100" style="width:300px"> </progress>
+	<p id="upload-status"></p>
+	<progress id="upload-progress" value="0" max="100" style="width:300px"> </progress>
 </div></center>
 <hr>
 
 <script>
+const log = console.log,
+	byId = document.getElementById.bind(document),
+	byClass = document.getElementsByClassName.bind(document),
+	byTag = document.getElementsByTagName.bind(document),
+	byName = document.getElementsByName.bind(document),
+	createElement = document.createElement.bind(document);
+
+
+String.prototype.toHtmlEntities = function() {
+	return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
+};
 
 const r_li = ${PY_LINK_LIST};
 const f_li = ${PY_FILE_LIST};
 const s_li = ${PY_FILE_SIZE};
 
-document.getElementById("uploader").addEventListener('submit', e => {
+byId("uploader").addEventListener('submit', e => {
 	e.preventDefault()
 	const formData = new FormData(e.target)
 
 
-	const status = document.getElementById("upload-status")
-	const progress = document.getElementById("upload-progress")
-	
+	const status = byId("upload-status")
+	const progress = byId("upload-progress")
+
 	var prog = 0;
 	var msg = "";
-	
+
 	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
 	const request = new XMLHttpRequest()
 	request.open(e.target.method, e.target.action)
@@ -2981,18 +3029,9 @@ document.getElementById("uploader").addEventListener('submit', e => {
 
 	}
 	status.innerText = `Uploading : 0%`
-	document.getElementById('upload-task').style.display = 'block'
+	byId('upload-task').style.display = 'block'
 	request.send(formData)
 })
-const log = console.log,
-	byId = document.getElementById.bind(document),
-	byClass = document.getElementsByClassName.bind(document),
-	byTag = document.getElementsByTagName.bind(document),
-	byName = document.getElementsByName.bind(document),
-	createElement = document.createElement.bind(document);
-String.prototype.toHtmlEntities = function() {
-	return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
-};
 
 function null_func() {
 	return true
@@ -3090,21 +3129,22 @@ class Tools {
 		}
 	}
 	download(dataurl, filename = null) {
-		const link = document.createElement("a");
+		const link = createElement("a");
 		link.href = dataurl;
 		link.download = filename;
 		link.click();
 	}
-	
-	
-	copy_2(ev, textToCopy) {
+
+
+	async copy_2(ev, textToCopy) {
 		// navigator clipboard api needs a secure context (https)
 		if (navigator.clipboard && window.isSecureContext) {
 			// navigator clipboard api method'
-			return navigator.clipboard.writeText(textToCopy);
+			await navigator.clipboard.writeText(textToCopy);
+			return 1
 		} else {
 			// text area method
-			let textArea = document.createElement("textarea");
+			let textArea = createElement("textarea");
 			textArea.value = textToCopy;
 			// make the textarea out of viewport
 			textArea.style.position = "fixed";
@@ -3113,18 +3153,25 @@ class Tools {
 			document.body.appendChild(textArea);
 			textArea.focus();
 			textArea.select();
-			return new Promise((res, rej) => {
+
+			let ok=0;
 				// here the magic happens
-				document.execCommand('copy') ? res() : rej();
-				textArea.remove();
-			});
+				if(document.execCommand('copy')) ok = 1
+
+			textArea.remove();
+			return ok
+
 		}
-}
+	}
 }
 let tools = new Tools();
 
-//tools.enable_debug()
 
+
+
+'#########################################'
+// tools.enable_debug() // TODO: Disable this in production
+'#########################################'
 
 class Popup_Msg {
 	constructor() {
@@ -3138,21 +3185,34 @@ class Popup_Msg {
 	}
 	create() {
 		var that = this;
-		this.popup_id = config.total_popup;
-		this.popup_obj = createElement("div")
-		this.popup_obj.id = "popup-" + this.popup_id;
-		this.popup_obj.classList.add("popup")
-		this.popup_bg = createElement("div")
-		this.popup_bg.classList.add("modal_bg")
-		this.popup_bg.id = "popup-bg-" + this.popup_id;
-		this.popup_bg.style.backgroundColor = "#000000EE";
-		this.popup_bg.onclick = function() {
+		let popup_id, popup_obj, popup_bg, close_btn, popup_box;
+
+		popup_id = config.total_popup;
+
+
+
+		popup_obj = createElement("div")
+		popup_obj.id = "popup-" + popup_id;
+		popup_obj.classList.add("popup")
+
+		popup_bg = createElement("div")
+		popup_bg.classList.add("modal_bg")
+		popup_bg.id = "popup-bg-" + popup_id;
+		popup_bg.style.backgroundColor = "#000000EE";
+		popup_bg.onclick = function() {
 			that.close()
 		}
-		this.popup_obj.appendChild(this.popup_bg);
-		var popup_box = createElement("div");
+
+		popup_obj.appendChild(popup_bg);
+
+		this.popup_obj = popup_obj
+		this.popup_bg = popup_bg
+
+
+		popup_box = createElement("div");
 		popup_box.classList.add("popup-box")
-		var close_btn = createElement("div");
+
+		close_btn = createElement("div");
 		close_btn.classList.add("popup-close-btn")
 		close_btn.onclick = function() {
 			that.close()
@@ -3160,15 +3220,16 @@ class Popup_Msg {
 		close_btn.innerHTML = "&times;";
 		popup_box.appendChild(close_btn)
 		this.header = createElement("h1")
-		this.header.id = "popup-header-" + this.popup_id;
+		this.header.id = "popup-header-" + popup_id;
 		popup_box.appendChild(this.header)
-		this.hr = createElement("popup-hr-" + this.popup_id);
+		this.hr = createElement("popup-hr-" + popup_id);
 		this.hr.style.width = "95%"
 		popup_box.appendChild(this.hr)
 		this.content = createElement("div")
-		this.content.id = "popup-content-" + this.popup_id;
+		this.content.id = "popup-content-" + popup_id;
 		popup_box.appendChild(this.content)
 		this.popup_obj.appendChild(popup_box)
+
 		byId("popup-container").appendChild(this.popup_obj)
 		config.total_popup += 1;
 	}
@@ -3228,9 +3289,42 @@ class Popup_Msg {
 		} else {
 			this.hr.style.display = "none";
 		}
+
 	}
 }
 let popup_msg = new Popup_Msg();
+
+class Toaster {
+	constructor() {
+		this.container = createElement("div")
+		this.container.classList.add("toast-box")
+		this.toaster = createElement("div")
+		this.toaster.classList.add("toast-body")
+
+		this.container.appendChild(this.toaster)
+		document.body.appendChild(this.container)
+
+		this.BUSY = 0;
+	}
+
+
+	async toast(msg,time) {
+		// toaster is not safe as popup by design
+		var sleep = 3000;
+
+		this.BUSY = 1;
+		this.toaster.innerText = msg;
+		this.container.classList.add("visible")
+		if(tools.is_defined(time)) sleep = time;
+		await tools.sleep(sleep)
+		this.container.classList.remove("visible")
+		this.BUSY = 0
+	}
+}
+
+let toaster = new Toaster()
+
+
 class ContextMenu {
 	constructor() {
 		this.old_name = null;
@@ -3252,7 +3346,7 @@ class ContextMenu {
 	menu_click(action, link, more_data = null) {
 		var that = this
 		popup_msg.close()
-		
+
 		var url = ".";
 		var xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
@@ -3288,9 +3382,9 @@ class ContextMenu {
 	show_menus(file, name, type) {
 		var that = this;
 		var menu = createElement("div")
-		
+
 		var new_tab = createElement("div")
-			new_tab.innerHTML = "↗️".toHtmlEntities() + " New tab"
+			new_tab.innerText = "↗️" + " New tab"
 			new_tab.classList.add("menu_options")
 			new_tab.onclick = function() {
 				window.open(file, '_blank');
@@ -3299,7 +3393,7 @@ class ContextMenu {
 			menu.appendChild(new_tab)
 		if (type == "video") {
 			var download = createElement("div")
-			download.innerHTML = "⬇️".toHtmlEntities() + " Download"
+			download.innerText = "⬇️" + " Download"
 			download.classList.add("menu_options")
 			download.onclick = function() {
 				tools.download(file, name);
@@ -3310,7 +3404,7 @@ class ContextMenu {
 		}
 		if (type == "folder") {
 			var dl_zip = createElement("div")
-			dl_zip.innerHTML = "🗃️".toHtmlEntities() + " Download as Zip"
+			dl_zip.innerText = "🗃️" + " Download as Zip"
 			dl_zip.classList.add("menu_options")
 			dl_zip.onclick = function() {
 				popup_msg.close()
@@ -3319,27 +3413,32 @@ class ContextMenu {
 			}
 			menu.appendChild(dl_zip)
 		}
-		
+
 		var copy = createElement("div")
-		copy.innerHTML = "⧉".toHtmlEntities() + " Copy link"
+		copy.innerText = "⧉" + " Copy link"
 		copy.classList.add("menu_options")
-		copy.onclick = function(ev) {
+		copy.onclick = async function(ev) {
 			popup_msg.close()
-			let fake_a = document.createElement("a")
+			let fake_a = createElement("a")
 			fake_a.href = file;
-			tools.copy_2(ev, fake_a.href)
+			let success = await tools.copy_2(ev, fake_a.href)
+			if(success){
+				toaster.toast("Link Copied!")
+			}else{
+				toaster.toast("Failed to copy!")
+			}
 		}
 		menu.appendChild(copy)
-		
+
 		var rename = createElement("div")
-		rename.innerHTML = "✏️".toHtmlEntities() + " Rename"
+		rename.innerText = "✏️" + " Rename"
 		rename.classList.add("menu_options")
 		rename.onclick = function() {
 			that.rename(file, name)
 		}
 		menu.appendChild(rename)
 		var del = createElement("div")
-		del.innerHTML = "🗑️".toHtmlEntities() + " Delete"
+		del.innerText = "🗑️" + " Delete"
 		del.classList.add("menu_options")
 		var xxx = 'F'
 		if (type == "folder") {
@@ -3351,7 +3450,7 @@ class ContextMenu {
 		log(file, type)
 		menu.appendChild(del)
 		var del_P = createElement("div")
-		del_P.innerHTML = "🔥".toHtmlEntities() + " Delete permanently"
+		del_P.innerText = "🔥" + " Delete permanently"
 		del_P.classList.add("menu_options")
 
 		function r_u_sure() {
@@ -3361,13 +3460,13 @@ class ContextMenu {
 			msggg.innerHTML = "This can't be undone!!!"
 			box.appendChild(msggg)
 			var y_btn = createElement("div")
-			y_btn.innerHTML = "Continue"
+			y_btn.innerText = "Continue"
 			y_btn.className = "pagination center"
 			y_btn.onclick = function() {
 				that.menu_click('del-p', file);
 			};
 			var n_btn = createElement("div")
-			n_btn.innerHTML = "Cancel"
+			n_btn.innerText = "Cancel"
 			n_btn.className = "pagination center"
 			n_btn.onclick = popup_msg.close;
 			box.appendChild(y_btn)
@@ -3378,7 +3477,7 @@ class ContextMenu {
 		del_P.onclick = r_u_sure
 		menu.appendChild(del_P)
 		var property = createElement("div")
-		property.innerHTML = "&#9432;" + " Properties"
+		property.innerText = "ℹ️" + " Properties"
 		property.classList.add("menu_options")
 		property.onclick = function() {
 			that.menu_click('info', file);
@@ -3388,7 +3487,7 @@ class ContextMenu {
 		popup_msg.open_popup()
 	}
 	create_folder() {
-		let folder_name = document.getElementById('folder-name').value;
+		let folder_name = byId('folder-name').value;
 		this.menu_click('new folder', folder_name)
 	}
 }
@@ -3419,7 +3518,7 @@ function show_response(url, add_reload_btn = true) {
 }
 
 function reload() {
-	show_response("?reload");
+	show_response("/?reload");
 }
 
 function run_recyle(url) {
@@ -3437,8 +3536,8 @@ function insertAfter(newNode, existingNode) {
 
 
 tools.del_child("linkss");
-const folder_li = document.createElement('div');
-const file_li = document.createElement("div")
+const folder_li = createElement('div');
+const file_li = createElement("div")
 for (let i = 0; i < r_li.length; i++) {
 	// time to customize the links according to their formats
 	var folder = false
@@ -3446,23 +3545,25 @@ for (let i = 0; i < r_li.length; i++) {
 	let r = r_li[i];
 	let r_ = r.slice(1);
 	let name = f_li[i];
-	
-	let item = document.createElement('div'); 
+
+	let item = createElement('div');
 	item.classList.add("dir_item")
-	
-	
-	let link = document.createElement('a');// both icon and title, display:flex
+
+
+	let link = createElement('a');// both icon and title, display:flex
 	link.href = r_;
+	link.title = name;
+
 	link.classList.add('all_link');
 	link.classList.add("disable_selection")
-	let l_icon = document.createElement("span")
+	let l_icon = createElement("span")
 	// this will go inside "link" 1st
 	l_icon.classList.add("link_icon")
-	
-	let l_box = document.createElement("span")
+
+	let l_box = createElement("span")
 	// this will go inside "link" 2nd
 	l_box.classList.add("link_name")
-	
+
 
 	if (r.startsWith('d')) {
 		// add DOWNLOAD FOLDER OPTION in it
@@ -3499,22 +3600,19 @@ for (let i = 0; i < r_li.length; i++) {
 	}
 
 	link.appendChild(l_icon)
-	
+
 	l_box.innerText = " " + name;
-	
+
 	if(s_li[i]){
-		l_box.appendChild(document.createElement("br"))
-		console.log(s_li[i])
-		let s = document.createElement("span")
+		l_box.appendChild(createElement("br"))
+
+		let s = createElement("span")
 		s.className= "link_size"
 		s.innerText = s_li[i]
 		l_box.appendChild(s)
 	}
 	link.appendChild(l_box)
-	
-	// var context = createElement('span');
-	// context.className = "pagination context_menu"
-	// context.innerHTML = '<b>&nbsp;&vellip;&nbsp;</b>';
+
 
 	link.oncontextmenu = function(ev) {
 		ev.preventDefault()
@@ -3522,7 +3620,7 @@ for (let i = 0; i < r_li.length; i++) {
 		context_menu.show_menus(r_, name, type);
 		return false;
 	}
-	
+
 	item.appendChild(link);
 	//item.appendChild(context);
 	// recycling option for the files and folder
@@ -3531,8 +3629,8 @@ for (let i = 0; i < r_li.length; i++) {
 	if (r.startsWith('d')) {
 		xxx = "D";
 	}
-	
-	
+
+
 	var hrr = createElement("hr")
 	item.appendChild(hrr);
 	if (folder) {
@@ -3541,13 +3639,10 @@ for (let i = 0; i < r_li.length; i++) {
 		file_li.appendChild(item)
 	}
 }
-var dir_container = document.getElementById("content_list")
+var dir_container = byId("content_list")
 dir_container.appendChild(folder_li)
 dir_container.appendChild(file_li)
-var dir_tree = byId("dir-tree");
-dir_tree.style.overflow = "auto";
-dir_tree.style.whiteSpace = "nowrap";
-dir_tree.scrollLeft = dir_tree.scrollWidth;
+
 
 
 </script>
@@ -3555,13 +3650,13 @@ dir_tree.scrollLeft = dir_tree.scrollWidth;
 
 <script>
 //selecting all required elements
-var uploader = document.getElementById("uploader");
+var uploader = byId("uploader");
 const dropArea = document.querySelector(".drag-area"),
 dragText = dropArea.querySelector("header"),
 button = dropArea.querySelector("button"),
 input = dropArea.querySelector("input");
 let files; //this is a global variable and we'll use it inside multiple functions
-file_display = document.getElementById("drag-file-list");
+file_display = byId("drag-file-list");
 
 button.onclick = (e)=>{
 	e.preventDefault();
@@ -3600,7 +3695,7 @@ dropArea.addEventListener("drop", (event)=>{
 function removeFileFromFileList(index) {
 	const formData = new FormData(uploader)
 	const dt = new DataTransfer()
-	// const input = document.getElementById('files')
+	// const input = byId('files')
 	// const { files } = input
 
 	for (let i = 0; i < files.length; i++) {
@@ -3608,7 +3703,7 @@ function removeFileFromFileList(index) {
 	if (index !== i)
 		dt.items.add(file) // here you exclude the file. thus removing it.
 	}
-	
+
 	files = dt.files
 	input.files = dt.files // Assign the updates list
 	showFiles()
@@ -3616,7 +3711,7 @@ function removeFileFromFileList(index) {
 
 function showFiles() {
 	tools.del_child(file_display)
-	let heading = document.getElementById("has-selected-up")
+	let heading = byId("has-selected-up")
 	if(files.length){
 		heading.style.display = "block"
 	} else {
@@ -3628,11 +3723,10 @@ function showFiles() {
 }
 
 function showFile(file, index){
-	// console.log(file.name)
 	let filename = file.name;
 	let size = file.size;
 
-	let item = document.createElement("div");
+	let item = createElement("div");
 	item.className = "upload-file-item";
 	item.innerHTML = `
 			<span class="file-name">${filename}</span>
@@ -3643,24 +3737,6 @@ function showFile(file, index){
 
 	file_display.appendChild(item);
 
-
-
-	// let fileType = file.type; //getting selected file type
-	// let validExtensions = ["image/jpeg", "image/jpg", "image/png"]; //adding some valid image extensions in array
-	// if(validExtensions.includes(fileType)){ //if user selected file is an image file
-		// let fileReader = new FileReader(); //creating new FileReader object
-		// fileReader.onload = ()=>{
-			// let fileURL = fileReader.result; //passing user file source in fileURL variable
-				// UNCOMMENT THIS BELOW LINE. I GOT AN ERROR WHILE UPLOADING THIS POST SO I COMMENTED IT
-			// let imgTag = `<img src="${fileURL}" alt="image">`; //creating an img tag and passing user selected file source inside src attribute
-			// dropArea.innerHTML = imgTag; //adding that created img tag inside dropArea container
-		// }
-		// fileReader.readAsDataURL(file);
-	// }else{
-		// alert("This is not an Image File!");
-		// dropArea.classList.remove("active");
-		// dragText.textContent = "Drag & Drop to Upload File";
-	// }
 }
 
 
@@ -3668,12 +3744,11 @@ function showFile(file, index){
 </script>
 
 
+<p>v4 I ❤️ emoji!</p>
 
-<p>v3</p>
 </body>
 
 </html>
-
 
 """)
 
@@ -3695,11 +3770,14 @@ _video_script = Template(r"""
 		<source src="${PY_VID_SOURCE}" type="${PY_CTYPE}" />
 	</video>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
 
-<!-- 
 
-<link rel="stylesheet" href="/@assets/video.css" /> 
+
+
+
+<!--
+<link rel="stylesheet" href="/@assets/video.css" />
 <script src="/@assets/plyr.min.js"></script>
 <script src="/@assets/player.js"></script>
 
@@ -3716,6 +3794,10 @@ const log = console.log,
 	byTag = document.getElementsByTagName.bind(document),
 	byName = document.getElementsByName.bind(document),
 	createElement = document.createElement.bind(document);
+
+
+
+
 //const player = new Plyr('#player');
 var controls = [
 	'play-large', // The large play button in the center
@@ -3800,35 +3882,54 @@ poster.onclick = function(e) {
 	const width = e.target.offsetWidth;
 	const perc = x * 100 / width;
 	var panic = true;
+	var change=10;
 	var last_click = counter.last_side
 	if (last_click == null) {
 		panic = false
 	}
 	if (perc < 40) {
 		if (player.currentTime == 0) {
-			return
+			return false
 		}
+		if (player.currentTime < 10) {
+			change = player.currentTime
+		}
+
+		log(change)
 		counter.last_side = "L"
 		if (panic && last_click != "L") {
 			counter.reset_count(1)
 			return
 		}
 		skip_ol.style.opacity = "0.9";
-		player.rewind()
-		skip_ol.innerText = "⫷⪡" + "\\n" + ((count - 1) * 10) + "s";
+		player.rewind(change)
+		if(change==10){
+			change = ((count - 1) * 10)
+		} else {
+			change = change.toFixed(1);
+		}
+		skip_ol.innerText = "⫷⪡" + "\n" + change + "s";
 	} else if (perc > 60) {
 		if (player.currentTime == player.duration) {
-			return
+			return false
 		}
 		counter.last_side = "R"
 		if (panic && last_click != "R") {
 			counter.reset_count(1)
 			return
 		}
+		if (player.currentTime > (player.duration-10)) {
+			change = player.duration - player.currentTime;
+		}
 		skip_ol.style.opacity = "0.9";
 		last_click = "R"
-		player.forward()
-		skip_ol.innerText = "⪢⫸ " + "\\n" + ((count - 1) * 10) + "s";
+		player.forward(change)
+		if(change==10){
+			change = ((count - 1) * 10)
+		} else {
+			change = change.toFixed(1);
+		}
+		skip_ol.innerText = "⪢⫸ " + "\n" + change + "s";
 	} else {
 		player.togglePlay()
 		counter.last_click = "C"
@@ -3839,7 +3940,6 @@ poster.onclick = function(e) {
 </script>
 
 <br>
-
 """)
 
 
@@ -3892,8 +3992,8 @@ function ping(url) {
 
 function run_dl() {
 	var a = document.createElement('a');
-	a.setAttribute('href', window.location.pathname + "?zip&zid=" + id + "&download");
-	a.setAttribute('download', filename);
+	a.href= window.location.pathname + "?zip&zid=" + id + "&download";
+	a.download = filename;
 	a.style.display = 'none';
 	document.body.appendChild(a);
 	a.click();
@@ -3904,7 +4004,6 @@ var prog_timer = setInterval(function() {
 
 
 </script>
-
 """)
 
 

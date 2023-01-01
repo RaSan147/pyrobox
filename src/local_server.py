@@ -63,7 +63,7 @@ class Config:
 
 		out = platform_system()
 		if out=="Linux":
-			if 'ANDROID_STORAGE' in os.environ:
+			if hasattr(sys, 'getandroidapilevel'):
 				#self.IP = "192.168.43.1"
 				return 'Android'
 
@@ -248,7 +248,7 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 				return -1
 	if return_list: return total_size, r
 	return total_size
-	
+
 
 def fmbytes(B):
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
@@ -397,8 +397,14 @@ class ZIP_Manager:
 		`zid`: id of the folder
 		`size`: size of the folder (optional)
 		"""
-		if disabled_func["zip"]:
+		def err(msg):
+			self.zip_in_progress.pop(zid, None)
+			self.assigend_zid.pop(path, None)
+			self.zip_id_status[zid] = "ERROR: " + msg
 			return False
+		if disabled_func["zip"]:
+			return err("ZIP FUNTION DISABLED")
+
 
 
 		# run zipfly
@@ -417,6 +423,11 @@ class ZIP_Manager:
 		os.makedirs(self.zip_temp_dir, exist_ok=True)
 
 		fm = list_dir(path , both=True)
+
+		if len(fm)==0:
+			return err("FOLDER HAS NO FILES")
+
+
 		paths = []
 		for i,j in fm:
 			paths.append({"fs": i, "n":j})
@@ -434,13 +445,12 @@ class ZIP_Manager:
 				for chunk, c_size in zfly.generator():
 					zf.write(chunk)
 					archived_size += c_size
+					if source_size==0:
+						source_size+=1 # prevent division by 0
 					self.zip_in_progress[zid] = (archived_size/source_size)*100
-		except Exception:
+		except Exception as e:
 			traceback.print_exc()
-			self.zip_in_progress.pop(zid, None)
-			self.assigend_zid.pop(path, None)
-			self.zip_id_status[zid] = "ERROR"
-			return False
+			return err(e)
 		self.zip_in_progress.pop(zid, None)
 		self.assigend_zid.pop(path, None)
 		self.zip_id_status[zid] = "DONE"
@@ -1630,11 +1640,9 @@ tr:nth-child(even) {
 				self.send_header("Content-Type", ctype)
 				self.send_header("Content-Length", str(fs[6]))
 
-			# print(ctype, fs[6])
-
 			self.send_header("Last-Modified",
 							self.date_time_string(fs.st_mtime))
-			self.send_header("Content-Disposition", 'filename="%s"' % (os.path.basename(path) if filename is None else filename))
+			self.send_header("Content-Disposition", 'attachment; filename="%s"' % (os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
 			return f
@@ -1676,12 +1684,12 @@ tr:nth-child(even) {
 
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
-		
+
 
 
 		url_path, query, fragment = URL_MANAGER(self.path)
 
-		spathsplit = path.split(os.sep)
+		spathsplit = url_path.split("/")
 
 		filename = None
 
@@ -1707,7 +1715,8 @@ tr:nth-child(even) {
 		########################################################
 		#    TO	TEST ASSETS
 		#elif spathsplit[1]=="@assets":
-		#	path = "./assets/"+ "/".join(spathsplit[2:])
+		#	path = config.MAIN_FILE_dir+ "/../assets/"+ "/".join(spathsplit[2:])
+		#	print("USING ASSETS", path)
 
 		########################################################
 
@@ -1728,17 +1737,19 @@ tr:nth-child(even) {
 				displaypath = urllib.parse.unquote(url_path)
 			displaypath = html.escape(displaypath, quote=False)
 
-			filename = spathsplit[-1]
+			filename = spathsplit[-2] + ".zip"
+
+
 			try:
 				zid = zip_manager.get_id(path, dir_size)
 				title = "Creating ZIP"
-				
+
 				head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 														PY_PUBLIC_URL=config.address(),
 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
 
 				tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
-				PY_ZIP_NAME = filename+".zip")
+				PY_ZIP_NAME = filename)
 				return self.return_txt(HTTPStatus.OK,
 				f"{head} {tail}")
 			except Exception:
@@ -1753,8 +1764,7 @@ tr:nth-child(even) {
 				return self.return_txt(HTTPStatus.OK, msg)
 
 
-			# print("=="*10, "\n\n")
-			filename = spathsplit[-1]
+			filename = spathsplit[-2] + ".zip"
 
 			id = query["zid"][0]
 
@@ -1768,7 +1778,6 @@ tr:nth-child(even) {
 
 			if zip_manager.zip_id_status[id] == "DONE":
 				if query("download"):
-					filename = os.path.basename(path) + ".zip"
 					path = zip_manager.zip_ids[id]
 
 					return self.return_file(path, first, last, filename)
@@ -1782,8 +1791,8 @@ tr:nth-child(even) {
 				progress = zip_manager.zip_in_progress[id]
 				return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
 
-			if zip_manager.zip_id_status[id] == "ERROR":
-				return self.return_txt(HTTPStatus.OK, "ERROR")
+			if zip_manager.zip_id_status[id].startswith("ERROR"):
+				return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
 
 
 
@@ -1851,7 +1860,6 @@ tr:nth-child(even) {
 					path = index
 					break
 			else:
-				#print(path)
 				return self.list_directory(path)
 
 		# check for trailing "/" which should return 404. See Issue17324
@@ -1890,7 +1898,6 @@ tr:nth-child(even) {
 
 		for name in dir_list:
 			fullname = os.path.join(path, name)
-			#print(fullname)
 			displayname = linkname = name
 
 
@@ -1923,7 +1930,7 @@ tr:nth-child(even) {
 		interface the same as for send_head().
 
 		"""
-		
+
 		url_path, query, fragment = URL_MANAGER(self.path)
 
 		try:
@@ -1944,7 +1951,6 @@ tr:nth-child(even) {
 		title = self.get_titles(displaypath)
 
 
-		#print("="*50, endl, self.dir_navigator(displaypath))
 		r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 														PY_PUBLIC_URL=config.address(),
 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
@@ -1956,7 +1962,7 @@ tr:nth-child(even) {
 				 # h  : HTML
 		f_li = [] # file_names
 		s_li = [] # size list
-		
+
 		r_folders = [] # no js
 		r_files = [] # no js
 
@@ -1968,6 +1974,7 @@ tr:nth-child(even) {
 		for name in dir_list:
 			fullname = os.path.join(path, name)
 			displayname = linkname = name
+			size=0
 			# Append / for directories or @ for symbolic links
 			_is_dir_ = True
 			if os.path.isdir(fullname):
@@ -2012,14 +2019,13 @@ tr:nth-child(even) {
 					r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 					f_li.append(html.escape(displayname, quote=False))
 			if _is_dir_:
-				size=0
 				r_folders.append(LIST_STRING % ("", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
 										html.escape(displayname, quote=False)))
 
 				r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
-			
+
 			s_li.append(size)
 
 
@@ -2030,8 +2036,8 @@ tr:nth-child(even) {
 		r.append(_js_script().safe_substitute(PY_LINK_LIST=str(r_li),
 											PY_FILE_LIST=str(f_li),
 											PY_FILE_SIZE =str(s_li)))
-											
-						
+
+
 		encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 		f = io.BytesIO()
 		f.write(encoded)
@@ -2055,7 +2061,6 @@ tr:nth-child(even) {
 		just like file manager, but with less CSS"""
 
 		dirs = re.sub("/{2,}", "/", path).split('/')
-		#print(path, dirs)
 		urls = ['/']
 		names = ['&#127968; HOME']
 		r = []
