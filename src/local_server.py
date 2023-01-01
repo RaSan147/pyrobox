@@ -1640,11 +1640,9 @@ tr:nth-child(even) {
 				self.send_header("Content-Type", ctype)
 				self.send_header("Content-Length", str(fs[6]))
 
-			# print(ctype, fs[6])
-
 			self.send_header("Last-Modified",
 							self.date_time_string(fs.st_mtime))
-			self.send_header("Content-Disposition", 'filename="%s"' % (os.path.basename(path) if filename is None else filename))
+			self.send_header("Content-Disposition", 'attachment; filename="%s"' % (os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
 			return f
@@ -1739,7 +1737,11 @@ tr:nth-child(even) {
 				displaypath = urllib.parse.unquote(url_path)
 			displaypath = html.escape(displaypath, quote=False)
 
-			filename = spathsplit[-1]
+			filename = spathsplit[-2] + ".zip"
+
+
+
+
 			try:
 				zid = zip_manager.get_id(path, dir_size)
 				title = "Creating ZIP"
@@ -1749,7 +1751,7 @@ tr:nth-child(even) {
 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
 
 				tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
-				PY_ZIP_NAME = filename+".zip")
+				PY_ZIP_NAME = filename)
 				return self.return_txt(HTTPStatus.OK,
 				f"{head} {tail}")
 			except Exception:
@@ -1764,8 +1766,7 @@ tr:nth-child(even) {
 				return self.return_txt(HTTPStatus.OK, msg)
 
 
-			# print("=="*10, "\n\n")
-			filename = spathsplit[-1]
+			filename = spathsplit[-2] + ".zip"
 
 			id = query["zid"][0]
 
@@ -1779,7 +1780,6 @@ tr:nth-child(even) {
 
 			if zip_manager.zip_id_status[id] == "DONE":
 				if query("download"):
-					filename = os.path.basename(path) + ".zip"
 					path = zip_manager.zip_ids[id]
 
 					return self.return_file(path, first, last, filename)
@@ -1862,7 +1862,6 @@ tr:nth-child(even) {
 					path = index
 					break
 			else:
-				#print(path)
 				return self.list_directory(path)
 
 		# check for trailing "/" which should return 404. See Issue17324
@@ -1901,7 +1900,6 @@ tr:nth-child(even) {
 
 		for name in dir_list:
 			fullname = os.path.join(path, name)
-			#print(fullname)
 			displayname = linkname = name
 
 

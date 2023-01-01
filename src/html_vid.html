@@ -31,8 +31,8 @@ const log = console.log,
 	byTag = document.getElementsByTagName.bind(document),
 	byName = document.getElementsByName.bind(document),
 	createElement = document.createElement.bind(document);
-	
-	
+
+
 
 
 //const player = new Plyr('#player');
@@ -126,11 +126,13 @@ poster.onclick = function(e) {
 	}
 	if (perc < 40) {
 		if (player.currentTime == 0) {
-			return
+			return false
 		}
 		if (player.currentTime < 10) {
 			change = player.currentTime
 		}
+
+		log(change)
 		counter.last_side = "L"
 		if (panic && last_click != "L") {
 			counter.reset_count(1)
@@ -138,13 +140,15 @@ poster.onclick = function(e) {
 		}
 		skip_ol.style.opacity = "0.9";
 		player.rewind(change)
-		if(change!=10){
+		if(change==10){
 			change = ((count - 1) * 10)
+		} else {
+			change = change.toFixed(1);
 		}
-		skip_ol.innerText = "⫷⪡" + "\\n" + change + "s";
+		skip_ol.innerText = "⫷⪡" + "\n" + change + "s";
 	} else if (perc > 60) {
 		if (player.currentTime == player.duration) {
-			return
+			return false
 		}
 		counter.last_side = "R"
 		if (panic && last_click != "R") {
@@ -152,15 +156,17 @@ poster.onclick = function(e) {
 			return
 		}
 		if (player.currentTime > (player.duration-10)) {
-			change = player.currentTime - player.duration;
+			change = player.duration - player.currentTime;
 		}
 		skip_ol.style.opacity = "0.9";
 		last_click = "R"
 		player.forward(change)
-		if(change!=10){
+		if(change==10){
 			change = ((count - 1) * 10)
+		} else {
+			change = change.toFixed(1);
 		}
-		skip_ol.innerText = "⪢⫸ " + "\\n" + change + "s";
+		skip_ol.innerText = "⪢⫸ " + "\n" + change + "s";
 	} else {
 		player.togglePlay()
 		counter.last_click = "C"
