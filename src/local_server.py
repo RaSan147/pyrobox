@@ -1784,7 +1784,7 @@ tr:nth-child(even) {
 
 		elif query("admin"):
 			title = "ADMIN PAGE"
-			displaypath = "/"
+			displaypath = self.get_displaypath(url_path)
 
 			head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 														PY_PUBLIC_URL=config.address(),
@@ -1829,12 +1829,7 @@ tr:nth-child(even) {
 				msg = "Directory size is too large, please contact the host"
 				return self.return_txt(HTTPStatus.OK, msg)
 
-			try:
-				displaypath = urllib.parse.unquote(url_path, errors='surrogatepass')
-			except UnicodeDecodeError:
-				displaypath = urllib.parse.unquote(url_path)
-			displaypath = html.escape(displaypath, quote=False)
-
+			displaypath = self.get_displaypath(url_path)
 			filename = spathsplit[-2] + ".zip"
 
 
@@ -1905,12 +1900,8 @@ tr:nth-child(even) {
 			# SEND VIDEO PLAYER
 			if self.guess_type(path).startswith('video/'):
 				r = []
-				try:
-					displaypath = urllib.parse.unquote(url_path,
-													errors='surrogatepass')
-				except UnicodeDecodeError:
-					displaypath = urllib.parse.unquote(url_path)
-				displaypath = html.escape(displaypath, quote=False)
+
+				displaypath = self.get_displaypath(url_path)
 
 
 
@@ -1974,6 +1965,21 @@ tr:nth-child(even) {
 		# else:
 
 		return self.return_file(path, first, last, filename)
+	
+
+
+	def get_displaypath(self, url_path):
+		"""Helper to produce a display path for the directory listing.
+		"""
+		
+		try:
+			displaypath = urllib.parse.unquote(url_path, errors='surrogatepass')
+		except UnicodeDecodeError:
+			displaypath = urllib.parse.unquote(url_path)
+		displaypath = html.escape(displaypath, quote=False)
+
+		return displaypath
+
 
 
 
@@ -2039,11 +2045,8 @@ tr:nth-child(even) {
 				"No permission to list directory")
 			return None
 		r = []
-		try:
-			displaypath = urllib.parse.unquote(url_path, errors='surrogatepass')
-		except UnicodeDecodeError:
-			displaypath = urllib.parse.unquote(url_path)
-		displaypath = html.escape(displaypath, quote=False)
+
+		displaypath = self.get_displaypath(url_path)
 
 
 		title = self.get_titles(displaypath)
