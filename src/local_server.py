@@ -56,6 +56,14 @@ class Config:
 
 		self.reload = False
 
+		
+		self.disabled_func = {
+			"send2trash": False,
+			"natsort": False,
+			"zip": False,
+			"update": False,
+		}
+
 
 
 	def get_os(self):
@@ -186,12 +194,6 @@ def get_installed():
 
 
 
-disabled_func = {
-	"send2trash": False,
-	"natsort": False,
-	"zip": False,
-	"update": False,
-}
 
 
 dep_modified = False
@@ -211,7 +213,7 @@ def run_pip_install():
 
 			subprocess.run(comm, shell=True)
 			if i not in get_installed():
-				disabled_func[i] = True
+				config.disabled_func[i] = True
 
 			else:
 				dep_modified = True
@@ -351,7 +353,7 @@ def list_dir(start_path = '.', full_dir=True, both=False):
 try:
 	from zipfly_local import ZipFly
 except ImportError:
-	disabled_func["zip"] = True
+	config.disabled_func["zip"] = True
 
 class ZIP_Manager:
 	def __init__(self) -> None:
@@ -415,7 +417,7 @@ class ZIP_Manager:
 			self.assigend_zid.pop(path, None)
 			self.zip_id_status[zid] = "ERROR: " + msg
 			return False
-		if disabled_func["zip"]:
+		if config.disabled_func["zip"]:
 			return err("ZIP FUNTION DISABLED")
 
 
@@ -494,8 +496,14 @@ if not os.path.isdir(config.log_location):
 
 
 
-if not disabled_func["send2trash"]: from send2trash import send2trash, TrashPermissionError
-import natsort
+if not config.disabled_func["send2trash"]: from send2trash import send2trash, TrashPermissionError
+if not config.disabled_func["send2trash"]: import natsort
+
+def humansorted(li):
+	if not config.disabled_func["send2trash"]:
+		return natsort.humansorted(li)
+	
+	return sorted(li)
 
 
 def _get_txt(path):
@@ -1325,7 +1333,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		def del_data(self=self):
 
-			if disabled_func["send2trash"]:
+			if config.disabled_func["send2trash"]:
 				return (False, "Trash not available. Please contact the Host...")
 
 			# pass boundary
@@ -1797,7 +1805,7 @@ tr:nth-child(even) {
 			
 		elif query("update_now"):
 			"""Run update"""
-			if disabled_func["update"]:
+			if config.disabled_func["update"]:
 				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
 			else:
 				data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
@@ -1812,7 +1820,7 @@ tr:nth-child(even) {
 
 		elif query("czip"):
 			"""Create ZIP task and return ID"""
-			if disabled_func["zip"]:
+			if config.disabled_func["zip"]:
 				self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
 
 			dir_size = get_dir_size(path, limit=6*1024*1024*1024)
@@ -1977,7 +1985,7 @@ tr:nth-child(even) {
 			path = self.translate_path(self.path)
 
 		try:
-			dir_list = natsort.humansorted(os.listdir(path))
+			dir_list = humansorted(os.listdir(path))
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
@@ -2024,7 +2032,7 @@ tr:nth-child(even) {
 		url_path, query, fragment = URL_MANAGER(self.path)
 
 		try:
-			dir_list = natsort.humansorted(os.listdir(path))
+			dir_list = humansorted(os.listdir(path))
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
