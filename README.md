@@ -47,7 +47,7 @@ Server side requirement
   2. Or Use This Script on terminal where you want to save it.
 ```
 curl -O local_server.py https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py # download script and replace old version
-local_server.py # run like a script
+.\local_server.py # run like a script
 ```
   3. The server will show your ip and port, use that with and local device browser under the same network
      * Like this `192.168.0.100:6969/`
