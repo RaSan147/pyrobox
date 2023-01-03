@@ -55,44 +55,6 @@ const r_li = ${PY_LINK_LIST};
 const f_li = ${PY_FILE_LIST};
 const s_li = ${PY_FILE_SIZE};
 
-byId("uploader").addEventListener('submit', e => {
-	e.preventDefault()
-	const formData = new FormData(e.target)
-
-
-	const status = byId("upload-status")
-	const progress = byId("upload-progress")
-
-	var prog = 0;
-	var msg = "";
-
-	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
-	const request = new XMLHttpRequest()
-	request.open(e.target.method, e.target.action)
-	request.timeout = 3600000;
-	request.onreadystatechange = () => {
-		if (request.readyState === XMLHttpRequest.DONE) {
-			msg = `${request.status}: ${request.statusText}`
-			if (request.status === 204 || request.status === 200) msg = 'Success'
-			if (request.status === 0) msg = 'Connection failed'
-			status.innerText = msg
-		}
-	}
-	request.upload.onprogress = e => {
-		prog = Math.floor(100*e.loaded/e.total)
-		if(e.loaded === e.total){
-			msg ='Saving...'
-		}else{
-			msg = `Uploading : ${prog}%`
-		}
-		status.innerText = msg
-		progress.value = prog
-
-	}
-	status.innerText = `Uploading : 0%`
-	byId('upload-task').style.display = 'block'
-	request.send(formData)
-})
 
 
 
@@ -421,79 +383,102 @@ dir_container.appendChild(file_li)
 
 <script>
 //selecting all required elements
-var uploader = byId("uploader");
-const dropArea = document.querySelector(".drag-area"),
-dragText = dropArea.querySelector("header"),
-button = dropArea.querySelector("button"),
-input = dropArea.querySelector("input");
-let files; //this is a global variable and we'll use it inside multiple functions
-file_display = byId("drag-file-list");
+const uploader = byId("uploader"),
+uploader_dropArea = document.querySelector(".drag-area"),
+uploader_dragText = uploader_dropArea.querySelector("header"),
+uploader_button = uploader_dropArea.querySelector("button"),
+uploader_input = uploader_dropArea.querySelector("input");
+let uploader_files; //this is a global variable and we'll use it inside multiple functions
+let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
+uploader_file_display = byId("drag-file-list");
 
-button.onclick = (e)=>{
-	e.preventDefault();
-	input.click(); //if user click on the button then the input also clicked
+function uploader_exist(file) {
+	//check if file is already selected or not
+	for (let i = 0; i < selected_files.files.length; i++) {
+		if (selected_files.files[i].name == file.name) {
+			return true;
+		}
+	}
+	return false;
 }
 
-input.addEventListener("change", function(){
-	//getting user select file and [0] this means if user select multiple files then we'll select only the first one
-	files = this.files;
-	dropArea.classList.add("active");
-	showFiles(); //calling function
-});
+function addFiles(files) {
+	for (let i = 0; i < files.length; i++) {
+		if (!uploader_exist(files[i])) { //if file is not already selected
+			selected_files.items.add(files[i]);
+		}
+	}
+	log("selected "+ selected_files.items.length+ " files");
+	uploader_showFiles();
+}
+
+
+uploader_button.onclick = (e)=>{
+	e.preventDefault();
+	uploader_input.click(); //if user click on the button then the input also clicked
+}
+
+uploader_input.onchange = (e)=>{
+	// USING THE BROWSE BUTTON
+	let f = e.target.files; // this.files = [file1, file2,...];
+	addFiles(f);
+	// uploader_dropArea.classList.add("active");
+	// uploader_showFiles(); //calling function
+	// uploader_dragText.textContent = "Release to Upload File";
+};
 
 
 //If user Drag File Over DropArea
-dropArea.addEventListener("dragover", (event)=>{
+uploader_dropArea.ondragover = (event)=>{
 	event.preventDefault(); //preventing from default behaviour
-	dropArea.classList.add("active");
-	dragText.textContent = "Release to Upload File";
-});
+	uploader_dropArea.classList.add("active");
+	uploader_dragText.textContent = "Release to Upload File";
+};
 
 //If user leave dragged File from DropArea
-dropArea.addEventListener("dragleave", ()=>{
-	dropArea.classList.remove("active");
-	dragText.textContent = "Drag & Drop to Upload File";
-});
+uploader_dropArea.ondragleave = ()=>{
+	uploader_dropArea.classList.remove("active");
+	uploader_dragText.textContent = "Drag & Drop to Upload File";
+};
 
 //If user drop File on DropArea
-dropArea.addEventListener("drop", (event)=>{
+uploader_dropArea.ondrop = (event)=>{
 	event.preventDefault(); //preventing from default behaviour
 	//getting user select file and [0] this means if user select multiple files then we'll select only the first one
-	files = event.dataTransfer.files;
-	showFiles(); //calling function
-});
+	addFiles(event.dataTransfer.files);
+	// uploader_showFiles(); //calling function
+};
 
-function removeFileFromFileList(index) {
-	const formData = new FormData(uploader)
-	const dt = new DataTransfer()
+function uploader_removeFileFromFileList(index) {
+	let dt = new DataTransfer()
 	// const input = byId('files')
 	// const { files } = input
 
-	for (let i = 0; i < files.length; i++) {
-	const file = files[i]
-	if (index !== i)
-		dt.items.add(file) // here you exclude the file. thus removing it.
+	for (let i = 0; i < selected_files.files.length; i++) {
+		let file = selected_files.files[i]
+		if (index !== i)
+			dt.items.add(file) // here you exclude the file. thus removing it.
 	}
 
-	files = dt.files
-	input.files = dt.files // Assign the updates list
-	showFiles()
+	selected_files = dt
+	// uploader_input.files = dt // Assign the updates list
+	uploader_showFiles()
 }
 
-function showFiles() {
-	tools.del_child(file_display)
-	let heading = byId("has-selected-up")
-	if(files.length){
-		heading.style.display = "block"
+function uploader_showFiles() {
+	tools.del_child(uploader_file_display)
+	let uploader_heading = byId("has-selected-up")
+	if(selected_files.files.length){
+		uploader_heading.style.display = "block"
 	} else {
-		heading.style.display = "none"
+		uploader_heading.style.display = "none"
 	}
-	for (let i = 0; i <files.length; i++) {
-		showFile(files[i], i);
+	for (let i = 0; i <selected_files.files.length; i++) {
+		uploader_showFile(selected_files.files[i], i);
 	}
 }
 
-function showFile(file, index){
+function uploader_showFile(file, index){
 	let filename = file.name;
 	let size = file.size;
 
@@ -503,12 +488,58 @@ function showFile(file, index){
 			<span class="file-name">${filename}</span>
 			<span class="file-size">${size} bytes</span>
 
-		<span class="file-remove" onclick="removeFileFromFileList(${index})">&times;</span>
+		<span class="file-remove" onclick="uploader_removeFileFromFileList(${index})">&times;</span>
 	`;
 
-	file_display.appendChild(item);
+	uploader_file_display.appendChild(item);
 
 }
+
+
+byId("uploader").addEventListener('submit', e => {
+	e.preventDefault()
+	
+	uploader_input.files = selected_files.files // Assign the updates list
+
+
+	const formData = new FormData(e.target)
+
+
+	const status = byId("upload-status")
+	const progress = byId("upload-progress")
+
+	var prog = 0;
+	var msg = "";
+
+	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
+	const request = new XMLHttpRequest()
+	request.open(e.target.method, e.target.action)
+	request.timeout = 3600000;
+	request.onreadystatechange = () => {
+		if (request.readyState === XMLHttpRequest.DONE) {
+			msg = `${request.status}: ${request.statusText}`
+			if (request.status === 0) msg = 'Connection failed'
+			if (request.status === 204 || request.status === 200) msg = 'Success'
+			if (request.status === 401) msg = 'Incorrect password'
+			status.innerText = msg
+		}
+	}
+	request.upload.onprogress = e => {
+		prog = Math.floor(100*e.loaded/e.total)
+		if(e.loaded === e.total){
+			msg ='Saving...'
+		}else{
+			msg = `Uploading : ${prog}%`
+		}
+		status.innerText = msg
+		progress.value = prog
+
+	}
+	status.innerText = `Uploading : 0%`
+	byId('upload-task').style.display = 'block'
+	request.send(formData)
+})
+
 
 
 

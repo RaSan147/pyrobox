@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from http import server
+
 __version__ = "0.5"
 enc = "utf-8"
 __all__ = [
@@ -62,6 +62,12 @@ class Config:
 			"natsort": False,
 			"zip": False,
 			"update": False,
+			"delete": False,
+			"download": False,
+			"upload": False,
+			"new_folder": False,
+			"rename": False,
+			"reload": False,
 		}
 
 
@@ -276,16 +282,12 @@ def fmbytes(B):
 
 	if B/TB>1:
 		return '%.2f TB  '%(B/TB)
-		B%=TB
 	if B/GB>1:
 		return '%.2f GB  '%(B/GB)
-		B%=GB
 	if B/MB>1:
 		return '%.2f MB  '%(B/MB)
-		B%=MB
 	if B/KB>1:
 		return '%.2f KB  '%(B/KB)
-		B%=KB
 	if B>1:
 		return '%i bytes'%B
 
@@ -319,8 +321,9 @@ def humanbytes(B):
 	return ret
 
 def get_dir_m_time(path):
-	import os
-	import time
+	"""
+	Get the last modified time of a directory and all its subdirectories.
+	"""
 
 	return max(os.stat(root).st_mtime for root,_,_ in os.walk(path))
 
@@ -1210,6 +1213,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		f.close()
 
+	# def deal_post_data(self):
+	# 	boundary = b""
+
+
 	def deal_post_data(self):
 		boundary = None
 		uid = None
@@ -1237,13 +1244,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				blank += 1
 			else:
 				blank = 0
-			if blank>=10:
+			if blank>=20: # allow 20 loss packets
 				self.send_error(408, "Request Timeout")
 				time.sleep(1) # wait for the client to close the connection
 
 				raise ConnectionAbortedError
 			if show:
-				# print(num, line)
 				num+=1
 			remainbytes -= len(line)
 
@@ -1276,39 +1282,49 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			# pass boundary
 			pass_bound()
 
-			uploading_path = self.path
+			print(1)
 
 
 			# PASSWORD SYSTEM
 			if get_type()!="password":
 				return (False, "Invalid request")
 
-
 			skip()
 			password= get(0)
 			print('post password: ',  password)
 			if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
+				
+				self.send_error(HTTPStatus.UNAUTHORIZED, "Incorrect password")
+				# raise ConnectionAbortedError
 				return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
 
 			pass_bound()
 
-
 			while remainbytes > 0:
 				line =get()
+
 
 				fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
 				if not fn:
 					return (False, "Can't find out file name...")
+				
+				
 				path = self.translate_path(self.path)
 				rltv_path = posixpath.join(self.path, fn[0])
-
+				
+				temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
 				fn = os.path.join(path, fn[0])
+
+
+
 				line = get(0) # content type
 				line = get(0) # line gap
 
+
+
 				# ORIGINAL FILE STARTS FROM HERE
 				try:
-					with open(fn, 'wb') as out:
+					with open(temp_fn, 'wb') as out:
 						preline = get(0)
 						while remainbytes > 0:
 							line = get(0)
@@ -1323,13 +1339,24 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 								out.write(preline)
 								preline = line
 
-				except IOError:
+
+					os.replace(temp_fn, fn)
+
+
+
+				except (IOError, OSError):
 					return (False, "Can't create file to write, do you have permission to write?")
+				
+				finally:
+					try:
+						os.remove(temp_fn)
+						
+					except OSError:
+						pass
 
 
 
-			return (True, ("<!DOCTYPE html><html>\n<title>Upload Result Page</title>\n<body>\n<h2>Upload Result Page</h2>\n<hr>\nFile '%s' upload success!" % ",".join(uploaded_files)) +"<br><br><h2><a href=\"%s\">back</a></h2>" % uploading_path)
-
+			return (True, "File(s) uploaded")
 
 		def del_data(self=self):
 
