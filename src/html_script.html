@@ -496,7 +496,7 @@ function uploader_showFile(file, index){
 }
 
 
-byId("uploader").addEventListener('submit', e => {
+byId("uploader").onsubmit = (e) => {
 	e.preventDefault()
 	
 	uploader_input.files = selected_files.files // Assign the updates list
@@ -538,7 +538,7 @@ byId("uploader").addEventListener('submit', e => {
 	status.innerText = `Uploading : 0%`
 	byId('upload-task').style.display = 'block'
 	request.send(formData)
-})
+}
 
 
 
