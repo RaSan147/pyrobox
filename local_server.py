@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# testing acode # works but no commit text
+
 __version__ = "0.6"
 enc = "utf-8"
 __all__ = [
