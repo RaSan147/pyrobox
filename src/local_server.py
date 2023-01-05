@@ -120,7 +120,8 @@ import urllib.request
 import contextlib
 from functools import partial
 from http import HTTPStatus
-import pkg_resources as pkg_r, importlib
+
+import importlib.util
 import re
 
 
@@ -193,36 +194,36 @@ class Custom_dict(dict):
 REQUEIREMENTS= ['send2trash', 'natsort']
 
 
-def get_installed():
-	importlib.reload(pkg_r)
-	return [pkg.key for pkg in pkg_r.working_set]
 
 
-
-
-
-
-dep_modified = False
+def check_installed(pkg):
+	return bool(importlib.util.find_spec(i))
 
 
 def run_pip_install():
-	global dep_modified
+	dep_modified = False
 
 	import sysconfig
 	for i in REQUEIREMENTS:
-		if i not in get_installed():
+		if check_installed(i):
+			continue
 
-			py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
-			on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
-			command = "" if config.OS == "Windows" else on_linux
-			comm = f'{command} {sys.executable} -m pip install --disable-pip-version-check --quiet --no-python-version-warning {i}'
+		py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
+		on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
+		command = "" if config.OS == "Windows" else on_linux
+		comm = f'{command} {sys.executable} -m pip install --disable-pip-version-check --quiet --no-python-version-warning {i}'
 
-			subprocess.run(comm, shell=True)
-			if i not in get_installed():
-				config.disabled_func[i] = True
+		subprocess.run(comm, shell=True)
+		
+		
+		#if i not in get_installed():
+		if check_installed(i):
+			dep_modified = True
+			
 
-			else:
-				dep_modified = True
+		else:
+			print("Failed to load ", i)
+			config.disabled_func[i] = True
 
 	if dep_modified:
 		print("Reloading...")
@@ -1221,7 +1222,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		boundary = None
 		uid = None
 		num = 0
-		post_type = None
 		blank = 0 # blank is used to check if the post is empty or Connection Aborted
 
 		refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
