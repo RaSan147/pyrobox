@@ -70,7 +70,12 @@ class ContextMenu {
 		popup_msg.close()
 		await tools.sleep(300)
 		if (data) {
-			popup_msg.createPopup(data[0], data[1]);
+			popup_msg.createPopup(data["head"], data["body"]);
+			if (data["script"]) {
+				var script = document.createElement("script");
+				script.innerHTML = data["script"];
+				document.body.appendChild(script);	
+			}
 		} else {
 			popup_msg.createPopup("Failed", "Server didn't respond<br>response: " + self.status);
 		}
@@ -152,9 +157,8 @@ class ContextMenu {
 		copy.classList.add("menu_options")
 		copy.onclick = async function(ev) {
 			popup_msg.close()
-			let fake_a = createElement("a")
-			fake_a.href = file;
-			let success = await tools.copy_2(ev, fake_a.href)
+			
+			let success = await tools.copy_2(ev, tools.full_path(file))
 			if(success){
 				toaster.toast("Link Copied!")
 			}else{

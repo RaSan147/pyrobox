@@ -121,6 +121,12 @@ class Tools {
 		link.click();
 	}
 
+	full_path(rel_path){
+		let fake_a = createElement("a")
+		fake_a.href = rel_path;
+		return fake_a.href;
+	}
+
 
 	async copy_2(ev, textToCopy) {
 		// navigator clipboard api needs a secure context (https)
@@ -148,6 +154,10 @@ class Tools {
 			return ok
 
 		}
+	}
+
+	fetch_json(url){
+		return fetch(url).then(r => r.json()).catch(e => {console.log(e); return null;})
 	}
 }
 let tools = new Tools();
