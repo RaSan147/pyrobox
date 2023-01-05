@@ -157,3 +157,5 @@ Context menu:
 3. https://github.com/SethMMorton/natsort (sorting titles)
 4. https://github.com/sandes/zipfly (*modified* lets you see the zip progress)
 5. https://github.com/sampotts/plyr (*improved* video player)
+
+***Disclaimer***: **the owner or the programmers or any content of this repository hold no responsibility for any kind of data loss or modification on your system and do not warrenty for such actions. I tried my best to prevent all sorts of ways (that I am currently aware of) to prevent data loss or unwanted data modification. See [Data Safety Measures](https://github.com/RaSan147/py_httpserver_Ult/blob/main/DATA%20SAFETY.MD) taken on this projects to prevent unwanted data loss.
