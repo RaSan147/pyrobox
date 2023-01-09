@@ -190,28 +190,12 @@ class ContextMenu {
 		del_P.innerText = "🔥" + " Delete permanently"
 		del_P.classList.add("menu_options")
 
-		function r_u_sure() {
-			popup_msg.close()
-			var box = createElement("div")
-			var msggg = createElement("p")
-			msggg.innerHTML = "This can't be undone!!!"
-			box.appendChild(msggg)
-			var y_btn = createElement("div")
-			y_btn.innerText = "Continue"
-			y_btn.className = "pagination center"
-			y_btn.onclick = function() {
+		
+		del_P.onclick = () => {
+			r_u_sure({y:()=>{
 				that.menu_click('del-p', file);
-			};
-			var n_btn = createElement("div")
-			n_btn.innerText = "Cancel"
-			n_btn.className = "pagination center"
-			n_btn.onclick = popup_msg.close;
-			box.appendChild(y_btn)
-			box.appendChild(n_btn)
-			popup_msg.createPopup("Are you sure?", box)
-			popup_msg.open_popup()
+			}, head:"Are you sure?", body:"This can't be undone!!!", y_msg:"Continue", n_msg:"Cancel"})
 		}
-		del_P.onclick = r_u_sure
 		menu.appendChild(del_P)
 		var property = createElement("div")
 		property.innerText = "ℹ️" + " Properties"

@@ -5,9 +5,6 @@
 
 
 
-<div class='pagination jsonly' onclick="request_reload()">RELOAD SERVER 🧹</div>
-<noscript><a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br></noscript>
-<hr>
 
 <!-- check if update available -->
 
@@ -16,12 +13,22 @@
 	<div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div>
 </div>
 
+
+
+<div class='pagination jsonly' onclick="request_reload()">RELOAD SERVER 🧹</div>
+<noscript><a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br></noscript>
+<hr>
+
+<div class='pagination jsonly' onclick="request_shutdown()">Shut down 🔻</div>
+
 <script>
 
 
 function request_reload() {
 	fetch('/?reload');
 }
+
+
 
 async function check_update() {
 	fetch('/?update')

@@ -23,6 +23,11 @@ function null_func() {
 	return true
 }
 
+function line_break() {
+	var br = createElement("br")
+	return br
+}
+
 function toggle_scroll() {
 	document.body.classList.toggle('overflowHidden');
 }
@@ -233,6 +238,7 @@ class Popup_Msg {
 		this.onclose()
 		this.dismiss()
 		config.popup_msg_open = false;
+		this.init()
 	}
 	hide() {
 		this.popup_obj.classList.remove("active");
@@ -252,7 +258,7 @@ class Popup_Msg {
 		if (toggle_scroll) {
 			tools.toggle_scroll();
 		}
-		log(tools.hasClass(this.popup_obj, "active"))
+		// log(tools.hasClass(this.popup_obj, "active"))
 		if (!tools.hasClass(this.popup_obj, "active")) {
 			this.close()
 		}
@@ -322,7 +328,28 @@ let toaster = new Toaster()
 
 
 
-
+function r_u_sure({y=null_func, n=null, head="Head", body="Body", y_msg="Yes",n_msg ="No"}={}) {
+	popup_msg.close()
+	var box = createElement("div")
+	var msggg = createElement("p")
+	msggg.innerHTML = body //"This can't be undone!!!"
+	box.appendChild(msggg)
+	var y_btn = createElement("div")
+	y_btn.innerText = y_msg//"Continue"
+	y_btn.className = "pagination center"
+	y_btn.onclick = y/*function() {
+		that.menu_click('del-p', file);
+	};*/
+	var n_btn = createElement("div")
+	n_btn.innerText = n_msg//"Cancel"
+	n_btn.className = "pagination center"
+	n_btn.onclick = () => {return (n==null) ? popup_msg.close() : n()};
+	box.appendChild(y_btn)
+	box.appendChild(line_break())
+	box.appendChild(n_btn)
+	popup_msg.createPopup(head, box) //"Are you sure?"
+	popup_msg.open_popup()
+}
 
 
 

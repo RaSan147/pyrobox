@@ -54,7 +54,7 @@ class Config:
 
 		# RUNNING SERVER STATS
 		self.ftp_dir = self.get_default_dir()
-		self.dev_mode = False
+		self.dev_mode = True
 		self.reload = False
 
 
@@ -594,7 +594,7 @@ def humansorted(li):
 	if not config.disabled_func["natsort"]:
 		return natsort.humansorted(li)
 
-	return sorted(li)
+	return sorted(li, key=lambda x: x.lower())
 
 
 
@@ -1242,7 +1242,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def do_GET(self):
 		"""Serve a GET request."""
-		f = self.send_head()
+		try:
+			f = self.send_head()
+		except Exception as e:
+			traceback.print_exc()
+			self.send_error(500, str(e))
+			return
+				
 		if f:
 			try:
 				self.copyfile(f, self.wfile)
@@ -1253,7 +1259,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def do_HEAD(self):
 		"""Serve a HEAD request."""
-		f = self.send_head()
+		try:
+			f = self.send_head()
+		except Exception as e:
+			traceback.print_exc()
+			self.send_error(500, str(e))
+			return
 		if f:
 			f.close()
 
@@ -1922,7 +1933,6 @@ tr:nth-child(even) {
 
 		########################################################
 
-
 		if query("reload"):
 			# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
 			config.reload = True
@@ -2093,6 +2103,7 @@ tr:nth-child(even) {
 
 				encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 				return self.return_txt(HTTPStatus.OK, encoded)
+
 
 		f = None
 		if os.path.isdir(path):
