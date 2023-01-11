@@ -2808,7 +2808,7 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 
 
 
-config.file_list["html_page.html"] = """
+config.file_list["html_page.html"] = r"""
 <!DOCTYPE HTML>
 <!-- test1 -->
 <html lang="en">
@@ -3360,7 +3360,7 @@ dir_tree.scrollLeft = dir_tree.scrollWidth;
 
 """
 
-config.file_list["global_script.html"] = """
+config.file_list["global_script.html"] = r"""
 <script>
 const log = console.log,
 	byId = document.getElementById.bind(document),
@@ -3692,7 +3692,7 @@ let toaster = new Toaster()
 </script>
 """
 
-config.file_list["html_script.html"] = """
+config.file_list["html_script.html"] = r"""
 <hr>
 
 
@@ -4256,7 +4256,7 @@ byId("uploader").onsubmit = (e) => {
 """
 
 
-config.file_list["html_vid.html"] = """
+config.file_list["html_vid.html"] = r"""
 <!-- using from http://plyr.io  -->
 <link rel="stylesheet" href="https://raw.githack.com/RaSan147/py_httpserver_Ult/main/assets/video.css" />
 
@@ -4438,7 +4438,7 @@ poster.onclick = function(e) {
 <br>
 """
 
-config.file_list["html_zip_page.html"] = """
+config.file_list["html_zip_page.html"] = r"""
 <h2>ZIPPING FOLDER</h2>
 <h3 id="zip-prog">Progress</h3>
 <h3 id="zip-perc"></h3>
@@ -4494,7 +4494,7 @@ var prog_timer = setInterval(function() {
 </script>
 """
 
-config.file_list["html_admin.html"] = """
+config.file_list["html_admin.html"] = r"""
 
 
 <h1 style="text-align: center;">Admin Page</h1>

@@ -15,6 +15,8 @@ import atexit
 
 
 endl = "\n"
+T = t = true = True # too lazy to type
+F = f = false = False # too lazy to type
 
 class Config:
 	def __init__(self):
@@ -302,7 +304,7 @@ def get_file_count(path):
 	return n
 
 
-def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
+def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False) -> int|tuple:
 	"""
 	Get the size of a directory and all its subdirectories.
 
@@ -338,7 +340,7 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 	return total_size
 
 
-def fmbytes(B=None, path=None):
+def fmbytes(B=0, path=''):
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
 	if path:
 		stat = get_stat(path)
@@ -397,8 +399,8 @@ def get_dir_m_time(path):
 	Get the last modified time of a directory and all its subdirectories.
 	"""
 
-	# return max(get_stat(root).st_mtime for root,_,_ in os.walk(path, onerror= print))
-	return get_stat(path).st_mtime
+	stat = get_stat(path)
+	return stat.st_mtime if stat else 0
 
 
 
@@ -831,7 +833,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		error response has already been sent back.
 
 		"""
-		self.command = None  # set in case of error on the first line
+		self.command = ''  # set in case of error on the first line
 		self.request_version = version = self.default_request_version
 		self.close_connection = True
 		requestline = str(self.raw_requestline, 'iso-8859-1')
@@ -1265,6 +1267,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			finally:
 				f.close()
 
+	def do_(self): 
+		'''incase of errored request'''
+		self.send_error(HTTPStatus.BAD_REQUEST, "Bad request.")
+
 	def do_HEAD(self):
 		"""Serve a HEAD request."""
 		try:
@@ -1306,13 +1312,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			head = r
 
 
-		body = info
+		body = str(info)
 
 
 		f = io.BytesIO()
 
 		if DO_NOT_JSON:
-			data = (head + body)
+			data = f"{head} {body}"
 			content_type = 'text/html'
 		else:
 			data = json.dumps({"head": head, "body": body, "script": script})
@@ -1334,7 +1340,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 	def deal_post_data(self):
-		boundary = None
+		boundary = b''
 		uid = None
 		num = 0
 		blank = 0 # blank is used to check if the post is empty or Connection Aborted
@@ -1346,7 +1352,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return urllib.parse.unquote(posixpath.join(self.path, filename), errors='surrogatepass')
 
 
-		def get(show=True, strip=False, self=self):
+		def get(show=True, strip=False):
 			"""
 			show: print line
 			strip: strip \r\n at end
@@ -1373,13 +1379,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			return line
 
-		def pass_bound(self=self):
+		def pass_bound():
 			nonlocal remainbytes
-			line = get(0)
+			line = get(F)
 			if not boundary in line:
 				return (False, "Content NOT begin with boundary")
 
-		def get_type(line=None, self=self):
+		def get_type(line=None, ):
 			nonlocal remainbytes
 			if not line:
 				line = get()
@@ -1387,10 +1393,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
 			except: return None
 
-		def skip(self=self):
-			get(0)
+		def skip():
+			get(F)
 
-		def handle_files(self=self):
+		def handle_files():
 			nonlocal remainbytes
 			uploaded_files = [] # Uploaded folder list
 
@@ -1403,7 +1409,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return (False, "Invalid request")
 
 			skip()
-			password= get(0)
+			password= get(F)
 			print('post password: ',  password)
 			if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
 
@@ -1432,17 +1438,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 
-				line = get(0) # content type
-				line = get(0) # line gap
+				line = get(F) # content type
+				line = get(F) # line gap
 
 
 
 				# ORIGINAL FILE STARTS FROM HERE
 				try:
 					with open(temp_fn, 'wb') as out:
-						preline = get(0)
+						preline = get(F)
 						while remainbytes > 0:
-							line = get(0)
+							line = get(F)
 							if boundary in line:
 								preline = preline[0:-1]
 								if preline.endswith(b'\r'):
@@ -1474,7 +1480,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			return (True, "File(s) uploaded")
 
-		def del_data(self=self):
+		def del_data():
 
 			if config.disabled_func["send2trash"]:
 				return (False, "Trash not available. Please contact the Host...")
@@ -1489,7 +1495,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 			skip()
-			filename = get(strip=1).decode()
+			filename = get(strip=T).decode()
 
 
 			path = get_rel_path(filename)
@@ -1512,7 +1518,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return (bool, msg)
 
 
-		def del_permanently(self=self):
+		def del_permanently():
 
 			# pass boundary
 			pass_bound()
@@ -1524,7 +1530,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 			skip()
-			filename = get(strip=1).decode()
+			filename = get(strip=T).decode()
 
 
 			path = get_rel_path(filename)
@@ -1545,7 +1551,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return (False, "<b>" + path + "<b>" + e.__class__.__name__ + " : " + str(e))
 
 
-		def rename(self=self):
+		def rename():
 			# pass boundary
 			pass_bound()
 
@@ -1556,7 +1562,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 			skip()
-			filename = get(strip=1).decode()
+			filename = get(strip=T).decode()
 
 			pass_bound()
 
@@ -1565,7 +1571,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 			skip()
-			new_name = get(strip=1).decode()
+			new_name = get(strip=T).decode()
 
 
 			path = get_rel_path(filename)
@@ -1586,7 +1592,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return (False, "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) )
 
 
-		def get_info(self=self):
+		def get_info():
 			script = None
 
 			# pass boundary
@@ -1599,7 +1605,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 			skip()
-			filename = get(strip=1).decode() # the filename
+			filename = get(strip=T).decode() # the filename
 			path = get_rel_path(filename) # the relative path of the file or folder
 
 			xpath = self.translate_path(posixpath.join(self.path, filename)) # the absolute path of the file or folder
@@ -1684,7 +1690,7 @@ tr:nth-child(even) {
 			return ("Properties", body, script)
 
 
-		def new_folder(self=self):
+		def new_folder():
 
 
 			# pass boundary
@@ -1697,7 +1703,7 @@ tr:nth-child(even) {
 
 
 			skip()
-			filename = get(strip=1).decode()
+			filename = get(strip=T).decode()
 
 
 
@@ -2549,9 +2555,9 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 				socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
 		return super().server_bind()
 
-	def finish_request(self, request, client_address):
-			self.RequestHandlerClass(request, client_address, self,
-									directory=args.directory)
+	# def finish_request(self, request, client_address):
+	# 		self.RequestHandlerClass(request, client_address, self,
+	# 								directory=args.directory)
 
 
 
