@@ -974,6 +974,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 					"Unsupported method (%r)" % self.command)
 				return
 			method = getattr(self, mname)
+
+			url_path, query, fragment = URL_MANAGER(self.path)
+			self.url_path = url_path
+			self.query = query
+			self.fragment = fragment
+			
+
 			method()
 			self.wfile.flush() #actually send the response if not already done.
 		except (TimeoutError, socket.timeout) as e:
@@ -1239,9 +1246,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			directory = os.getcwd()
 		self.directory = os.fspath(directory)
 		super().__init__(*args, **kwargs)
+		self.query = Custom_dict()
 
 	def do_GET(self):
-		"""Serve a GET request."""
+		"""Serve a GET request."""		
 		try:
 			f = self.send_head()
 		except Exception as e:
@@ -1606,7 +1614,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
 
 			if os.path.isfile(xpath):
-				data["Type"] = "File"
+				data.append(["Type","File"])
 				if "." in filename:
 					data.append(["Extension", filename.rpartition(".")[2]])
 
@@ -1796,6 +1804,8 @@ tr:nth-child(even) {
 
 	def return_file(self, path, first, last, filename=None):
 		f = None
+		is_attachment = "attachment;" if self.query("dl") else ""
+		
 
 		try:
 			ctype = self.guess_type(path)
@@ -1858,7 +1868,7 @@ tr:nth-child(even) {
 
 			self.send_header("Last-Modified",
 							self.date_time_string(fs.st_mtime))
-			self.send_header("Content-Disposition", 'attachment; filename="%s"' % (os.path.basename(path) if filename is None else filename))
+			self.send_header("Content-Disposition", is_attachment+'filename="%s"' % (os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
 			return f
@@ -1908,13 +1918,13 @@ tr:nth-child(even) {
 
 
 
-		url_path, query, fragment = URL_MANAGER(self.path)
+		url_path, query, fragment = self.url_path, self.query, self.fragment
 
-		spathsplit = url_path.split("/")
-
+		spathsplit = self.url_path.split("/")
+		
 		filename = None
 
-		if self.path == '/favicon.ico':
+		if url_path == '/favicon.ico':
 			self.send_response(301)
 			self.send_header('Location','https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
 			self.end_headers()
@@ -2210,8 +2220,6 @@ tr:nth-child(even) {
 
 		"""
 
-		url_path, query, fragment = URL_MANAGER(self.path)
-
 		try:
 			dir_list = humansorted(os.listdir(path))
 		except OSError:
@@ -2221,7 +2229,7 @@ tr:nth-child(even) {
 			return None
 		r = []
 
-		displaypath = self.get_displaypath(url_path)
+		displaypath = self.get_displaypath(self.url_path)
 
 
 		title = self.get_titles(displaypath)

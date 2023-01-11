@@ -466,16 +466,46 @@ function uploader_showFiles() {
 	}
 }
 
+function fmbytes(B) {
+	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
+	const KB = 1024,
+	MB = (KB ** 2),
+	GB = (KB ** 3),
+	TB = (KB ** 4)
+	
+	var unit="byte", val=B;
+
+	if (B>1){
+		unit="bytes"
+		val = B}
+	if (B/KB>1){
+		val = (B/KB)
+		unit="KB"}
+	if (B/MB>1){
+		val = (B/MB)
+		unit="MB"}
+	if (B/GB>1){
+		val = (B/GB)
+		unit="GB"}
+	if (B/TB>1){
+		val = (B/TB)
+		unit="TB"}
+	
+	val = val.toFixed(2)
+
+	return `${val} ${unit}`
+}
+
 function uploader_showFile(file, index){
 	let filename = file.name;
-	let size = file.size;
+	let size = fmbytes(file.size);
 
 	let item = createElement("div");
 	item.className = "upload-file-item";
+	
 	item.innerHTML = `
 			<span class="file-name">${filename}</span>
-			<span class="file-size">${size} bytes</span>
-
+			<span class="file-size">${size}</span>
 		<span class="file-remove" onclick="uploader_removeFileFromFileList(${index})">&times;</span>
 	`;
 
