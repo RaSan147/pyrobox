@@ -264,6 +264,9 @@ if config.reload == True:
 	subprocess.call([sys.executable, config.MAIN_FILE] + sys.argv[1:])
 	sys.exit(0)
 
+def null(*args, **kwargs):
+	pass
+
 
 #############################################
 #                FILE HANDLER               #
@@ -1244,6 +1247,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'.bz2': 'application/x-bzip2',
 		'.xz': 'application/x-xz',
 	})
+	
+	handlers = {
+			'HEAD': [],
+			'POST': [],
+		}
 
 	def __init__(self, *args, directory=None, **kwargs):
 		if directory is None:
@@ -1272,6 +1280,49 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def do_(self):
 		'''incase of errored request'''
 		self.send_error(HTTPStatus.BAD_REQUEST, "Bad request.")
+
+	@staticmethod
+	def on_req(type='', url='*', hasQ=(), QV={}, fragent='', func=null):
+		'''called when request is received
+		type: GET, POST, HEAD, ...
+		url: url of request (without query) or '*' for all
+		hasQ: if url has query
+		QV: match query value
+		fragent: fragent of request
+
+		if query is tuple, it will only check existence of key
+		if query is dict, it will check value of key
+		'''
+		self = __class__
+		if type not in self.handlers:
+			self.handlers[type] = []
+
+		if isinstance(hasQ, str):
+			hasQ = (hasQ,)
+
+		to_check = (url, hasQ, QV, fragent)
+
+		def decorator(func):
+			self.handlers[type].append((to_check, func))
+			return func
+		return decorator
+	
+	def test_req(self, url, hasQ, QV, fragent):
+		'''test if request is matched'''
+		print(url, hasQ, QV, fragent)
+		print(self.url_path, self.query, self.fragment)
+		print(self.url_path != url, self.query(*hasQ), self.query, self.fragment != fragent)
+
+		if self.url_path != url and url != '*': return False
+		if hasQ and self.query(*hasQ)==False: return False
+		if QV:
+			for k, v in QV.items():
+				if not self.query(k): return False
+				if self.query[k] != v: return False
+		
+		if fragent and self.fragment != fragent: return False
+
+		return True
 
 	def do_HEAD(self):
 		"""Serve a HEAD request."""
@@ -1924,24 +1975,25 @@ tr:nth-child(even) {
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
 
-
-
 		url_path, query, fragment = self.url_path, self.query, self.fragment
-
 		spathsplit = self.url_path.split("/")
+
+		print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
+
+
+		for case, func in self.handlers['HEAD']:
+			if self.test_req(*case):
+				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, first=first, last=last, spathsplit=spathsplit)
+
+
+
+
 
 		filename = None
 
-		if url_path == '/favicon.ico':
-			self.send_response(301)
-			self.send_header('Location','https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
-			self.end_headers()
-			return None
 
 
 
-
-		print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
 
 		########################################################
 		#    TO	TEST ASSETS
@@ -1951,213 +2003,212 @@ tr:nth-child(even) {
 
 		########################################################
 
-		if query("reload"):
-			# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
-			config.reload = True
+		# if query("reload"):
+		# 	# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
+		# 	config.reload = True
 
-			httpd.server_close()
-			httpd.shutdown()
+		# 	httpd.server_close()
+		# 	httpd.shutdown()
 
-		elif query("admin"):
-			title = "ADMIN PAGE"
-			displaypath = self.get_displaypath(url_path)
+		# elif query("admin"):
+		# 	title = "ADMIN PAGE"
+		# 	displaypath = self.get_displaypath(url_path)
 
-			head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-														PY_PUBLIC_URL=config.address(),
-														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
+		# 	head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+		# 												PY_PUBLIC_URL=config.address(),
+		# 												PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
 
-			tail = _admin_page().template
-			return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
+		# 	tail = _admin_page().template
+		# 	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
 
-		elif query("update"):
-			"""Check for update and return the latest version"""
-			data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
-			if data:
-				data  = data.decode("utf-8").strip()
-				ret = json.dumps({"update_available": data > __version__, "latest_version": data})
-				return self.return_txt(HTTPStatus.OK, ret)
-			else:
-				return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+		# elif query("update"):
+		# 	"""Check for update and return the latest version"""
+		# 	data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+		# 	if data:
+		# 		data  = data.decode("utf-8").strip()
+		# 		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
+		# 		return self.return_txt(HTTPStatus.OK, ret)
+		# 	else:
+		# 		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
 
-		elif query("update_now"):
-			"""Run update"""
-			if config.disabled_func["update"]:
-				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
-			else:
-				data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
-				if data:
-					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
-				else:
-					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
-
-
-
-		elif query("size"):
-			"""Return size of the file"""
-			stat = get_stat(path)
-			if not stat:
-				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
-			if os.path.isfile(path):
-				size = stat.st_size
-			else:
-				size = get_dir_size(path)
-
-			humanbyte = humanbytes(size)
-			fmbyte = fmbytes(size)
-			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
-															  "byte": size,
-															  "humanbyte": humanbyte,
-															  "fmbyte": fmbyte}))
-
-
-		elif query("czip"):
-			"""Create ZIP task and return ID"""
-			if config.disabled_func["zip"]:
-				self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
-
-			dir_size = get_dir_size(path, limit=6*1024*1024*1024)
-
-			if dir_size == -1:
-				msg = "Directory size is too large, please contact the host"
-				return self.return_txt(HTTPStatus.OK, msg)
-
-			displaypath = self.get_displaypath(url_path)
-			filename = spathsplit[-2] + ".zip"
-
-
-			try:
-				zid = zip_manager.get_id(path, dir_size)
-				title = "Creating ZIP"
-
-				head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-														PY_PUBLIC_URL=config.address(),
-														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
-
-				tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
-				PY_ZIP_NAME = filename)
-				return self.return_txt(HTTPStatus.OK,
-				f"{head} {tail}")
-			except Exception:
-				self.log_error(traceback.format_exc())
-				return self.return_txt(HTTPStatus.OK, "ERROR")
-
-		elif query("zip"):
-			msg = False
-			if not os.path.isdir(path):
-				msg = "Zip function is not available, please Contact the host"
-				self.log_error(msg)
-				return self.return_txt(HTTPStatus.OK, msg)
-
-
-			filename = spathsplit[-2] + ".zip"
-
-			id = query["zid"][0]
-
-			# IF NOT STARTED
-			if not zip_manager.zip_id_status(id):
-				t = zip_manager.archive_thread(path, id)
-				t.start()
-
-				return self.return_txt(HTTPStatus.OK, "SUCCESS")
-
-
-			if zip_manager.zip_id_status[id] == "DONE":
-				if query("download"):
-					path = zip_manager.zip_ids[id]
-
-					return self.return_file(path, first, last, filename)
-
-
-				if query("progress"):
-					return self.return_txt(HTTPStatus.OK, "DONE") #if query("progress") or no query
-
-			# IF IN PROGRESS
-			if zip_manager.zip_id_status[id] == "ARCHIVING":
-				progress = zip_manager.zip_in_progress[id]
-				return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
-
-			if zip_manager.zip_id_status[id].startswith("ERROR"):
-				return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
+		# elif query("update_now"):
+		# 	"""Run update"""
+		# 	if config.disabled_func["update"]:
+		# 		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
+		# 	else:
+		# 		data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
+		# 		if data:
+		# 			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
+		# 		else:
+		# 			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
 
 
 
+		# elif query("size"):
+		# 	"""Return size of the file"""
+		# 	stat = get_stat(path)
+		# 	if not stat:
+		# 		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+		# 	if os.path.isfile(path):
+		# 		size = stat.st_size
+		# 	else:
+		# 		size = get_dir_size(path)
+
+		# 	humanbyte = humanbytes(size)
+		# 	fmbyte = fmbytes(size)
+		# 	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+		# 													  "byte": size,
+		# 													  "humanbyte": humanbyte,
+		# 													  "fmbyte": fmbyte}))
 
 
-		elif query("json"):
-			return self.list_directory_json()
+		# elif query("czip"):
+		# 	"""Create ZIP task and return ID"""
+		# 	if config.disabled_func["zip"]:
+		# 		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
+
+		# 	dir_size = get_dir_size(path, limit=6*1024*1024*1024)
+
+		# 	if dir_size == -1:
+		# 		msg = "Directory size is too large, please contact the host"
+		# 		return self.return_txt(HTTPStatus.OK, msg)
+
+		# 	displaypath = self.get_displaypath(url_path)
+		# 	filename = spathsplit[-2] + ".zip"
 
 
-		elif query("vid"):
-			vid_source = url_path
-			# SEND VIDEO PLAYER
-			if self.guess_type(path).startswith('video/'):
-				r = []
+		# 	try:
+		# 		zid = zip_manager.get_id(path, dir_size)
+		# 		title = "Creating ZIP"
 
-				displaypath = self.get_displaypath(url_path)
+		# 		head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+		# 												PY_PUBLIC_URL=config.address(),
+		# 												PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
 
+		# 		tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
+		# 		PY_ZIP_NAME = filename)
+		# 		return self.return_txt(HTTPStatus.OK,
+		# 		f"{head} {tail}")
+		# 	except Exception:
+		# 		self.log_error(traceback.format_exc())
+		# 		return self.return_txt(HTTPStatus.OK, "ERROR")
 
-
-				title = self.get_titles(displaypath)
-
-				r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-																PY_PUBLIC_URL=config.address(),
-																PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
-
-
-				r.append("</ul></div>")
-
-
-				if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
-					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
-				else:
-					ctype = self.guess_type(path)
-					r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
-															PY_CTYPE=ctype))
-
-				r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
+		# elif query("zip"):
+		# 	msg = False
+		# 	if not os.path.isdir(path):
+		# 		msg = "Zip function is not available, please Contact the host"
+		# 		self.log_error(msg)
+		# 		return self.return_txt(HTTPStatus.OK, msg)
 
 
-				r.append('\n<hr>\n</body>\n</html>\n')
+		# 	filename = spathsplit[-2] + ".zip"
 
-				encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-				return self.return_txt(HTTPStatus.OK, encoded)
+		# 	id = query["zid"][0]
+
+		# 	# IF NOT STARTED
+		# 	if not zip_manager.zip_id_status(id):
+		# 		t = zip_manager.archive_thread(path, id)
+		# 		t.start()
+
+		# 		return self.return_txt(HTTPStatus.OK, "SUCCESS")
 
 
-		f = None
-		if os.path.isdir(path):
-			parts = urllib.parse.urlsplit(self.path)
-			if not parts.path.endswith('/'):
-				# redirect browser - doing basically what apache does
-				self.send_response(HTTPStatus.MOVED_PERMANENTLY)
-				new_parts = (parts[0], parts[1], parts[2] + '/',
-							 parts[3], parts[4])
-				new_url = urllib.parse.urlunsplit(new_parts)
-				self.send_header("Location", new_url)
-				self.send_header("Content-Length", "0")
-				self.end_headers()
-				return None
-			for index in "index.html", "index.htm":
-				index = os.path.join(path, index)
-				if os.path.exists(index):
-					path = index
-					break
-			else:
-				return self.list_directory(path)
+		# 	if zip_manager.zip_id_status[id] == "DONE":
+		# 		if query("download"):
+		# 			path = zip_manager.zip_ids[id]
 
-		# check for trailing "/" which should return 404. See Issue17324
-		# The test for this was added in test_httpserver.py
-		# However, some OS platforms accept a trailingSlash as a filename
-		# See discussion on python-dev and Issue34711 regarding
-		# parseing and rejection of filenames with a trailing slash
-		if path.endswith("/"):
-			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-			return None
+		# 			return self.return_file(path, first, last, filename)
+
+
+		# 		if query("progress"):
+		# 			return self.return_txt(HTTPStatus.OK, "DONE") #if query("progress") or no query
+
+		# 	# IF IN PROGRESS
+		# 	if zip_manager.zip_id_status[id] == "ARCHIVING":
+		# 		progress = zip_manager.zip_in_progress[id]
+		# 		return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
+
+		# 	if zip_manager.zip_id_status[id].startswith("ERROR"):
+		# 		return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
 
 
 
-		# else:
 
-		return self.return_file(path, first, last, filename)
+
+		# elif query("json"):
+		# 	return self.list_directory_json()
+
+
+		# elif query("vid"):
+		# 	vid_source = url_path
+		# 	# SEND VIDEO PLAYER
+		# 	if self.guess_type(path).startswith('video/'):
+		# 		r = []
+
+		# 		displaypath = self.get_displaypath(url_path)
+
+
+
+		# 		title = self.get_titles(displaypath)
+
+		# 		r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+		# 														PY_PUBLIC_URL=config.address(),
+		# 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
+
+
+		# 		r.append("</ul></div>")
+
+
+		# 		if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
+		# 			r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
+		# 		else:
+		# 			ctype = self.guess_type(path)
+		# 			r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+		# 													PY_CTYPE=ctype))
+
+		# 		r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
+
+
+		# 		r.append('\n<hr>\n</body>\n</html>\n')
+
+		# 		encoded = '\n'.join(r).encode(enc, 'surrogateescape')
+		# 		return self.return_txt(HTTPStatus.OK, encoded)
+
+
+		# if os.path.isdir(path):
+		# 	parts = urllib.parse.urlsplit(self.path)
+		# 	if not parts.path.endswith('/'):
+		# 		# redirect browser - doing basically what apache does
+		# 		self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+		# 		new_parts = (parts[0], parts[1], parts[2] + '/',
+		# 					 parts[3], parts[4])
+		# 		new_url = urllib.parse.urlunsplit(new_parts)
+		# 		self.send_header("Location", new_url)
+		# 		self.send_header("Content-Length", "0")
+		# 		self.end_headers()
+		# 		return None
+		# 	for index in "index.html", "index.htm":
+		# 		index = os.path.join(path, index)
+		# 		if os.path.exists(index):
+		# 			path = index
+		# 			break
+		# 	else:
+		# 		return self.list_directory(path)
+
+		# # check for trailing "/" which should return 404. See Issue17324
+		# # The test for this was added in test_httpserver.py
+		# # However, some OS platforms accept a trailingSlash as a filename
+		# # See discussion on python-dev and Issue34711 regarding
+		# # parseing and rejection of filenames with a trailing slash
+		# if path.endswith("/"):
+		# 	self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+		# 	return None
+
+
+
+		# # else:
+
+		# return self.return_file(path, first, last, filename)
 
 
 
@@ -2470,6 +2521,321 @@ tr:nth-child(even) {
 			return guess
 
 		return self.extensions_map[''] #return 'application/octet-stream'
+
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD', '/favicon.ico')
+def send_favicon(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	self.send_response(301)
+	self.send_header('Location','https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
+	self.end_headers()
+	return None
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="reload")
+def reload(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
+	config.reload = True
+
+	httpd.server_close()
+	httpd.shutdown()
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="admin")
+def admin_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	title = "ADMIN PAGE"
+	url_path = kwargs.get('url_path', '')
+	displaypath = self.get_displaypath(url_path)
+
+	head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+												PY_PUBLIC_URL=config.address(),
+												PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
+
+	tail = _admin_page().template
+	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="update")
+def update(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Check for update and return the latest version"""
+	data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+	if data:
+		data  = data.decode("utf-8").strip()
+		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
+		return self.return_txt(HTTPStatus.OK, ret)
+	else:
+		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="update_now")
+def update_now(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Run update"""
+	if config.disabled_func["update"]:
+		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
+	else:
+		data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
+		if data:
+			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
+		else:
+			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="size")
+def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Return size of the file"""
+	path = kwargs.get('url_path', '')
+
+	stat = get_stat(path)
+	if not stat:
+		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+	if os.path.isfile(path):
+		size = stat.st_size
+	else:
+		size = get_dir_size(path)
+
+	humanbyte = humanbytes(size)
+	fmbyte = fmbytes(size)
+	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+														"byte": size,
+														"humanbyte": humanbyte,
+														"fmbyte": fmbyte}))
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="czip")
+def create_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Create ZIP task and return ID"""
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+	
+	if config.disabled_func["zip"]:
+		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
+
+	dir_size = get_dir_size(path, limit=6*1024*1024*1024)
+
+	if dir_size == -1:
+		msg = "Directory size is too large, please contact the host"
+		return self.return_txt(HTTPStatus.OK, msg)
+
+	displaypath = self.get_displaypath(url_path)
+	filename = spathsplit[-2] + ".zip"
+
+
+	try:
+		zid = zip_manager.get_id(path, dir_size)
+		title = "Creating ZIP"
+
+		head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+												PY_PUBLIC_URL=config.address(),
+												PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
+
+		tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
+		PY_ZIP_NAME = filename)
+		return self.return_txt(HTTPStatus.OK,
+		f"{head} {tail}")
+	except Exception:
+		self.log_error(traceback.format_exc())
+		return self.return_txt(HTTPStatus.OK, "ERROR")
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="zip")
+def get_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Return ZIP file if available
+	Else return progress of the task"""
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+	first = kwargs.get('first', '')
+	last = kwargs.get('last', '')
+
+	query = self.query
+
+	msg = False
+
+	if not os.path.isdir(path):
+		msg = "Zip function is not available, please Contact the host"
+		self.log_error(msg)
+		return self.return_txt(HTTPStatus.OK, msg)
+
+
+	filename = spathsplit[-2] + ".zip"
+
+	id = query["zid"][0]
+
+	# IF NOT STARTED
+	if not zip_manager.zip_id_status(id):
+		t = zip_manager.archive_thread(path, id)
+		t.start()
+
+		return self.return_txt(HTTPStatus.OK, "SUCCESS")
+
+
+	if zip_manager.zip_id_status[id] == "DONE":
+		if query("download"):
+			path = zip_manager.zip_ids[id]
+
+			return self.return_file(path, first, last, filename)
+
+
+		if query("progress"):
+			return self.return_txt(HTTPStatus.OK, "DONE") #if query("progress") or no query
+
+	# IF IN PROGRESS
+	if zip_manager.zip_id_status[id] == "ARCHIVING":
+		progress = zip_manager.zip_in_progress[id]
+		return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
+
+	if zip_manager.zip_id_status[id].startswith("ERROR"):
+		return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="json")
+def send_ls_json(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Send directory listing in JSON format"""
+	return self.list_directory_json()
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="vid")
+def send_video_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	# SEND VIDEO PLAYER
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+
+	vid_source = url_path
+	if not self.guess_type(path).startswith('video/'):
+		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE")
+		return None
+
+	r = []
+
+	displaypath = self.get_displaypath(url_path)
+
+
+
+	title = self.get_titles(displaypath)
+
+	r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+													PY_PUBLIC_URL=config.address(),
+													PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
+
+
+	r.append("</ul></div>")
+
+
+	if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
+		r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
+	else:
+		ctype = self.guess_type(path)
+		r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+												PY_CTYPE=ctype))
+
+	r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
+
+
+	r.append('\n<hr>\n</body>\n</html>\n')
+
+	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
+	return self.return_txt(HTTPStatus.OK, encoded)
+
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD')
+def default(self: SimpleHTTPRequestHandler, filename=None, *args, **kwargs):
+	print(kwargs)
+	"""Serve a GET request."""
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+	first = kwargs.get('first', '')
+	last = kwargs.get('last', '')
+
+	
+	if os.path.isdir(path):
+		parts = urllib.parse.urlsplit(self.path)
+		if not parts.path.endswith('/'):
+			# redirect browser - doing basically what apache does
+			self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+			new_parts = (parts[0], parts[1], parts[2] + '/',
+							parts[3], parts[4])
+			new_url = urllib.parse.urlunsplit(new_parts)
+			self.send_header("Location", new_url)
+			self.send_header("Content-Length", "0")
+			self.end_headers()
+			return None
+		for index in "index.html", "index.htm":
+			index = os.path.join(path, index)
+			if os.path.exists(index):
+				path = index
+				break
+		else:
+			return self.list_directory(path)
+
+	# check for trailing "/" which should return 404. See Issue17324
+	# The test for this was added in test_httpserver.py
+	# However, some OS platforms accept a trailingSlash as a filename
+	# See discussion on python-dev and Issue34711 regarding
+	# parseing and rejection of filenames with a trailing slash
+	if path.endswith("/"):
+		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+		return None
+
+
+
+	# else:
+
+	return self.return_file(path, first, last, filename)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
