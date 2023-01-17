@@ -34,7 +34,7 @@
 </noscript>
 
 
-<form ENCTYPE="multipart/form-data" method="post" id="uploader" class="jsonly">
+<form ENCTYPE="multipart/form-data" method="post" id="uploader" class="jsonly"  action="?upload">
 
 
 	<center>
@@ -112,7 +112,7 @@ class ContextMenu {
 		var that = this
 		popup_msg.close()
 
-		var url = ".";
+		var url = "./?"+action;
 		var xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
 		xhr.onreadystatechange = function() {
@@ -125,6 +125,7 @@ class ContextMenu {
 		formData.append("post-uid", 123456);
 		formData.append("name", link);
 		formData.append("data", more_data)
+
 		xhr.send(formData);
 	}
 	rename_data() {
@@ -568,10 +569,18 @@ byId("uploader").onsubmit = (e) => {
 		if (request.readyState === XMLHttpRequest.DONE) {
 			msg = `${request.status}: ${request.statusText}`
 			if (request.status === 401) msg = 'Incorrect password'
-			else if (request.status === 0) msg = 'Connection failed (Possible cause: Incorrect password)'
+			else if (request.status === 400) msg = 'Invalid request (Possible cause: No files selected))'
+			if (request.status === 0) msg = 'Connection failed (Possible cause: Incorrect password)'
 			else if (request.status === 204 || request.status === 200) msg = 'Success'
 			status.innerText = msg
 		}
+	}
+	request.onerror = () => {
+		if (request.status === 401) msg = 'Incorrect password'
+		else if (request.status === 400) msg = 'Invalid request (Possible cause: No files selected))'
+
+		
+		status.innerText = msg
 	}
 	request.upload.onprogress = e => {
 		prog = Math.floor(100*e.loaded/e.total)
