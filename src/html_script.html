@@ -1,17 +1,40 @@
-</ul>
-</div>
 <hr>
 
-<div class='pagination jsonly' onclick="request_reload()">RELOAD 🧹</div>
-<noscript><a href="/?reload" class='pagination'>RELOAD 🧹</a><br></noscript>
-<br>
+
 <div class='pagination' onclick="Show_folder_maker()">Create Folder</div><br>
 
 <br>
 <hr><br>
 
+<noscript>
 
-<form ENCTYPE="multipart/form-data" method="post" id="uploader">
+<form ENCTYPE="multipart/form-data" method="post" action="?upload">
+	<!-- using "?upload" action so that user can go back to the page -->
+	<center>
+		<h1><u>Upload file</u></h1>
+
+
+		<input type="hidden" name="post-type" value="upload">
+		<input type="hidden" name="post-uid" value="12345">
+
+		<span class="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" class="upload-pass-box">
+		<br><br>
+		<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
+		<div class="upload-box">
+			<div class="drag-area">
+				<div class="drag-icon">⬆️</div>
+				<header>Select Files To Upload</header>
+				<input type="file" name="file" multiple class="drag-browse" value="Browse File">
+			</div>
+	</div>
+
+</center>
+<center><input id="submit-btn" type="submit" value="&#10174; upload"></center>
+</form>
+</noscript>
+
+
+<form ENCTYPE="multipart/form-data" method="post" id="uploader" class="jsonly">
 
 
 	<center>
@@ -21,15 +44,15 @@
 		<input type="hidden" name="post-type" value="upload">
 		<input type="hidden" name="post-uid" value="12345">
 
-		<span id="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" id="upload-pass-box">
+		<span class="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="text" label="Password" class="upload-pass-box">
 		<br><br>
 		<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
-		<div id="upload-box">
-			<div class="drag-area">
+		<div class="upload-box">
+			<div id="drag-area" class="drag-area">
 				<div class="drag-icon">⬆️</div>
 				<header>Drag & Drop to Upload File</header>
 				<span>OR</span>
-				<button id="drag-browse">Browse File</button>
+				<button class="drag-browse">Browse File</button>
 				<input type="file" name="file" multiple hidden>
 			</div>
 	</div>
@@ -54,351 +77,12 @@
 <hr>
 
 <script>
-const log = console.log,
-	byId = document.getElementById.bind(document),
-	byClass = document.getElementsByClassName.bind(document),
-	byTag = document.getElementsByTagName.bind(document),
-	byName = document.getElementsByName.bind(document),
-	createElement = document.createElement.bind(document);
-
-
-String.prototype.toHtmlEntities = function() {
-	return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
-};
 
 const r_li = ${PY_LINK_LIST};
 const f_li = ${PY_FILE_LIST};
 const s_li = ${PY_FILE_SIZE};
 
-byId("uploader").addEventListener('submit', e => {
-	e.preventDefault()
-	const formData = new FormData(e.target)
 
-
-	const status = byId("upload-status")
-	const progress = byId("upload-progress")
-
-	var prog = 0;
-	var msg = "";
-
-	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
-	const request = new XMLHttpRequest()
-	request.open(e.target.method, e.target.action)
-	request.timeout = 3600000;
-	request.onreadystatechange = () => {
-		if (request.readyState === XMLHttpRequest.DONE) {
-			msg = `${request.status}: ${request.statusText}`
-			if (request.status === 204 || request.status === 200) msg = 'Success'
-			if (request.status === 0) msg = 'Connection failed'
-			status.innerText = msg
-		}
-	}
-	request.upload.onprogress = e => {
-		prog = Math.floor(100*e.loaded/e.total)
-		if(e.loaded === e.total){
-			msg ='Saving...'
-		}else{
-			msg = `Uploading : ${prog}%`
-		}
-		status.innerText = msg
-		progress.value = prog
-
-	}
-	status.innerText = `Uploading : 0%`
-	byId('upload-task').style.display = 'block'
-	request.send(formData)
-})
-
-function null_func() {
-	return true
-}
-
-function toggle_scroll() {
-	document.body.classList.toggle('overflowHidden');
-}
-
-function go_link(typee, locate) {
-	// function to generate link for different types of actions
-	return locate + "?" + typee;
-}
-// getting all the links in the directory
-
-class Config {
-	constructor() {
-		this.total_popup = 0;
-		this.popup_msg_open = false;
-		this.allow_Debugging = true
-		this.Debugging = false;
-	}
-}
-var config = new Config()
-
-
-class Tools {
-	// various tools for the page
-	sleep(ms) {
-		// sleeps for a given time in milliseconds
-		return new Promise(resolve => setTimeout(resolve, ms));
-	}
-	onlyInt(str) {
-		if (this.is_defined(str.replace)) {
-			return parseInt(str.replace(/\D+/g, ""))
-		}
-		return 0;
-	}
-	del_child(elm) {
-		if (typeof(elm) == "string") {
-			elm = byId(elm)
-		}
-		while (elm.firstChild) {
-			elm.removeChild(elm.lastChild);
-		}
-	}
-	toggle_bool(bool) {
-		return bool !== true;
-	}
-	exists(name) {
-		return (typeof window[name] !== 'undefined')
-	}
-	hasClass(element, className, partial = false) {
-		if (partial) {
-			className = ' ' + className;
-		} else {
-			className = ' ' + className + ' ';
-		}
-		return (' ' + element.className + ' ').indexOf(className) > -1;
-	}
-	addClass(element, className) {
-		if (!this.hasClass(element, className)) {
-			element.classList.add(className);
-		}
-	}
-	enable_debug() {
-		if (!config.allow_Debugging) {
-			alert("Debugging is not allowed");
-			return;
-		}
-		if (config.Debugging) {
-			return
-		}
-		config.Debugging = true;
-		var script = createElement('script');
-		script.src = "//cdn.jsdelivr.net/npm/eruda";
-		document.body.appendChild(script);
-		script.onload = function() {
-			eruda.init()
-		};
-	}
-	is_in(item, array) {
-		return array.indexOf(item) > -1;
-	}
-	is_defined(obj) {
-		return typeof(obj) !== "undefined"
-	}
-	toggle_scroll(allow = 2, by = "someone") {
-		if (allow == 0) {
-			document.body.classList.add('overflowHidden');
-		} else if (allow == 1) {
-			document.body.classList.remove('overflowHidden');
-		} else {
-			document.body.classList.toggle('overflowHidden');
-		}
-	}
-	download(dataurl, filename = null) {
-		const link = createElement("a");
-		link.href = dataurl;
-		link.download = filename;
-		link.click();
-	}
-
-
-	async copy_2(ev, textToCopy) {
-		// navigator clipboard api needs a secure context (https)
-		if (navigator.clipboard && window.isSecureContext) {
-			// navigator clipboard api method'
-			await navigator.clipboard.writeText(textToCopy);
-			return 1
-		} else {
-			// text area method
-			let textArea = createElement("textarea");
-			textArea.value = textToCopy;
-			// make the textarea out of viewport
-			textArea.style.position = "fixed";
-			textArea.style.left = "-999999px";
-			textArea.style.top = "-999999px";
-			document.body.appendChild(textArea);
-			textArea.focus();
-			textArea.select();
-
-			let ok=0;
-				// here the magic happens
-				if(document.execCommand('copy')) ok = 1
-
-			textArea.remove();
-			return ok
-
-		}
-	}
-}
-let tools = new Tools();
-
-
-
-
-'#########################################'
-tools.enable_debug() // TODO: Disable this in production
-'#########################################'
-
-class Popup_Msg {
-	constructor() {
-		this.create()
-		this.made_popup = false;
-		this.init()
-	}
-	init() {
-		this.onclose = null_func;
-		this.scroll_disabled = false;
-	}
-	create() {
-		var that = this;
-		let popup_id, popup_obj, popup_bg, close_btn, popup_box;
-
-		popup_id = config.total_popup;
-
-
-
-		popup_obj = createElement("div")
-		popup_obj.id = "popup-" + popup_id;
-		popup_obj.classList.add("popup")
-
-		popup_bg = createElement("div")
-		popup_bg.classList.add("modal_bg")
-		popup_bg.id = "popup-bg-" + popup_id;
-		popup_bg.style.backgroundColor = "#000000EE";
-		popup_bg.onclick = function() {
-			that.close()
-		}
-
-		popup_obj.appendChild(popup_bg);
-
-		this.popup_obj = popup_obj
-		this.popup_bg = popup_bg
-
-
-		popup_box = createElement("div");
-		popup_box.classList.add("popup-box")
-
-		close_btn = createElement("div");
-		close_btn.classList.add("popup-close-btn")
-		close_btn.onclick = function() {
-			that.close()
-		}
-		close_btn.innerHTML = "&times;";
-		popup_box.appendChild(close_btn)
-		this.header = createElement("h1")
-		this.header.id = "popup-header-" + popup_id;
-		popup_box.appendChild(this.header)
-		this.hr = createElement("popup-hr-" + popup_id);
-		this.hr.style.width = "95%"
-		popup_box.appendChild(this.hr)
-		this.content = createElement("div")
-		this.content.id = "popup-content-" + popup_id;
-		popup_box.appendChild(this.content)
-		this.popup_obj.appendChild(popup_box)
-
-		byId("popup-container").appendChild(this.popup_obj)
-		config.total_popup += 1;
-	}
-	close() {
-		this.onclose()
-		this.dismiss()
-		config.popup_msg_open = false;
-	}
-	hide() {
-		this.popup_obj.classList.remove("active");
-		tools.toggle_scroll(1)
-	}
-	dismiss() {
-		this.hide()
-		tools.del_child(this.header);
-		tools.del_child(this.content);
-		this.made_popup = false;
-	}
-	async togglePopup(toggle_scroll = true) {
-		if (!this.made_popup) {
-			return
-		}
-		this.popup_obj.classList.toggle("active");
-		if (toggle_scroll) {
-			tools.toggle_scroll();
-		}
-		log(tools.hasClass(this.popup_obj, "active"))
-		if (!tools.hasClass(this.popup_obj, "active")) {
-			this.close()
-		}
-	}
-	async open_popup(allow_scroll = false) {
-		if (!this.made_popup) {
-			return
-		}
-		this.popup_obj.classList.add("active");
-		if (!allow_scroll) {
-			tools.toggle_scroll(0);
-			this.scroll_disabled = true;
-		}
-	}
-	async createPopup(header = "", content = "", hr = true) {
-		this.init()
-		this.made_popup = true;
-		if (typeof header === 'string' || header instanceof String) {
-			this.header.innerHTML = header;
-		} else if (header instanceof Element) {
-			this.header.appendChild(header)
-		}
-		if (typeof content === 'string' || content instanceof String) {
-			this.content.innerHTML = content;
-		} else if (content instanceof Element) {
-			this.content.appendChild(content)
-		}
-		if (hr) {
-			this.hr.style.display = "block";
-		} else {
-			this.hr.style.display = "none";
-		}
-
-	}
-}
-let popup_msg = new Popup_Msg();
-
-class Toaster {
-	constructor() {
-		this.container = createElement("div")
-		this.container.classList.add("toast-box")
-		this.toaster = createElement("div")
-		this.toaster.classList.add("toast-body")
-
-		this.container.appendChild(this.toaster)
-		document.body.appendChild(this.container)
-
-		this.BUSY = 0;
-	}
-
-
-	async toast(msg,time) {
-		// toaster is not safe as popup by design
-		var sleep = 3000;
-
-		this.BUSY = 1;
-		this.toaster.innerText = msg;
-		this.container.classList.add("visible")
-		if(tools.is_defined(time)) sleep = time;
-		await tools.sleep(sleep)
-		this.container.classList.remove("visible")
-		this.BUSY = 0
-	}
-}
-
-let toaster = new Toaster()
 
 
 class ContextMenu {
@@ -413,7 +97,12 @@ class ContextMenu {
 		popup_msg.close()
 		await tools.sleep(300)
 		if (data) {
-			popup_msg.createPopup(data[0], data[1]);
+			popup_msg.createPopup(data["head"], data["body"]);
+			if (data["script"]) {
+				var script = document.createElement("script");
+				script.innerHTML = data["script"];
+				document.body.appendChild(script);
+			}
 		} else {
 			popup_msg.createPopup("Failed", "Server didn't respond<br>response: " + self.status);
 		}
@@ -495,9 +184,8 @@ class ContextMenu {
 		copy.classList.add("menu_options")
 		copy.onclick = async function(ev) {
 			popup_msg.close()
-			let fake_a = createElement("a")
-			fake_a.href = file;
-			let success = await tools.copy_2(ev, fake_a.href)
+
+			let success = await tools.copy_2(ev, tools.full_path(file))
 			if(success){
 				toaster.toast("Link Copied!")
 			}else{
@@ -529,28 +217,12 @@ class ContextMenu {
 		del_P.innerText = "🔥" + " Delete permanently"
 		del_P.classList.add("menu_options")
 
-		function r_u_sure() {
-			popup_msg.close()
-			var box = createElement("div")
-			var msggg = createElement("p")
-			msggg.innerHTML = "This can't be undone!!!"
-			box.appendChild(msggg)
-			var y_btn = createElement("div")
-			y_btn.innerText = "Continue"
-			y_btn.className = "pagination center"
-			y_btn.onclick = function() {
+
+		del_P.onclick = () => {
+			r_u_sure({y:()=>{
 				that.menu_click('del-p', file);
-			};
-			var n_btn = createElement("div")
-			n_btn.innerText = "Cancel"
-			n_btn.className = "pagination center"
-			n_btn.onclick = popup_msg.close;
-			box.appendChild(y_btn)
-			box.appendChild(n_btn)
-			popup_msg.createPopup("Are you sure?", box)
-			popup_msg.open_popup()
+			}, head:"Are you sure?", body:"This can't be undone!!!", y_msg:"Continue", n_msg:"Cancel"})
 		}
-		del_P.onclick = r_u_sure
 		menu.appendChild(del_P)
 		var property = createElement("div")
 		property.innerText = "ℹ️" + " Properties"
@@ -715,7 +387,7 @@ for (let i = 0; i < r_li.length; i++) {
 		file_li.appendChild(item)
 	}
 }
-var dir_container = byId("content_list")
+var dir_container = byId("js-content_list")
 dir_container.appendChild(folder_li)
 dir_container.appendChild(file_li)
 
@@ -726,98 +398,203 @@ dir_container.appendChild(file_li)
 
 <script>
 //selecting all required elements
-var uploader = byId("uploader");
-const dropArea = document.querySelector(".drag-area"),
-dragText = dropArea.querySelector("header"),
-button = dropArea.querySelector("button"),
-input = dropArea.querySelector("input");
-let files; //this is a global variable and we'll use it inside multiple functions
-file_display = byId("drag-file-list");
+const uploader = byId("uploader"),
+uploader_dropArea = document.querySelector("#drag-area"),
+uploader_dragText = uploader_dropArea.querySelector("header"),
+uploader_button = uploader_dropArea.querySelector("button"),
+uploader_input = uploader_dropArea.querySelector("input");
+let uploader_files; //this is a global variable and we'll use it inside multiple functions
+let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
+uploader_file_display = byId("drag-file-list");
 
-button.onclick = (e)=>{
-	e.preventDefault();
-	input.click(); //if user click on the button then the input also clicked
+function uploader_exist(file) {
+	//check if file is already selected or not
+	for (let i = 0; i < selected_files.files.length; i++) {
+		if (selected_files.files[i].name == file.name) {
+			return i+1; // 0 is false, so we add 1 to make it true
+		}
+	}
+	return false;
 }
 
-input.addEventListener("change", function(){
-	//getting user select file and [0] this means if user select multiple files then we'll select only the first one
-	files = this.files;
-	dropArea.classList.add("active");
-	showFiles(); //calling function
-});
+function addFiles(files) {
+	var exist = false;
+	for (let i = 0; i < files.length; i++) {
+		exist = uploader_exist(files[i])
+
+		if (exist) { //if file already selected, remove that and replace with new one, because, when uploading last file will remain in host server, so we need to replace it with new one
+			selected_files.items.remove(exist-1);
+		}
+		selected_files.items.add(files[i]);
+	}
+	log("selected "+ selected_files.items.length+ " files");
+	uploader_showFiles();
+}
+
+
+uploader_button.onclick = (e)=>{
+	e.preventDefault();
+	uploader_input.click(); //if user click on the button then the input also clicked
+}
+
+uploader_input.onchange = (e)=>{
+	// USING THE BROWSE BUTTON
+	let f = e.target.files; // this.files = [file1, file2,...];
+	addFiles(f);
+	// uploader_dropArea.classList.add("active");
+	// uploader_showFiles(); //calling function
+	// uploader_dragText.textContent = "Release to Upload File";
+};
 
 
 //If user Drag File Over DropArea
-dropArea.addEventListener("dragover", (event)=>{
+uploader_dropArea.ondragover = (event)=>{
 	event.preventDefault(); //preventing from default behaviour
-	dropArea.classList.add("active");
-	dragText.textContent = "Release to Upload File";
-});
+	uploader_dropArea.classList.add("active");
+	uploader_dragText.textContent = "Release to Upload File";
+};
 
 //If user leave dragged File from DropArea
-dropArea.addEventListener("dragleave", ()=>{
-	dropArea.classList.remove("active");
-	dragText.textContent = "Drag & Drop to Upload File";
-});
+uploader_dropArea.ondragleave = ()=>{
+	uploader_dropArea.classList.remove("active");
+	uploader_dragText.textContent = "Drag & Drop to Upload File";
+};
 
 //If user drop File on DropArea
-dropArea.addEventListener("drop", (event)=>{
+uploader_dropArea.ondrop = (event)=>{
 	event.preventDefault(); //preventing from default behaviour
 	//getting user select file and [0] this means if user select multiple files then we'll select only the first one
-	files = event.dataTransfer.files;
-	showFiles(); //calling function
-});
+	addFiles(event.dataTransfer.files);
+	// uploader_showFiles(); //calling function
+};
 
-function removeFileFromFileList(index) {
-	const formData = new FormData(uploader)
-	const dt = new DataTransfer()
+function uploader_removeFileFromFileList(index) {
+	let dt = new DataTransfer()
 	// const input = byId('files')
 	// const { files } = input
 
-	for (let i = 0; i < files.length; i++) {
-	const file = files[i]
-	if (index !== i)
-		dt.items.add(file) // here you exclude the file. thus removing it.
+	for (let i = 0; i < selected_files.files.length; i++) {
+		let file = selected_files.files[i]
+		if (index !== i)
+			dt.items.add(file) // here you exclude the file. thus removing it.
 	}
 
-	files = dt.files
-	input.files = dt.files // Assign the updates list
-	showFiles()
+	selected_files = dt
+	// uploader_input.files = dt // Assign the updates list
+	uploader_showFiles()
 }
 
-function showFiles() {
-	tools.del_child(file_display)
-	let heading = byId("has-selected-up")
-	if(files.length){
-		heading.style.display = "block"
+function uploader_showFiles() {
+	tools.del_child(uploader_file_display)
+	let uploader_heading = byId("has-selected-up")
+	if(selected_files.files.length){
+		uploader_heading.style.display = "block"
 	} else {
-		heading.style.display = "none"
+		uploader_heading.style.display = "none"
 	}
-	for (let i = 0; i <files.length; i++) {
-		showFile(files[i], i);
+	for (let i = 0; i <selected_files.files.length; i++) {
+		uploader_showFile(selected_files.files[i], i);
 	}
 }
 
-function showFile(file, index){
+function fmbytes(B) {
+	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
+	const KB = 1024,
+	MB = (KB ** 2),
+	GB = (KB ** 3),
+	TB = (KB ** 4)
+
+	var unit="byte", val=B;
+
+	if (B>1){
+		unit="bytes"
+		val = B}
+	if (B/KB>1){
+		val = (B/KB)
+		unit="KB"}
+	if (B/MB>1){
+		val = (B/MB)
+		unit="MB"}
+	if (B/GB>1){
+		val = (B/GB)
+		unit="GB"}
+	if (B/TB>1){
+		val = (B/TB)
+		unit="TB"}
+
+	val = val.toFixed(2)
+
+	return `${val} ${unit}`
+}
+
+function uploader_showFile(file, index){
 	let filename = file.name;
-	let size = file.size;
+	let size = fmbytes(file.size);
 
 	let item = createElement("div");
 	item.className = "upload-file-item";
+
 	item.innerHTML = `
 			<span class="file-name">${filename}</span>
-			<span class="file-size">${size} bytes</span>
-
-		<span class="file-remove" onclick="removeFileFromFileList(${index})">&times;</span>
+			<span class="file-size">${size}</span>
+		<span class="file-remove" onclick="uploader_removeFileFromFileList(${index})">&times;</span>
 	`;
 
-	file_display.appendChild(item);
+	uploader_file_display.appendChild(item);
 
 }
+
+
+byId("uploader").onsubmit = (e) => {
+	e.preventDefault()
+
+	uploader_input.files = selected_files.files // Assign the updates list
+
+
+	const formData = new FormData(e.target)
+
+
+	const status = byId("upload-status")
+	const progress = byId("upload-progress")
+
+	var prog = 0;
+	var msg = "";
+
+	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
+	const request = new XMLHttpRequest()
+	request.open(e.target.method, e.target.action)
+	request.timeout = 3600000;
+	request.onreadystatechange = () => {
+		if (request.readyState === XMLHttpRequest.DONE) {
+			msg = `${request.status}: ${request.statusText}`
+			if (request.status === 401) msg = 'Incorrect password'
+			else if (request.status === 0) msg = 'Connection failed (Possible cause: Incorrect password)'
+			else if (request.status === 204 || request.status === 200) msg = 'Success'
+			status.innerText = msg
+		}
+	}
+	request.upload.onprogress = e => {
+		prog = Math.floor(100*e.loaded/e.total)
+		if(e.loaded === e.total){
+			msg ='Saving...'
+		}else{
+			msg = `Uploading : ${prog}%`
+		}
+		status.innerText = msg
+		progress.value = prog
+
+	}
+	status.innerText = `Uploading : 0%`
+	byId('upload-task').style.display = 'block'
+	request.send(formData)
+}
+
 
 
 
 </script>
+
+<a href="./?admin" class='pagination'>Admin center</a>
 
 
 <p>v4 I ❤️ emoji!</p>

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = "0.6"
+__version__ = "0.5"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -10,10 +10,13 @@ __all__ = [
 ]
 
 import os
+import atexit
 
 
 
 endl = "\n"
+T = t = true = True # too lazy to type
+F = f = false = False # too lazy to type
 
 class Config:
 	def __init__(self):
@@ -45,7 +48,7 @@ class Config:
 		self.MAIN_FILE = os.path.realpath(__file__)
 		self.MAIN_FILE_dir = os.path.dirname(self.MAIN_FILE)
 
-		print(self.MAIN_FILE)
+		print(tools.text_box("Running File: ",self.MAIN_FILE))
 
 		# OS DETECTION
 		self.OS = self.get_os()
@@ -53,8 +56,39 @@ class Config:
 
 		# RUNNING SERVER STATS
 		self.ftp_dir = self.get_default_dir()
-
+		self.dev_mode = True
 		self.reload = False
+
+
+		self.disabled_func = {
+			"send2trash": False,
+			"natsort": False,
+			"zip": False,
+			"update": False,
+			"delete": False,
+			"download": False,
+			"upload": False,
+			"new_folder": False,
+			"rename": False,
+			"reload": False,
+		}
+
+		# TEMP FILE MAPPING
+		self.temp_file = set()
+
+		# CLEAN TEMP FILES ON EXIT
+		atexit.register(self.clear_temp)
+
+
+		# ASSET MAPPING
+		self.file_list = {}
+
+	def clear_temp(self):
+		for i in self.temp_file:
+			try:
+				os.remove(i)
+			except:
+				pass
 
 
 
@@ -101,14 +135,16 @@ import socketserver
 import sys
 import time
 import urllib.parse
+import urllib.request
 import contextlib
 from functools import partial
 from http import HTTPStatus
-import pkg_resources as pkg_r, importlib
+
+import importlib.util
 import re
 
 
-from string import Template # using this because js also use {$var} and {var} syntax and py .format is often unsafe
+from string import Template as _Template # using this because js also use {$var} and {var} syntax and py .format is often unsafe
 import threading
 
 import subprocess
@@ -139,20 +175,21 @@ class Tools:
 
 		s = self.styles[style] if style in self.styles else style
 		tt = ""
-		for i in text.split("\n"):
-			tt += i.center(term_col) + "\n"
+		for i in text.split('\n'):
+			tt += i.center(term_col) + '\n'
 		return (f"\n\n{s*term_col}\n{tt}{s*term_col}\n\n")
 
 tools = Tools()
 config = Config()
+
 
 class Custom_dict(dict):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.__dict__ = self
 
-	def __call__(self, key):
-		return key in self
+	def __call__(self, *key):
+		return all([i in self for i in key])
 
 
 # FEATURES
@@ -177,38 +214,45 @@ class Custom_dict(dict):
 REQUEIREMENTS= ['send2trash', 'natsort']
 
 
-def get_installed():
-	importlib.reload(pkg_r)
-	return [pkg.key for pkg in pkg_r.working_set]
 
 
-
-
-disabled_func = {
-	"trash": False,
-	"zip": False,
-}
-
+def check_installed(pkg):
+	return bool(importlib.util.find_spec(pkg))
 
 
 def run_pip_install():
-	import sysconfig
+	dep_modified = False
+
+	import sysconfig, pip
 	for i in REQUEIREMENTS:
-		if i not in get_installed():
+		if check_installed(i):
+			continue
 
-			py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
-			on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
-			command = "" if config.OS == "Windows" else on_linux
-			comm = f'{command} {sys.executable} -m pip install --disable-pip-version-check --quiet --no-python-version-warning {i}'
+		more_arg = ""
+		if pip.__version__ >= "6.0":
+			more_arg += " --disable-pip-version-check"
+		if pip.__version__ >= "20.0":
+			more_arg += " --no-python-version-warning"
 
-			subprocess.run(comm, shell=True)
-			if i not in get_installed():
-				disabled_func[i] = True
 
-			else:
-				REQUEIREMENTS.remove(i)
+		py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
+		on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
+		command = "" if config.OS == "Windows" else on_linux
+		comm = f'{command} {sys.executable} -m pip install  --quiet {more_arg} {i}'
 
-	if not REQUEIREMENTS:
+		subprocess.call(comm, shell=True)
+
+
+		#if i not in get_installed():
+		if check_installed(i):
+			dep_modified = True
+
+
+		else:
+			print("Failed to load ", i)
+			config.disabled_func[i] = True
+
+	if dep_modified:
 		print("Reloading...")
 		config.reload = True
 
@@ -216,12 +260,52 @@ if config.run_req_check:
 	run_pip_install()
 
 
+if config.reload == True:
+	subprocess.call([sys.executable, config.MAIN_FILE] + sys.argv[1:])
+	sys.exit(0)
+
+
 #############################################
 #                FILE HANDLER               #
 #############################################
 
 
-def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True):
+def check_access(path):
+	"""
+	Check if the user has access to the file.
+
+	path: path to the file
+	"""
+	if os.path.exists(path):
+		try:
+			with open(path):
+				return True
+		except Exception:
+			pass
+	return False
+
+def get_stat(path):
+	"""
+	Get the stat of a file.
+
+	path: path to the file
+
+	* can act as check_access(path)
+	"""
+	try:
+		return os.stat(path)
+	except Exception:
+		return False
+
+def get_file_count(path):
+	# n = 0
+	# for _,_,files in os.walk(path, onerror= print):
+	# 	n += len(files)
+	# return n
+	return sum(1 for _, _, files in os.walk(path) for f in files)
+
+
+def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False) -> int|tuple:
 	"""
 	Get the size of a directory and all its subdirectories.
 
@@ -229,6 +313,8 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 	limit (int): maximum folder size, if bigger returns `-1`
 	return_list (bool): if True returns a tuple of (total folder size, list of contents)
 	full_dir (bool): if True returns a full path, else relative path
+	both (bool): if True returns a tuple of (total folder size, (full path, full path))
+	must_read (bool): if True only counts files that can be read
 	"""
 	r=[] #if return_list
 	total_size = 0
@@ -237,21 +323,31 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 	for dirpath, dirnames, filenames in os.walk(start_path, onerror= print):
 		for f in filenames:
 			fp = os.path.join(dirpath, f)
-			if return_list:
-				r.append(fp if full_dir else fp.replace(start_path, "", 1))
-
 			if not os.path.islink(fp):
-				total_size += os.path.getsize(fp)
+				stat = get_stat(fp)
+				if not stat: continue
+				if must_read and not check_access(fp): continue
+
+				total_size += stat.st_size
 			if limit!=None and total_size>limit:
-				# print('counted upto', total_size)
 				if return_list: return -1, False
 				return -1
+
+			if return_list:
+				if both: r.append((fp, fp.replace(start_path, "", 1)))
+				else:    r.append(fp if full_dir else fp.replace(start_path, "", 1))
+
 	if return_list: return total_size, r
 	return total_size
 
 
-def fmbytes(B):
+def fmbytes(B=0, path=''):
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
+	if path:
+		stat = get_stat(path)
+		if not stat: return "Unknown"
+		B = stat.st_size
+
 	B = B
 	KB = 1024
 	MB = (KB ** 2) # 1,048,576
@@ -261,16 +357,12 @@ def fmbytes(B):
 
 	if B/TB>1:
 		return '%.2f TB  '%(B/TB)
-		B%=TB
 	if B/GB>1:
 		return '%.2f GB  '%(B/GB)
-		B%=GB
 	if B/MB>1:
 		return '%.2f MB  '%(B/MB)
-		B%=MB
 	if B/KB>1:
 		return '%.2f KB  '%(B/KB)
-		B%=KB
 	if B>1:
 		return '%i bytes'%B
 
@@ -304,10 +396,13 @@ def humanbytes(B):
 	return ret
 
 def get_dir_m_time(path):
-	import os
-	import time
+	"""
+	Get the last modified time of a directory and all its subdirectories.
+	"""
 
-	return max(os.stat(root).st_mtime for root,_,_ in os.walk(path))
+	stat = get_stat(path)
+	return stat.st_mtime if stat else 0
+
 
 
 def list_dir(start_path = '.', full_dir=True, both=False):
@@ -338,7 +433,7 @@ def list_dir(start_path = '.', full_dir=True, both=False):
 try:
 	from zipfly_local import ZipFly
 except ImportError:
-	disabled_func["zip"] = True
+	config.disabled_func["zip"] = True
 
 class ZIP_Manager:
 	def __init__(self) -> None:
@@ -350,16 +445,21 @@ class ZIP_Manager:
 
 		self.assigend_zid = Custom_dict()
 
-		shutil.rmtree(self.zip_temp_dir, ignore_errors=True)  # CLEAR ZiP TEMP DIR
+		self.cleanup()
+		atexit.register(self.cleanup)
+
+		self.init_dir()
 
 
+	def init_dir(self):
 		os.makedirs(self.zip_temp_dir, exist_ok=True)
+
 
 	def cleanup(self):
 		shutil.rmtree(self.zip_temp_dir, ignore_errors=True)
 
 	def get_id(self, path, size=None):
-		source_size = size if size else get_dir_size(path)
+		source_size = size if size else get_dir_size(path, must_read=True)
 		source_m_time = get_dir_m_time(path)
 
 		exist = 1
@@ -402,15 +502,16 @@ class ZIP_Manager:
 			self.assigend_zid.pop(path, None)
 			self.zip_id_status[zid] = "ERROR: " + msg
 			return False
-		if disabled_func["zip"]:
+		if config.disabled_func["zip"]:
 			return err("ZIP FUNTION DISABLED")
+
 
 
 
 		# run zipfly
 		self.zip_in_progress[zid] = 0
 
-		source_size = size if size else get_dir_size(path)
+		source_size, fm = size if size else get_dir_size(path, return_list=True, both=True, must_read=True)
 		source_m_time = get_dir_m_time(path)
 
 
@@ -418,11 +519,11 @@ class ZIP_Manager:
 
 
 
-		zfile_name = os.path.join(self.zip_temp_dir, dir_name + f"({zid})" + ".zip")
+		zfile_name = os.path.join(self.zip_temp_dir, "{dir_name}({zid})".format(dir_name=dir_name, zid=zid) + ".zip")
 
-		os.makedirs(self.zip_temp_dir, exist_ok=True)
+		self.init_dir()
 
-		fm = list_dir(path , both=True)
+		# fm = list_dir(path , both=True)
 
 		if len(fm)==0:
 			return err("FOLDER HAS NO FILES")
@@ -481,24 +582,61 @@ if not os.path.isdir(config.log_location):
 
 
 
-from send2trash import send2trash, TrashPermissionError
-import natsort
+if not config.disabled_func["send2trash"]:
+	try:
+		from send2trash import send2trash, TrashPermissionError
+	except Exception:
+		config.disabled_func["send2trash"] = True
+
+if not config.disabled_func["natsort"]:
+	try:
+		import natsort
+	except Exception:
+		config.disabled_func["natsort"] = True
+
+def humansorted(li):
+	if not config.disabled_func["natsort"]:
+		return natsort.humansorted(li)
+
+	return sorted(li, key=lambda x: x.lower())
 
 
-def _get_txt(path):
-	with open(path, encoding=enc) as f:
-		return f.read()
+
+class Template(_Template):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+	def __add__(self, other):
+		if isinstance(other, _Template):
+			return Template(self.template + other.template)
+		return Template(self.template + str(other))
+
+
+def _get_template(path):
+	if config.dev_mode:
+		with open(path, encoding=enc) as f:
+			return Template(f.read())
+
+	return Template(config.file_list[path])
+
 def directory_explorer_header():
-	return Template(_get_txt("./html_page.html"))
+	return _get_template("html_page.html")
+
+def _global_script():
+	return _get_template("global_script.html")
 
 def _js_script():
-	return Template(_get_txt("html_script.html"))
+	return _global_script() + _get_template("html_script.html")
 
 def _video_script():
-	return Template(_get_txt("html_vid.html"))
+	return _global_script() + _get_template("html_vid.html")
 
 def _zip_script():
-	return Template(_get_txt("html_zip_page.html"))
+	return _global_script() + _get_template("html_zip_page.html")
+
+def _admin_page():
+	return _global_script() + _get_template("html_admin.html")
+
 
 
 """HTTP server classes.
@@ -563,7 +701,22 @@ def parse_byte_range(byte_range):
 
 
 
-from urllib.parse import urlparse, parse_qs
+# download file from url using urllib
+def fetch_url(url, file = None):
+	try:
+		with urllib.request.urlopen(url) as response:
+			data = response.read() # a `bytes` object
+			if not file:
+				return data
+
+		with open(file, 'wb') as f:
+			f.write(data)
+		return True
+	except Exception:
+		traceback.print_exc()
+		return None
+
+
 def URL_MANAGER(url:str):
 	"""
 	returns a tuple of (`path`, `query_dict`, `fragment`)\n
@@ -575,22 +728,22 @@ def URL_MANAGER(url:str):
 	"""
 
 	# url = '/store?page=10&limit=15&price#dskjfhs'
-	parse_result = urlparse(url)
+	parse_result = urllib.parse.urlparse(url)
 
 
-	dict_result = Custom_dict(parse_qs(parse_result.query, keep_blank_values=True))
+	dict_result = Custom_dict(urllib.parse.parse_qs(parse_result.query, keep_blank_values=True))
 
 	return (parse_result.path, dict_result, parse_result.fragment)
 
 
 
 # Default error message template
-DEFAULT_ERROR_MESSAGE = """\
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
-		"http://www.w3.org/TR/html4/strict.dtd">
+DEFAULT_ERROR_MESSAGE = """
+<!DOCTYPE HTML>
+<html lang="en">
 <html>
 	<head>
-		<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+		<meta charset="utf-8">
 		<title>Error response</title>
 	</head>
 	<body>
@@ -682,7 +835,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		error response has already been sent back.
 
 		"""
-		self.command = None  # set in case of error on the first line
+		self.command = ''  # set in case of error on the first line
 		self.request_version = version = self.default_request_version
 		self.close_connection = True
 		requestline = str(self.raw_requestline, 'iso-8859-1')
@@ -736,6 +889,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 					"Bad HTTP/0.9 request type (%r)" % command)
 				return False
 		self.command, self.path = command, path
+
+
+		# gh-87389: The purpose of replacing '//' with '/' is to protect
+		# against open redirect attacks possibly triggered if the path starts
+		# with '//' because http clients treat //path as an absolute URI
+		# without scheme (similar to http://path) rather than a path.
+		if self.path.startswith('//'):
+			self.path = '/' + self.path.lstrip('/')  # Reduce to a single /
 
 		# Examine the headers and look for a Connection directive.
 		try:
@@ -817,6 +978,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 					"Unsupported method (%r)" % self.command)
 				return
 			method = getattr(self, mname)
+
+			url_path, query, fragment = URL_MANAGER(self.path)
+			self.url_path = url_path
+			self.query = query
+			self.fragment = fragment
+
+
 			method()
 			self.wfile.flush() #actually send the response if not already done.
 		except (TimeoutError, socket.timeout) as e:
@@ -963,6 +1131,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		self.log_message(format, *args)
 
+
+
+
 	def log_message(self, format, *args):
 		"""Log an arbitrary message.
 
@@ -980,10 +1151,12 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		"""
 
+		message = format % args
+
 		sys.stderr.write("%s - - [%s] %s\n" %
 						 (self.address_string(),
 						  self.log_date_time_string(),
-						  format%args))
+						  message))
 
 		try:
 			# create config.log_location if it doesn't exist
@@ -1075,12 +1248,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def __init__(self, *args, directory=None, **kwargs):
 		if directory is None:
 			directory = os.getcwd()
-		self.directory = directory #os.fspath(directory)
+		self.directory = os.fspath(directory) # same as directory, but str, new in 3.6
 		super().__init__(*args, **kwargs)
+		self.query = Custom_dict()
 
 	def do_GET(self):
 		"""Serve a GET request."""
-		f = self.send_head()
+		try:
+			f = self.send_head()
+		except Exception as e:
+			traceback.print_exc()
+			self.send_error(500, str(e))
+			return
+
 		if f:
 			try:
 				self.copyfile(f, self.wfile)
@@ -1089,9 +1269,18 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			finally:
 				f.close()
 
+	def do_(self):
+		'''incase of errored request'''
+		self.send_error(HTTPStatus.BAD_REQUEST, "Bad request.")
+
 	def do_HEAD(self):
 		"""Serve a HEAD request."""
-		f = self.send_head()
+		try:
+			f = self.send_head()
+		except Exception as e:
+			traceback.print_exc()
+			self.send_error(500, str(e))
+			return
 		if f:
 			f.close()
 
@@ -1103,7 +1292,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 		try:
-			post_type, r, info = self.deal_post_data()
+			post_type, r, info, script = self.deal_post_data()
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
 			print(tools.text_box(e.__class__.__name__, e,"\nby ", self.client_address))
 			return
@@ -1124,16 +1313,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		else:
 			head = r
 
-		body = info
+
+		body = str(info)
 
 
 		f = io.BytesIO()
 
 		if DO_NOT_JSON:
-			data = (head + body)
+			data = f"{head} {body}"
 			content_type = 'text/html'
 		else:
-			data = json.dumps([head, body])
+			data = json.dumps({"head": head, "body": body, "script": script})
 			content_type = 'application/json'
 
 
@@ -1150,11 +1340,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		f.close()
 
+
 	def deal_post_data(self):
-		boundary = None
+		boundary = b''
 		uid = None
 		num = 0
-		post_type = None
 		blank = 0 # blank is used to check if the post is empty or Connection Aborted
 
 		refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
@@ -1164,7 +1354,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return urllib.parse.unquote(posixpath.join(self.path, filename), errors='surrogatepass')
 
 
-		def get(show=True, strip=False, self=self):
+		def get(show=True, strip=False):
 			"""
 			show: print line
 			strip: strip \r\n at end
@@ -1177,13 +1367,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				blank += 1
 			else:
 				blank = 0
-			if blank>=10:
+			if blank>=20: # allow 20 loss packets
 				self.send_error(408, "Request Timeout")
 				time.sleep(1) # wait for the client to close the connection
 
 				raise ConnectionAbortedError
 			if show:
-				# print(num, line)
 				num+=1
 			remainbytes -= len(line)
 
@@ -1192,13 +1381,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			return line
 
-		def pass_bound(self=self):
+		def pass_bound():
 			nonlocal remainbytes
-			line = get(0)
+			line = get(F)
 			if not boundary in line:
 				return (False, "Content NOT begin with boundary")
 
-		def get_type(line=None, self=self):
+		def get_type(line=None, ):
 			nonlocal remainbytes
 			if not line:
 				line = get()
@@ -1206,32 +1395,31 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
 			except: return None
 
-		def skip(self=self):
-			get(0)
+		def skip():
+			get(F)
 
-		def handle_files(self=self):
+		def handle_files():
 			nonlocal remainbytes
 			uploaded_files = [] # Uploaded folder list
 
 			# pass boundary
 			pass_bound()
 
-			uploading_path = self.path
-
 
 			# PASSWORD SYSTEM
 			if get_type()!="password":
 				return (False, "Invalid request")
 
-
 			skip()
-			password= get(0)
+			password= get(F)
 			print('post password: ',  password)
 			if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
+
+				self.send_error(HTTPStatus.UNAUTHORIZED, "Incorrect password")
+				# raise ConnectionAbortedError
 				return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
 
 			pass_bound()
-
 
 			while remainbytes > 0:
 				line =get()
@@ -1239,19 +1427,30 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
 				if not fn:
 					return (False, "Can't find out file name...")
+
+
 				path = self.translate_path(self.path)
 				rltv_path = posixpath.join(self.path, fn[0])
 
+				temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
+				config.temp_file.add(temp_fn)
+
+
 				fn = os.path.join(path, fn[0])
-				line = get(0) # content type
-				line = get(0) # line gap
+
+
+
+				line = get(F) # content type
+				line = get(F) # line gap
+
+
 
 				# ORIGINAL FILE STARTS FROM HERE
 				try:
-					with open(fn, 'wb') as out:
-						preline = get(0)
+					with open(temp_fn, 'wb') as out:
+						preline = get(F)
 						while remainbytes > 0:
-							line = get(0)
+							line = get(F)
 							if boundary in line:
 								preline = preline[0:-1]
 								if preline.endswith(b'\r'):
@@ -1263,17 +1462,29 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 								out.write(preline)
 								preline = line
 
-				except IOError:
+
+					os.replace(temp_fn, fn)
+
+
+
+				except (IOError, OSError):
 					return (False, "Can't create file to write, do you have permission to write?")
 
+				finally:
+					try:
+						os.remove(temp_fn)
+						config.temp_file.remove(temp_fn)
+
+					except OSError:
+						pass
 
 
-			return (True, ("<!DOCTYPE html><html>\n<title>Upload Result Page</title>\n<body>\n<h2>Upload Result Page</h2>\n<hr>\nFile '%s' upload success!" % ",".join(uploaded_files)) +"<br><br><h2><a href=\"%s\">back</a></h2>" % uploading_path)
 
+			return (True, "File(s) uploaded")
 
-		def del_data(self=self):
+		def del_data():
 
-			if disabled_func["trash"]:
+			if config.disabled_func["send2trash"]:
 				return (False, "Trash not available. Please contact the Host...")
 
 			# pass boundary
@@ -1286,7 +1497,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 			skip()
-			filename = get(strip=1).decode()
+			filename = get(strip=T).decode()
 
 
 			path = get_rel_path(filename)
@@ -1304,12 +1515,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				msg = "Recycling unavailable! Try deleting permanently..."
 			except Exception as e:
 				traceback.print_exc()
-				msg = "<b>" + path + "<b>" + e.__class__.__name__
+				msg = "<b>" + path + "</b> " + e.__class__.__name__
 
 			return (bool, msg)
 
 
-		def del_permanently(self=self):
+		def del_permanently():
 
 			# pass boundary
 			pass_bound()
@@ -1321,7 +1532,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 			skip()
-			filename = get(strip=1).decode()
+			filename = get(strip=T).decode()
 
 
 			path = get_rel_path(filename)
@@ -1342,7 +1553,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return (False, "<b>" + path + "<b>" + e.__class__.__name__ + " : " + str(e))
 
 
-		def rename(self=self):
+		def rename():
 			# pass boundary
 			pass_bound()
 
@@ -1353,7 +1564,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 			skip()
-			filename = get(strip=1).decode()
+			filename = get(strip=T).decode()
 
 			pass_bound()
 
@@ -1362,7 +1573,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 			skip()
-			new_name = get(strip=1).decode()
+			new_name = get(strip=T).decode()
 
 
 			path = get_rel_path(filename)
@@ -1383,8 +1594,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				return (False, "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) )
 
 
-		def get_info(self=self):
-
+		def get_info():
+			script = None
 
 			# pass boundary
 			pass_bound()
@@ -1392,42 +1603,62 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			# File link to move to recycle bin
 			if get_type()!="name":
-				return (False, "Invalid request")
+				return (False, "Invalid request", script)
 
 
 			skip()
-			filename = get(strip=1).decode()
+			filename = get(strip=T).decode() # the filename
+			path = get_rel_path(filename) # the relative path of the file or folder
 
+			xpath = self.translate_path(posixpath.join(self.path, filename)) # the absolute path of the file or folder
 
+			print(f'Info Checked "{xpath}" by: {uid}')
 
-			path = get_rel_path(filename)
+			file_stat = get_stat(xpath)
+			if not file_stat:
+				return (False, "Permission Denied", script)
 
-			xpath = self.translate_path(posixpath.join(self.path, filename))
+			data = []
+			data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
 
-			print('Info Checked "%s" by: %s'%(xpath, uid))
-
-			data = {}
-			data["Name"] = urllib.parse.unquote(filename, errors= 'surrogatepass')
 			if os.path.isfile(xpath):
-				data["Type"] = "File"
+				data.append(["Type","File"])
 				if "." in filename:
-					data["Extension"] = filename.rpartition(".")[2]
+					data.append(["Extension", filename.rpartition(".")[2]])
 
-				size = int(os.path.getsize(xpath))
+				size = file_stat.st_size
+				data.append(["Size", humanbytes(size) + " (%i bytes)"%size])
 
 			else: #if os.path.isdir(xpath):
-				data["Type"] = "Folder"
-				size = get_dir_size(xpath)
+				data.append(["Type", "Folder"])
+				# size = get_dir_size(xpath)
 
-			data["Size"] = humanbytes(size) + " (%i bytes)"%size
-			data["Path"] = path
+				data.append(["Total Files", get_file_count(xpath)])
+
+				print("files: ", get_file_count(xpath))
+
+				data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
+				script = '''
+				tools.fetch_json(tools.full_path("''' + path + '''?size")).then(size_resp => {
+				console.log(size_resp);
+				if (size_resp.status) {
+					document.getElementById("f_size").innerHTML = size_resp.humanbyte + " (" + size_resp.byte + " bytes)";
+				} else {
+					throw new Error(size_resp.msg);
+				}}).catch(err => {
+				console.log(err);
+				document.getElementById("f_size").innerHTML = "Error";
+				});
+				'''
+
+			data.append(["Path", path])
 
 			def get_dt(time):
 				return datetime.datetime.fromtimestamp(time)
 
-			data["Created on"] = get_dt(os.path.getctime(xpath))
-			data["Last Modified"] = get_dt(os.path.getmtime(xpath))
-			data["Last Accessed"] = get_dt(os.path.getatime(xpath))
+			data.append(["Created on", get_dt(file_stat.st_ctime)])
+			data.append(["Last Modified", get_dt(file_stat.st_mtime)])
+			data.append(["Last Accessed", get_dt(file_stat.st_atime)])
 
 			body = """
 <style>
@@ -1454,14 +1685,14 @@ tr:nth-child(even) {
 	<th>Info</th>
   </tr>
   """
-			for i, j in data.items():
-				body += f"<tr><td>{ i }</td><td>{ j }</td></tr>"
+			for key, val in data:
+				body += "<tr><td>{key}</td><td>{val}</td></tr>".format(key=key, val=val)
 			body += "</table>"
 
-			return ("Properties", body)
+			return ("Properties", body, script)
 
 
-		def new_folder(self=self):
+		def new_folder():
 
 
 			# pass boundary
@@ -1474,7 +1705,7 @@ tr:nth-child(even) {
 
 
 			skip()
-			filename = get(strip=1).decode()
+			filename = get(strip=T).decode()
 
 
 
@@ -1530,7 +1761,7 @@ tr:nth-child(even) {
 
 		##################################
 
-		r, info = (True, "Something")
+		r, info, script = (True, "Something", None)
 
 		if handle_type == "upload":
 			r, info = handle_files()
@@ -1550,7 +1781,7 @@ tr:nth-child(even) {
 			r, info = rename()
 
 		elif handle_type=="info":
-			r, info = get_info()
+			r, info, script = get_info()
 
 		elif handle_type == "new folder":
 			r, info = new_folder()
@@ -1559,7 +1790,8 @@ tr:nth-child(even) {
 			r, info = (None, "get-json")
 
 
-		return handle_type, r, info
+		return handle_type, r, info, script
+
 
 	def return_txt(self, code, msg):
 
@@ -1580,6 +1812,8 @@ tr:nth-child(even) {
 
 	def return_file(self, path, first, last, filename=None):
 		f = None
+		is_attachment = "attachment;" if self.query("dl") else ""
+
 
 		try:
 			ctype = self.guess_type(path)
@@ -1638,18 +1872,23 @@ tr:nth-child(even) {
 			else:
 				self.send_response(HTTPStatus.OK)
 				self.send_header("Content-Type", ctype)
-				self.send_header("Content-Length", str(fs[6]))
+				self.send_header("Content-Length", str(file_len))
 
 			self.send_header("Last-Modified",
 							self.date_time_string(fs.st_mtime))
-			self.send_header("Content-Disposition", 'attachment; filename="%s"' % (os.path.basename(path) if filename is None else filename))
+			self.send_header("Content-Disposition", is_attachment+'filename="%s"' % (os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
 			return f
 
+		except PermissionError:
+			self.send_error(HTTPStatus.FORBIDDEN, "Permission denied")
+			return None
+
 		except OSError:
 			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 			return None
+
 
 		except:
 			f.close()
@@ -1687,13 +1926,13 @@ tr:nth-child(even) {
 
 
 
-		url_path, query, fragment = URL_MANAGER(self.path)
+		url_path, query, fragment = self.url_path, self.query, self.fragment
 
-		spathsplit = url_path.split("/")
+		spathsplit = self.url_path.split("/")
 
 		filename = None
 
-		if self.path == '/favicon.ico':
+		if url_path == '/favicon.ico':
 			self.send_response(301)
 			self.send_header('Location','https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
 			self.end_headers()
@@ -1704,6 +1943,13 @@ tr:nth-child(even) {
 
 		print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
 
+		########################################################
+		#    TO	TEST ASSETS
+		#if spathsplit[1]=="@assets":
+		#	path = config.MAIN_FILE_dir+ "/../assets/"+ "/".join(spathsplit[2:])
+		#	print("USING ASSETS", path)
+
+		########################################################
 
 		if query("reload"):
 			# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
@@ -1712,17 +1958,61 @@ tr:nth-child(even) {
 			httpd.server_close()
 			httpd.shutdown()
 
-		########################################################
-		#    TO	TEST ASSETS
-		#elif spathsplit[1]=="@assets":
-		#	path = config.MAIN_FILE_dir+ "/../assets/"+ "/".join(spathsplit[2:])
-		#	print("USING ASSETS", path)
+		elif query("admin"):
+			title = "ADMIN PAGE"
+			displaypath = self.get_displaypath(url_path)
 
-		########################################################
+			head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+														PY_PUBLIC_URL=config.address(),
+														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
+
+			tail = _admin_page().template
+			return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
+
+		elif query("update"):
+			"""Check for update and return the latest version"""
+			data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+			if data:
+				data  = data.decode("utf-8").strip()
+				ret = json.dumps({"update_available": data > __version__, "latest_version": data})
+				return self.return_txt(HTTPStatus.OK, ret)
+			else:
+				return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+
+		elif query("update_now"):
+			"""Run update"""
+			if config.disabled_func["update"]:
+				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
+			else:
+				data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
+				if data:
+					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
+				else:
+					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
+
+
+
+		elif query("size"):
+			"""Return size of the file"""
+			stat = get_stat(path)
+			if not stat:
+				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+			if os.path.isfile(path):
+				size = stat.st_size
+			else:
+				size = get_dir_size(path)
+
+			humanbyte = humanbytes(size)
+			fmbyte = fmbytes(size)
+			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+															  "byte": size,
+															  "humanbyte": humanbyte,
+															  "fmbyte": fmbyte}))
+
 
 		elif query("czip"):
 			"""Create ZIP task and return ID"""
-			if disabled_func["zip"]:
+			if config.disabled_func["zip"]:
 				self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
 
 			dir_size = get_dir_size(path, limit=6*1024*1024*1024)
@@ -1731,12 +2021,7 @@ tr:nth-child(even) {
 				msg = "Directory size is too large, please contact the host"
 				return self.return_txt(HTTPStatus.OK, msg)
 
-			try:
-				displaypath = urllib.parse.unquote(url_path, errors='surrogatepass')
-			except UnicodeDecodeError:
-				displaypath = urllib.parse.unquote(url_path)
-			displaypath = html.escape(displaypath, quote=False)
-
+			displaypath = self.get_displaypath(url_path)
 			filename = spathsplit[-2] + ".zip"
 
 
@@ -1807,12 +2092,8 @@ tr:nth-child(even) {
 			# SEND VIDEO PLAYER
 			if self.guess_type(path).startswith('video/'):
 				r = []
-				try:
-					displaypath = urllib.parse.unquote(url_path,
-													errors='surrogatepass')
-				except UnicodeDecodeError:
-					displaypath = urllib.parse.unquote(url_path)
-				displaypath = html.escape(displaypath, quote=False)
+
+				displaypath = self.get_displaypath(url_path)
 
 
 
@@ -1840,6 +2121,7 @@ tr:nth-child(even) {
 
 				encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 				return self.return_txt(HTTPStatus.OK, encoded)
+
 
 		f = None
 		if os.path.isdir(path):
@@ -1879,6 +2161,21 @@ tr:nth-child(even) {
 
 
 
+	def get_displaypath(self, url_path):
+		"""Helper to produce a display path for the directory listing.
+		"""
+
+		try:
+			displaypath = urllib.parse.unquote(url_path, errors='surrogatepass')
+		except UnicodeDecodeError:
+			displaypath = urllib.parse.unquote(url_path)
+		displaypath = html.escape(displaypath, quote=False)
+
+		return displaypath
+
+
+
+
 
 	def list_directory_json(self, path=None):
 		"""Helper to produce a directory listing (JSON).
@@ -1887,7 +2184,7 @@ tr:nth-child(even) {
 			path = self.translate_path(self.path)
 
 		try:
-			dir_list = natsort.humansorted(os.listdir(path))
+			dir_list = humansorted(os.listdir(path))
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
@@ -1931,21 +2228,16 @@ tr:nth-child(even) {
 
 		"""
 
-		url_path, query, fragment = URL_MANAGER(self.path)
-
 		try:
-			dir_list = natsort.humansorted(os.listdir(path))
+			dir_list = humansorted(os.listdir(path))
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
 				"No permission to list directory")
 			return None
 		r = []
-		try:
-			displaypath = urllib.parse.unquote(url_path, errors='surrogatepass')
-		except UnicodeDecodeError:
-			displaypath = urllib.parse.unquote(url_path)
-		displaypath = html.escape(displaypath, quote=False)
+
+		displaypath = self.get_displaypath(self.url_path)
 
 
 		title = self.get_titles(displaypath)
@@ -1969,6 +2261,12 @@ tr:nth-child(even) {
 
 		LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li><hr>'
 
+		r.append("""
+				<div id="content_list">
+					<ul id="linkss">
+						<!-- CONTENT LIST (NO JS) -->
+				""")
+
 
 		# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
 		for name in dir_list:
@@ -1984,7 +2282,7 @@ tr:nth-child(even) {
 				displayname = name + "@"
 			else:
 				_is_dir_ =False
-				size = fmbytes(os.path.getsize(fullname))
+				size = fmbytes(path=fullname)
 				__, ext = posixpath.splitext(fullname)
 				if ext=='.html':
 					r_files.append(LIST_STRING % ("link", urllib.parse.quote(linkname,
@@ -2033,6 +2331,12 @@ tr:nth-child(even) {
 		r.extend(r_folders)
 		r.extend(r_files)
 
+		r.append("""</ul>
+					</div>
+					<!-- END CONTENT LIST (NO JS) -->
+					<div id="js-content_list" class="jsonly"></div>
+				""")
+
 		r.append(_js_script().safe_substitute(PY_LINK_LIST=str(r_li),
 											PY_FILE_LIST=str(f_li),
 											PY_FILE_SIZE =str(s_li)))
@@ -2075,6 +2379,7 @@ tr:nth-child(even) {
 			r.append(tag)
 
 		return '<span class="dir_arrow">&#10151;</span>'.join(r)
+
 
 
 	def translate_path(self, path):
@@ -2222,11 +2527,12 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	local_ip = config.IP if config.IP else get_ip()
 	config.IP= local_ip
 
-	print(
+	print(tools.text_box(
 		f"Serving HTTP on {host} port {port} \n" #TODO: need to check since the output is "Serving HTTP on :: port 6969"
 		f"(http://{url_host}:{port}/) ...\n" #TODO: need to check since the output is "(http://[::]:6969/) ..."
 		f"Server is probably running on {config.address()}"
-
+		, style="star"
+		)
 	)
 	try:
 		httpd.serve_forever()
@@ -2252,9 +2558,9 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 				socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
 		return super().server_bind()
 
-	def finish_request(self, request, client_address):
-			self.RequestHandlerClass(request, client_address, self,
-									directory=args.directory)
+	# def finish_request(self, request, client_address):
+	# 		self.RequestHandlerClass(request, client_address, self,
+	# 								directory=args.directory)
 
 
 

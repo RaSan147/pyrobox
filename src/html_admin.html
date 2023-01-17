@@ -1,0 +1,79 @@
+
+
+<h1 style="text-align: center;">Admin Page</h1>
+<hr>
+
+
+
+
+<!-- check if update available -->
+
+<div>
+	<p class="update_text" id="update_text">Checking for Update...</p>
+	<div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div>
+</div>
+
+
+
+<div class='pagination jsonly' onclick="request_reload()">RELOAD SERVER 🧹</div>
+<noscript><a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br></noscript>
+<hr>
+
+<div class='pagination jsonly' onclick="request_shutdown()">Shut down 🔻</div>
+
+<script>
+
+
+function request_reload() {
+	fetch('/?reload');
+}
+
+
+
+async function check_update() {
+	fetch('/?update')
+	.then(response => {
+		console.log(response);
+		return response.json()
+	}).then(data => {
+		if (data.update_available) {
+			byId("update_text").innerText = "Update Available! 🎉 Latest Version: " + data.latest_version ;
+			byId("update_text").style.backgroundColor = "#00cc0033";
+
+			byId("run_update").style.display = "block";
+		} else {
+			byId("update_text").innerText = "No Update Available";
+			byId("update_text").style.backgroundColor = "#bbb";
+		}
+	})
+	.catch(async err => {
+		await tools.sleep(0);
+		byId("update_text").innerText = "Update Error: " + "Invalid Response";
+		byId("update_text").style.backgroundColor = "#CC000033";
+	});
+}
+
+function run_update() {
+	fetch('/?update_now')
+	.then(response => response.json())
+	.then(data => {
+		if (data.status) {
+			byId("update_text").innerHTML = data.message;
+			byId("update_text").style.backgroundColor = "green";
+
+		} else {
+			byId("update_text").innerHTML = data.message;
+			byId("update_text").style.backgroundColor = "#bbb";
+		}
+	})
+	.catch(err => {
+		byId("update_text").innerText = "Update Error: " + "Invalid Response";
+		byId("update_text").style.backgroundColor = "#CC000033";
+	})
+
+
+	byId("run_update").style.display = "none";
+}
+
+check_update();
+</script>

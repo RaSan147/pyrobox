@@ -1,6 +1,3 @@
-</ul>
-</div>
-
 <h2>ZIPPING FOLDER</h2>
 <h3 id="zip-prog">Progress</h3>
 <h3 id="zip-perc"></h3>
@@ -18,6 +15,9 @@ var percentage = document.getElementById("zip-perc")
 function ping(url) {
 	var xhttp = new XMLHttpRequest();
 	xhttp.onreadystatechange = function() {
+		if (dl_now) {
+			return
+		}
 		if (this.readyState == 4 && this.status == 200) {
 			// Typical action to be performed when the document is ready:
 			//document.getElementById("demo").innerHTML = xhttp.responseText;

@@ -148,7 +148,7 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 	def get_json(url):
 		
 		try:
-			u = url+"%3Fjson"
+			u = url+"?json"
 			#print(u)
 			json = session.get(u).json()
 			return json
