@@ -981,7 +981,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.url_path = url_path
 			self.query = query
 			self.fragment = fragment
-			
+
 
 			method()
 			self.wfile.flush() #actually send the response if not already done.
@@ -1251,14 +1251,14 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.query = Custom_dict()
 
 	def do_GET(self):
-		"""Serve a GET request."""		
+		"""Serve a GET request."""
 		try:
 			f = self.send_head()
 		except Exception as e:
 			traceback.print_exc()
 			self.send_error(500, str(e))
 			return
-				
+
 		if f:
 			try:
 				self.copyfile(f, self.wfile)
@@ -1267,7 +1267,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			finally:
 				f.close()
 
-	def do_(self): 
+	def do_(self):
 		'''incase of errored request'''
 		self.send_error(HTTPStatus.BAD_REQUEST, "Bad request.")
 
@@ -1811,7 +1811,7 @@ tr:nth-child(even) {
 	def return_file(self, path, first, last, filename=None):
 		f = None
 		is_attachment = "attachment;" if self.query("dl") else ""
-		
+
 
 		try:
 			ctype = self.guess_type(path)
@@ -1927,7 +1927,7 @@ tr:nth-child(even) {
 		url_path, query, fragment = self.url_path, self.query, self.fragment
 
 		spathsplit = self.url_path.split("/")
-		
+
 		filename = None
 
 		if url_path == '/favicon.ico':
@@ -2332,6 +2332,7 @@ tr:nth-child(even) {
 		r.append("""</ul>
 					</div>
 					<!-- END CONTENT LIST (NO JS) -->
+					<div id="js-content_list" class="jsonly"></div>
 				""")
 
 		r.append(_js_script().safe_substitute(PY_LINK_LIST=str(r_li),

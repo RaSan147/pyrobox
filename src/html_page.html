@@ -14,6 +14,12 @@ const public_url = "${PY_PUBLIC_URL}";
 
 <style type="text/css">
 
+#content_list {
+	/* making sure this don't get visible if js enabled */
+	/* otherwise that part makes a wierd flash */
+	display: none;
+}
+
 
 body {
 	position: relative;
@@ -413,14 +419,14 @@ ul{
 	margin: 0;
 }
 
-#upload-pass {
+.upload-pass {
 	background-color: #000;
 	padding: 5px;
 	border-radius: 4px;
 	font: 1.5em sans-serif;
 }
 
-#upload-pass-box {
+.upload-pass-box {
 	/* make text field larger */
 	font-size: 1.5em;
 	border: #aa00ff solid 2px;;
@@ -429,7 +435,7 @@ ul{
 }
 
 
-#upload-box {
+.upload-box {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -462,7 +468,7 @@ ul{
 	color: #fff;
 	margin: 10px 0 15px 0;
 }
-.drag-area button, #submit-btn{
+.drag-browse, #submit-btn{
 	padding: 10px 25px;
 	font-size: 20px;
 	font-weight: 500;
@@ -526,6 +532,11 @@ ul{
 	<style>
 		.jsonly {
 			display: none !important
+		}
+
+		#content_list {
+			/* making sure its visible */
+			display: block;
 		}
 	</style>
 </noscript>
