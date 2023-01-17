@@ -132,7 +132,6 @@ import posixpath
 import shutil
 import socket # For gethostbyaddr()
 import socketserver
-import itertools
 import sys
 import time
 import urllib.parse
@@ -153,6 +152,7 @@ import tempfile, random, string, json
 
 
 import traceback
+
 
 
 
@@ -298,10 +298,11 @@ def get_stat(path):
 		return False
 
 def get_file_count(path):
-	n = 0
-	for _,_,files in os.walk(path, onerror= print):
-		n += len(files)
-	return n
+	# n = 0
+	# for _,_,files in os.walk(path, onerror= print):
+	# 	n += len(files)
+	# return n
+	return sum(1 for _, _, files in os.walk(path) for f in files)
 
 
 def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False) -> int|tuple:
@@ -503,6 +504,7 @@ class ZIP_Manager:
 			return False
 		if config.disabled_func["zip"]:
 			return err("ZIP FUNTION DISABLED")
+
 
 
 
@@ -1246,7 +1248,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def __init__(self, *args, directory=None, **kwargs):
 		if directory is None:
 			directory = os.getcwd()
-		self.directory = os.fspath(directory)
+		self.directory = os.fspath(directory) # same as directory, but str, new in 3.6
 		super().__init__(*args, **kwargs)
 		self.query = Custom_dict()
 
@@ -1610,7 +1612,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			xpath = self.translate_path(posixpath.join(self.path, filename)) # the absolute path of the file or folder
 
-			print('Info Checked "%s" by: %s'%(xpath, uid))
+			print(f'Info Checked "{xpath}" by: {uid}')
 
 			file_stat = get_stat(xpath)
 			if not file_stat:
