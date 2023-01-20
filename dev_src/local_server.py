@@ -1409,7 +1409,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	# 	if post_type== "upload":
 	# 		DO_NOT_JSON = True
 
-		print(tools.text_box(r, post_type, "by: ", [self.address_string()]))
+		# print(tools.text_box(r, post_type, "by: ", [self.address_string()]))
 
 	# 	print((r, post_type, "by: ", self.client_address))
 
