@@ -1,0 +1,14 @@
+[project]
+name = "pyrobox_Rasan147"
+version = "0.5.0"
+
+[project.urls]
+"Homepage" = "https://github.com/RaSan147/py_httpserver_Ult"
+"Bug Tracker" = "https://github.com/RaSan147/py_httpserver_Ult/issues"
+
+[build-system]
+requires = [
+  "setuptools>=61.0",
+  "wheel"
+]
+build-backend = "setuptools.build_meta"

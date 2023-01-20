@@ -1,0 +1,2 @@
+natsort
+send2trash
