@@ -1,15 +1,23 @@
 Metadata-Version: 2.1
 Name: pyrobox-Rasan147
-Version: 0.5.0
-Summary: "A small example package"
+Version: 0.5.1
+Summary: "Upgraded Python http.server for File Sharing"
 Home-page: https://github.com/RaSan147/py_httpserver_Ult
 Author-email: wwwqweasd147@gmail.com
-Project-URL: Homepage, https://github.com/RaSan147/py_httpserver_Ult
 Project-URL: Bug Tracker, https://github.com/RaSan147/py_httpserver_Ult/issues
-Classifier: "Programming Language :: Python :: 3",
-Classifier: "License :: OSI Approved :: MIT License",
-Classifier: "Operating System :: OS Independent",
-Requires-Python: >=3.5
+Project-URL: Documentation, https://github.com/RaSan147/py_httpserver_Ult
+Project-URL: Source Code, https://github.com/RaSan147/py_httpserver_Ult
+Project-URL: Release Notes, https://github.com/RaSan147/py_httpserver_Ult
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Internet :: File Transfer Protocol (FTP)
+Classifier: Topic :: Communications :: File Sharing
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 
 ### Help Needed
@@ -50,49 +58,44 @@ Server side requirement
 * Basic knowledge about Python
 * `send2trash`, `natsort` pip package (if missing, will be auto installed when the code runs)
 
-[^1]: [3.4 compat](/src/local_server%20(py%7E3.4).py) version to support till 3.4, but will not maintain that often. Also not recommended since it got EOL)
+[^1]: [<=3.4 compat] is on the way.
 
 
 # Installation
 ----------------------------------------------------------------
   * **Install Python 3.7 or higher**
-  ### On Windows
-  1. Download the `local_server.py`. Yes, only the `local_server.py`. Other files are not necessary.
-  2. Or Use This Script on terminal where you want to save it.
-```
-curl -O local_server.py https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py # download script and replace old version
-.\local_server.py # run like a script
-```
-  3. The server will show your ip and port, use that with and local device browser under the same network
-     * Like this `192.168.0.100:6969/`
+  1. Install using PIP
+  ### On Windows:
+  * Open `CMD` or `PowerShell`
+  * Run `pip install pyrobox`
+  * Run `pyrobox` to launch the server
 
-  ### On Linux
-  To run code directly like a script on a linux machine. Just paste these lines on a terminal.
-  ```
-  curl -O local_server.py https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py # download script and replace old version
-  chmod +x local_server.py # give permissions
-  ./local_server.py # run like a script
-  ```
+  ### On Linux:
+  * Open `Terminal`
+  * Run `pip3 install pyrobox`
+  * Run `pyrobox` to launch the server
+
 CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 
 
 # Customization
-1. Simply running the code on `Windows` will create a server on `D:\ Drive`on `Port: 6969`
-1. On browser (same device as server), go to `deviceIP:port_number` to see the output
+1. Simply running the code on will create a server on `CURRENT WORKING DIRECTORY` on `Port: 6969`
+1. On browser (on device under same router/wifi network), go to `deviceIP:port_number` to see the output like this: `http://192.168.0.101:6969/`
+    * you must allow python in firewall to access network, check [FAQ](#faq) for more help
 1. To change the server running directory, 
    - i) either edit the code  (see `config` class at top)
    - ii) or add `-d` or `--directory` command line argument when launching the program
-        - `local_server.py -d .` to launch the server in current directory (where the file is)
-        - `local_server.py -d "D:\Server\Public folder\"`  (Use Double-Quotation while directory has space)
-        - `local_server.py -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter, unless your terminal thinks otherwise)
+        - `pyrobox -d .` to launch the server in current directory (where the file is)
+        - `pyrobox -d "D:\Server\Public folder\"`  (Use Double-Quotation while directory has space)
+        - `pyrobox -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter, unless your terminal thinks otherwise)
  1. To change port number
     - i) just edit the code for permanent change  (see `config` class at top)
     - ii) or add the port number at the end of the command line arg  
-       -  `local_server.py 45678`
-       -  `local_server.py -d . 45678`
+       -  `pyrobox 45678` # will run on port 45678
+       -  `pyrobox -d . 45678` # will run on port 45678 in current directory
 
 1. To specify alternate bind address
-    - Add bind add `-bind {address}` # idk if it works
+    - Add bind add `-bind {address}` # idk if it works and how it works, but it's there
 
  TODO:
 --------------------------------------------------------------
@@ -122,7 +125,7 @@ Context menu:
   sudo apt -y purge python3-pip
   sudo python3 -m pip uninstall pip
   sudo apt -y install python3-pip
-  pip install --upgrade pip
+  pip3 install --upgrade pip
   echo "export PATH=\"${HOME}/.local/bin:$PATH\"" >>"${HOME}"/.bashrc
   ```
   > Re-running the file should work.
@@ -136,16 +139,11 @@ Context menu:
   sudo apt -y purge python3-pip
   sudo python3 -m pip uninstall pip
   sudo apt -y install python3-pip
-  pip install --upgrade pip
+  pip3 install --upgrade pip
   ```
   > Re-running the file should work.
 </details>
 
-<details>
-  <summary>USE "local_server" like command "youtube_dl"</summary>
-  
-  > **Unfortunately this is not possible yet**, I'll make sure this feature works when publish it in `PyPI pip`
-</details>
 
 <details>
   <summary>Deleted (Move to Recycle), But WHERE ARE THEY?? [on LINUX & WSL]</summary>
@@ -156,7 +154,7 @@ Context menu:
 </details>
 
 <details>
-  <summary>Running on WINDOWS, but can't access with other device</summary>
+  <summary>Running on WINDOWS, but can't access with other device [FIREWALL]</summary>
  
   > You probably have **FireWall ON** and Unconfigured.
   > For your safety, I'd recommand you to allow Python on private network and run the server when your network is Private.
@@ -172,4 +170,4 @@ Context menu:
 4. https://github.com/sandes/zipfly (*modified* lets you see the zip progress)
 5. https://github.com/sampotts/plyr (*improved* video player)
 
-***Disclaimer***: **the owner or the programmers or any content of this repository hold no responsibility for any kind of data loss or modification on your system and do not warrenty for such actions. I tried my best to prevent all sorts of ways (that I am currently aware of) to prevent data loss or unwanted data modification. See [Data Safety Measures](/DATA%20SAFETY.MD) taken on this projects to prevent unwanted data loss.
+***Disclaimer***: *the owner or the programmers or any content of this repository hold no responsibility for any kind of data loss or modification on your system and do not warrenty for such actions. I tried my best to prevent all sorts of ways (that I am currently aware of) to prevent data loss or unwanted data modification. See [Data Safety Measures](/DATA%20SAFETY.MD) taken on this projects to prevent unwanted data loss.*

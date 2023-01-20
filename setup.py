@@ -1,8 +1,6 @@
 from setuptools import setup
 
 setup(
-    name='pyrobox_Rasan147',
-    version='0.5.0',
     package_dir={"pyrobox_Rasan147": "src",},
     install_requires=[
         'natsort',

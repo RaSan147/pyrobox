@@ -36,7 +36,7 @@ Server side requirement
 * Basic knowledge about Python
 * `send2trash`, `natsort` pip package (if missing, will be auto installed when the code runs)
 
-[^1]: [3.4 compat](/src/local_server%20(py%7E3.4).py) version to support till 3.4, but will not maintain that often. Also not recommended since it got EOL)
+[^1]: [<=3.4 compat] is on the way.
 
 
 # Installation
@@ -148,4 +148,4 @@ Context menu:
 4. https://github.com/sandes/zipfly (*modified* lets you see the zip progress)
 5. https://github.com/sampotts/plyr (*improved* video player)
 
-***Disclaimer***: **the owner or the programmers or any content of this repository hold no responsibility for any kind of data loss or modification on your system and do not warrenty for such actions. I tried my best to prevent all sorts of ways (that I am currently aware of) to prevent data loss or unwanted data modification. See [Data Safety Measures](/DATA%20SAFETY.MD) taken on this projects to prevent unwanted data loss.
+***Disclaimer***: *the owner or the programmers or any content of this repository hold no responsibility for any kind of data loss or modification on your system and do not warrenty for such actions. I tried my best to prevent all sorts of ways (that I am currently aware of) to prevent data loss or unwanted data modification. See [Data Safety Measures](/DATA%20SAFETY.MD) taken on this projects to prevent unwanted data loss.*
