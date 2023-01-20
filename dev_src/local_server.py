@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = "0.6"
+__version__ = "0.6.1"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -323,7 +323,6 @@ def get_file_count(path):
 	return sum(1 for _, _, files in os.walk(path) for f in files)
 
 
-def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
 def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
 	"""
 	Get the size of a directory and all its subdirectories.
