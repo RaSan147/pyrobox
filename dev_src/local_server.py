@@ -1155,6 +1155,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		self.log_message(format, *args, error = True)
 
+	
+
 
 
 
@@ -1690,7 +1692,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			new_path = self.translate_path(posixpath.join(self.path, new_name))
 
-			logger.warning('Renamed ', [xpath], 'to', [new_path], 'by', [uid], [self.address_string()])
+			logger.warning(f'Renamed {[xpath]} to {[new_path]} by {[uid]} {[self.address_string()]}')
 
 
 			try:
