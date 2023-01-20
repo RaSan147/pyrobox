@@ -1,0 +1,56 @@
+<h2>ZIPPING FOLDER</h2>
+<h3 id="zip-prog">Progress</h3>
+<h3 id="zip-perc"></h3>
+
+<script>
+
+
+const id = "${PY_ZIP_ID}";
+const filename = "${PY_ZIP_NAME}";
+var dl_now = false
+var check_prog = true
+var message = document.getElementById("zip-prog")
+var percentage = document.getElementById("zip-perc")
+
+function ping(url) {
+	var xhttp = new XMLHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (dl_now) {
+			return
+		}
+		if (this.readyState == 4 && this.status == 200) {
+			// Typical action to be performed when the document is ready:
+			//document.getElementById("demo").innerHTML = xhttp.responseText;
+			var resp = xhttp.responseText;
+			if (resp == "SUCCESS") {
+				check_prog = true;
+			} else if (resp == "DONE") {
+				dl_now = true;
+				clearTimeout(prog_timer)
+				run_dl()
+			} else if (resp.startsWith("ERROR")) {
+				message.innerHTML = resp;
+				clearTimeout(prog_timer)
+			} else {
+				percentage.innerText = resp + "%";
+			}
+		}
+	};
+	xhttp.open("GET", url, true);
+	xhttp.send();
+}
+
+function run_dl() {
+	var a = document.createElement('a');
+	a.href= window.location.pathname + "?zip&zid=" + id + "&download";
+	a.download = filename;
+	a.style.display = 'none';
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+}
+var prog_timer = setInterval(function() {
+	ping(window.location.pathname + "?zip&zid=" + id + "&progress")}, 500)
+
+
+</script>
