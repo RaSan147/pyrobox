@@ -2821,8 +2821,9 @@ def upload(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	post.skip()
 	password= post.get(F)
-	print('post password: ',  password)
+	logger.info(f'post password: {[password]} by {[self.address_string()]}')
 	if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
+		logger.info(f"Incorrect password by {[self.address_string()]}")
 
 		return self.send_txt(HTTPStatus.UNAUTHORIZED, "Incorrect password")
 
@@ -2930,9 +2931,8 @@ def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	path = self.get_rel_path(filename)
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
-	print(path, self.path, filename, xpath)
 
-	print('send2trash "%s" by: %s'%(xpath, uid))
+	logger.warning(f'send2trash {[xpath]} by {[uid]} {[self.address_string()]}')
 
 	head = "Failed"
 	try:
@@ -2981,7 +2981,7 @@ def del_permanently(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
 
-	print('Perm. DELETED "%s" by: %s'%(xpath, uid))
+	logger.warning(f'Perm. DELETED {[xpath]} by {[uid]} {[self.address_string()]}')
 
 
 	try:
