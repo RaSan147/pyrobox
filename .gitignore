@@ -3,7 +3,6 @@
 *.pyc
 *.bak
 **/test.*
-**/test.*
 **/build/*
 **/dist/*
 *.egg-info

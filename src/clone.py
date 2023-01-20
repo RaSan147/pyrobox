@@ -207,9 +207,9 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 		
 			
 		
-		
-clone("SOURCE_DIR", "DESTINATION_DIR", False, "date", True)
+if __name__ == "__main__":
+	clone("SOURCE_DIR", "DESTINATION_DIR", False, "date", True)
 
-for future in as_completed(futures):
-	bool(future.result())
+	for future in as_completed(futures):
+		bool(future.result())
 
