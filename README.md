@@ -42,43 +42,38 @@ Server side requirement
 # Installation
 ----------------------------------------------------------------
   * **Install Python 3.7 or higher**
-  ### On Windows
-  1. Download the `local_server.py`. Yes, only the `local_server.py`. Other files are not necessary.
-  2. Or Use This Script on terminal where you want to save it.
-```
-curl -O local_server.py https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py # download script and replace old version
-.\local_server.py # run like a script
-```
-  3. The server will show your ip and port, use that with and local device browser under the same network
-     * Like this `192.168.0.100:6969/`
+  1. Install using PIP
+  ### On Windows:
+  * Open `CMD` or `PowerShell`
+  * Run `pip install pyrobox`
+  * Run `pyrobox` to launch the server
 
-  ### On Linux
-  To run code directly like a script on a linux machine. Just paste these lines on a terminal.
-  ```
-  curl -O local_server.py https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py # download script and replace old version
-  chmod +x local_server.py # give permissions
-  ./local_server.py # run like a script
-  ```
+  ### On Linux:
+  * Open `Terminal`
+  * Run `pip3 install pyrobox`
+  * Run `pyrobox` to launch the server
+
 CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 
 
 # Customization
-1. Simply running the code on `Windows` will create a server on `D:\ Drive`on `Port: 6969`
-1. On browser (same device as server), go to `deviceIP:port_number` to see the output
+1. Simply running the code on will create a server on `CURRENT WORKING DIRECTORY` on `Port: 6969`
+1. On browser (on device under same router/wifi network), go to `deviceIP:port_number` to see the output like this: `http://192.168.0.101:6969/`
+    * you must allow python in firewall to access network, check [FAQ](#faq) for more help
 1. To change the server running directory, 
    - i) either edit the code  (see `config` class at top)
    - ii) or add `-d` or `--directory` command line argument when launching the program
-        - `local_server.py -d .` to launch the server in current directory (where the file is)
-        - `local_server.py -d "D:\Server\Public folder\"`  (Use Double-Quotation while directory has space)
-        - `local_server.py -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter, unless your terminal thinks otherwise)
+        - `pyrobox -d .` to launch the server in current directory (where the file is)
+        - `pyrobox -d "D:\Server\Public folder\"`  (Use Double-Quotation while directory has space)
+        - `pyrobox -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter, unless your terminal thinks otherwise)
  1. To change port number
     - i) just edit the code for permanent change  (see `config` class at top)
     - ii) or add the port number at the end of the command line arg  
-       -  `local_server.py 45678`
-       -  `local_server.py -d . 45678`
+       -  `pyrobox 45678` # will run on port 45678
+       -  `pyrobox -d . 45678` # will run on port 45678 in current directory
 
 1. To specify alternate bind address
-    - Add bind add `-bind {address}` # idk if it works
+    - Add bind add `-bind {address}` # idk if it works and how it works, but it's there
 
  TODO:
 --------------------------------------------------------------
@@ -108,7 +103,7 @@ Context menu:
   sudo apt -y purge python3-pip
   sudo python3 -m pip uninstall pip
   sudo apt -y install python3-pip
-  pip install --upgrade pip
+  pip3 install --upgrade pip
   echo "export PATH=\"${HOME}/.local/bin:$PATH\"" >>"${HOME}"/.bashrc
   ```
   > Re-running the file should work.
@@ -122,16 +117,11 @@ Context menu:
   sudo apt -y purge python3-pip
   sudo python3 -m pip uninstall pip
   sudo apt -y install python3-pip
-  pip install --upgrade pip
+  pip3 install --upgrade pip
   ```
   > Re-running the file should work.
 </details>
 
-<details>
-  <summary>USE "local_server" like command "youtube_dl"</summary>
-  
-  > **Unfortunately this is not possible yet**, I'll make sure this feature works when publish it in `PyPI pip`
-</details>
 
 <details>
   <summary>Deleted (Move to Recycle), But WHERE ARE THEY?? [on LINUX & WSL]</summary>
@@ -142,7 +132,7 @@ Context menu:
 </details>
 
 <details>
-  <summary>Running on WINDOWS, but can't access with other device</summary>
+  <summary>Running on WINDOWS, but can't access with other device [FIREWALL]</summary>
  
   > You probably have **FireWall ON** and Unconfigured.
   > For your safety, I'd recommand you to allow Python on private network and run the server when your network is Private.

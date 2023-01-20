@@ -238,51 +238,6 @@ def check_installed(pkg):
 	return bool(importlib.util.find_spec(pkg))
 
 
-def run_pip_install():
-	dep_modified = False
-
-	import sysconfig, pip
-	for i in REQUEIREMENTS:
-		if check_installed(i):
-			continue
-
-		more_arg = ""
-		if pip.__version__ >= "6.0":
-			more_arg += " --disable-pip-version-check"
-		if pip.__version__ >= "20.0":
-			more_arg += " --no-python-version-warning"
-
-
-		py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
-		on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
-		command = "" if config.OS == "Windows" else on_linux
-		comm = f'{command} {sys.executable} -m pip install  --quiet {more_arg} {i}'
-
-		subprocess.call(comm, shell=True)
-
-
-		#if i not in get_installed():
-		if check_installed(i):
-			dep_modified = True
-
-
-		else:
-			print("Failed to load ", i)
-			config.disabled_func[i] = True
-
-	if dep_modified:
-		print("Reloading...")
-		config.reload = True
-
-if config.run_req_check:
-	run_pip_install()
-
-
-if config.reload == True:
-	subprocess.call([sys.executable, config.MAIN_FILE] + sys.argv[1:])
-	sys.exit(0)
-
-
 #############################################
 #                FILE HANDLER               #
 #############################################
@@ -558,6 +513,7 @@ try:
 
 except Exception:
 	config.disabled_func["zip"] = True
+	logger.warning("Failed to initialize zipfly, ZIP feature is disabled.")
 
 class ZIP_Manager:
 	def __init__(self) -> None:
@@ -711,12 +667,14 @@ if not config.disabled_func["send2trash"]:
 		from send2trash import send2trash, TrashPermissionError
 	except Exception:
 		config.disabled_func["send2trash"] = True
+		logger.warning("send2trash module not found, send2trash function disabled")
 
 if not config.disabled_func["natsort"]:
 	try:
 		import natsort
 	except Exception:
 		config.disabled_func["natsort"] = True
+		logger.warning("natsort module not found, natsort function disabled")
 
 def humansorted(li):
 	if not config.disabled_func["natsort"]:
