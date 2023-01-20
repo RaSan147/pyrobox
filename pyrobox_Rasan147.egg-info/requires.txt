@@ -1,2 +1,0 @@
-natsort
-send2trash

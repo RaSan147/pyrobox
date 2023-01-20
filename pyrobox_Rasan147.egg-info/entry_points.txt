@@ -1,2 +1,0 @@
-[console_scripts]
-pyrobox = pyrobox_Rasan147:server.run
