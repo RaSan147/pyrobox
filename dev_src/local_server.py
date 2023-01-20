@@ -1150,6 +1150,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		self.log_message(format, *args, error = True)
 
+	
+
 
 
 
@@ -1440,9 +1442,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			skip()
 			password= get(F)
-			logger.info('post password: ',  [password], "by", [self.address_string()])
+			logger.info(f'post password: {[password]} by {[self.address_string()]}')
 			if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
-				logger.info("Incorrect password by", [self.address_string()])
+				logger.info(f"Incorrect password by {[self.address_string()]}")
 				self.send_error(HTTPStatus.UNAUTHORIZED, "Incorrect password")
 				# raise ConnectionAbortedError
 				return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
@@ -1532,7 +1534,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			xpath = self.translate_path(posixpath.join(self.path, filename))
 
-			logger.warning('send2trash ',[xpath], 'by', [uid], [self.address_string()])
+			logger.warning(f'send2trash {[xpath]} by {[uid]} {[self.address_string()]}')
 
 			bool = False
 			try:
@@ -1567,7 +1569,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			xpath = self.translate_path(posixpath.join(self.path, filename))
 
-			logger.warning('Perm. DELETED ', [xpath], 'by', [uid], [self.address_string()])
+			logger.warning(f'Perm. DELETED {[xpath]} by {[uid]} {[self.address_string()]}')
 
 
 			try:
@@ -1612,7 +1614,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			new_path = self.translate_path(posixpath.join(self.path, new_name))
 
-			logger.warning('Renamed ', [xpath], 'to', [new_path], 'by', [uid], [self.address_string()])
+			logger.warning(f'Renamed {[xpath]} to {[new_path]} by {[uid]} {[self.address_string()]}')
 
 
 			try:
