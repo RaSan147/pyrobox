@@ -305,7 +305,7 @@ def get_file_count(path):
 	return sum(1 for _, _, files in os.walk(path) for f in files)
 
 
-def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False) -> int|tuple:
+def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
 	"""
 	Get the size of a directory and all its subdirectories.
 

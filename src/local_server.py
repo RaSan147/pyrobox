@@ -310,7 +310,7 @@ def get_file_count(path):
 	return sum(1 for _, _, files in os.walk(path) for f in files)
 
 
-def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False) -> int|tuple:
+def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
 	"""
 	Get the size of a directory and all its subdirectories.
 
@@ -1597,37 +1597,37 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	# 		return (bool, msg)
 
 
-		def del_permanently():
+		# def del_permanently():
 
-			# pass boundary
-			pass_bound()
-
-
-			# File link to move to recycle bin
-			if get_type()!="name":
-				return (False, "Invalid request")
+		# 	# pass boundary
+		# 	pass_bound()
 
 
-			skip()
-			filename = get(strip=T).decode()
+		# 	# File link to move to recycle bin
+		# 	if get_type()!="name":
+		# 		return (False, "Invalid request")
 
 
-			path = get_rel_path(filename)
-
-			xpath = self.translate_path(posixpath.join(self.path, filename))
-
-			print('Perm. DELETED "%s" by: %s'%(xpath, uid))
+		# 	skip()
+		# 	filename = get(strip=T).decode()
 
 
-			try:
-				if os.path.isfile(xpath): os.remove(xpath)
-				else: shutil.rmtree(xpath)
+		# 	path = get_rel_path(filename)
 
-				return (True, "PERMANENTLY DELETED  " + path +refresh)
+		# 	xpath = self.translate_path(posixpath.join(self.path, filename))
+
+		# 	print('Perm. DELETED "%s" by: %s'%(xpath, uid))
 
 
-			except Exception as e:
-				return (False, "<b>" + path + "<b>" + e.__class__.__name__ + " : " + str(e))
+		# 	try:
+		# 		if os.path.isfile(xpath): os.remove(xpath)
+		# 		else: shutil.rmtree(xpath)
+
+		# 		return (True, "PERMANENTLY DELETED  " + path +refresh)
+
+
+		# 	except Exception as e:
+		# 		return (False, "<b>" + path + "<b>" + e.__class__.__name__ + " : " + str(e))
 
 
 		def rename():
@@ -2880,7 +2880,7 @@ def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	
 	if config.disabled_func["send2trash"]:
-		return self.send_json({"head": "Failed", "body": "Trash not available. Please contact the Host..."})
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
 
 	# pass boundary
 	post.pass_bound()
@@ -2901,9 +2901,10 @@ def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	print(path, self.path, filename, xpath)
 
 	print('send2trash "%s" by: %s'%(xpath, uid))
+
 	head = "Failed"
 	try:
-		# send2trash(xpath)
+		send2trash(xpath)
 		msg = "Successfully Moved To Recycle bin"+ post.refresh
 		head = "Success"
 	except TrashPermissionError:
