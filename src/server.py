@@ -31,7 +31,6 @@ class Config:
 	def __init__(self):
 		# DEFAULT DIRECTORY TO LAUNCH SERVER
 		self.ftp_dir = "." # DEFAULT DIRECTORY TO LAUNCH SERVER
-
 		# some common default dir, but not used
 		self.ANDROID_ftp_dir = "/storage/emulated/0/"
 		self.LINUX_ftp_dir = "~/"
@@ -2052,7 +2051,6 @@ tr:nth-child(even) {
 			
 
 			httpd.server_close()
-			time.sleep(1)
 			httpd.shutdown()
 
 		elif query("admin"):
@@ -2639,7 +2637,6 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	except OSError:
 		print("\nOSError received, exiting.")
 	finally:
-		print(config.reload)
 		if not config.reload:
 			sys.exit(0)
 

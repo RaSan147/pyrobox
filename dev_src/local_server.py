@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = "0.5"
+__version__ = "0.6"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -11,6 +11,15 @@ __all__ = [
 
 import os
 import atexit
+import logging
+
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+# set INFO to see all the requests
+# set WARNING to see only the requests that made change to the server
+# set ERROR to see only the requests that made the errors
 
 
 
@@ -37,6 +46,7 @@ class Config:
 		# LOGGING
 		self.log_location = "./"  # fallback log_location = "./"
 		self.allow_web_log = True # if you want to see some important LOG in browser, may contain your important information
+		self.write_log = False # if you want to write log to file
 
 		# ZIP FEATURES
 		self.default_zip = "zipfile" # or "zipfile" to use python built in zip module
@@ -165,6 +175,9 @@ class Tools:
 			"dash"  : "-",
 			"udash": "_"
 		}
+
+	def term_width(self):
+		return shutil.get_terminal_size()[0]
 
 	def text_box(self, *text, style = "equal"):
 		"""
@@ -305,7 +318,7 @@ def get_file_count(path):
 	return sum(1 for _, _, files in os.walk(path) for f in files)
 
 
-def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False) -> int|tuple:
+def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
 	"""
 	Get the size of a directory and all its subdirectories.
 
@@ -434,6 +447,7 @@ try:
 	from zipfly_local import ZipFly
 except ImportError:
 	config.disabled_func["zip"] = True
+	logger.warning("Failed to initialize zipfly, ZIP feature is disabled.")
 
 class ZIP_Manager:
 	def __init__(self) -> None:
@@ -587,12 +601,14 @@ if not config.disabled_func["send2trash"]:
 		from send2trash import send2trash, TrashPermissionError
 	except Exception:
 		config.disabled_func["send2trash"] = True
+		logger.warning("send2trash module not found, send2trash function disabled")
 
 if not config.disabled_func["natsort"]:
 	try:
 		import natsort
 	except Exception:
 		config.disabled_func["natsort"] = True
+		logger.warning("natsort module not found, natsort function disabled")
 
 def humansorted(li):
 	if not config.disabled_func["natsort"]:
@@ -985,7 +1001,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.fragment = fragment
 
 
-			method()
+			try:
+				method()
+			except Exception:
+				traceback.print_exc()
 			self.wfile.flush() #actually send the response if not already done.
 		except (TimeoutError, socket.timeout) as e:
 			#a read or a write timed out.  Discard this connection
@@ -1129,12 +1148,12 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		"""
 
-		self.log_message(format, *args)
+		self.log_message(format, *args, error = True)
 
 
 
 
-	def log_message(self, format, *args):
+	def log_message(self, format, *args, error = False):
 		"""Log an arbitrary message.
 
 		This is used by all other logging functions.  Override
@@ -1153,12 +1172,20 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		message = format % args
 
-		sys.stderr.write("%s - - [%s] %s\n" %
+		message = ("%s - - [%s] %s\n" %
 						 (self.address_string(),
 						  self.log_date_time_string(),
 						  message))
+		if error:
+			logger.error(message)
+		else:
+			logger.info(message)
+
 
 		try:
+			if not config.write_log:
+				return
+			
 			# create config.log_location if it doesn't exist
 			os.makedirs(config.log_location, exist_ok=True)
 			with open(config.log_location + 'log.txt','a+') as f:
@@ -1265,7 +1292,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			try:
 				self.copyfile(f, self.wfile)
 			except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-				print(tools.text_box(e.__class__.__name__, e,"\nby ", self.client_address))
+				print(tools.text_box(e.__class__.__name__, e,"\nby ", self.address_string()))
 			finally:
 				f.close()
 
@@ -1281,6 +1308,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			traceback.print_exc()
 			self.send_error(500, str(e))
 			return
+		
 		if f:
 			f.close()
 
@@ -1294,7 +1322,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		try:
 			post_type, r, info, script = self.deal_post_data()
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-			print(tools.text_box(e.__class__.__name__, e,"\nby ", self.client_address))
+			print(tools.text_box(e.__class__.__name__, e,"\nby ", [self.address_string()]))
 			return
 		if post_type=='get-json':
 			return self.list_directory_json()
@@ -1303,7 +1331,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			DO_NOT_JSON = True
 
 
-		print((r, post_type, "by: ", self.client_address))
+		print(tools.text_box(r, post_type, "by: ", [self.address_string()]))
 
 		if r==True:
 			head = "Success"
@@ -1412,9 +1440,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			skip()
 			password= get(F)
-			print('post password: ',  password)
+			logger.info('post password: ',  [password], "by", [self.address_string()])
 			if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
-
+				logger.info("Incorrect password by", [self.address_string()])
 				self.send_error(HTTPStatus.UNAUTHORIZED, "Incorrect password")
 				# raise ConnectionAbortedError
 				return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
@@ -1504,7 +1532,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			xpath = self.translate_path(posixpath.join(self.path, filename))
 
-			print('send2trash "%s" by: %s'%(xpath, uid))
+			logger.warning('send2trash ',[xpath], 'by', [uid], [self.address_string()])
 
 			bool = False
 			try:
@@ -1514,7 +1542,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			except TrashPermissionError:
 				msg = "Recycling unavailable! Try deleting permanently..."
 			except Exception as e:
-				traceback.print_exc()
+				self.log_error(traceback.format_exc())
 				msg = "<b>" + path + "</b> " + e.__class__.__name__
 
 			return (bool, msg)
@@ -1539,7 +1567,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			xpath = self.translate_path(posixpath.join(self.path, filename))
 
-			print('Perm. DELETED "%s" by: %s'%(xpath, uid))
+			logger.warning('Perm. DELETED ', [xpath], 'by', [uid], [self.address_string()])
 
 
 			try:
@@ -1584,7 +1612,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			new_path = self.translate_path(posixpath.join(self.path, new_name))
 
-			print('Renamed "%s" by: %s'%(xpath, uid))
+			logger.warning('Renamed ', [xpath], 'to', [new_path], 'by', [uid], [self.address_string()])
 
 
 			try:
@@ -1612,7 +1640,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			xpath = self.translate_path(posixpath.join(self.path, filename)) # the absolute path of the file or folder
 
-			print(f'Info Checked "{xpath}" by: {uid}')
+			logger.warning(f'Info Checked', [xpath], 'by', [uid], [self.address_string()])
 
 			file_stat = get_stat(xpath)
 			if not file_stat:
@@ -1635,7 +1663,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 				data.append(["Total Files", get_file_count(xpath)])
 
-				print("files: ", get_file_count(xpath))
+				# print("files: ", get_file_count(xpath))
 
 				data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
 				script = '''
@@ -1940,8 +1968,9 @@ tr:nth-child(even) {
 
 
 
-
+		print("from:", [self.address_string()], "to:", [self.path])
 		print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
+		print('-'*tools.term_width())
 
 		########################################################
 		#    TO	TEST ASSETS
@@ -1954,6 +1983,7 @@ tr:nth-child(even) {
 		if query("reload"):
 			# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
 			config.reload = True
+
 
 			httpd.server_close()
 			httpd.shutdown()
@@ -2558,14 +2588,14 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 				socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
 		return super().server_bind()
 
-	# def finish_request(self, request, client_address):
-	# 		self.RequestHandlerClass(request, client_address, self,
-	# 								directory=args.directory)
+	def finish_request(self, request, client_address):
+			self.RequestHandlerClass(request, client_address, self,
+									directory=config.ftp_dir)
 
 
 
 
-if __name__ == '__main__':
+def run():
 	import argparse
 
 
@@ -2608,6 +2638,22 @@ if __name__ == '__main__':
 			bind=args.bind,
 			)
 
-if config.reload == True:
-	subprocess.call([sys.executable, config.MAIN_FILE] + sys.argv[1:])
-	sys.exit(0)
+	
+	if config.reload == True:
+		file = '"' + config.MAIN_FILE + '"'
+		print("Reloading...")
+		# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
+		try:
+			os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
+		except:
+			traceback.print_exc()
+		sys.exit(0)
+
+
+
+
+
+if __name__ == '__main__':
+	run()
+
+
