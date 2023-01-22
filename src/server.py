@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = "0.6.3"
+__version__ = "0.6.4"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -249,11 +249,14 @@ def run_update():
 	import sysconfig, pip
 
 	i = "pyrobox"
+	i = 'pyrobox-Rasan147'
 	more_arg = ""
 	if pip.__version__ >= "6.0":
 		more_arg += " --disable-pip-version-check"
 	if pip.__version__ >= "20.0":
 		more_arg += " --no-python-version-warning"
+
+	more_arg += " -i https://test.pypi.org/simple/ --force-reinstall --no-deps --user"
 
 
 	py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
