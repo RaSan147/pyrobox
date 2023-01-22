@@ -2,6 +2,17 @@
   ## Client-side Changes:
   * Nothing to notice
   ## Server-side Changes:
+  * HOTFIX: added `action="?upload"` to upload form
+  ## Fixes:
+  * fixed upload form not working due to missing `action="?upload"` which is required for POST requests
+
+
+------------------------------------------------------------------------
+
+# Version 0.6.1
+  ## Client-side Changes:
+  * Nothing to notice
+  ## Server-side Changes:
   * Completely changed server structure, now using` @SimpleHTTPRequestHandler.on_req` decorator to handle requests.
     ### `@SimpleHTTPRequestHandler.on_req(request_type, conditions)`
   * request_type: GET, POST, HEAD # use HEAD instead of GET since it will be called in get anyway **must**
