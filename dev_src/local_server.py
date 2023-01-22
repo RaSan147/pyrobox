@@ -1155,7 +1155,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		self.log_message(format, *args, error = True)
 
-	
+
 
 
 
@@ -1192,7 +1192,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		try:
 			if not config.write_log:
 				return
-			
+
 			# create config.log_location if it doesn't exist
 			os.makedirs(config.log_location, exist_ok=True)
 			with open(config.log_location + 'log.txt','a+') as f:
@@ -1278,7 +1278,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'.bz2': 'application/x-bzip2',
 		'.xz': 'application/x-xz',
 	})
-	
+
 	handlers = {
 			'HEAD': [],
 			'POST': [],
@@ -1340,7 +1340,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.handlers[type].append((to_check, func))
 			return func
 		return decorator
-	
+
 	def test_req(self, url, hasQ, QV, fragent):
 		'''test if request is matched'''
 		# print("^"+url, hasQ, QV, fragent)
@@ -1353,7 +1353,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			for k, v in QV.items():
 				if not self.query(k): return False
 				if self.query[k] != v: return False
-		
+
 		if fragent and self.fragment != fragent: return False
 
 		return True
@@ -1366,7 +1366,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			traceback.print_exc()
 			self.send_error(500, str(e))
 			return
-		
+
 		if f:
 			f.close()
 
@@ -1375,7 +1375,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.range = None # bug patch
 		DO_NOT_JSON = False # wont convert r, info to json
 
-		
+
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
 
@@ -1383,13 +1383,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		spathsplit = self.url_path.split("/")
 
 		# print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
-		print(self.handlers['POST'])
+
 		try:
 			for case, func in self.handlers['POST']:
-				print(case)
 				if self.test_req(*case):
 					return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
-			
+
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
 			print(tools.text_box(e.__class__.__name__, e,"\nby ", [self.address_string()]))
 			return
@@ -1398,511 +1397,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.send_error(500, str(e))
 			return
 
-	# 	try:
-	# 		post_type, r, info, script = self.deal_post_data()
-	# 	except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-	# 		print(tools.text_box(e.__class__.__name__, e,"\nby ", self.client_address))
-	# 		return
-	# 	if post_type=='get-json':
-	# 		return self.list_directory_json()
 
-	# 	if post_type== "upload":
-	# 		DO_NOT_JSON = True
-
-		# print(tools.text_box(r, post_type, "by: ", [self.address_string()]))
-
-	# 	print((r, post_type, "by: ", self.client_address))
-
-	# 	if r==True:
-	# 		head = "Success"
-	# 	elif r==False:
-	# 		head = "Failed"
-
-	# 	else:
-	# 		head = r
-
-
-	# 	body = str(info)
-
-
-	# 	f = io.BytesIO()
-
-	# 	if DO_NOT_JSON:
-	# 		data = f"{head} {body}"
-	# 		content_type = 'text/html'
-	# 	else:
-	# 		data = json.dumps({"head": head, "body": body, "script": script})
-	# 		content_type = 'application/json'
-
-
-	# 	f.write(data.encode('utf-8'))
-
-	# 	length = f.tell()
-	# 	f.seek(0)
-	# 	self.send_response(200)
-	# 	self.send_header("Content-type", content_type)
-	# 	self.send_header("Content-Length", str(length))
-	# 	self.end_headers()
-
-	# 	self.copyfile(f, self.wfile)
-
-	# 	f.close()
-
-
-	# def deal_post_data(self):
-	# 	boundary = b''
-	# 	uid = None
-	# 	num = 0
-	# 	blank = 0 # blank is used to check if the post is empty or Connection Aborted
-
-	# 	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
-
-
-	# 	def get_rel_path(filename):
-	# 		return urllib.parse.unquote(posixpath.join(self.path, filename), errors='surrogatepass')
-
-
-	# 	def get(show=True, strip=False):
-	# 		"""
-	# 		show: print line
-	# 		strip: strip \r\n at end
-	# 		"""
-	# 		nonlocal num, remainbytes, blank
-
-	# 		line = self.rfile.readline()
-
-	# 		if line == b'':
-	# 			blank += 1
-	# 		else:
-	# 			blank = 0
-	# 		if blank>=20: # allow 20 loss packets
-	# 			self.send_error(408, "Request Timeout")
-	# 			time.sleep(1) # wait for the client to close the connection
-
-	# 			raise ConnectionAbortedError
-	# 		if show:
-	# 			num+=1
-	# 		remainbytes -= len(line)
-
-	# 		if strip and line.endswith(b"\r\n"):
-	# 			line = line.rpartition(b"\r\n")[0]
-
-	# 		return line
-
-	# 	def pass_bound():
-	# 		nonlocal remainbytes
-	# 		line = get(F)
-	# 		if not boundary in line:
-	# 			return (False, "Content NOT begin with boundary")
-
-	# 	def get_type(line=None, ):
-	# 		nonlocal remainbytes
-	# 		if not line:
-	# 			line = get()
-	# 		try:
-	# 			return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
-	# 		except: return None
-
-	# 	def skip():
-	# 		get(F)
-
-	# 	def handle_files():
-	# 		nonlocal remainbytes
-	# 		uploaded_files = [] # Uploaded folder list
-
-	# 		# pass boundary
-	# 		pass_bound()
-
-
-	# 		# PASSWORD SYSTEM
-	# 		if get_type()!="password":
-	# 			return (False, "Invalid request")
-
-	# 		skip()
-	# 		password= get(F)
-	# 		print('post password: ',  password)
-	# 		if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
-
-	# 			self.send_error(HTTPStatus.UNAUTHORIZED, "Incorrect password")
-	# 			# raise ConnectionAbortedError
-	# 			return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
-
-	# 		pass_bound()
-
-	# 		while remainbytes > 0:
-	# 			line =get()
-
-	# 			fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
-	# 			if not fn:
-	# 				return (False, "Can't find out file name...")
-
-
-	# 			path = self.translate_path(self.path)
-	# 			rltv_path = posixpath.join(self.path, fn[0])
-
-	# 			temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
-	# 			config.temp_file.add(temp_fn)
-
-
-	# 			fn = os.path.join(path, fn[0])
-
-
-
-	# 			line = get(F) # content type
-	# 			line = get(F) # line gap
-
-
-
-	# 			# ORIGINAL FILE STARTS FROM HERE
-	# 			try:
-	# 				with open(temp_fn, 'wb') as out:
-	# 					preline = get(F)
-	# 					while remainbytes > 0:
-	# 						line = get(F)
-	# 						if boundary in line:
-	# 							preline = preline[0:-1]
-	# 							if preline.endswith(b'\r'):
-	# 								preline = preline[0:-1]
-	# 							out.write(preline)
-	# 							uploaded_files.append(rltv_path,)
-	# 							break
-	# 						else:
-	# 							out.write(preline)
-	# 							preline = line
-
-
-	# 				os.replace(temp_fn, fn)
-
-
-
-	# 			except (IOError, OSError):
-	# 				return (False, "Can't create file to write, do you have permission to write?")
-
-	# 			finally:
-	# 				try:
-	# 					os.remove(temp_fn)
-	# 					config.temp_file.remove(temp_fn)
-
-	# 				except OSError:
-	# 					pass
-
-
-
-	# 		return (True, "File(s) uploaded")
-
-	# 	def del_data():
-
-	# 		if config.disabled_func["send2trash"]:
-	# 			return (False, "Trash not available. Please contact the Host...")
-
-	# 		# pass boundary
-	# 		pass_bound()
-
-
-	# 		# File link to move to recycle bin
-	# 		if get_type()!="name":
-	# 			return (False, "Invalid request")
-
-
-	# 		skip()
-	# 		filename = get(strip=T).decode()
-
-
-	# 		path = get_rel_path(filename)
-
-	# 		xpath = self.translate_path(posixpath.join(self.path, filename))
-
-	# 		print('send2trash "%s" by: %s'%(xpath, uid))
-
-	# 		bool = False
-	# 		try:
-	# 			send2trash(xpath)
-	# 			msg = "Successfully Moved To Recycle bin"+refresh
-	# 			bool = True
-	# 		except TrashPermissionError:
-	# 			msg = "Recycling unavailable! Try deleting permanently..."
-	# 		except Exception as e:
-	# 			traceback.print_exc()
-	# 			msg = "<b>" + path + "</b> " + e.__class__.__name__
-
-	# 		return (bool, msg)
-
-
-		# def del_permanently():
-
-		# 	# pass boundary
-		# 	pass_bound()
-
-
-		# 	# File link to move to recycle bin
-		# 	if get_type()!="name":
-		# 		return (False, "Invalid request")
-
-
-		# 	skip()
-		# 	filename = get(strip=T).decode()
-
-
-		# 	path = get_rel_path(filename)
-
-		# 	xpath = self.translate_path(posixpath.join(self.path, filename))
-
-		# 	print('Perm. DELETED "%s" by: %s'%(xpath, uid))
-
-
-		# 	try:
-		# 		if os.path.isfile(xpath): os.remove(xpath)
-		# 		else: shutil.rmtree(xpath)
-
-		# 		return (True, "PERMANENTLY DELETED  " + path +refresh)
-
-
-		# 	except Exception as e:
-		# 		return (False, "<b>" + path + "<b>" + e.__class__.__name__ + " : " + str(e))
-
-
-# 		def rename():
-# 			# pass boundary
-# 			pass_bound()
-
-
-# 			# File link to move to recycle bin
-# 			if get_type()!="name":
-# 				return (False, "Invalid request")
-
-
-# 			skip()
-# 			filename = get(strip=T).decode()
-
-# 			pass_bound()
-
-# 			if get_type()!="data":
-# 				return (False, "Invalid request")
-
-
-# 			skip()
-# 			new_name = get(strip=T).decode()
-
-
-# 			path = get_rel_path(filename)
-
-
-# 			xpath = self.translate_path(posixpath.join(self.path, filename))
-
-
-# 			new_path = self.translate_path(posixpath.join(self.path, new_name))
-
-# 			logger.warning(f'Renamed {[xpath]} to {[new_path]} by {[uid]} {[self.address_string()]}')
-
-
-# 			try:
-# 				os.rename(xpath, new_path)
-# 				return (True, "Rename successful!" + refresh)
-# 			except Exception as e:
-# 				return (False, "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) )
-
-
-# 		def get_info():
-# 			script = None
-
-# 			# pass boundary
-# 			pass_bound()
-
-
-# 			# File link to move to recycle bin
-# 			if get_type()!="name":
-# 				return (False, "Invalid request", script)
-
-
-# 			skip()
-# 			filename = get(strip=T).decode() # the filename
-# 			path = get_rel_path(filename) # the relative path of the file or folder
-
-# 			xpath = self.translate_path(posixpath.join(self.path, filename)) # the absolute path of the file or folder
-
-# 			logger.warning(f'Info Checked', [xpath], 'by', [uid], [self.address_string()])
-
-# 			file_stat = get_stat(xpath)
-# 			if not file_stat:
-# 				return (False, "Permission Denied", script)
-
-# 			data = []
-# 			data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
-
-# 			if os.path.isfile(xpath):
-# 				data.append(["Type","File"])
-# 				if "." in filename:
-# 					data.append(["Extension", filename.rpartition(".")[2]])
-
-# 				size = file_stat.st_size
-# 				data.append(["Size", humanbytes(size) + " (%i bytes)"%size])
-
-# 			else: #if os.path.isdir(xpath):
-# 				data.append(["Type", "Folder"])
-# 				# size = get_dir_size(xpath)
-
-# 				data.append(["Total Files", get_file_count(xpath)])
-
-# 				# print("files: ", get_file_count(xpath))
-
-# 				data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
-# 				script = '''
-# 				tools.fetch_json(tools.full_path("''' + path + '''?size")).then(size_resp => {
-# 				console.log(size_resp);
-# 				if (size_resp.status) {
-# 					document.getElementById("f_size").innerHTML = size_resp.humanbyte + " (" + size_resp.byte + " bytes)";
-# 				} else {
-# 					throw new Error(size_resp.msg);
-# 				}}).catch(err => {
-# 				console.log(err);
-# 				document.getElementById("f_size").innerHTML = "Error";
-# 				});
-# 				'''
-
-# 			data.append(["Path", path])
-
-# 			def get_dt(time):
-# 				return datetime.datetime.fromtimestamp(time)
-
-# 			data.append(["Created on", get_dt(file_stat.st_ctime)])
-# 			data.append(["Last Modified", get_dt(file_stat.st_mtime)])
-# 			data.append(["Last Accessed", get_dt(file_stat.st_atime)])
-
-# 			body = """
-# <style>
-# table {
-#   font-family: arial, sans-serif;
-#   border-collapse: collapse;
-#   width: 100%;
-# }
-
-# td, th {
-#   border: 1px solid #00BFFF;
-#   text-align: left;
-#   padding: 8px;
-# }
-
-# tr:nth-child(even) {
-#   background-color: #111;
-# }
-# </style>
-
-# <table>
-#   <tr>
-# 	<th>About</th>
-# 	<th>Info</th>
-#   </tr>
-#   """
-# 			for key, val in data:
-# 				body += "<tr><td>{key}</td><td>{val}</td></tr>".format(key=key, val=val)
-# 			body += "</table>"
-
-# 			return ("Properties", body, script)
-
-
-# 		def new_folder():
-
-
-# 			# pass boundary
-# 			pass_bound()
-
-
-# 			# File link to move to recycle bin
-# 			if get_type()!="name":
-# 				return (False, "Invalid request")
-
-
-# 			skip()
-# 			filename = get(strip=T).decode()
-
-
-
-# 			path = get_rel_path(filename)
-
-# 			xpath = self.translate_path(posixpath.join(self.path, filename))
-
-# 			print(f'Info Checked "{xpath}" by: {uid}')
-
-# 			try:
-# 				os.makedirs(xpath)
-# 				return (True, "New Folder Created:  " + path +refresh)
-
-# 			except Exception as e:
-# 				return (False, f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b> : { str(e) }")
-
-# 		while 0:
-# 			line = get()
-
-
-# 		content_type = self.headers['content-type']
-
-# 		if not content_type:
-# 			return (False, "Content-Type header doesn't contain boundary")
-# 		boundary = content_type.split("=")[1].encode()
-
-# 		remainbytes = int(self.headers['content-length'])
-
-
-# 		pass_bound()# LINE 1
-
-# 		# get post type
-# 		if get_type()=="post-type":
-# 			skip() # newline
-# 		else:
-# 			return (False, "Invalid post request")
-
-# 		line = get()
-# 		handle_type = line.decode().strip() # post type LINE 3
-
-# 		pass_bound() #boundary for password or guid of user
-
-# 		if get_type()=="post-uid":
-# 			skip() # newline
-# 		else:
-# 			return (False, "Unknown User request")
-
-# 		uid = get() # uid LINE 5
-
-# 		##################################
-
-# 		# HANDLE USER PERMISSION BY CHECKING UID
-
-# 		##################################
-
-# 		r, info, script = (True, "Something", None)
-
-# 		if handle_type == "upload":
-# 			r, info = handle_files()
-
-
-# 		elif handle_type == "test":
-# 			while remainbytes > 0:
-# 				line =get()
-
-# 		elif handle_type == "del-f":
-# 			r, info = del_data()
-
-# 		elif handle_type == "del-p":
-# 			r, info = del_permanently()
-
-# 		elif handle_type=="rename":
-# 			r, info = rename()
-
-# 		elif handle_type=="info":
-# 			r, info, script = get_info()
-
-# 		elif handle_type == "new folder":
-# 			r, info = new_folder()
-
-# 		elif handle_type == "get-json":
-# 			r, info = (None, "get-json")
-
-
-# 		return handle_type, r, info, script
 
 
 	def return_txt(self, code, msg):
-		print(tools.text_box(f"Returning {code} {msg}"))
+		# print(tools.text_box(f"Returning {code} {msg}"))
 
 		if not isinstance(msg, bytes):
 			encoded = msg.encode('utf-8', 'surrogateescape')
@@ -1918,7 +1417,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.send_header("Content-Length", str(len(encoded)))
 		self.end_headers()
 		return f
-	
+
 	def send_txt(self, code, msg):
 		f = self.return_txt(code, msg)
 		self.copyfile(f, self.wfile)
@@ -2256,8 +1755,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return 'Viewing &#127968; HOME'
 		else:
 			return 'Viewing ' + paths[-2]
-		
-	
+
+
 	def get_rel_path(self, filename):
 		return urllib.parse.unquote(posixpath.join(self.url_path, filename), errors='surrogatepass')
 
@@ -2429,15 +1928,17 @@ def update_now(self: SimpleHTTPRequestHandler, *args, **kwargs):
 @SimpleHTTPRequestHandler.on_req('HEAD', hasQ="size")
 def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	"""Return size of the file"""
-	path = kwargs.get('url_path', '')
+	url_path = kwargs.get('url_path', '')
 
-	stat = get_stat(path)
+	xpath = self.translate_path(url_path)
+
+	stat = get_stat(xpath)
 	if not stat:
 		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
-	if os.path.isfile(path):
+	if os.path.isfile(xpath):
 		size = stat.st_size
 	else:
-		size = get_dir_size(path)
+		size = get_dir_size(xpath)
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
@@ -2453,7 +1954,7 @@ def create_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
 	spathsplit = kwargs.get('spathsplit', '')
-	
+
 	if config.disabled_func["zip"]:
 		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
 
@@ -2609,7 +2110,6 @@ def send_assets(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 @SimpleHTTPRequestHandler.on_req('HEAD')
 def default_get(self: SimpleHTTPRequestHandler, filename=None, *args, **kwargs):
-	print(kwargs)
 	"""Serve a GET request."""
 	path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
@@ -2617,7 +2117,7 @@ def default_get(self: SimpleHTTPRequestHandler, filename=None, *args, **kwargs):
 	first = kwargs.get('first', '')
 	last = kwargs.get('last', '')
 
-	
+
 	if os.path.isdir(path):
 		parts = urllib.parse.urlsplit(self.path)
 		if not parts.path.endswith('/'):
@@ -2676,7 +2176,7 @@ class DealPostData:
 
 	def __init__(self, req:SimpleHTTPRequestHandler) -> None:
 		self.req = req
-		
+
 
 	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
 
@@ -2767,20 +2267,31 @@ class DealPostData:
 
 def AUTHORIZE_POST(req: SimpleHTTPRequestHandler, post:DealPostData, post_type=b''):
 	"""Check if the user is authorized to post"""
-	
+
 	# START
 	post_verify = post.start(post_type)
 	if not post_verify[0]:
-		return req.send_txt(HTTPStatus.BAD_REQUEST, post_verify[1])
+		req.send_txt(HTTPStatus.BAD_REQUEST, post_verify[1])
+
+		return None
 
 	# GET UID
 	uid_verify = post.get_uid()
+
+
+
+	# pass boundary
+	post.pass_bound()
+
+
 	if not uid_verify[0]:
-		return req.send_txt(HTTPStatus.BAD_REQUEST, uid_verify[1])
-	
+		req.send_txt(HTTPStatus.BAD_REQUEST, uid_verify[1])
+
+		return None
+
 	uid = uid_verify[1].decode()
 
-	
+
 	##################################
 
 	# HANDLE USER PERMISSION BY CHECKING UID
@@ -2808,11 +2319,12 @@ def upload(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, b'upload')
 
+	if not uid:
+		return None
+
 
 	uploaded_files = [] # Uploaded folder list
 
-	# pass boundary
-	post.pass_bound()
 
 
 	# PASSWORD SYSTEM
@@ -2907,16 +2419,17 @@ def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 
 	post = DealPostData(self)
-	
+
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, b'del-f')
 
-	
+	if not uid:
+		return None
+
+
 	if config.disabled_func["send2trash"]:
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
 
-	# pass boundary
-	post.pass_bound()
 
 
 	# File link to move to recycle bin
@@ -2932,7 +2445,7 @@ def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
 
-	logger.warning(f'send2trash {[xpath]} by {[uid]} {[self.address_string()]}')
+	logger.warning(f'send2trash {xpath} by {[uid]} {[self.address_string()]}')
 
 	head = "Failed"
 	try:
@@ -2959,13 +2472,15 @@ def del_permanently(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 
 	post = DealPostData(self)
-	
+
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, b'del-p')
 
+	if not uid:
+		return None
 
-	# pass boundary
-	post.pass_bound()
+
+
 
 
 	# File link to move to recycle bin
@@ -2981,7 +2496,7 @@ def del_permanently(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
 
-	logger.warning(f'Perm. DELETED {[xpath]} by {[uid]} {[self.address_string()]}')
+	logger.warning(f'Perm. DELETED {xpath} by {[uid]} {[self.address_string()]}')
 
 
 	try:
@@ -2999,15 +2514,231 @@ def del_permanently(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 
 
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="rename")
+def rename_content(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Rename files"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'rename')
+
+	if not uid:
+		return None
 
 
 
 
 
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return (False, "Invalid request")
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+	post.pass_bound()
+
+	if post.get_type()!="data":
+		return (False, "Invalid request")
+
+
+	post.skip()
+	new_name = post.get(strip=T).decode()
+
+
+	path = self.get_rel_path(filename)
+
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+
+	new_path = self.translate_path(posixpath.join(url_path, new_name))
+
+	logger.warning(f'Renamed "{xpath}" to "{new_path}" by {[uid]} {[self.address_string()]}')
+
+
+	try:
+		os.rename(xpath, new_path)
+		return self.send_json({"head": "Renamed Successfully", "body":  post.refresh})
+	except Exception as e:
+		return self.send_json({"head": "Failed", "body": "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) })
 
 
 
 
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="info")
+def get_info(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Get files permanently"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'info')
+
+	if not uid:
+		return None
+
+
+	script = None
+
+
+
+
+	# File link to move to check info
+	if post.get_type()!="name":
+		return self.send_json({"head":"Failed!","body": "Invalid request"})
+
+
+	post.skip()
+	filename = post.get(strip=T).decode() # the filename
+	path = self.get_rel_path(filename) # the relative path of the file or folder
+
+	xpath = self.translate_path(posixpath.join(url_path, filename)) # the absolute path of the file or folder
+
+
+	logger.warning(f'Info Checked "{xpath}" by: {[uid]} {[self.address_string()]}')
+
+	file_stat = get_stat(xpath)
+	if not file_stat:
+		return (False, "Permission Denied", script)
+
+	data = []
+	data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
+
+	if os.path.isfile(xpath):
+		data.append(["Type","File"])
+		if "." in filename:
+			data.append(["Extension", filename.rpartition(".")[2]])
+
+		size = file_stat.st_size
+		data.append(["Size", humanbytes(size) + " (%i bytes)"%size])
+
+	else: #if os.path.isdir(xpath):
+		data.append(["Type", "Folder"])
+		# size = get_dir_size(xpath)
+
+		data.append(["Total Files", get_file_count(xpath)])
+
+
+		data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
+		script = '''
+		tools.fetch_json(tools.full_path("''' + path + '''?size")).then(size_resp => {
+		console.log(size_resp);
+		if (size_resp.status) {
+			document.getElementById("f_size").innerHTML = size_resp.humanbyte + " (" + size_resp.byte + " bytes)";
+		} else {
+			throw new Error(size_resp.msg);
+		}}).catch(err => {
+		console.log(err);
+		document.getElementById("f_size").innerHTML = "Error";
+		});
+		'''
+
+	data.append(["Path", path])
+
+	def get_dt(time):
+		return datetime.datetime.fromtimestamp(time)
+
+	data.append(["Created on", get_dt(file_stat.st_ctime)])
+	data.append(["Last Modified", get_dt(file_stat.st_mtime)])
+	data.append(["Last Accessed", get_dt(file_stat.st_atime)])
+
+	body = """
+<style>
+table {
+font-family: arial, sans-serif;
+border-collapse: collapse;
+width: 100%;
+}
+
+td, th {
+border: 1px solid #00BFFF;
+text-align: left;
+padding: 8px;
+}
+
+tr:nth-child(even) {
+background-color: #111;
+}
+</style>
+
+<table>
+<tr>
+<th>About</th>
+<th>Info</th>
+</tr>
+"""
+	for key, val in data:
+		body += "<tr><td>{key}</td><td>{val}</td></tr>".format(key=key, val=val)
+	body += "</table>"
+
+	return self.send_json({"head":"Properties", "body":body, "script":script})
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="new_folder")
+def new_folder(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Create new folder"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'new_folder')
+
+	if not uid:
+		return None
+
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return (False, "Invalid request")
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+
+
+	path = self.get_rel_path(filename)
+
+	xpath = filename
+	if xpath.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in xpath or '\\..\\' in xpath or xpath.endswith(('/..', '\\..')):
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + path})
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+
+	logger.warning(f'New Folder Created "{xpath}" by: {[uid]} {[self.address_string()]}')
+
+	try:
+		if os.path.exists(xpath):
+			return self.send_json({"head": "Failed", "body": "Folder Already Exists:  " + path})
+		if os.path.isfile(xpath):
+			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + path})
+		os.makedirs(xpath)
+		return self.send_json({"head": "Success", "body": "New Folder Created:  " + path +post.refresh})
+
+	except Exception as e:
+		logger.exception(e)
+		return self.send_json({"head": "Failed", "body": f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b>"})
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST')
+def default_post(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	return self.return_txt(code=400, msg="Bad Request")
 
 
 
@@ -3138,50 +2869,63 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 
 
 
-def run():
-	import argparse
+def run(port = None, directory = None, bind = None, arg_parse= True):
+	if port is None:
+		port = config.port
+	if directory is None:
+		directory = config.ftp_dir
+
+	if arg_parse:
+		import argparse
 
 
 
-	parser = argparse.ArgumentParser()
+		parser = argparse.ArgumentParser()
 
-	parser.add_argument('--bind', '-b', metavar='ADDRESS',
-						help='Specify alternate bind address '
-							 '[default: all interfaces]')
-	parser.add_argument('--directory', '-d', default=config.get_default_dir(),
-						help='Specify alternative directory '
-						'[default:current directory]')
-	parser.add_argument('port', action='store',
-						default=config.port, type=int,
-						nargs='?',
-						help='Specify alternate port [default: 8000]')
-	args = parser.parse_args()
-	if args.directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
+		parser.add_argument('--bind', '-b', metavar='ADDRESS',
+							help='Specify alternate bind address '
+								'[default: all interfaces]')
+		parser.add_argument('--directory', '-d', default=config.get_default_dir(),
+							help='Specify alternative directory '
+							'[default:current directory]')
+		parser.add_argument('port', action='store',
+							default=config.port, type=int,
+							nargs='?',
+							help='Specify alternate port [default: 8000]')
+		args = parser.parse_args()
+
+		port = args.port
+		directory = args.directory
+		bind = args.bind
+
+
+	if directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
 		print(config.ftp_dir, "not found!\nReseting directory to current directory")
-		args.directory = "."
+		directory = "."
 
 	handler_class = partial(SimpleHTTPRequestHandler,
-								directory=args.directory)
+								directory=directory)
 
-	config.port = args.port
+	config.port = port
+	config.ftp_dir = directory
 
 	if not config.reload:
 		if sys.version_info>(3,7,2):
 			test(
 			HandlerClass=handler_class,
 			ServerClass=DualStackServer,
-			port=args.port,
-			bind=args.bind,
+			port=port,
+			bind=bind,
 			)
 		else: # BACKWARD COMPATIBILITY
 			test(
 			HandlerClass=handler_class,
 			ServerClass=ThreadingHTTPServer,
-			port=args.port,
-			bind=args.bind,
+			port=port,
+			bind=bind,
 			)
 
-	
+
 	if config.reload == True:
 		file = '"' + config.MAIN_FILE + '"'
 		print("Reloading...")
