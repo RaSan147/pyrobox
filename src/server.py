@@ -4007,7 +4007,7 @@ config.file_list["html_script.html"] = r"""
 </noscript>
 
 
-<form ENCTYPE="multipart/form-data" method="post" id="uploader" class="jsonly">
+<form ENCTYPE="multipart/form-data" method="post" id="uploader" class="jsonly" action="?upload">
 
 
 	<center>

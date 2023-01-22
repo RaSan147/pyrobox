@@ -19,9 +19,9 @@
     * `==` : start
     * `++` : request handling
     * `--` : end
-    * `##` : seperator
+    * `##` : separator
   * Update will print log on console
   ## Fixes:
   * zip download now works (used to keep reloading and downloading)
   * Removed New folder creation with '../' in name [Security concern](/SECURITY%20PLAN.MD)
-  * maybe some more that i forgot
+  * maybe some more that I forgot
