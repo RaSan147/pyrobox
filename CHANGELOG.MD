@@ -1,4 +1,4 @@
-# Version 0.6.1
+# Version 0.6.2
   ## Client-side Changes:
   * Nothing to notice
   ## Server-side Changes:
