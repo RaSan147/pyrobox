@@ -235,48 +235,48 @@ def check_installed(pkg):
 	return bool(importlib.util.find_spec(pkg))
 
 
-def run_pip_install():
+def run_update():
 	dep_modified = False
 
 	import sysconfig, pip
-	for i in REQUEIREMENTS:
-		if check_installed(i):
-			continue
 
-		more_arg = ""
-		if pip.__version__ >= "6.0":
-			more_arg += " --disable-pip-version-check"
-		if pip.__version__ >= "20.0":
-			more_arg += " --no-python-version-warning"
+	i = "pyrobox"
+	more_arg = ""
+	if pip.__version__ >= "6.0":
+		more_arg += " --disable-pip-version-check"
+	if pip.__version__ >= "20.0":
+		more_arg += " --no-python-version-warning"
 
 
-		py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
-		on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
-		command = "" if config.OS == "Windows" else on_linux
-		comm = f'{command} {sys.executable} -m pip install  --quiet {more_arg} {i}'
+	py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
+	on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
+	command = "" if config.OS == "Windows" else on_linux
+	comm = f'{command} {sys.executable} -m pip install -U  --quiet {more_arg} {i}'
 
-		subprocess.call(comm, shell=True)
-
-
-		#if i not in get_installed():
-		if check_installed(i):
-			dep_modified = True
+	subprocess.call(comm, shell=True)
 
 
-		else:
-			print("Failed to load ", i)
-			config.disabled_func[i] = True
-
-	if dep_modified:
-		print("Reloading...")
-		config.reload = True
-
-if config.run_req_check:
-	run_pip_install()
+	#if i not in get_installed():
+	if check_installed(i):
+		return True
 
 
-if config.reload == True:
-	subprocess.call([sys.executable, config.MAIN_FILE] + sys.argv[1:])
+	else:
+		print("Failed to load ", i)
+		return False
+
+
+
+
+def reload_server():
+	"""reload the server process from file"""
+	file = '"' + config.MAIN_FILE + '"'
+	print("Reloading...")
+	# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
+	try:
+		os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
+	except:
+		traceback.print_exc()
 	sys.exit(0)
 
 def null(*args, **kwargs):
@@ -1312,6 +1312,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'''incase of errored request'''
 		self.send_error(HTTPStatus.BAD_REQUEST, "Bad request.")
 
+
 	@staticmethod
 	def on_req(type='', url='.*', hasQ=(), QV={}, fragent='', func=null, escape=None):
 		'''called when request is received
@@ -1388,6 +1389,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			for case, func in self.handlers['POST']:
 				if self.test_req(*case):
 					return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+				
+			
+			return self.send_error(HTTPStatus.BAD_REQUEST, "Invalid request.")
 
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
 			print(tools.text_box(e.__class__.__name__, e,"\nby ", [self.address_string()]))
@@ -1401,8 +1405,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 	def return_txt(self, code, msg):
-		# print(tools.text_box(f"Returning {code} {msg}"))
-
+		logger.info(f'[RETURNED] {code} {msg} to {self.address_string()}')
 		if not isinstance(msg, bytes):
 			encoded = msg.encode('utf-8', 'surrogateescape')
 		else:
@@ -1510,7 +1513,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 		except:
-			f.close()
+			if f and not f.closed(): f.close()
 			raise
 
 
@@ -1543,7 +1546,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
 
+
+
 		url_path, query, fragment = self.url_path, self.query, self.fragment
+
 		spathsplit = self.url_path.split("/")
 
 		print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
@@ -1553,6 +1559,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		for case, func in self.handlers['HEAD']:
 			if self.test_req(*case):
 				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, first=first, last=last, spathsplit=spathsplit)
+			
+		return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 
 
 
@@ -1758,6 +1766,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 	def get_rel_path(self, filename):
+		"""Return the relative path to the file, url encoded."""
 		return urllib.parse.unquote(posixpath.join(self.url_path, filename), errors='surrogatepass')
 
 
@@ -1871,6 +1880,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return guess
 
 		return self.extensions_map[''] #return 'application/octet-stream'
+
 
 
 
@@ -2738,7 +2748,7 @@ def new_folder(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 @SimpleHTTPRequestHandler.on_req('POST')
 def default_post(self: SimpleHTTPRequestHandler, *args, **kwargs):
-	return self.return_txt(code=400, msg="Bad Request")
+	return self.send_error(400, "Bad Request")
 
 
 
@@ -2927,14 +2937,7 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 
 
 	if config.reload == True:
-		file = '"' + config.MAIN_FILE + '"'
-		print("Reloading...")
-		# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
-		try:
-			os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
-		except:
-			traceback.print_exc()
-		sys.exit(0)
+		reload_server()
 
 
 
