@@ -158,7 +158,7 @@ from http import HTTPStatus
 
 import importlib.util
 import re
-
+import base64
 
 from string import Template as _Template # using this because js also use {$var} and {var} syntax and py .format is often unsafe
 import threading
@@ -260,7 +260,7 @@ def run_update():
 	py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
 	on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
 	command = "" if config.OS == "Windows" else on_linux
-	comm = f'{command} {sys.executable} -m pip install -U  --quiet {more_arg} {i}'
+	comm = f'{command} {sys.executable} -m pip install -U {more_arg} {i}'
 
 	try:
 		subprocess.call(comm, shell=True)
@@ -1125,13 +1125,15 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.fragment = fragment
 
 
-			req_hash = str(hash((self.raw_requestline, tools.random_string(10))))
+			_hash = abs(hash((self.raw_requestline, tools.random_string(10))))
+			self.req_hash = base64.b64encode(str(_hash).encode('ascii')).decode()[:10]
 
-			w = tools.term_width() - len(str(req_hash)) -2
+			_w = tools.term_width()
+			w = _w - len(str(self.req_hash)) -2
 			w = w//2
-			print('='*w + f' {req_hash} ' + '='*w)
+			print('='*w + f' {self.req_hash} ' + '='*w)
 			print(f'request: {self.command}\nurl: {url_path}\nquery: {query}\nfragment: {fragment}')
-			print('+'*w + f' {req_hash} ' + '+'*w)
+			print('+'*w + f' {self.req_hash} ' + '+'*w)
 			
 
 
@@ -1141,11 +1143,12 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			except Exception:
 				traceback.print_exc()
 			
-			print('-'*w + f' {req_hash} ' + '-'*w)
+			print('-'*w + f' {self.req_hash} ' + '-'*w)
+			print('#'*_w)
 			self.wfile.flush() #actually send the response if not already done.
 		except (TimeoutError, socket.timeout) as e:
 			#a read or a write timed out.  Discard this connection
-			self.log_error("Request timed out: %r", e)
+			self.log_error("Request timed out:", e)
 			self.close_connection = True
 			return
 
@@ -1183,7 +1186,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			message = shortmsg
 		if explain is None:
 			explain = longmsg
-		self.log_error("code %d, message %s", code, message)
+		self.log_error("code", code, "message", message)
 		self.send_response(code, message)
 		self.send_header('Connection', 'close')
 
@@ -1273,7 +1276,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		self.log_message('"%s" %s %s',
 						 self.requestline, str(code), str(size))
 
-	def log_error(self, format, *args):
+	def log_error(self, *args):
 		"""Log an error.
 
 		This is called when a request cannot be fulfilled.  By
@@ -1284,13 +1287,28 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		XXX This should go to the separate error log.
 
 		"""
+		msg = " ".join(map(str, args))
+		self.log_message(msg, error = True)
 
-		self.log_message(format, *args, error = True)
+	def log_warning(self, *args):
+		"""Log a warning"""
+		msg = " ".join(map(str, args))
+		self.log_message(msg, warning = True)
+
+	def log_debug(self, *args):
+		"""Log a debug message"""
+		msg = " ".join(map(str, args))
+		self.log_message(msg, debug = True)
+
+	def log_info(self, *args):
+		"""Default log"""
+		msg = " ".join(map(str, args))
+		self.log_message(msg)
+		
 
 
 
-
-	def log_message(self, format, *args, error = False):
+	def log_message(self, format, *args, error = False, warning = False, debug = False):
 		"""Log an arbitrary message.
 
 		This is used by all other logging functions.  Override
@@ -1309,12 +1327,16 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		message = format % args
 
-		message = ("%s - - [%s] %s\n" %
-						 (self.address_string(),
+		message = ("# %s by [%s] at [%s] %s\n" %
+						 (self.req_hash, self.address_string(),
 						  self.log_date_time_string(),
 						  message))
 		if error:
 			logger.error(message)
+		elif warning:
+			logger.warning(message)
+		elif debug:
+			logger.debug(message)
 		else:
 			logger.info(message)
 
@@ -1326,10 +1348,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			# create config.log_location if it doesn't exist
 			os.makedirs(config.log_location, exist_ok=True)
 			with open(config.log_location + 'log.txt','a+') as f:
-				f.write("\n\n" + "%s - - [%s] %s\n" %
-							(self.address_string(),
-							self.log_date_time_string(),
-							format%args))
+				f.write(("\n\n# %s by [%s] at [%s] %s\n" %
+						 (self.req_hash, self.address_string(),
+						  self.log_date_time_string(),
+						  message)))
 		except Exception:
 			traceback.print_exc()
 
@@ -1535,7 +1557,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 	def return_txt(self, code, msg):
-		logger.debug(f'[RETURNED] {code} {msg} to {self.address_string()}')
+		self.log_debug(f'[RETURNED] {code} {msg} to client')
 		if not isinstance(msg, bytes):
 			encoded = msg.encode('utf-8', 'surrogateescape')
 		else:
@@ -2472,9 +2494,9 @@ def upload(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	post.skip()
 	password= post.get(F)
-	logger.info(f'post password: {[password]} by {[self.address_string()]}')
+	self.log_debug(f'post password: {[password]} by client')
 	if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
-		logger.info(f"Incorrect password by {[self.address_string()]}")
+		self.log_info(f"Incorrect password by {uid}")
 
 		return self.send_txt(HTTPStatus.UNAUTHORIZED, "Incorrect password")
 
@@ -2584,7 +2606,7 @@ def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
 
-	logger.warning(f'send2trash {xpath} by {[uid]} {[self.address_string()]}')
+	self.log_warning(f'send2trash {xpath} by {[uid]}')
 
 	head = "Failed"
 	try:
@@ -2635,7 +2657,7 @@ def del_permanently(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
 
-	logger.warning(f'Perm. DELETED {xpath} by {[uid]} {[self.address_string()]}')
+	self.log_warning(f'Perm. DELETED {xpath} by {[uid]}')
 
 
 	try:
@@ -2698,7 +2720,7 @@ def rename_content(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	new_path = self.translate_path(posixpath.join(url_path, new_name))
 
-	logger.warning(f'Renamed "{xpath}" to "{new_path}" by {[uid]} {[self.address_string()]}')
+	self.log_warning(f'Renamed "{xpath}" to "{new_path}" by {[uid]}')
 
 
 	try:
@@ -2744,7 +2766,7 @@ def get_info(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	xpath = self.translate_path(posixpath.join(url_path, filename)) # the absolute path of the file or folder
 
 
-	logger.warning(f'Info Checked "{xpath}" by: {[uid]} {[self.address_string()]}')
+	self.log_warning(f'Info Checked "{xpath}" by: {[uid]}')
 
 	file_stat = get_stat(xpath)
 	if not file_stat:
@@ -2857,7 +2879,7 @@ def new_folder(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	xpath = self.translate_path(posixpath.join(url_path, filename))
 
 
-	logger.warning(f'New Folder Created "{xpath}" by: {[uid]} {[self.address_string()]}')
+	self.log_warning(f'New Folder Created "{xpath}" by: {[uid]}')
 
 	try:
 		if os.path.exists(xpath):
@@ -2868,7 +2890,7 @@ def new_folder(self: SimpleHTTPRequestHandler, *args, **kwargs):
 		return self.send_json({"head": "Success", "body": "New Folder Created:  " + path +post.refresh})
 
 	except Exception as e:
-		logger.exception(e)
+		self.log_error(traceback.format_exc())
 		return self.send_json({"head": "Failed", "body": f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b>"})
 
 
