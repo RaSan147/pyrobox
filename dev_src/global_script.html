@@ -119,10 +119,13 @@ class Tools {
 			document.body.classList.toggle('overflowHidden');
 		}
 	}
-	download(dataurl, filename = null) {
+	download(dataurl, filename = null, new_tab=false) {
 		const link = createElement("a");
 		link.href = dataurl;
 		link.download = filename;
+		if(new_tab){
+			link.target = "_blank";
+		}
 		link.click();
 	}
 

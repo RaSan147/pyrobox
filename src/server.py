@@ -1527,7 +1527,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 	def return_txt(self, code, msg):
-		logger.info(f'[RETURNED] {code} {msg} to {self.address_string()}')
+		logger.debug(f'[RETURNED] {code} {msg} to {self.address_string()}')
 		if not isinstance(msg, bytes):
 			encoded = msg.encode('utf-8', 'surrogateescape')
 		else:
@@ -2087,7 +2087,7 @@ def create_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	spathsplit = kwargs.get('spathsplit', '')
 
 	if config.disabled_func["zip"]:
-		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
+		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ERROR: ZIP FEATURE IS UNAVAILABLE !")
 
 	dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
@@ -3693,10 +3693,13 @@ class Tools {
 			document.body.classList.toggle('overflowHidden');
 		}
 	}
-	download(dataurl, filename = null) {
+	download(dataurl, filename = null, new_tab=false) {
 		const link = createElement("a");
 		link.href = dataurl;
 		link.download = filename;
+		if(new_tab){
+			link.target = "_blank";
+		}
 		link.click();
 	}
 
@@ -4749,18 +4752,26 @@ var percentage = document.getElementById("zip-perc")
 function ping(url) {
 	var xhttp = new XMLHttpRequest();
 	xhttp.onreadystatechange = function() {
+		if (dl_now) {
+			return
+		}
 		if (this.readyState == 4 && this.status == 200) {
 			// Typical action to be performed when the document is ready:
 			//document.getElementById("demo").innerHTML = xhttp.responseText;
 			var resp = xhttp.responseText;
-			if (resp == "SUCCESS") {
+			log(resp)
+			
+			if (resp.startsWith("SUCCESS")) {
 				check_prog = true;
-			} else if (resp == "DONE") {
+			} else if (resp.startsWith("DONE")) {
+				message.innerHTML = "Downloading";
+				percentage.innerText = "";
 				dl_now = true;
 				clearTimeout(prog_timer)
 				run_dl()
 			} else if (resp.startsWith("ERROR")) {
-				message.innerHTML = resp;
+				message.innerHTML = "Error";
+				percentage.innerText = resp;
 				clearTimeout(prog_timer)
 			} else {
 				percentage.innerText = resp + "%";
@@ -4772,13 +4783,7 @@ function ping(url) {
 }
 
 function run_dl() {
-	var a = document.createElement('a');
-	a.href= window.location.pathname + "?zip&zid=" + id + "&download";
-	a.download = filename;
-	a.style.display = 'none';
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
+	tools.download(window.location.pathname + "?zip&zid=" + id + "&download", filename, new_tab = true)
 }
 var prog_timer = setInterval(function() {
 	ping(window.location.pathname + "?zip&zid=" + id + "&progress")}, 500)

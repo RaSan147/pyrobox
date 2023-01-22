@@ -1977,7 +1977,7 @@ def create_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	spathsplit = kwargs.get('spathsplit', '')
 
 	if config.disabled_func["zip"]:
-		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
+		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ERROR: ZIP FEATURE IS UNAVAILABLE !")
 
 	dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
