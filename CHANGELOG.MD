@@ -1,3 +1,14 @@
+# Version 0.6.3
+  ## Client-side Changes:
+  * Nothing to notice
+  ## Server-side Changes:
+  * HOTFIX: log_message now works like print funtion (*args), not like logger.log(format, *args)
+  ## Fixes:
+  * fixed log_message not working
+
+
+------------------------------------------------------------------------
+
 # Version 0.6.2
   ## Client-side Changes:
   * Nothing to notice
