@@ -1389,6 +1389,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			for case, func in self.handlers['POST']:
 				if self.test_req(*case):
 					return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+				
+			
+			return self.send_error(HTTPStatus.BAD_REQUEST, "Invalid request.")
 
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
 			print(tools.text_box(e.__class__.__name__, e,"\nby ", [self.address_string()]))
@@ -1556,6 +1559,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		for case, func in self.handlers['HEAD']:
 			if self.test_req(*case):
 				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, first=first, last=last, spathsplit=spathsplit)
+			
+		return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 
 
 
@@ -1875,6 +1880,910 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return guess
 
 		return self.extensions_map[''] #return 'application/octet-stream'
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD', '/favicon.ico')
+def send_favicon(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	self.send_response(301)
+	self.send_header('Location','https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
+	self.end_headers()
+	return None
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="reload")
+def reload(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
+	config.reload = True
+
+	httpd.server_close()
+	httpd.shutdown()
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="admin")
+def admin_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	title = "ADMIN PAGE"
+	url_path = kwargs.get('url_path', '')
+	displaypath = self.get_displaypath(url_path)
+
+	head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+												PY_PUBLIC_URL=config.address(),
+												PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
+
+	tail = _admin_page().template
+	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="update")
+def update(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Check for update and return the latest version"""
+	data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+	if data:
+		data  = data.decode("utf-8").strip()
+		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
+		return self.return_txt(HTTPStatus.OK, ret)
+	else:
+		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="update_now")
+def update_now(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Run update"""
+	if config.disabled_func["update"]:
+		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
+	else:
+		data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
+		if data:
+			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
+		else:
+			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="size")
+def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Return size of the file"""
+	url_path = kwargs.get('url_path', '')
+
+	xpath = self.translate_path(url_path)
+
+	stat = get_stat(xpath)
+	if not stat:
+		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+	if os.path.isfile(xpath):
+		size = stat.st_size
+	else:
+		size = get_dir_size(xpath)
+
+	humanbyte = humanbytes(size)
+	fmbyte = fmbytes(size)
+	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+														"byte": size,
+														"humanbyte": humanbyte,
+														"fmbyte": fmbyte}))
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="czip")
+def create_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Create ZIP task and return ID"""
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+
+	if config.disabled_func["zip"]:
+		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
+
+	dir_size = get_dir_size(path, limit=6*1024*1024*1024)
+
+	if dir_size == -1:
+		msg = "Directory size is too large, please contact the host"
+		return self.return_txt(HTTPStatus.OK, msg)
+
+	displaypath = self.get_displaypath(url_path)
+	filename = spathsplit[-2] + ".zip"
+
+
+	try:
+		zid = zip_manager.get_id(path, dir_size)
+		title = "Creating ZIP"
+
+		head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+												PY_PUBLIC_URL=config.address(),
+												PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
+
+		tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
+		PY_ZIP_NAME = filename)
+		return self.return_txt(HTTPStatus.OK,
+		f"{head} {tail}")
+	except Exception:
+		self.log_error(traceback.format_exc())
+		return self.return_txt(HTTPStatus.OK, "ERROR")
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="zip")
+def get_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Return ZIP file if available
+	Else return progress of the task"""
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+	first = kwargs.get('first', '')
+	last = kwargs.get('last', '')
+
+	query = self.query
+
+	msg = False
+
+	if not os.path.isdir(path):
+		msg = "Zip function is not available, please Contact the host"
+		self.log_error(msg)
+		return self.return_txt(HTTPStatus.OK, msg)
+
+
+	filename = spathsplit[-2] + ".zip"
+
+	id = query["zid"][0]
+
+	# IF NOT STARTED
+	if not zip_manager.zip_id_status(id):
+		t = zip_manager.archive_thread(path, id)
+		t.start()
+
+		return self.return_txt(HTTPStatus.OK, "SUCCESS")
+
+
+	if zip_manager.zip_id_status[id] == "DONE":
+		if query("download"):
+			path = zip_manager.zip_ids[id]
+
+			return self.return_file(path, first, last, filename)
+
+
+		if query("progress"):
+			return self.return_txt(HTTPStatus.OK, "DONE") #if query("progress") or no query
+
+	# IF IN PROGRESS
+	if zip_manager.zip_id_status[id] == "ARCHIVING":
+		progress = zip_manager.zip_in_progress[id]
+		return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
+
+	if zip_manager.zip_id_status[id].startswith("ERROR"):
+		return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="json")
+def send_ls_json(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Send directory listing in JSON format"""
+	return self.list_directory_json()
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="vid")
+def send_video_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	# SEND VIDEO PLAYER
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+
+	vid_source = url_path
+	if not self.guess_type(path).startswith('video/'):
+		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE")
+		return None
+
+	r = []
+
+	displaypath = self.get_displaypath(url_path)
+
+
+
+	title = self.get_titles(displaypath)
+
+	r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+													PY_PUBLIC_URL=config.address(),
+													PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
+
+
+	r.append("</ul></div>")
+
+
+	if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
+		r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
+	else:
+		ctype = self.guess_type(path)
+		r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+												PY_CTYPE=ctype))
+
+	r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
+
+
+	r.append('\n<hr>\n</body>\n</html>\n')
+
+	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
+	return self.return_txt(HTTPStatus.OK, encoded)
+
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD', url="/@assets/.*")
+def send_assets(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Send assets"""
+	if not config.ASSETS:
+		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
+		return None
+
+
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+	first = kwargs.get('first', '')
+	last = kwargs.get('last', '')
+
+	path = config.ASSETS_dir + "/".join(spathsplit[2:])
+	#	print("USING ASSETS", path)
+
+	if not os.path.isfile(path):
+		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+		return None
+
+	return self.return_file(path, first, last)
+
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD')
+def default_get(self: SimpleHTTPRequestHandler, filename=None, *args, **kwargs):
+	"""Serve a GET request."""
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+	first = kwargs.get('first', '')
+	last = kwargs.get('last', '')
+
+
+	if os.path.isdir(path):
+		parts = urllib.parse.urlsplit(self.path)
+		if not parts.path.endswith('/'):
+			# redirect browser - doing basically what apache does
+			self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+			new_parts = (parts[0], parts[1], parts[2] + '/',
+							parts[3], parts[4])
+			new_url = urllib.parse.urlunsplit(new_parts)
+			self.send_header("Location", new_url)
+			self.send_header("Content-Length", "0")
+			self.end_headers()
+			return None
+		for index in "index.html", "index.htm":
+			index = os.path.join(path, index)
+			if os.path.exists(index):
+				path = index
+				break
+		else:
+			return self.list_directory(path)
+
+	# check for trailing "/" which should return 404. See Issue17324
+	# The test for this was added in test_httpserver.py
+	# However, some OS platforms accept a trailingSlash as a filename
+	# See discussion on python-dev and Issue34711 regarding
+	# parseing and rejection of filenames with a trailing slash
+	if path.endswith("/"):
+		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+		return None
+
+
+
+	# else:
+
+	return self.return_file(path, first, last, filename)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class DealPostData:
+	boundary = b''
+	uid = None
+	num = 0
+	blank = 0 # blank is used to check if the post is empty or Connection Aborted
+	remainbytes = 0
+
+	def __init__(self, req:SimpleHTTPRequestHandler) -> None:
+		self.req = req
+
+
+	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
+
+
+	def get(self, show=True, strip=False):
+		"""
+		show: print line
+		strip: strip \r\n at end
+		"""
+		req = self.req
+		line = req.rfile.readline()
+
+		if line == b'':
+			self.blank += 1
+		else:
+			self.blank = 0
+		if self.blank>=20: # allow 20 loss packets
+			req.send_error(408, "Request Timeout")
+			time.sleep(1) # wait for the client to close the connection
+
+			raise ConnectionAbortedError
+		if show:
+			self.num+=1
+		self.remainbytes -= len(line)
+
+		if strip and line.endswith(b"\r\n"):
+			line = line.rpartition(b"\r\n")[0]
+
+		return line
+
+	def pass_bound(self):
+		line = self.get(F)
+		if not self.boundary in line:
+			return (False, "Content NOT begin with boundary")
+
+	def get_type(self, line=None, ):
+		if not line:
+			line = self.get()
+		try:
+			return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
+		except: return None
+
+	def skip(self,):
+		self.get(F)
+
+	def start(self, post_type=b''):
+		req = self.req
+		content_type = req.headers['content-type']
+
+		if not content_type:
+			return (False, "Content-Type header doesn't contain boundary")
+		self.boundary = content_type.split("=")[1].encode()
+
+		self.remainbytes = int(req.headers['content-length'])
+
+
+		self.pass_bound()# LINE 1
+
+		# get post type
+		if self.get_type()=="post-type":
+			self.skip() # newline
+		else:
+			return (False, "Invalid post request")
+
+		line = self.get()
+		handle_type = line.decode().strip() # post type LINE 3
+
+		if handle_type != post_type.decode():
+			return (False, "Invalid post request")
+
+		self.pass_bound() #boundary for password or guid of user
+
+		return (True, handle_type)
+
+	def get_uid(self,):
+		if self.get_type()=="post-uid":
+			self.skip() # newline
+		else:
+			return (False, "Unknown User request")
+
+		uid = self.get() # uid LINE 5
+
+
+		return (True, uid)
+
+
+
+
+def AUTHORIZE_POST(req: SimpleHTTPRequestHandler, post:DealPostData, post_type=b''):
+	"""Check if the user is authorized to post"""
+
+	# START
+	post_verify = post.start(post_type)
+	if not post_verify[0]:
+		req.send_txt(HTTPStatus.BAD_REQUEST, post_verify[1])
+
+		return None
+
+	# GET UID
+	uid_verify = post.get_uid()
+
+
+
+	# pass boundary
+	post.pass_bound()
+
+
+	if not uid_verify[0]:
+		req.send_txt(HTTPStatus.BAD_REQUEST, uid_verify[1])
+
+		return None
+
+	uid = uid_verify[1].decode()
+
+
+	##################################
+
+	# HANDLE USER PERMISSION BY CHECKING UID
+
+	##################################
+
+	return uid
+
+
+
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="upload")
+def upload(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""GET Uploaded files"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'upload')
+
+	if not uid:
+		return None
+
+
+	uploaded_files = [] # Uploaded folder list
+
+
+
+	# PASSWORD SYSTEM
+	if post.get_type()!="password":
+		return self.send_txt(HTTPStatus.BAD_REQUEST, "Invalid request")
+
+	post.skip()
+	password= post.get(F)
+	logger.info(f'post password: {[password]} by {[self.address_string()]}')
+	if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
+		logger.info(f"Incorrect password by {[self.address_string()]}")
+
+		return self.send_txt(HTTPStatus.UNAUTHORIZED, "Incorrect password")
+
+
+	post.pass_bound()
+
+	while post.remainbytes > 0:
+		line = post.get()
+
+		fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
+		if not fn:
+			return (False, "Can't find out file name...")
+
+
+		path = self.translate_path(self.path)
+		rltv_path = posixpath.join(url_path, fn[0])
+
+		if len(fn[0])==0:
+			return self.send_txt(HTTPStatus.BAD_REQUEST, "Invalid file name")
+
+		temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
+		config.temp_file.add(temp_fn)
+
+
+		fn = os.path.join(path, fn[0])
+
+
+
+		line = post.get(F) # content type
+		line = post.get(F) # line gap
+
+
+
+		# ORIGINAL FILE STARTS FROM HERE
+		try:
+			with open(temp_fn, 'wb') as out:
+				preline = post.get(F)
+				while post.remainbytes > 0:
+					line = post.get(F)
+					if post.boundary in line:
+						preline = preline[0:-1]
+						if preline.endswith(b'\r'):
+							preline = preline[0:-1]
+						out.write(preline)
+						uploaded_files.append(rltv_path,)
+						break
+					else:
+						out.write(preline)
+						preline = line
+
+
+			os.replace(temp_fn, fn)
+
+
+
+		except (IOError, OSError):
+			traceback.print_exc()
+			return self.send_txt(HTTPStatus.FORBIDDEN, "Can't create file to write, do you have permission to write?")
+
+		finally:
+			try:
+				os.remove(temp_fn)
+				config.temp_file.remove(temp_fn)
+
+			except OSError:
+				pass
+
+
+
+	return self.send_txt(HTTPStatus.OK, "File(s) uploaded")
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="del-f")
+def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Move 2 recycle bin"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'del-f')
+
+	if not uid:
+		return None
+
+
+	if config.disabled_func["send2trash"]:
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+
+
+
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return self.send_json({"head": "Failed", "body":  "Invalid request"})
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+
+	path = self.get_rel_path(filename)
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+	logger.warning(f'send2trash {xpath} by {[uid]} {[self.address_string()]}')
+
+	head = "Failed"
+	try:
+		send2trash(xpath)
+		msg = "Successfully Moved To Recycle bin"+ post.refresh
+		head = "Success"
+	except TrashPermissionError:
+		msg = "Recycling unavailable! Try deleting permanently..."
+	except Exception as e:
+		traceback.print_exc()
+		msg = "<b>" + path + "</b> " + e.__class__.__name__
+
+	return self.send_json({"head": head, "body": msg})
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="del-p")
+def del_permanently(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""DELETE files permanently"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'del-p')
+
+	if not uid:
+		return None
+
+
+
+
+
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return self.send_json({"head": "Failed", "body": "Invalid request"})
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+
+	path = self.get_rel_path(filename)
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+	logger.warning(f'Perm. DELETED {xpath} by {[uid]} {[self.address_string()]}')
+
+
+	try:
+		if os.path.isfile(xpath): os.remove(xpath)
+		else: shutil.rmtree(xpath)
+
+		return self.send_json({"head": "Success", "body": "PERMANENTLY DELETED  " + path + post.refresh})
+
+
+	except Exception as e:
+		traceback.print_exc()
+		return self.send_json({"head": "Failed", "body": "<b>" + path + "<b>" + e.__class__.__name__})
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="rename")
+def rename_content(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Rename files"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'rename')
+
+	if not uid:
+		return None
+
+
+
+
+
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return (False, "Invalid request")
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+	post.pass_bound()
+
+	if post.get_type()!="data":
+		return (False, "Invalid request")
+
+
+	post.skip()
+	new_name = post.get(strip=T).decode()
+
+
+	path = self.get_rel_path(filename)
+
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+
+	new_path = self.translate_path(posixpath.join(url_path, new_name))
+
+	logger.warning(f'Renamed "{xpath}" to "{new_path}" by {[uid]} {[self.address_string()]}')
+
+
+	try:
+		os.rename(xpath, new_path)
+		return self.send_json({"head": "Renamed Successfully", "body":  post.refresh})
+	except Exception as e:
+		return self.send_json({"head": "Failed", "body": "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) })
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="info")
+def get_info(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Get files permanently"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'info')
+
+	if not uid:
+		return None
+
+
+	script = None
+
+
+
+
+	# File link to move to check info
+	if post.get_type()!="name":
+		return self.send_json({"head":"Failed!","body": "Invalid request"})
+
+
+	post.skip()
+	filename = post.get(strip=T).decode() # the filename
+	path = self.get_rel_path(filename) # the relative path of the file or folder
+
+	xpath = self.translate_path(posixpath.join(url_path, filename)) # the absolute path of the file or folder
+
+
+	logger.warning(f'Info Checked "{xpath}" by: {[uid]} {[self.address_string()]}')
+
+	file_stat = get_stat(xpath)
+	if not file_stat:
+		return (False, "Permission Denied", script)
+
+	data = []
+	data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
+
+	if os.path.isfile(xpath):
+		data.append(["Type","File"])
+		if "." in filename:
+			data.append(["Extension", filename.rpartition(".")[2]])
+
+		size = file_stat.st_size
+		data.append(["Size", humanbytes(size) + " (%i bytes)"%size])
+
+	else: #if os.path.isdir(xpath):
+		data.append(["Type", "Folder"])
+		# size = get_dir_size(xpath)
+
+		data.append(["Total Files", get_file_count(xpath)])
+
+
+		data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
+		script = '''
+		tools.fetch_json(tools.full_path("''' + path + '''?size")).then(size_resp => {
+		console.log(size_resp);
+		if (size_resp.status) {
+			document.getElementById("f_size").innerHTML = size_resp.humanbyte + " (" + size_resp.byte + " bytes)";
+		} else {
+			throw new Error(size_resp.msg);
+		}}).catch(err => {
+		console.log(err);
+		document.getElementById("f_size").innerHTML = "Error";
+		});
+		'''
+
+	data.append(["Path", path])
+
+	def get_dt(time):
+		return datetime.datetime.fromtimestamp(time)
+
+	data.append(["Created on", get_dt(file_stat.st_ctime)])
+	data.append(["Last Modified", get_dt(file_stat.st_mtime)])
+	data.append(["Last Accessed", get_dt(file_stat.st_atime)])
+
+	body = """
+<style>
+table {
+font-family: arial, sans-serif;
+border-collapse: collapse;
+width: 100%;
+}
+
+td, th {
+border: 1px solid #00BFFF;
+text-align: left;
+padding: 8px;
+}
+
+tr:nth-child(even) {
+background-color: #111;
+}
+</style>
+
+<table>
+<tr>
+<th>About</th>
+<th>Info</th>
+</tr>
+"""
+	for key, val in data:
+		body += "<tr><td>{key}</td><td>{val}</td></tr>".format(key=key, val=val)
+	body += "</table>"
+
+	return self.send_json({"head":"Properties", "body":body, "script":script})
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="new_folder")
+def new_folder(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Create new folder"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'new_folder')
+
+	if not uid:
+		return None
+
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return (False, "Invalid request")
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+
+
+	path = self.get_rel_path(filename)
+
+	xpath = filename
+	if xpath.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in xpath or '\\..\\' in xpath or xpath.endswith(('/..', '\\..')):
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + path})
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+
+	logger.warning(f'New Folder Created "{xpath}" by: {[uid]} {[self.address_string()]}')
+
+	try:
+		if os.path.exists(xpath):
+			return self.send_json({"head": "Failed", "body": "Folder Already Exists:  " + path})
+		if os.path.isfile(xpath):
+			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + path})
+		os.makedirs(xpath)
+		return self.send_json({"head": "Success", "body": "New Folder Created:  " + path +post.refresh})
+
+	except Exception as e:
+		logger.exception(e)
+		return self.send_json({"head": "Failed", "body": f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b>"})
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST')
+def default_post(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	return self.send_error(400, "Bad Request")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
