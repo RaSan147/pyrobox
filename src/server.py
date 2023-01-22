@@ -259,7 +259,7 @@ def run_update():
 	py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
 	on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
 	command = "" if config.OS == "Windows" else on_linux
-	comm = f'{command} {sys.executable} -m pip install -U {more_arg} {i}'
+	comm = f'{command} {sys.executable} -m pip install -U --user {more_arg} {i}'
 
 	try:
 		subprocess.call(comm, shell=True)
