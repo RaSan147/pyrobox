@@ -1,3 +1,15 @@
+# Version 0.6.4
+  ## Client-side Changes:
+  * Nothing to notice
+  ## Server-side Changes:
+  * HOTFIX: run_update is using `--user` flag due to permission issues
+  ## Fixes:
+  * fixed update not working due to permission issues
+
+
+------------------------------------------------------------------------
+
+
 # Version 0.6.3
   ## Client-side Changes:
   * Nothing to notice
