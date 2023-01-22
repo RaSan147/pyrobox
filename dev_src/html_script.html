@@ -112,7 +112,7 @@ class ContextMenu {
 		var that = this
 		popup_msg.close()
 
-		var url = ".";
+		var url = ".?"+action;
 		var xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
 		xhr.onreadystatechange = function() {
@@ -122,7 +122,7 @@ class ContextMenu {
 		};
 		var formData = new FormData();
 		formData.append("post-type", action);
-		formData.append("post-uid", 123456);
+		formData.append("post-uid", 123456); // TODO: add uid
 		formData.append("name", link);
 		formData.append("data", more_data)
 		xhr.send(formData);
@@ -236,7 +236,7 @@ class ContextMenu {
 	}
 	create_folder() {
 		let folder_name = byId('folder-name').value;
-		this.menu_click('new folder', folder_name)
+		this.menu_click('new_folder', folder_name)
 	}
 }
 var context_menu = new ContextMenu()

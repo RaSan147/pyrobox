@@ -235,6 +235,7 @@ def check_installed(pkg):
 	return bool(importlib.util.find_spec(pkg))
 
 
+
 def run_update():
 	dep_modified = False
 
@@ -1010,10 +1011,19 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.fragment = fragment
 
 
+			print('='*tools.term_width())
+			print(f'request: {self.command}\nurl: {url_path}\nquery: {query}\nfragment: {fragment}')
+			print('+'*tools.term_width())
+			
+
+
+
 			try:
 				method()
 			except Exception:
 				traceback.print_exc()
+			
+			print('-'*tools.term_width())
 			self.wfile.flush() #actually send the response if not already done.
 		except (TimeoutError, socket.timeout) as e:
 			#a read or a write timed out.  Discard this connection
@@ -1158,8 +1168,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		"""
 
 		self.log_message(format, *args, error = True)
-
-
 
 
 
@@ -1556,8 +1564,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		spathsplit = self.url_path.split("/")
 
-		print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
-		print('-'*tools.term_width())
 
 
 		for case, func in self.handlers['HEAD']:

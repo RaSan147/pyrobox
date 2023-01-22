@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = "0.5"
+__version__ = "0.6.1"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -16,7 +16,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.WARNING)
 # set INFO to see all the requests
 # set WARNING to see only the requests that made change to the server
 # set ERROR to see only the requests that made the errors
@@ -68,6 +68,8 @@ class Config:
 		# RUNNING SERVER STATS
 		self.ftp_dir = self.get_default_dir()
 		self.dev_mode = False
+		self.ASSETS = False # if you want to use assets folder, set this to True
+		self.ASSETS_dir = os.path.join(self.MAIN_FILE_dir, "/../assets/")
 		self.reload = False
 
 
@@ -124,7 +126,7 @@ class Config:
 		# 	return self.LINUX_ftp_dir
 		# elif OS=='Android':
 		# 	return self.ANDROID_ftp_dir
-		
+
 
 		# return './'
 
@@ -235,6 +237,59 @@ REQUEIREMENTS= ['send2trash', 'natsort']
 
 def check_installed(pkg):
 	return bool(importlib.util.find_spec(pkg))
+
+
+
+def run_update():
+	dep_modified = False
+
+	import sysconfig, pip
+
+	i = "pyrobox"
+	more_arg = ""
+	if pip.__version__ >= "6.0":
+		more_arg += " --disable-pip-version-check"
+	if pip.__version__ >= "20.0":
+		more_arg += " --no-python-version-warning"
+
+
+	py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
+	on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
+	command = "" if config.OS == "Windows" else on_linux
+	comm = f'{command} {sys.executable} -m pip install -U  --quiet {more_arg} {i}'
+
+	try:
+		subprocess.call(comm, shell=True)
+	except Exception as e:
+		logger.error(traceback.format_exc())
+		return False
+
+
+	#if i not in get_installed():
+	if check_installed(i):
+		return True
+
+
+	else:
+		print("Failed to load ", i)
+		return False
+
+
+
+
+def reload_server():
+	"""reload the server process from file"""
+	file = '"' + config.MAIN_FILE + '"'
+	print("Reloading...")
+	# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
+	try:
+		os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
+	except:
+		traceback.print_exc()
+	sys.exit(0)
+
+def null(*args, **kwargs):
+	pass
 
 
 #############################################
@@ -1066,10 +1121,19 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.fragment = fragment
 
 
+			print('='*tools.term_width())
+			print(f'request: {self.command}\nurl: {url_path}\nquery: {query}\nfragment: {fragment}')
+			print('+'*tools.term_width())
+			
+
+
+
 			try:
 				method()
 			except Exception:
 				traceback.print_exc()
+			
+			print('-'*tools.term_width())
 			self.wfile.flush() #actually send the response if not already done.
 		except (TimeoutError, socket.timeout) as e:
 			#a read or a write timed out.  Discard this connection
@@ -1250,7 +1314,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		try:
 			if not config.write_log:
 				return
-			
+
 			# create config.log_location if it doesn't exist
 			os.makedirs(config.log_location, exist_ok=True)
 			with open(config.log_location + 'log.txt','a+') as f:
@@ -1337,6 +1401,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'.xz': 'application/x-xz',
 	})
 
+	handlers = {
+			'HEAD': [],
+			'POST': [],
+		}
+
 	def __init__(self, *args, directory=None, **kwargs):
 		if directory is None:
 			directory = os.getcwd()
@@ -1365,6 +1434,53 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'''incase of errored request'''
 		self.send_error(HTTPStatus.BAD_REQUEST, "Bad request.")
 
+
+	@staticmethod
+	def on_req(type='', url='.*', hasQ=(), QV={}, fragent='', func=null, escape=None):
+		'''called when request is received
+		type: GET, POST, HEAD, ...
+		url: url regex, * for all, must escape special char and start with /
+		hasQ: if url has query
+		QV: match query value
+		fragent: fragent of request
+
+		if query is tuple, it will only check existence of key
+		if query is dict, it will check value of key
+		'''
+		self = __class__
+		if type not in self.handlers:
+			self.handlers[type] = []
+
+		if isinstance(hasQ, str):
+			hasQ = (hasQ,)
+
+		if escape or (escape is None and '*' not in url):
+			url = re.escape(url)
+
+		to_check = (url, hasQ, QV, fragent)
+
+		def decorator(func):
+			self.handlers[type].append((to_check, func))
+			return func
+		return decorator
+
+	def test_req(self, url, hasQ, QV, fragent):
+		'''test if request is matched'''
+		# print("^"+url, hasQ, QV, fragent)
+		# print(self.url_path, self.query, self.fragment)
+		# print(self.url_path != url, self.query(*hasQ), self.query, self.fragment != fragent)
+
+		if not re.search("^"+url, self.url_path): return False
+		if hasQ and self.query(*hasQ)==False: return False
+		if QV:
+			for k, v in QV.items():
+				if not self.query(k): return False
+				if self.query[k] != v: return False
+
+		if fragent and self.fragment != fragent: return False
+
+		return True
+
 	def do_HEAD(self):
 		"""Serve a HEAD request."""
 		try:
@@ -1373,7 +1489,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			traceback.print_exc()
 			self.send_error(500, str(e))
 			return
-		
+
 		if f:
 			f.close()
 
@@ -1383,511 +1499,35 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		DO_NOT_JSON = False # wont convert r, info to json
 
 
+		path = self.translate_path(self.path)
+		# DIRECTORY DONT CONTAIN SLASH / AT END
+
+		url_path, query, fragment = self.url_path, self.query, self.fragment
+		spathsplit = self.url_path.split("/")
+
+		# print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
 
 		try:
-			post_type, r, info, script = self.deal_post_data()
+			for case, func in self.handlers['POST']:
+				if self.test_req(*case):
+					return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+				
+			
+			return self.send_error(HTTPStatus.BAD_REQUEST, "Invalid request.")
+
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
 			print(tools.text_box(e.__class__.__name__, e,"\nby ", [self.address_string()]))
 			return
-		if post_type=='get-json':
-			return self.list_directory_json()
+		except Exception as e:
+			traceback.print_exc()
+			self.send_error(500, str(e))
+			return
 
-		if post_type== "upload":
-			DO_NOT_JSON = True
 
-
-		print(tools.text_box(r, post_type, "by: ", [self.address_string()]))
-
-		if r==True:
-			head = "Success"
-		elif r==False:
-			head = "Failed"
-
-		else:
-			head = r
-
-
-		body = str(info)
-
-
-		f = io.BytesIO()
-
-		if DO_NOT_JSON:
-			data = f"{head} {body}"
-			content_type = 'text/html'
-		else:
-			data = json.dumps({"head": head, "body": body, "script": script})
-			content_type = 'application/json'
-
-
-		f.write(data.encode('utf-8'))
-
-		length = f.tell()
-		f.seek(0)
-		self.send_response(200)
-		self.send_header("Content-type", content_type)
-		self.send_header("Content-Length", str(length))
-		self.end_headers()
-
-		self.copyfile(f, self.wfile)
-
-		f.close()
-
-
-	def deal_post_data(self):
-		boundary = b''
-		uid = None
-		num = 0
-		blank = 0 # blank is used to check if the post is empty or Connection Aborted
-
-		refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
-
-
-		def get_rel_path(filename):
-			return urllib.parse.unquote(posixpath.join(self.path, filename), errors='surrogatepass')
-
-
-		def get(show=True, strip=False):
-			"""
-			show: print line
-			strip: strip \r\n at end
-			"""
-			nonlocal num, remainbytes, blank
-
-			line = self.rfile.readline()
-
-			if line == b'':
-				blank += 1
-			else:
-				blank = 0
-			if blank>=20: # allow 20 loss packets
-				self.send_error(408, "Request Timeout")
-				time.sleep(1) # wait for the client to close the connection
-
-				raise ConnectionAbortedError
-			if show:
-				num+=1
-			remainbytes -= len(line)
-
-			if strip and line.endswith(b"\r\n"):
-				line = line.rpartition(b"\r\n")[0]
-
-			return line
-
-		def pass_bound():
-			nonlocal remainbytes
-			line = get(F)
-			if not boundary in line:
-				return (False, "Content NOT begin with boundary")
-
-		def get_type(line=None, ):
-			nonlocal remainbytes
-			if not line:
-				line = get()
-			try:
-				return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
-			except: return None
-
-		def skip():
-			get(F)
-
-		def handle_files():
-			nonlocal remainbytes
-			uploaded_files = [] # Uploaded folder list
-
-			# pass boundary
-			pass_bound()
-
-
-			# PASSWORD SYSTEM
-			if get_type()!="password":
-				return (False, "Invalid request")
-
-			skip()
-			password= get(F)
-			logger.info('post password: ',  [password], "by", [self.address_string()])
-			if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
-				logger.info("Incorrect password by", [self.address_string()])
-				self.send_error(HTTPStatus.UNAUTHORIZED, "Incorrect password")
-				# raise ConnectionAbortedError
-				return (False, "Incorrect password") # won't even read what the random guy has to say and slap 'em
-
-			pass_bound()
-
-			while remainbytes > 0:
-				line =get()
-
-				fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
-				if not fn:
-					return (False, "Can't find out file name...")
-
-
-				path = self.translate_path(self.path)
-				rltv_path = posixpath.join(self.path, fn[0])
-
-				temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
-				config.temp_file.add(temp_fn)
-
-
-				fn = os.path.join(path, fn[0])
-
-
-
-				line = get(F) # content type
-				line = get(F) # line gap
-
-
-
-				# ORIGINAL FILE STARTS FROM HERE
-				try:
-					with open(temp_fn, 'wb') as out:
-						preline = get(F)
-						while remainbytes > 0:
-							line = get(F)
-							if boundary in line:
-								preline = preline[0:-1]
-								if preline.endswith(b'\r'):
-									preline = preline[0:-1]
-								out.write(preline)
-								uploaded_files.append(rltv_path,)
-								break
-							else:
-								out.write(preline)
-								preline = line
-
-
-					os.replace(temp_fn, fn)
-
-
-
-				except (IOError, OSError):
-					return (False, "Can't create file to write, do you have permission to write?")
-
-				finally:
-					try:
-						os.remove(temp_fn)
-						config.temp_file.remove(temp_fn)
-
-					except OSError:
-						pass
-
-
-
-			return (True, "File(s) uploaded")
-
-		def del_data():
-
-			if config.disabled_func["send2trash"]:
-				return (False, "Trash not available. Please contact the Host...")
-
-			# pass boundary
-			pass_bound()
-
-
-			# File link to move to recycle bin
-			if get_type()!="name":
-				return (False, "Invalid request")
-
-
-			skip()
-			filename = get(strip=T).decode()
-
-
-			path = get_rel_path(filename)
-
-			xpath = self.translate_path(posixpath.join(self.path, filename))
-
-			logger.warning('send2trash ',[xpath], 'by', [uid], [self.address_string()])
-
-			bool = False
-			try:
-				send2trash(xpath)
-				msg = "Successfully Moved To Recycle bin"+refresh
-				bool = True
-			except TrashPermissionError:
-				msg = "Recycling unavailable! Try deleting permanently..."
-			except Exception as e:
-				self.log_error(traceback.format_exc())
-				msg = "<b>" + path + "</b> " + e.__class__.__name__
-
-			return (bool, msg)
-
-
-		def del_permanently():
-
-			# pass boundary
-			pass_bound()
-
-
-			# File link to move to recycle bin
-			if get_type()!="name":
-				return (False, "Invalid request")
-
-
-			skip()
-			filename = get(strip=T).decode()
-
-
-			path = get_rel_path(filename)
-
-			xpath = self.translate_path(posixpath.join(self.path, filename))
-
-			logger.warning('Perm. DELETED ', [xpath], 'by', [uid], [self.address_string()])
-
-
-			try:
-				if os.path.isfile(xpath): os.remove(xpath)
-				else: shutil.rmtree(xpath)
-
-				return (True, "PERMANENTLY DELETED  " + path +refresh)
-
-
-			except Exception as e:
-				return (False, "<b>" + path + "<b>" + e.__class__.__name__ + " : " + str(e))
-
-
-		def rename():
-			# pass boundary
-			pass_bound()
-
-
-			# File link to move to recycle bin
-			if get_type()!="name":
-				return (False, "Invalid request")
-
-
-			skip()
-			filename = get(strip=T).decode()
-
-			pass_bound()
-
-			if get_type()!="data":
-				return (False, "Invalid request")
-
-
-			skip()
-			new_name = get(strip=T).decode()
-
-
-			path = get_rel_path(filename)
-
-
-			xpath = self.translate_path(posixpath.join(self.path, filename))
-
-
-			new_path = self.translate_path(posixpath.join(self.path, new_name))
-
-			logger.warning('Renamed ', [xpath], 'to', [new_path], 'by', [uid], [self.address_string()])
-
-
-			try:
-				os.rename(xpath, new_path)
-				return (True, "Rename successful!" + refresh)
-			except Exception as e:
-				return (False, "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) )
-
-
-		def get_info():
-			script = None
-
-			# pass boundary
-			pass_bound()
-
-
-			# File link to move to recycle bin
-			if get_type()!="name":
-				return (False, "Invalid request", script)
-
-
-			skip()
-			filename = get(strip=T).decode() # the filename
-			path = get_rel_path(filename) # the relative path of the file or folder
-
-			xpath = self.translate_path(posixpath.join(self.path, filename)) # the absolute path of the file or folder
-
-			logger.warning(f'Info Checked', [xpath], 'by', [uid], [self.address_string()])
-
-			file_stat = get_stat(xpath)
-			if not file_stat:
-				return (False, "Permission Denied", script)
-
-			data = []
-			data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
-
-			if os.path.isfile(xpath):
-				data.append(["Type","File"])
-				if "." in filename:
-					data.append(["Extension", filename.rpartition(".")[2]])
-
-				size = file_stat.st_size
-				data.append(["Size", humanbytes(size) + " (%i bytes)"%size])
-
-			else: #if os.path.isdir(xpath):
-				data.append(["Type", "Folder"])
-				# size = get_dir_size(xpath)
-
-				data.append(["Total Files", get_file_count(xpath)])
-
-				# print("files: ", get_file_count(xpath))
-
-				data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
-				script = '''
-				tools.fetch_json(tools.full_path("''' + path + '''?size")).then(size_resp => {
-				console.log(size_resp);
-				if (size_resp.status) {
-					document.getElementById("f_size").innerHTML = size_resp.humanbyte + " (" + size_resp.byte + " bytes)";
-				} else {
-					throw new Error(size_resp.msg);
-				}}).catch(err => {
-				console.log(err);
-				document.getElementById("f_size").innerHTML = "Error";
-				});
-				'''
-
-			data.append(["Path", path])
-
-			def get_dt(time):
-				return datetime.datetime.fromtimestamp(time)
-
-			data.append(["Created on", get_dt(file_stat.st_ctime)])
-			data.append(["Last Modified", get_dt(file_stat.st_mtime)])
-			data.append(["Last Accessed", get_dt(file_stat.st_atime)])
-
-			body = """
-<style>
-table {
-  font-family: arial, sans-serif;
-  border-collapse: collapse;
-  width: 100%;
-}
-
-td, th {
-  border: 1px solid #00BFFF;
-  text-align: left;
-  padding: 8px;
-}
-
-tr:nth-child(even) {
-  background-color: #111;
-}
-</style>
-
-<table>
-  <tr>
-	<th>About</th>
-	<th>Info</th>
-  </tr>
-  """
-			for key, val in data:
-				body += "<tr><td>{key}</td><td>{val}</td></tr>".format(key=key, val=val)
-			body += "</table>"
-
-			return ("Properties", body, script)
-
-
-		def new_folder():
-
-
-			# pass boundary
-			pass_bound()
-
-
-			# File link to move to recycle bin
-			if get_type()!="name":
-				return (False, "Invalid request")
-
-
-			skip()
-			filename = get(strip=T).decode()
-
-
-
-			path = get_rel_path(filename)
-
-			xpath = self.translate_path(posixpath.join(self.path, filename))
-
-			logger.warning(f'New folder ', [xpath], 'by', [uid], [self.address_string()])
-
-			try:
-				os.makedirs(xpath)
-				return (True, "New Folder Created:  " + path +refresh)
-
-			except Exception as e:
-				return (False, f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b> : { str(e) }")
-
-		while 0:
-			line = get()
-
-
-		content_type = self.headers['content-type']
-
-		if not content_type:
-			return (False, "Content-Type header doesn't contain boundary")
-		boundary = content_type.split("=")[1].encode()
-
-		remainbytes = int(self.headers['content-length'])
-
-
-		pass_bound()# LINE 1
-
-		# get post type
-		if get_type()=="post-type":
-			skip() # newline
-		else:
-			return (False, "Invalid post request")
-
-		line = get()
-		handle_type = line.decode().strip() # post type LINE 3
-
-		pass_bound() #boundary for password or guid of user
-
-		if get_type()=="post-uid":
-			skip() # newline
-		else:
-			return (False, "Unknown User request")
-
-		uid = get() # uid LINE 5
-
-		##################################
-
-		# HANDLE USER PERMISSION BY CHECKING UID
-
-		##################################
-
-		r, info, script = (True, "Something", None)
-
-		if handle_type == "upload":
-			r, info = handle_files()
-
-
-		elif handle_type == "test":
-			while remainbytes > 0:
-				line =get()
-
-		elif handle_type == "del-f":
-			r, info = del_data()
-
-		elif handle_type == "del-p":
-			r, info = del_permanently()
-
-		elif handle_type=="rename":
-			r, info = rename()
-
-		elif handle_type=="info":
-			r, info, script = get_info()
-
-		elif handle_type == "new folder":
-			r, info = new_folder()
-
-		elif handle_type == "get-json":
-			r, info = (None, "get-json")
-
-
-		return handle_type, r, info, script
 
 
 	def return_txt(self, code, msg):
-
+		logger.info(f'[RETURNED] {code} {msg} to {self.address_string()}')
 		if not isinstance(msg, bytes):
 			encoded = msg.encode('utf-8', 'surrogateescape')
 		else:
@@ -1902,6 +1542,17 @@ tr:nth-child(even) {
 		self.send_header("Content-Length", str(len(encoded)))
 		self.end_headers()
 		return f
+
+	def send_txt(self, code, msg):
+		f = self.return_txt(code, msg)
+		self.copyfile(f, self.wfile)
+		f.close()
+
+	def send_json(self, obj):
+		self.send_response(200)
+		self.send_header("Content-type", "application/json")
+		self.end_headers()
+		self.wfile.write(json.dumps(obj).encode())
 
 	def return_file(self, path, first, last, filename=None):
 		f = None
@@ -1984,7 +1635,7 @@ tr:nth-child(even) {
 
 
 		except:
-			f.close()
+			if f and not f.closed(): f.close()
 			raise
 
 
@@ -2023,236 +1674,14 @@ tr:nth-child(even) {
 
 		spathsplit = self.url_path.split("/")
 
-		filename = None
-
-		if url_path == '/favicon.ico':
-			self.send_response(301)
-			self.send_header('Location','https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
-			self.end_headers()
-			return None
 
 
-
-		print("from:", [self.address_string()], "to:", [self.path])
-		print(f'url: {url_path}\nquery: {query}\nfragment: {fragment}')
-		print('-'*tools.term_width())
-
-		########################################################
-		#    TO	TEST ASSETS
-		#if spathsplit[1]=="@assets":
-		#	path = config.MAIN_FILE_dir+ "/../assets/"+ "/".join(spathsplit[2:])
-		#	print("USING ASSETS", path)
-
-		########################################################
-
-		if query("reload"):
-			# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
-			config.reload = True
+		for case, func in self.handlers['HEAD']:
+			if self.test_req(*case):
+				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, first=first, last=last, spathsplit=spathsplit)
 			
+		return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 
-			httpd.server_close()
-			httpd.shutdown()
-
-		elif query("admin"):
-			title = "ADMIN PAGE"
-			displaypath = self.get_displaypath(url_path)
-
-			head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-														PY_PUBLIC_URL=config.address(),
-														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
-
-			tail = _admin_page().template
-			return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
-
-		elif query("update"):
-			"""Check for update and return the latest version"""
-			data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
-			if data:
-				data  = data.decode("utf-8").strip()
-				ret = json.dumps({"update_available": data > __version__, "latest_version": data})
-				return self.return_txt(HTTPStatus.OK, ret)
-			else:
-				return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
-
-		elif query("update_now"):
-			"""Run update"""
-			if config.disabled_func["update"]:
-				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
-			else:
-				data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
-				if data:
-					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
-				else:
-					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
-
-
-
-		elif query("size"):
-			"""Return size of the file"""
-			stat = get_stat(path)
-			if not stat:
-				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
-			if os.path.isfile(path):
-				size = stat.st_size
-			else:
-				size = get_dir_size(path)
-
-			humanbyte = humanbytes(size)
-			fmbyte = fmbytes(size)
-			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
-															  "byte": size,
-															  "humanbyte": humanbyte,
-															  "fmbyte": fmbyte}))
-
-
-		elif query("czip"):
-			"""Create ZIP task and return ID"""
-			if config.disabled_func["zip"]:
-				self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
-
-			dir_size = get_dir_size(path, limit=6*1024*1024*1024)
-
-			if dir_size == -1:
-				msg = "Directory size is too large, please contact the host"
-				return self.return_txt(HTTPStatus.OK, msg)
-
-			displaypath = self.get_displaypath(url_path)
-			filename = spathsplit[-2] + ".zip"
-
-
-			try:
-				zid = zip_manager.get_id(path, dir_size)
-				title = "Creating ZIP"
-
-				head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-														PY_PUBLIC_URL=config.address(),
-														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
-
-				tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
-				PY_ZIP_NAME = filename)
-				return self.return_txt(HTTPStatus.OK,
-				f"{head} {tail}")
-			except Exception:
-				self.log_error(traceback.format_exc())
-				return self.return_txt(HTTPStatus.OK, "ERROR")
-
-		elif query("zip"):
-			msg = False
-			if not os.path.isdir(path):
-				msg = "Zip function is not available, please Contact the host"
-				self.log_error(msg)
-				return self.return_txt(HTTPStatus.OK, msg)
-
-
-			filename = spathsplit[-2] + ".zip"
-
-			id = query["zid"][0]
-
-			# IF NOT STARTED
-			if not zip_manager.zip_id_status(id):
-				t = zip_manager.archive_thread(path, id)
-				t.start()
-
-				return self.return_txt(HTTPStatus.OK, "SUCCESS")
-
-
-			if zip_manager.zip_id_status[id] == "DONE":
-				if query("download"):
-					path = zip_manager.zip_ids[id]
-
-					return self.return_file(path, first, last, filename)
-
-
-				if query("progress"):
-					return self.return_txt(HTTPStatus.OK, "DONE") #if query("progress") or no query
-
-			# IF IN PROGRESS
-			if zip_manager.zip_id_status[id] == "ARCHIVING":
-				progress = zip_manager.zip_in_progress[id]
-				return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
-
-			if zip_manager.zip_id_status[id].startswith("ERROR"):
-				return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
-
-
-
-
-
-		elif query("json"):
-			return self.list_directory_json()
-
-
-		elif query("vid"):
-			vid_source = url_path
-			# SEND VIDEO PLAYER
-			if self.guess_type(path).startswith('video/'):
-				r = []
-
-				displaypath = self.get_displaypath(url_path)
-
-
-
-				title = self.get_titles(displaypath)
-
-				r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-																PY_PUBLIC_URL=config.address(),
-																PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
-
-
-				r.append("</ul></div>")
-
-
-				if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
-					r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
-				else:
-					ctype = self.guess_type(path)
-					r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
-															PY_CTYPE=ctype))
-
-				r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
-
-
-				r.append('\n<hr>\n</body>\n</html>\n')
-
-				encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-				return self.return_txt(HTTPStatus.OK, encoded)
-
-
-		f = None
-		if os.path.isdir(path):
-			parts = urllib.parse.urlsplit(self.path)
-			if not parts.path.endswith('/'):
-				# redirect browser - doing basically what apache does
-				self.send_response(HTTPStatus.MOVED_PERMANENTLY)
-				new_parts = (parts[0], parts[1], parts[2] + '/',
-							 parts[3], parts[4])
-				new_url = urllib.parse.urlunsplit(new_parts)
-				self.send_header("Location", new_url)
-				self.send_header("Content-Length", "0")
-				self.end_headers()
-				return None
-			for index in "index.html", "index.htm":
-				index = os.path.join(path, index)
-				if os.path.exists(index):
-					path = index
-					break
-			else:
-				return self.list_directory(path)
-
-		# check for trailing "/" which should return 404. See Issue17324
-		# The test for this was added in test_httpserver.py
-		# However, some OS platforms accept a trailingSlash as a filename
-		# See discussion on python-dev and Issue34711 regarding
-		# parseing and rejection of filenames with a trailing slash
-		if path.endswith("/"):
-			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-			return None
-
-
-
-		# else:
-
-		return self.return_file(path, first, last, filename)
 
 
 
@@ -2455,6 +1884,12 @@ tr:nth-child(even) {
 		else:
 			return 'Viewing ' + paths[-2]
 
+
+	def get_rel_path(self, filename):
+		"""Return the relative path to the file, url encoded."""
+		return urllib.parse.unquote(posixpath.join(self.url_path, filename), errors='surrogatepass')
+
+
 	def dir_navigator(self, path):
 		"""Makes each part of the header directory accessible like links
 		just like file manager, but with less CSS"""
@@ -2565,6 +2000,911 @@ tr:nth-child(even) {
 			return guess
 
 		return self.extensions_map[''] #return 'application/octet-stream'
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD', '/favicon.ico')
+def send_favicon(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	self.send_response(301)
+	self.send_header('Location','https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
+	self.end_headers()
+	return None
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="reload")
+def reload(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
+	config.reload = True
+
+	httpd.server_close()
+	httpd.shutdown()
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="admin")
+def admin_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	title = "ADMIN PAGE"
+	url_path = kwargs.get('url_path', '')
+	displaypath = self.get_displaypath(url_path)
+
+	head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+												PY_PUBLIC_URL=config.address(),
+												PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
+
+	tail = _admin_page().template
+	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="update")
+def update(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Check for update and return the latest version"""
+	data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+	if data:
+		data  = data.decode("utf-8").strip()
+		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
+		return self.return_txt(HTTPStatus.OK, ret)
+	else:
+		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="update_now")
+def update_now(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Run update"""
+	if config.disabled_func["update"]:
+		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
+	else:
+		data = run_update()
+
+		if data:
+			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
+		else:
+			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="size")
+def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Return size of the file"""
+	url_path = kwargs.get('url_path', '')
+
+	xpath = self.translate_path(url_path)
+
+	stat = get_stat(xpath)
+	if not stat:
+		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+	if os.path.isfile(xpath):
+		size = stat.st_size
+	else:
+		size = get_dir_size(xpath)
+
+	humanbyte = humanbytes(size)
+	fmbyte = fmbytes(size)
+	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+														"byte": size,
+														"humanbyte": humanbyte,
+														"fmbyte": fmbyte}))
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="czip")
+def create_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Create ZIP task and return ID"""
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+
+	if config.disabled_func["zip"]:
+		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
+
+	dir_size = get_dir_size(path, limit=6*1024*1024*1024)
+
+	if dir_size == -1:
+		msg = "Directory size is too large, please contact the host"
+		return self.return_txt(HTTPStatus.OK, msg)
+
+	displaypath = self.get_displaypath(url_path)
+	filename = spathsplit[-2] + ".zip"
+
+
+	try:
+		zid = zip_manager.get_id(path, dir_size)
+		title = "Creating ZIP"
+
+		head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+												PY_PUBLIC_URL=config.address(),
+												PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
+
+		tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
+		PY_ZIP_NAME = filename)
+		return self.return_txt(HTTPStatus.OK,
+		f"{head} {tail}")
+	except Exception:
+		self.log_error(traceback.format_exc())
+		return self.return_txt(HTTPStatus.OK, "ERROR")
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="zip")
+def get_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Return ZIP file if available
+	Else return progress of the task"""
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+	first = kwargs.get('first', '')
+	last = kwargs.get('last', '')
+
+	query = self.query
+
+	msg = False
+
+	if not os.path.isdir(path):
+		msg = "Zip function is not available, please Contact the host"
+		self.log_error(msg)
+		return self.return_txt(HTTPStatus.OK, msg)
+
+
+	filename = spathsplit[-2] + ".zip"
+
+	id = query["zid"][0]
+
+	# IF NOT STARTED
+	if not zip_manager.zip_id_status(id):
+		t = zip_manager.archive_thread(path, id)
+		t.start()
+
+		return self.return_txt(HTTPStatus.OK, "SUCCESS")
+
+
+	if zip_manager.zip_id_status[id] == "DONE":
+		if query("download"):
+			path = zip_manager.zip_ids[id]
+
+			return self.return_file(path, first, last, filename)
+
+
+		if query("progress"):
+			return self.return_txt(HTTPStatus.OK, "DONE") #if query("progress") or no query
+
+	# IF IN PROGRESS
+	if zip_manager.zip_id_status[id] == "ARCHIVING":
+		progress = zip_manager.zip_in_progress[id]
+		return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
+
+	if zip_manager.zip_id_status[id].startswith("ERROR"):
+		return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="json")
+def send_ls_json(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Send directory listing in JSON format"""
+	return self.list_directory_json()
+
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="vid")
+def send_video_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	# SEND VIDEO PLAYER
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+
+	vid_source = url_path
+	if not self.guess_type(path).startswith('video/'):
+		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE")
+		return None
+
+	r = []
+
+	displaypath = self.get_displaypath(url_path)
+
+
+
+	title = self.get_titles(displaypath)
+
+	r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+													PY_PUBLIC_URL=config.address(),
+													PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
+
+
+	r.append("</ul></div>")
+
+
+	if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
+		r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
+	else:
+		ctype = self.guess_type(path)
+		r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+												PY_CTYPE=ctype))
+
+	r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
+
+
+	r.append('\n<hr>\n</body>\n</html>\n')
+
+	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
+	return self.return_txt(HTTPStatus.OK, encoded)
+
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD', url="/@assets/.*")
+def send_assets(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Send assets"""
+	if not config.ASSETS:
+		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
+		return None
+
+
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+	first = kwargs.get('first', '')
+	last = kwargs.get('last', '')
+
+	path = config.ASSETS_dir + "/".join(spathsplit[2:])
+	#	print("USING ASSETS", path)
+
+	if not os.path.isfile(path):
+		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+		return None
+
+	return self.return_file(path, first, last)
+
+
+
+@SimpleHTTPRequestHandler.on_req('HEAD')
+def default_get(self: SimpleHTTPRequestHandler, filename=None, *args, **kwargs):
+	"""Serve a GET request."""
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+	spathsplit = kwargs.get('spathsplit', '')
+	first = kwargs.get('first', '')
+	last = kwargs.get('last', '')
+
+
+	if os.path.isdir(path):
+		parts = urllib.parse.urlsplit(self.path)
+		if not parts.path.endswith('/'):
+			# redirect browser - doing basically what apache does
+			self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+			new_parts = (parts[0], parts[1], parts[2] + '/',
+							parts[3], parts[4])
+			new_url = urllib.parse.urlunsplit(new_parts)
+			self.send_header("Location", new_url)
+			self.send_header("Content-Length", "0")
+			self.end_headers()
+			return None
+		for index in "index.html", "index.htm":
+			index = os.path.join(path, index)
+			if os.path.exists(index):
+				path = index
+				break
+		else:
+			return self.list_directory(path)
+
+	# check for trailing "/" which should return 404. See Issue17324
+	# The test for this was added in test_httpserver.py
+	# However, some OS platforms accept a trailingSlash as a filename
+	# See discussion on python-dev and Issue34711 regarding
+	# parseing and rejection of filenames with a trailing slash
+	if path.endswith("/"):
+		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+		return None
+
+
+
+	# else:
+
+	return self.return_file(path, first, last, filename)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class DealPostData:
+	boundary = b''
+	uid = None
+	num = 0
+	blank = 0 # blank is used to check if the post is empty or Connection Aborted
+	remainbytes = 0
+
+	def __init__(self, req:SimpleHTTPRequestHandler) -> None:
+		self.req = req
+
+
+	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
+
+
+	def get(self, show=True, strip=False):
+		"""
+		show: print line
+		strip: strip \r\n at end
+		"""
+		req = self.req
+		line = req.rfile.readline()
+
+		if line == b'':
+			self.blank += 1
+		else:
+			self.blank = 0
+		if self.blank>=20: # allow 20 loss packets
+			req.send_error(408, "Request Timeout")
+			time.sleep(1) # wait for the client to close the connection
+
+			raise ConnectionAbortedError
+		if show:
+			self.num+=1
+		self.remainbytes -= len(line)
+
+		if strip and line.endswith(b"\r\n"):
+			line = line.rpartition(b"\r\n")[0]
+
+		return line
+
+	def pass_bound(self):
+		line = self.get(F)
+		if not self.boundary in line:
+			return (False, "Content NOT begin with boundary")
+
+	def get_type(self, line=None, ):
+		if not line:
+			line = self.get()
+		try:
+			return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
+		except: return None
+
+	def skip(self,):
+		self.get(F)
+
+	def start(self, post_type=b''):
+		req = self.req
+		content_type = req.headers['content-type']
+
+		if not content_type:
+			return (False, "Content-Type header doesn't contain boundary")
+		self.boundary = content_type.split("=")[1].encode()
+
+		self.remainbytes = int(req.headers['content-length'])
+
+
+		self.pass_bound()# LINE 1
+
+		# get post type
+		if self.get_type()=="post-type":
+			self.skip() # newline
+		else:
+			return (False, "Invalid post request")
+
+		line = self.get()
+		handle_type = line.decode().strip() # post type LINE 3
+
+		if handle_type != post_type.decode():
+			return (False, "Invalid post request")
+
+		self.pass_bound() #boundary for password or guid of user
+
+		return (True, handle_type)
+
+	def get_uid(self,):
+		if self.get_type()=="post-uid":
+			self.skip() # newline
+		else:
+			return (False, "Unknown User request")
+
+		uid = self.get() # uid LINE 5
+
+
+		return (True, uid)
+
+
+
+
+def AUTHORIZE_POST(req: SimpleHTTPRequestHandler, post:DealPostData, post_type=b''):
+	"""Check if the user is authorized to post"""
+
+	# START
+	post_verify = post.start(post_type)
+	if not post_verify[0]:
+		req.send_txt(HTTPStatus.BAD_REQUEST, post_verify[1])
+
+		return None
+
+	# GET UID
+	uid_verify = post.get_uid()
+
+
+
+	# pass boundary
+	post.pass_bound()
+
+
+	if not uid_verify[0]:
+		req.send_txt(HTTPStatus.BAD_REQUEST, uid_verify[1])
+
+		return None
+
+	uid = uid_verify[1].decode()
+
+
+	##################################
+
+	# HANDLE USER PERMISSION BY CHECKING UID
+
+	##################################
+
+	return uid
+
+
+
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="upload")
+def upload(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""GET Uploaded files"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'upload')
+
+	if not uid:
+		return None
+
+
+	uploaded_files = [] # Uploaded folder list
+
+
+
+	# PASSWORD SYSTEM
+	if post.get_type()!="password":
+		return self.send_txt(HTTPStatus.BAD_REQUEST, "Invalid request")
+
+	post.skip()
+	password= post.get(F)
+	logger.info(f'post password: {[password]} by {[self.address_string()]}')
+	if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
+		logger.info(f"Incorrect password by {[self.address_string()]}")
+
+		return self.send_txt(HTTPStatus.UNAUTHORIZED, "Incorrect password")
+
+
+	post.pass_bound()
+
+	while post.remainbytes > 0:
+		line = post.get()
+
+		fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
+		if not fn:
+			return (False, "Can't find out file name...")
+
+
+		path = self.translate_path(self.path)
+		rltv_path = posixpath.join(url_path, fn[0])
+
+		if len(fn[0])==0:
+			return self.send_txt(HTTPStatus.BAD_REQUEST, "Invalid file name")
+
+		temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
+		config.temp_file.add(temp_fn)
+
+
+		fn = os.path.join(path, fn[0])
+
+
+
+		line = post.get(F) # content type
+		line = post.get(F) # line gap
+
+
+
+		# ORIGINAL FILE STARTS FROM HERE
+		try:
+			with open(temp_fn, 'wb') as out:
+				preline = post.get(F)
+				while post.remainbytes > 0:
+					line = post.get(F)
+					if post.boundary in line:
+						preline = preline[0:-1]
+						if preline.endswith(b'\r'):
+							preline = preline[0:-1]
+						out.write(preline)
+						uploaded_files.append(rltv_path,)
+						break
+					else:
+						out.write(preline)
+						preline = line
+
+
+			os.replace(temp_fn, fn)
+
+
+
+		except (IOError, OSError):
+			traceback.print_exc()
+			return self.send_txt(HTTPStatus.FORBIDDEN, "Can't create file to write, do you have permission to write?")
+
+		finally:
+			try:
+				os.remove(temp_fn)
+				config.temp_file.remove(temp_fn)
+
+			except OSError:
+				pass
+
+
+
+	return self.send_txt(HTTPStatus.OK, "File(s) uploaded")
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="del-f")
+def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Move 2 recycle bin"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'del-f')
+
+	if not uid:
+		return None
+
+
+	if config.disabled_func["send2trash"]:
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+
+
+
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return self.send_json({"head": "Failed", "body":  "Invalid request"})
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+
+	path = self.get_rel_path(filename)
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+	logger.warning(f'send2trash {xpath} by {[uid]} {[self.address_string()]}')
+
+	head = "Failed"
+	try:
+		send2trash(xpath)
+		msg = "Successfully Moved To Recycle bin"+ post.refresh
+		head = "Success"
+	except TrashPermissionError:
+		msg = "Recycling unavailable! Try deleting permanently..."
+	except Exception as e:
+		traceback.print_exc()
+		msg = "<b>" + path + "</b> " + e.__class__.__name__
+
+	return self.send_json({"head": head, "body": msg})
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="del-p")
+def del_permanently(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""DELETE files permanently"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'del-p')
+
+	if not uid:
+		return None
+
+
+
+
+
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return self.send_json({"head": "Failed", "body": "Invalid request"})
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+
+	path = self.get_rel_path(filename)
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+	logger.warning(f'Perm. DELETED {xpath} by {[uid]} {[self.address_string()]}')
+
+
+	try:
+		if os.path.isfile(xpath): os.remove(xpath)
+		else: shutil.rmtree(xpath)
+
+		return self.send_json({"head": "Success", "body": "PERMANENTLY DELETED  " + path + post.refresh})
+
+
+	except Exception as e:
+		traceback.print_exc()
+		return self.send_json({"head": "Failed", "body": "<b>" + path + "<b>" + e.__class__.__name__})
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="rename")
+def rename_content(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Rename files"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'rename')
+
+	if not uid:
+		return None
+
+
+
+
+
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return (False, "Invalid request")
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+	post.pass_bound()
+
+	if post.get_type()!="data":
+		return (False, "Invalid request")
+
+
+	post.skip()
+	new_name = post.get(strip=T).decode()
+
+
+	path = self.get_rel_path(filename)
+
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+
+	new_path = self.translate_path(posixpath.join(url_path, new_name))
+
+	logger.warning(f'Renamed "{xpath}" to "{new_path}" by {[uid]} {[self.address_string()]}')
+
+
+	try:
+		os.rename(xpath, new_path)
+		return self.send_json({"head": "Renamed Successfully", "body":  post.refresh})
+	except Exception as e:
+		return self.send_json({"head": "Failed", "body": "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) })
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="info")
+def get_info(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Get files permanently"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'info')
+
+	if not uid:
+		return None
+
+
+	script = None
+
+
+
+
+	# File link to move to check info
+	if post.get_type()!="name":
+		return self.send_json({"head":"Failed!","body": "Invalid request"})
+
+
+	post.skip()
+	filename = post.get(strip=T).decode() # the filename
+	path = self.get_rel_path(filename) # the relative path of the file or folder
+
+	xpath = self.translate_path(posixpath.join(url_path, filename)) # the absolute path of the file or folder
+
+
+	logger.warning(f'Info Checked "{xpath}" by: {[uid]} {[self.address_string()]}')
+
+	file_stat = get_stat(xpath)
+	if not file_stat:
+		return (False, "Permission Denied", script)
+
+	data = []
+	data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
+
+	if os.path.isfile(xpath):
+		data.append(["Type","File"])
+		if "." in filename:
+			data.append(["Extension", filename.rpartition(".")[2]])
+
+		size = file_stat.st_size
+		data.append(["Size", humanbytes(size) + " (%i bytes)"%size])
+
+	else: #if os.path.isdir(xpath):
+		data.append(["Type", "Folder"])
+		# size = get_dir_size(xpath)
+
+		data.append(["Total Files", get_file_count(xpath)])
+
+
+		data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
+		script = '''
+		tools.fetch_json(tools.full_path("''' + path + '''?size")).then(size_resp => {
+		console.log(size_resp);
+		if (size_resp.status) {
+			document.getElementById("f_size").innerHTML = size_resp.humanbyte + " (" + size_resp.byte + " bytes)";
+		} else {
+			throw new Error(size_resp.msg);
+		}}).catch(err => {
+		console.log(err);
+		document.getElementById("f_size").innerHTML = "Error";
+		});
+		'''
+
+	data.append(["Path", path])
+
+	def get_dt(time):
+		return datetime.datetime.fromtimestamp(time)
+
+	data.append(["Created on", get_dt(file_stat.st_ctime)])
+	data.append(["Last Modified", get_dt(file_stat.st_mtime)])
+	data.append(["Last Accessed", get_dt(file_stat.st_atime)])
+
+	body = """
+<style>
+table {
+font-family: arial, sans-serif;
+border-collapse: collapse;
+width: 100%;
+}
+
+td, th {
+border: 1px solid #00BFFF;
+text-align: left;
+padding: 8px;
+}
+
+tr:nth-child(even) {
+background-color: #111;
+}
+</style>
+
+<table>
+<tr>
+<th>About</th>
+<th>Info</th>
+</tr>
+"""
+	for key, val in data:
+		body += "<tr><td>{key}</td><td>{val}</td></tr>".format(key=key, val=val)
+	body += "</table>"
+
+	return self.send_json({"head":"Properties", "body":body, "script":script})
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST', hasQ="new_folder")
+def new_folder(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Create new folder"""
+	path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
+	post = DealPostData(self)
+
+	# AUTHORIZE
+	uid = AUTHORIZE_POST(self, post, b'new_folder')
+
+	if not uid:
+		return None
+
+	# File link to move to recycle bin
+	if post.get_type()!="name":
+		return (False, "Invalid request")
+
+
+	post.skip()
+	filename = post.get(strip=T).decode()
+
+
+
+	path = self.get_rel_path(filename)
+
+	xpath = filename
+	if xpath.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in xpath or '\\..\\' in xpath or xpath.endswith(('/..', '\\..')):
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + path})
+
+	xpath = self.translate_path(posixpath.join(url_path, filename))
+
+
+	logger.warning(f'New Folder Created "{xpath}" by: {[uid]} {[self.address_string()]}')
+
+	try:
+		if os.path.exists(xpath):
+			return self.send_json({"head": "Failed", "body": "Folder Already Exists:  " + path})
+		if os.path.isfile(xpath):
+			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + path})
+		os.makedirs(xpath)
+		return self.send_json({"head": "Success", "body": "New Folder Created:  " + path +post.refresh})
+
+	except Exception as e:
+		logger.exception(e)
+		return self.send_json({"head": "Failed", "body": f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b>"})
+
+
+
+
+
+@SimpleHTTPRequestHandler.on_req('POST')
+def default_post(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	return self.send_error(400, "Bad Request")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3709,7 +4049,7 @@ class ContextMenu {
 		var that = this
 		popup_msg.close()
 
-		var url = ".";
+		var url = ".?"+action;
 		var xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
 		xhr.onreadystatechange = function() {
@@ -3719,7 +4059,7 @@ class ContextMenu {
 		};
 		var formData = new FormData();
 		formData.append("post-type", action);
-		formData.append("post-uid", 123456);
+		formData.append("post-uid", 123456); // TODO: add uid
 		formData.append("name", link);
 		formData.append("data", more_data)
 		xhr.send(formData);
@@ -3833,7 +4173,7 @@ class ContextMenu {
 	}
 	create_folder() {
 		let folder_name = byId('folder-name').value;
-		this.menu_click('new folder', folder_name)
+		this.menu_click('new_folder', folder_name)
 	}
 }
 var context_menu = new ContextMenu()
@@ -4542,59 +4882,65 @@ check_update();
 
 
 
-def run():
-	import argparse
+def run(port = None, directory = None, bind = None, arg_parse= True):
+	if port is None:
+		port = config.port
+	if directory is None:
+		directory = config.ftp_dir
+
+	if arg_parse:
+		import argparse
 
 
 
-	parser = argparse.ArgumentParser()
+		parser = argparse.ArgumentParser()
 
-	parser.add_argument('--bind', '-b', metavar='ADDRESS',
-						help='Specify alternate bind address '
-							 '[default: all interfaces]')
-	parser.add_argument('--directory', '-d', default=config.get_default_dir(),
-						help='Specify alternative directory '
-						'[default:current directory]')
-	parser.add_argument('port', action='store',
-						default=config.port, type=int,
-						nargs='?',
-						help='Specify alternate port [default: 8000]')
-	args = parser.parse_args()
-	if args.directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
+		parser.add_argument('--bind', '-b', metavar='ADDRESS',
+							help='Specify alternate bind address '
+								'[default: all interfaces]')
+		parser.add_argument('--directory', '-d', default=config.get_default_dir(),
+							help='Specify alternative directory '
+							'[default:current directory]')
+		parser.add_argument('port', action='store',
+							default=config.port, type=int,
+							nargs='?',
+							help='Specify alternate port [default: 8000]')
+		args = parser.parse_args()
+
+		port = args.port
+		directory = args.directory
+		bind = args.bind
+
+
+	if directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
 		print(config.ftp_dir, "not found!\nReseting directory to current directory")
-		args.directory = "."
+		directory = "."
 
 	handler_class = partial(SimpleHTTPRequestHandler,
-								directory=args.directory)
+								directory=directory)
 
-	config.port = args.port
+	config.port = port
+	config.ftp_dir = directory
 
 	if not config.reload:
 		if sys.version_info>(3,7,2):
 			test(
 			HandlerClass=handler_class,
 			ServerClass=DualStackServer,
-			port=args.port,
-			bind=args.bind,
+			port=port,
+			bind=bind,
 			)
 		else: # BACKWARD COMPATIBILITY
 			test(
 			HandlerClass=handler_class,
 			ServerClass=ThreadingHTTPServer,
-			port=args.port,
-			bind=args.bind,
+			port=port,
+			bind=bind,
 			)
 
-	
+
 	if config.reload == True:
-		file = '"' + config.MAIN_FILE + '"'
-		print("Reloading...")
-		# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
-		try:
-			os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
-		except:
-			traceback.print_exc()
-		sys.exit(0)
+		reload_server()
 
 
 
