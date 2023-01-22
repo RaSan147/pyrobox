@@ -253,7 +253,11 @@ def run_update():
 	command = "" if config.OS == "Windows" else on_linux
 	comm = f'{command} {sys.executable} -m pip install -U  --quiet {more_arg} {i}'
 
-	subprocess.call(comm, shell=True)
+	try:
+		subprocess.call(comm, shell=True)
+	except Exception as e:
+		logger.error(traceback.format_exc())
+		return False
 
 
 	#if i not in get_installed():
@@ -1929,7 +1933,8 @@ def update_now(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	if config.disabled_func["update"]:
 		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
 	else:
-		data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
+		data = run_update()
+
 		if data:
 			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
 		else:
