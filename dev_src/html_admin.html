@@ -11,6 +11,7 @@
 <div>
 	<p class="update_text" id="update_text">Checking for Update...</p>
 	<div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div>
+	<br><br>
 </div>
 
 
@@ -54,6 +55,7 @@ async function check_update() {
 }
 
 function run_update() {
+	byId("update_text").innerText = "Updating...";
 	fetch('/?update_now')
 	.then(response => response.json())
 	.then(data => {

@@ -59,7 +59,6 @@ class Config:
 		self.MAIN_FILE = os.path.realpath(__file__)
 		self.MAIN_FILE_dir = os.path.dirname(self.MAIN_FILE)
 
-		print(tools.text_box("Running File: ",self.MAIN_FILE))
 
 		# OS DETECTION
 		self.OS = self.get_os()
@@ -270,14 +269,18 @@ def run_update():
 
 
 	#if i not in get_installed():
-	if check_installed(i):
+	if not check_installed(i):
+		return False
+	
+	ver = subprocess.check_output(['pyrobox', "-v"]).decode()
+
+	if ver > __version__:
 		return True
 
 
 	else:
 		print("Failed to load ", i)
 		return False
-
 
 
 
@@ -4843,6 +4846,7 @@ config.file_list["html_admin.html"] = r"""
 <div>
 	<p class="update_text" id="update_text">Checking for Update...</p>
 	<div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div>
+	<br><br>
 </div>
 
 
@@ -4886,6 +4890,7 @@ async function check_update() {
 }
 
 function run_update() {
+	byId("update_text").innerText = "Updating...";
 	fetch('/?update_now')
 	.then(response => response.json())
 	.then(data => {
@@ -4945,6 +4950,9 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 		port = args.port
 		directory = args.directory
 		bind = args.bind
+
+
+	print(tools.text_box("Running File: ", config.MAIN_FILE))
 
 
 	if directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):

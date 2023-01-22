@@ -58,7 +58,6 @@ class Config:
 		self.MAIN_FILE = os.path.realpath(__file__)
 		self.MAIN_FILE_dir = os.path.dirname(self.MAIN_FILE)
 
-		print(tools.text_box("Running File: ",self.MAIN_FILE))
 
 		# OS DETECTION
 		self.OS = self.get_os()
@@ -266,14 +265,18 @@ def run_update():
 
 
 	#if i not in get_installed():
-	if check_installed(i):
+	if not check_installed(i):
+		return False
+	
+	ver = subprocess.check_output(['pyrobox', "-v"]).decode()
+
+	if ver > __version__:
 		return True
 
 
 	else:
 		print("Failed to load ", i)
 		return False
-
 
 
 
@@ -1163,8 +1166,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		"""
 		if isinstance(code, HTTPStatus):
 			code = code.value
-		self.log_message('"%s" %s %s',
-						 self.requestline, str(code), str(size))
+		self.log_message(f'"{self.requestline}"', code, size)
 
 	def log_error(self, *args):
 		"""Log an error.
@@ -1177,45 +1179,35 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		XXX This should go to the separate error log.
 
 		"""
-		msg = " ".join(map(str, args))
-		self.log_message(msg, error = True)
+		self.log_message(args, error = True)
 
 	def log_warning(self, *args):
 		"""Log a warning"""
-		msg = " ".join(map(str, args))
-		self.log_message(msg, warning = True)
+		self.log_message(args, warning = True)
 
 	def log_debug(self, *args):
 		"""Log a debug message"""
-		msg = " ".join(map(str, args))
-		self.log_message(msg, debug = True)
+		self.log_message(args, debug = True)
 
 	def log_info(self, *args):
 		"""Default log"""
-		msg = " ".join(map(str, args))
-		self.log_message(msg)
+		self.log_message(args)
 		
 
 
 
-	def log_message(self, format, *args, error = False, warning = False, debug = False):
+	def log_message(self, *args, error = False, warning = False, debug = False):
 		"""Log an arbitrary message.
 
 		This is used by all other logging functions.  Override
 		it if you have specific logging wishes.
-
-		The first argument, FORMAT, is a format string for the
-		message to be logged.  If the format string contains
-		any % escapes requiring parameters, they should be
-		specified as subsequent arguments (it's just like
-		printf!).
 
 		The client ip and current date/time are prefixed to
 		every message.
 
 		"""
 
-		message = format % args
+		message = ' '.join(map(str, args))
 
 		message = ("# %s by [%s] at [%s] %s\n" %
 						 (self.req_hash, self.address_string(),
@@ -2943,11 +2935,18 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 							default=config.port, type=int,
 							nargs='?',
 							help='Specify alternate port [default: 8000]')
+		parser.add_argument('--version', '-v', action='version',
+							version=__version__)
+		
 		args = parser.parse_args()
 
 		port = args.port
 		directory = args.directory
 		bind = args.bind
+
+	
+	print(tools.text_box("Running File: ", config.MAIN_FILE, "Version: ", __version__))
+	
 
 
 	if directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
