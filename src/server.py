@@ -196,7 +196,7 @@ class Tools:
 		for i in text.split('\n'):
 			tt += i.center(term_col) + '\n'
 		return (f"\n\n{s*term_col}\n{tt}{s*term_col}\n\n")
-	
+
 	def random_string(self, length=10):
 		letters = string.ascii_lowercase
 		return ''.join(random.choice(letters) for i in range(length))
@@ -271,7 +271,7 @@ def run_update():
 	#if i not in get_installed():
 	if not check_installed(i):
 		return False
-	
+
 	ver = subprocess.check_output(['pyrobox', "-v"]).decode()
 
 	if ver > __version__:
@@ -1137,7 +1137,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			print('='*w + f' {self.req_hash} ' + '='*w)
 			print(f'request: {self.command}\nurl: {url_path}\nquery: {query}\nfragment: {fragment}')
 			print('+'*w + f' {self.req_hash} ' + '+'*w)
-			
+
 
 
 
@@ -1145,7 +1145,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				method()
 			except Exception:
 				traceback.print_exc()
-			
+
 			print('-'*w + f' {self.req_hash} ' + '-'*w)
 			print('#'*_w)
 			self.wfile.flush() #actually send the response if not already done.
@@ -1295,18 +1295,18 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		"""Log a warning"""
 		self.log_message(args, warning = True)
 
-	def log_debug(self, *args):
+	def log_debug(self, *args, write = True):
 		"""Log a debug message"""
-		self.log_message(args, debug = True)
+		self.log_message(args, debug = True, write = write)
 
 	def log_info(self, *args):
 		"""Default log"""
 		self.log_message(args)
-		
 
 
 
-	def log_message(self, *args, error = False, warning = False, debug = False):
+
+	def log_message(self, *args, error = False, warning = False, debug = False, write = True):
 		"""Log an arbitrary message.
 
 		This is used by all other logging functions.  Override
@@ -1532,9 +1532,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		try:
 			for case, func in self.handlers['POST']:
 				if self.test_req(*case):
-					return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
-				
-			
+					f = func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+
+					if f:
+						try:
+							self.copyfile(f, self.wfile)
+						except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+							print(tools.text_box(e.__class__.__name__, e,"\nby ", self.address_string()))
+						finally:
+							f.close()
+					return
+
+
+
 			return self.send_error(HTTPStatus.BAD_REQUEST, "Invalid request.")
 
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
@@ -1548,8 +1558,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 
-	def return_txt(self, code, msg):
-		self.log_debug(f'[RETURNED] {code} {msg} to client')
+	def return_txt(self, code, msg, write_log=True):
+		'''returns only the head to client
+		and returns a file object to be used by copyfile'''
+		self.log_debug(f'[RETURNED] {code} {msg} to client', write=write_log)
 		if not isinstance(msg, bytes):
 			encoded = msg.encode('utf-8', 'surrogateescape')
 		else:
@@ -1565,8 +1577,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.end_headers()
 		return f
 
-	def send_txt(self, code, msg):
-		f = self.return_txt(code, msg)
+	def send_txt(self, code, msg, write_log=True):
+		'''sends the head and file to client'''
+		f = self.return_txt(code, msg, write_log=write_log)
 		self.copyfile(f, self.wfile)
 		f.close()
 
@@ -1701,7 +1714,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		for case, func in self.handlers['HEAD']:
 			if self.test_req(*case):
 				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, first=first, last=last, spathsplit=spathsplit)
-			
+
 		return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 
 
@@ -2052,7 +2065,7 @@ def admin_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
 												PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
 
 	tail = _admin_page().template
-	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
+	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}", write_log=False)
 
 @SimpleHTTPRequestHandler.on_req('HEAD', hasQ="update")
 def update(self: SimpleHTTPRequestHandler, *args, **kwargs):
@@ -2109,7 +2122,7 @@ def create_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	spathsplit = kwargs.get('spathsplit', '')
 
 	if config.disabled_func["zip"]:
-		self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ERROR: ZIP FEATURE IS UNAVAILABLE !")
+		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ERROR: ZIP FEATURE IS UNAVAILABLE !")
 
 	dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
@@ -2132,7 +2145,7 @@ def create_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
 		tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
 		PY_ZIP_NAME = filename)
 		return self.return_txt(HTTPStatus.OK,
-		f"{head} {tail}")
+		f"{head} {tail}", write_log=False)
 	except Exception:
 		self.log_error(traceback.format_exc())
 		return self.return_txt(HTTPStatus.OK, "ERROR")
@@ -2232,7 +2245,7 @@ def send_video_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	r.append('\n<hr>\n</body>\n</html>\n')
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-	return self.return_txt(HTTPStatus.OK, encoded)
+	return self.return_txt(HTTPStatus.OK, encoded, write_log=False)
 
 
 
@@ -2558,7 +2571,7 @@ def upload(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 
 
-	return self.send_txt(HTTPStatus.OK, "File(s) uploaded")
+	return self.return_txt(HTTPStatus.OK, "File(s) uploaded")
 
 
 
@@ -4782,7 +4795,7 @@ function ping(url) {
 			//document.getElementById("demo").innerHTML = xhttp.responseText;
 			var resp = xhttp.responseText;
 			log(resp)
-			
+
 			if (resp.startsWith("SUCCESS")) {
 				check_prog = true;
 			} else if (resp.startsWith("DONE")) {
@@ -4936,16 +4949,16 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 							help='Specify alternate port [default: 8000]')
 		parser.add_argument('--version', '-v', action='version',
 							version=__version__)
-		
+
 		args = parser.parse_args()
 
 		port = args.port
 		directory = args.directory
 		bind = args.bind
 
-	
+
 	print(tools.text_box("Running File: ", config.MAIN_FILE, "Version: ", __version__))
-	
+
 
 
 	if directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
