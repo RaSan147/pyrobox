@@ -193,6 +193,10 @@ class Tools:
 		for i in text.split('\n'):
 			tt += i.center(term_col) + '\n'
 		return (f"\n\n{s*term_col}\n{tt}{s*term_col}\n\n")
+	
+	def random_string(self, length=10):
+		letters = string.ascii_lowercase
+		return ''.join(random.choice(letters) for i in range(length))
 
 tools = Tools()
 config = Config()
@@ -1011,9 +1015,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.fragment = fragment
 
 
-			print('='*tools.term_width())
+			req_hash = str(hash((self.raw_requestline, tools.random_string(10))))
+
+			w = tools.term_width() - len(str(req_hash)) -2
+			w = w//2
+			print('='*w + f' {req_hash} ' + '='*w)
 			print(f'request: {self.command}\nurl: {url_path}\nquery: {query}\nfragment: {fragment}')
-			print('+'*tools.term_width())
+			print('+'*w + f' {req_hash} ' + '+'*w)
 			
 
 
@@ -1023,7 +1031,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			except Exception:
 				traceback.print_exc()
 			
-			print('-'*tools.term_width())
+			print('-'*w + f' {req_hash} ' + '-'*w)
 			self.wfile.flush() #actually send the response if not already done.
 		except (TimeoutError, socket.timeout) as e:
 			#a read or a write timed out.  Discard this connection
