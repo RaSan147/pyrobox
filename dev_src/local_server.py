@@ -210,6 +210,10 @@ class Custom_dict(dict):
 		return all([i in self for i in key])
 
 
+class LimitExceed(Exception):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
 # FEATURES
 # ----------------------------------------------------------------
 # * PAUSE AND RESUME
@@ -333,7 +337,63 @@ def get_file_count(path):
 	# 	n += len(files)
 	# return n
 	return sum(1 for _, _, files in os.walk(path) for f in files)
-
+	
+def _get_tree_size(path, prev=0, limit=None):
+    """Return total size of files in path and subdirs. If
+    is_dir() or stat() fails, print an error message to stderr
+    and assume zero size (for example, file has been deleted).
+    """
+    total = 0
+    prev = prev
+    for entry in os.scandir(path):
+        try:
+            is_dir = entry.is_dir(follow_symlinks=False)
+        except OSError as error:
+            continue
+        if is_dir:
+            total += _get_tree_size(entry.path, prev, limit)
+        else:
+            try:
+                total += entry.stat(follow_symlinks=False).st_size
+                prev += total
+                if limit and prev>limit:
+                	raise LimitExceed
+            except OSError as error:
+                continue
+    return total
+    
+def _get_tree_count_n_size(path):
+    total = 0
+    count = 0
+    for entry in os.scandir(path):
+        try:
+            is_dir = entry.is_dir(follow_symlinks=False)
+        except OSError as error:
+            continue
+        if is_dir:
+            out= _get_tree_count_n_size(entry.path)
+            count += out[0]
+            total += out[1]
+        else:
+            try:
+                total += entry.stat(follow_symlinks=False).st_size
+                count += 1
+            except OSError as error:
+                continue
+    return count, total
+   
+def _get_tree_count(path):
+    count = 0
+    for entry in os.scandir(path):
+        try:
+            is_dir = entry.is_dir(follow_symlinks=False)
+        except OSError as error:
+            continue
+        if is_dir:
+            count += _get_tree_count(entry.path)
+        else:
+            count += 1
+    return count
 
 def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
 	"""
@@ -353,12 +413,14 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 	for dirpath, dirnames, filenames in os.walk(start_path, onerror= print):
 		for f in filenames:
 			fp = os.path.join(dirpath, f)
-			if not os.path.islink(fp):
-				stat = get_stat(fp)
-				if not stat: continue
-				if must_read and not check_access(fp): continue
+			if os.path.islink(fp):
+				continue
+			
+			stat = get_stat(fp)
+			if not stat: continue
+			if must_read and not check_access(fp): continue
 
-				total_size += stat.st_size
+			total_size += stat.st_size
 			if limit!=None and total_size>limit:
 				if return_list: return -1, False
 				return -1
@@ -369,7 +431,23 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 
 	if return_list: return total_size, r
 	return total_size
+	
+def get_tree_count_n_size(start_path):
+	size = 0
+	count = 0
+	for dirpath, dirnames, filenames in os.walk(start_path, onerror= print):
+		for f in filenames:
+			count +=1
+			fp = os.path.join(dirpath, f)
+			if os.path.islink(fp):
+				continue
+			
+			stat = get_stat(fp)
+			if not stat: continue
 
+			size += stat.st_size
+
+	return count, size
 
 def fmbytes(B=0, path=''):
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
@@ -1311,6 +1389,16 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'.Z': 'application/octet-stream',
 		'.bz2': 'application/x-bzip2',
 		'.xz': 'application/x-xz',
+		
+		'.webp': 'image/webp',
+		
+		'opus': 'audio/opus',
+		'.oga': 'audio/ogg',
+		'.wav': 'audio/wav',
+		
+		'.ogv': 'video/ogg',
+		'.ogg': 'application/ogg',
+		'm4a': 'audio/mp4',
 	})
 
 	handlers = {
@@ -2002,6 +2090,29 @@ def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
 														"byte": size,
 														"humanbyte": humanbyte,
 														"fmbyte": fmbyte}))
+														
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="size_n_count")
+def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Return size of the file"""
+	url_path = kwargs.get('url_path', '')
+
+	xpath = self.translate_path(url_path)
+
+	stat = get_stat(xpath)
+	if not stat:
+		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+	if os.path.isfile(xpath):
+		size = stat.st_size
+	else:
+		count, size = get_tree_count_n_size(xpath)
+
+	humanbyte = humanbytes(size)
+	fmbyte = fmbytes(size)
+	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+														"byte": size,
+														"humanbyte": humanbyte,
+														"fmbyte": fmbyte,
+														"count": count}))
 
 
 @SimpleHTTPRequestHandler.on_req('HEAD', hasQ="czip")
@@ -2682,17 +2793,20 @@ def get_info(self: SimpleHTTPRequestHandler, *args, **kwargs):
 		data.append(["Type", "Folder"])
 		# size = get_dir_size(xpath)
 
-		data.append(["Total Files", get_file_count(xpath)])
+		data.append(["Total Files", '<span id="f_count">Please Wait</span>'])
 
 
 		data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
 		script = '''
-		tools.fetch_json(tools.full_path("''' + path + '''?size")).then(size_resp => {
-		console.log(size_resp);
-		if (size_resp.status) {
-			document.getElementById("f_size").innerHTML = size_resp.humanbyte + " (" + size_resp.byte + " bytes)";
+		tools.fetch_json(tools.full_path("''' + path + '''?size_n_count")).then(resp => {
+		console.log(resp);
+		if (resp.status) {
+			size = resp.humanbyte;
+			count = resp.count;
+			document.getElementById("f_size").innerHTML = resp.humanbyte + " (" + resp.byte + " bytes)";
+			document.getElementById("f_count").innerHTML = count;
 		} else {
-			throw new Error(size_resp.msg);
+			throw new Error(resp.msg);
 		}}).catch(err => {
 		console.log(err);
 		document.getElementById("f_size").innerHTML = "Error";
