@@ -14,7 +14,9 @@ import queue
 import time
 
 class LimitExceed(Exception):
-	pass
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
 
 def check_access(path):
 	"""
@@ -71,17 +73,13 @@ def _get_tree_count(path):
 
 
 def get_file_count(path):
-	# n = 0
-	# for _,_,files in os.walk(path, onerror= print):
-	# 	n += len(files)
-	# return n
+	"""
+	Get the number of files in a directory.
+	"""
+
 	return sum(1 for _, _, files in os.walk(path) for f in files)
 
 def _get_tree_size(path, limit=None, return_list= False, full_dir=True, both=False, must_read=False):
-	"""Return total size of files in path and subdirs. If
-	is_dir() or stat() fails, print an error message to stderr
-	and assume zero size (for example, file has been deleted).
-	"""
 	r=[] #if return_list
 	total = 0
 	start_path = path
@@ -110,6 +108,13 @@ def _get_tree_size(path, limit=None, return_list= False, full_dir=True, both=Fal
 				except OSError:
 					continue
 				
+				if must_read:
+					try:
+						with open(entry.path, "rb") as f:
+							f.read(1)
+					except Exception:
+						continue
+
 				if return_list:
 					_path = entry.path
 					if both: r.append((_path, _path.replace(start_path, "", 1)))
@@ -187,6 +192,11 @@ def _get_tree_count_n_size(path):
 	return count, total
 
 def get_tree_count_n_size(start_path):
+	"""
+	Get the size of a directory and all its subdirectories.
+	returns a tuple of (total folder size, total file count)
+	"""
+
 	size = 0
 	count = 0
 	for dirpath, dirnames, filenames in os.walk(start_path, onerror= None):

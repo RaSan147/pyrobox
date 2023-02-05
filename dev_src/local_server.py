@@ -12,6 +12,7 @@ __all__ = [
 import os
 import atexit
 import logging
+import queue
 
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
@@ -227,9 +228,10 @@ class LimitExceed(Exception):
 # * FOLDER CREATION
 # * Pop-up messages (from my Web leach repo)
 
-
-#TODO:
-# RIGHT CLICK CONTEXT MENU
+# TODO
+# ----------------------------------------------------------------
+# * ADD MORE FILE TYPES
+# * ADD SEARCH
 
 
 # INSTALL REQUIRED PACKAGES
@@ -297,13 +299,14 @@ def reload_server():
 
 def null(*args, **kwargs):
 	pass
-
+def nothing(arg):
+	return arg
 
 #############################################
 #                FILE HANDLER               #
 #############################################
 
-
+# TODO: delete this on next update
 def check_access(path):
 	"""
 	Check if the user has access to the file.
@@ -330,70 +333,120 @@ def get_stat(path):
 		return os.stat(path)
 	except Exception:
 		return False
+	
+# TODO: can be used in search feature
+def get_tree(path, include_dir=True):
+	"""
+	returns a list of files in a directory and its subdirectories.
+	[full path, relative path]
+	"""
+	home = path
+
+	Q = queue.Queue()
+	Q.put(path)
+	tree = []
+	while not Q.empty():
+		path = Q.get()
+		
+		try:
+			dir = os.scandir(path)
+		except OSError:
+			continue
+		for entry in dir:
+			try:
+				is_dir = entry.is_dir(follow_symlinks=False)
+			except OSError as error:
+				continue
+			if is_dir:
+				Q.put(entry.path)
+			
+			if include_dir or not is_dir:
+				tree.append([entry.path, entry.path.replace(home, "", 1)])
+	
+		dir.close()
+	return tree
+	
+
+
+def _get_tree_count(path):
+	count = 0
+
+	Q = queue.Queue()
+	Q.put(path)
+	while not Q.empty():
+		path = Q.get()
+		
+		try:
+			dir = os.scandir(path)
+		except OSError:
+			continue
+		for entry in dir:
+			try:
+				is_dir = entry.is_dir(follow_symlinks=False)
+			except OSError as error:
+				continue
+			if is_dir:
+				Q.put(entry.path)
+			else:
+				count += 1
+	
+		dir.close()
+	return count
+
 
 def get_file_count(path):
-	# n = 0
-	# for _,_,files in os.walk(path, onerror= print):
-	# 	n += len(files)
-	# return n
+	"""
+	Get the number of files in a directory.
+	"""
+	return _get_tree_count(path)
+
 	return sum(1 for _, _, files in os.walk(path) for f in files)
-	
-def _get_tree_size(path, prev=0, limit=None):
-    """Return total size of files in path and subdirs. If
-    is_dir() or stat() fails, print an error message to stderr
-    and assume zero size (for example, file has been deleted).
-    """
-    total = 0
-    prev = prev
-    for entry in os.scandir(path):
-        try:
-            is_dir = entry.is_dir(follow_symlinks=False)
-        except OSError as error:
-            continue
-        if is_dir:
-            total += _get_tree_size(entry.path, prev, limit)
-        else:
-            try:
-                total += entry.stat(follow_symlinks=False).st_size
-                prev += total
-                if limit and prev>limit:
-                	raise LimitExceed
-            except OSError as error:
-                continue
-    return total
-    
-def _get_tree_count_n_size(path):
-    total = 0
-    count = 0
-    for entry in os.scandir(path):
-        try:
-            is_dir = entry.is_dir(follow_symlinks=False)
-        except OSError as error:
-            continue
-        if is_dir:
-            out= _get_tree_count_n_size(entry.path)
-            count += out[0]
-            total += out[1]
-        else:
-            try:
-                total += entry.stat(follow_symlinks=False).st_size
-                count += 1
-            except OSError as error:
-                continue
-    return count, total
-   
-def _get_tree_count(path):
-    count = 0
-    for entry in os.scandir(path):
-        try:
-            is_dir = entry.is_dir(follow_symlinks=False)
-        except OSError as error:
-            continue
-        if is_dir:
-            count += _get_tree_count(entry.path)
-        else:
-            count += 1
-    return count
+
+def _get_tree_size(path, limit=None, return_list= False, full_dir=True, both=False, must_read=False):
+	r=[] #if return_list
+	total = 0
+	start_path = path
+
+	Q= queue.Queue()
+	Q.put(path)
+	while not Q.empty():
+		path = Q.get()
+
+		try:
+			dir = os.scandir(path)
+		except OSError:
+			continue
+		for entry in dir:
+			try:
+				is_dir = entry.is_dir(follow_symlinks=False)
+			except OSError as error:
+				continue
+			if is_dir:
+				Q.put(entry.path)
+			else:
+				try:
+					total += entry.stat(follow_symlinks=False).st_size
+					if limit and total>limit:
+						raise LimitExceed
+				except OSError:
+					continue
+
+				if must_read:
+					try:
+						with open(entry.path, "rb") as f:
+							f.read(1)
+					except Exception:
+						continue
+
+				if return_list:
+					_path = entry.path
+					if both: r.append((_path, _path.replace(start_path, "", 1)))
+					else:    r.append(_path if full_dir else _path.replace(start_path, "", 1))
+
+		dir.close()
+
+	if return_list: return total, r
+	return total
 
 def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
 	"""
@@ -403,19 +456,23 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 	limit (int): maximum folder size, if bigger returns `-1`
 	return_list (bool): if True returns a tuple of (total folder size, list of contents)
 	full_dir (bool): if True returns a full path, else relative path
-	both (bool): if True returns a tuple of (total folder size, (full path, full path))
+	both (bool): if True returns a tuple of (total folder size, (full path, relative path))
 	must_read (bool): if True only counts files that can be read
 	"""
+
+	return _get_tree_size(start_path, limit, return_list, full_dir, both, must_read)
+
+
 	r=[] #if return_list
 	total_size = 0
 	start_path = os.path.normpath(start_path)
 
-	for dirpath, dirnames, filenames in os.walk(start_path, onerror= print):
+	for dirpath, dirnames, filenames in os.walk(start_path, onerror= None):
 		for f in filenames:
 			fp = os.path.join(dirpath, f)
 			if os.path.islink(fp):
 				continue
-			
+
 			stat = get_stat(fp)
 			if not stat: continue
 			if must_read and not check_access(fp): continue
@@ -431,17 +488,53 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 
 	if return_list: return total_size, r
 	return total_size
-	
+
+def _get_tree_count_n_size(path):
+	total = 0
+	count = 0
+	Q= queue.Queue()
+	Q.put(path)
+	while not Q.empty():
+		path = Q.get()
+		
+		try:
+			dir = os.scandir(path)
+		except OSError:
+			continue
+		for entry in dir:
+			try:
+				is_dir = entry.is_dir(follow_symlinks=False)
+			except OSError as error:
+				continue
+			if is_dir:
+				Q.put(entry.path)
+			else:
+				try:
+					total += entry.stat(follow_symlinks=False).st_size
+					count += 1
+				except OSError as error:
+					continue
+
+		dir.close()
+	return count, total
+
 def get_tree_count_n_size(start_path):
+	"""
+	Get the size of a directory and all its subdirectories.
+	returns a tuple of (total folder size, total file count)
+	"""
+
+	return _get_tree_count_n_size(start_path)
+
 	size = 0
 	count = 0
-	for dirpath, dirnames, filenames in os.walk(start_path, onerror= print):
+	for dirpath, dirnames, filenames in os.walk(start_path, onerror= None):
 		for f in filenames:
 			count +=1
 			fp = os.path.join(dirpath, f)
 			if os.path.islink(fp):
 				continue
-			
+
 			stat = get_stat(fp)
 			if not stat: continue
 
@@ -512,26 +605,6 @@ def get_dir_m_time(path):
 	return stat.st_mtime if stat else 0
 
 
-
-def list_dir(start_path = '.', full_dir=True, both=False):
-	b =[]
-	p =[]
-	for dirpath, dirnames, filenames in os.walk(start_path, onerror= print):
-		for f in filenames:
-			fp = os.path.join(dirpath, f)
-
-			if both:
-				b.append((fp, fp.replace(start_path, "", 1)))
-
-			elif full_dir:
-				p.append(fp)
-			else:
-				p.append(fp.replace(start_path, "", 1))
-
-	if both:
-		return b
-
-	return p
 
 
 #############################################
@@ -621,6 +694,10 @@ class ZIP_Manager:
 		self.zip_in_progress[zid] = 0
 
 		source_size, fm = size if size else get_dir_size(path, return_list=True, both=True, must_read=True)
+
+		if len(fm)==0:
+			return err("FOLDER HAS NO FILES")
+		
 		source_m_time = get_dir_m_time(path)
 
 
@@ -631,11 +708,6 @@ class ZIP_Manager:
 		zfile_name = os.path.join(self.zip_temp_dir, "{dir_name}({zid})".format(dir_name=dir_name, zid=zid) + ".zip")
 
 		self.init_dir()
-
-		# fm = list_dir(path , both=True)
-
-		if len(fm)==0:
-			return err("FOLDER HAS NO FILES")
 
 
 		paths = []
@@ -710,7 +782,15 @@ def humansorted(li):
 		return natsort.humansorted(li)
 
 	return sorted(li, key=lambda x: x.lower())
+	
+def scansort(li):
+	if not config.disabled_func["natsort"]:
+		return natsort.humansorted(li, key=lambda x:x.name)
 
+	return sorted(li, key=lambda x: x.name.lower())
+
+def listsort(li):
+	return humansorted(li)
 
 
 class Template(_Template):
@@ -1389,13 +1469,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'.Z': 'application/octet-stream',
 		'.bz2': 'application/x-bzip2',
 		'.xz': 'application/x-xz',
-		
+
 		'.webp': 'image/webp',
-		
+
 		'opus': 'audio/opus',
 		'.oga': 'audio/ogg',
 		'.wav': 'audio/wav',
-		
+
 		'.ogv': 'video/ogg',
 		'.ogg': 'application/ogg',
 		'm4a': 'audio/mp4',
@@ -1721,7 +1801,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			path = self.translate_path(self.path)
 
 		try:
-			dir_list = humansorted(os.listdir(path))
+			dir_list = scansort(os.scandir(path))
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
@@ -1730,15 +1810,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		dir_dict = []
 
 
-		for name in dir_list:
-			fullname = os.path.join(path, name)
+		for file in dir_list:
+			name = file.name
 			displayname = linkname = name
 
 
-			if os.path.isdir(fullname):
+			if file.is_dir:
 				displayname = name + "/"
 				linkname = name + "/"
-			elif os.path.islink(fullname):
+			elif file.is_symlink:
 				displayname = name + "@"
 
 			dir_dict.append([urllib.parse.quote(linkname, errors='surrogatepass'),
@@ -1766,7 +1846,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		"""
 
 		try:
-			dir_list = humansorted(os.listdir(path))
+			dir_list = scansort(os.scandir(path))
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
@@ -1806,21 +1886,22 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 		# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
-		for name in dir_list:
-			fullname = os.path.join(path, name)
+		for file in dir_list:
+			#fullname = os.path.join(path, name)
+			name = file.name
 			displayname = linkname = name
 			size=0
 			# Append / for directories or @ for symbolic links
 			_is_dir_ = True
-			if os.path.isdir(fullname):
+			if file.is_dir():
 				displayname = name + "/"
 				linkname = name + "/"
-			elif os.path.islink(fullname):
+			elif file.is_symlink():
 				displayname = name + "@"
 			else:
 				_is_dir_ =False
-				size = fmbytes(path=fullname)
-				__, ext = posixpath.splitext(fullname)
+				size = fmbytes(file.stat().st_size)
+				__, ext = posixpath.splitext(name)
 				if ext=='.html':
 					r_files.append(LIST_STRING % ("link", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
@@ -1846,7 +1927,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					f_li.append(html.escape(displayname, quote=False))
 
 				else:
-
 					r_files.append(LIST_STRING % ("file", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
 										html.escape(displayname, quote=False)))
@@ -2090,9 +2170,9 @@ def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
 														"byte": size,
 														"humanbyte": humanbyte,
 														"fmbyte": fmbyte}))
-														
+
 @SimpleHTTPRequestHandler.on_req('HEAD', hasQ="size_n_count")
-def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
+def get_size_n_count(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	"""Return size of the file"""
 	url_path = kwargs.get('url_path', '')
 
@@ -2102,7 +2182,7 @@ def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	if not stat:
 		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
 	if os.path.isfile(xpath):
-		size = stat.st_size
+		count, size = 1, stat.st_size
 	else:
 		count, size = get_tree_count_n_size(xpath)
 
@@ -3002,8 +3082,8 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	config.IP= local_ip
 
 	print(tools.text_box(
-		f"Serving HTTP on {host} port {port} \n" #TODO: need to check since the output is "Serving HTTP on :: port 6969"
-		f"(http://{url_host}:{port}/) ...\n" #TODO: need to check since the output is "(http://[::]:6969/) ..."
+		f"Serving HTTP on {host} port {port} \n"
+		f"(http://{url_host}:{port}/) ...\n"
 		f"Server is probably running on {config.address()}"
 		, style="star"
 		)
