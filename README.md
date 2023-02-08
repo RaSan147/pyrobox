@@ -1,5 +1,3 @@
-# Owner note: If I don't push any commit or remove this by 9-Feb-2023, I might not be able to do so in a year as well 😓
-
 """
 Since this is almost in the alpha stage, I'm not sure if I should call it a beta or not. But it's almost there. I'm still working on it. So, if you find any issue, please report it. I'll try to fix it as soon as possible.
 And also for the same reason, I'm punching too many updates (acually bug fixes) in a short time.
