@@ -5,6 +5,11 @@ And also for the same reason, I'm punching too many updates (acually bug fixes) 
 # pyrobox 🔥
 
 ` Note ` UPLOAD PASSWORD: `SECret`
+
+# Status 
+[![Downloads](https://static.pepy.tech/badge/pyrobox)](https://pepy.tech/project/pyrobox)
+
+
 # Requesting for more suggesions and ideas
 
 Basic FEATURES
