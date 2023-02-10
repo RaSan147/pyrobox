@@ -208,15 +208,15 @@ class Zfunc(object):
 	__all__ = ["new", "update"]
 	def __init__(self, caller, store_return=False):
 		super().__init__()
-		
+
 		self.queue = Queue()
 		# stores [args, kwargs], ...
 		self.store_return = store_return
 		self.returner = Queue()
 		# queue to store return value if store_return enabled
-	
+
 		self.BUSY = False
-		
+
 		self.caller = caller
 
 	def next(self):
@@ -237,15 +237,15 @@ class Zfunc(object):
 			# will make the loop continue running
 			return True
 
-		
+
 	def update(self, *args, **kwargs):
 		""" Uses xprint and parse string"""
-		
+
 		self.queue.put((args, kwargs))
 		while self.next() is True:
 			# use while instead of recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion.... error
 			pass
-		
+
 
 
 	def new(self, caller, store_return=False):
@@ -800,10 +800,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		if not config.write_log:
 			return
-			
+
 		if not hasattr(self, "Zlog_writer"):
 			self.Zlog_writer = Zfunc(self._log_writer)
-		
+
 		try:
 			self.Zlog_writer.update(message)
 		except Exception:
@@ -958,7 +958,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if isinstance(hasQ, str):
 			hasQ = (hasQ,)
 
-		if url=='' and url_regex=='': 
+		if url=='' and url_regex=='':
 			url_regex = '.*'
 
 
@@ -971,7 +971,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def test_req(self, url='', hasQ=(), QV={}, fragent='', url_regex=''):
 		'''test if request is matched'
-		
+
 		args:
 			url: url relative path (must start with /)
 			hasQ: if url has query
@@ -979,7 +979,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			fragent: fragent of request
 			url_regex: url regex, the url must start and end with this regex
 
-		
+
 		'''
 		# print("^"+url, hasQ, QV, fragent)
 		# print(self.url_path, self.query, self.fragment)
@@ -1082,7 +1082,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def send_txt(self, code, msg, write_log=True):
 		'''sends the head and file to client'''
 		f = self.return_txt(code, msg, write_log=write_log)
-		if self.command == "HEAD": 
+		if self.command == "HEAD":
 			return # to avoid sending file on get request
 		self.copyfile(f, self.wfile)
 		f.close()
@@ -1093,7 +1093,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if not isinstance(obj, str):
 			obj = json.dumps(obj, indent=1)
 		f = self.return_txt(200, obj, content_type="application/json")
-		if self.command == "HEAD": 
+		if self.command == "HEAD":
 			return # to avoid sending file on get request
 		self.copyfile(f, self.wfile)
 		f.close()
@@ -1541,7 +1541,7 @@ class DealPostData:
 		line = self.get()
 		if field_name and self.get_name(line)!=field_name:
 			raise PostError(f"Invalid request: Expected {field_name} but got {self.get_name(line)}")
-		
+
 		return line
 
 
@@ -1561,7 +1561,7 @@ class DealPostData:
 
 
 		self.pass_bound()# LINE 0
-		
+
 
 	def get_part(self, verify_name=None, verify_msg=None, decode=F):
 		'''read a form field'''
@@ -1644,8 +1644,8 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	hostname = socket.gethostname()
 	local_ip = config.IP if config.IP else get_ip()
 	config.IP= local_ip
-	
-	
+
+
 	on_network = local_ip!="127.0.0.1"
 
 	print(tools.text_box(

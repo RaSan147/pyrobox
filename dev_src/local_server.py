@@ -330,7 +330,7 @@ def get_stat(path):
 		return os.stat(path)
 	except Exception:
 		return False
-	
+
 # TODO: can be used in search feature
 def get_tree(path, include_dir=True):
 	"""
@@ -344,7 +344,7 @@ def get_tree(path, include_dir=True):
 	tree = []
 	while not Q.empty():
 		path = Q.get()
-		
+
 		try:
 			dir = os.scandir(path)
 		except OSError:
@@ -356,13 +356,13 @@ def get_tree(path, include_dir=True):
 				continue
 			if is_dir:
 				Q.put(entry.path)
-			
+
 			if include_dir or not is_dir:
 				tree.append([entry.path, entry.path.replace(home, "", 1)])
-	
+
 		dir.close()
 	return tree
-	
+
 
 
 def _get_tree_count(path):
@@ -372,7 +372,7 @@ def _get_tree_count(path):
 	Q.put(path)
 	while not Q.empty():
 		path = Q.get()
-		
+
 		try:
 			dir = os.scandir(path)
 		except OSError:
@@ -386,7 +386,7 @@ def _get_tree_count(path):
 				Q.put(entry.path)
 			else:
 				count += 1
-	
+
 		dir.close()
 	return count
 
@@ -493,7 +493,7 @@ def _get_tree_count_n_size(path):
 	Q.put(path)
 	while not Q.empty():
 		path = Q.get()
-		
+
 		try:
 			dir = os.scandir(path)
 		except OSError:
@@ -694,7 +694,7 @@ class ZIP_Manager:
 
 		if len(fm)==0:
 			return err("FOLDER HAS NO FILES")
-		
+
 		source_m_time = get_dir_m_time(path)
 
 
@@ -779,7 +779,7 @@ def humansorted(li):
 		return natsort.humansorted(li)
 
 	return sorted(li, key=lambda x: x.lower())
-	
+
 def scansort(li):
 	if not config.disabled_func["natsort"]:
 		return natsort.humansorted(li, key=lambda x:x.name)
@@ -834,15 +834,15 @@ class Zfunc(object):
 	__all__ = ["new", "update"]
 	def __init__(self, caller, store_return=False):
 		super().__init__()
-		
+
 		self.queue = Queue()
 		# stores [args, kwargs], ...
 		self.store_return = store_return
 		self.returner = Queue()
 		# queue to store return value if store_return enabled
-	
+
 		self.BUSY = False
-		
+
 		self.caller = caller
 
 	def next(self):
@@ -863,15 +863,15 @@ class Zfunc(object):
 			# will make the loop continue running
 			return True
 
-		
+
 	def update(self, *args, **kwargs):
 		""" Uses xprint and parse string"""
-		
+
 		self.queue.put((args, kwargs))
 		while self.next() is True:
 			# use while instead of recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion.... error
 			pass
-		
+
 
 
 	def new(self, caller, store_return=False):
@@ -1441,10 +1441,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		if not config.write_log:
 			return
-			
+
 		if not hasattr(self, "Zlog_writer"):
 			self.Zlog_writer = Zfunc(self._log_writer)
-		
+
 		try:
 			self.Zlog_writer.update(message)
 		except Exception:
@@ -1599,7 +1599,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if isinstance(hasQ, str):
 			hasQ = (hasQ,)
 
-		if url=='' and url_regex=='': 
+		if url=='' and url_regex=='':
 			url_regex = '.*'
 
 
@@ -1612,7 +1612,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def test_req(self, url='', hasQ=(), QV={}, fragent='', url_regex=''):
 		'''test if request is matched'
-		
+
 		args:
 			url: url relative path (must start with /)
 			hasQ: if url has query
@@ -1620,7 +1620,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			fragent: fragent of request
 			url_regex: url regex, the url must start and end with this regex
 
-		
+
 		'''
 		# print("^"+url, hasQ, QV, fragent)
 		# print(self.url_path, self.query, self.fragment)
@@ -1725,7 +1725,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def send_txt(self, code, msg, write_log=True):
 		'''sends the head and file to client'''
 		f = self.return_txt(code, msg, write_log=write_log)
-		if self.command == "HEAD": 
+		if self.command == "HEAD":
 			return # to avoid sending file on get request
 		self.copyfile(f, self.wfile)
 		f.close()
@@ -1736,7 +1736,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if not isinstance(obj, str):
 			obj = json.dumps(obj, indent=1)
 		f = self.return_txt(200, obj, content_type="application/json")
-		if self.command == "HEAD": 
+		if self.command == "HEAD":
 			return # to avoid sending file on get request
 		self.copyfile(f, self.wfile)
 		f.close()
@@ -1782,7 +1782,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 							f.close()
 
 							return None
-						
+
 			if self.range:
 				first = self.range[0]
 				if first is None:
@@ -2601,7 +2601,7 @@ class DealPostData:
 		line = self.get()
 		if field_name and self.get_name(line)!=field_name:
 			raise PostError(f"Invalid request: Expected {field_name} but got {self.get_name(line)}")
-		
+
 		return line
 
 
@@ -2621,7 +2621,7 @@ class DealPostData:
 
 
 		self.pass_bound()# LINE 0
-		
+
 
 	def get_part(self, verify_name='', verify_msg='', decode=F):
 		'''read a form field
@@ -3159,11 +3159,16 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	local_ip = config.IP if config.IP else get_ip()
 	config.IP= local_ip
 
+
+	on_network = local_ip!="127.0.0.1"
+
 	print(tools.text_box(
-		f"Serving HTTP on {host} port {port} \n"
-		f"(http://{url_host}:{port}/) ...\n"
-		f"Server is probably running on {config.address()}"
-		, style="star"
+		f"Serving HTTP on {host} port {port} \n", #TODO: need to check since the output is "Serving HTTP on :: port 6969"
+		f"(http://{url_host}:{port}/) ...\n", #TODO: need to check since the output is "(http://[::]:6969/) ..."
+		f"Server is probably running on\n",
+		(f"[over NETWORK] {config.address()}\n" if on_network else ""),
+		f"[on DEVICE] http://localhost:{config.port} & http://127.0.0.1:{config.port}"
+		, style="star", sep=""
 		)
 	)
 	try:
@@ -3213,11 +3218,11 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 		parser.add_argument('--bind', '-b', metavar='ADDRESS',
 							help='Specify alternate bind address '
 								'[default: all interfaces]')
-		parser.add_argument('--directory', '-d', default=config.get_default_dir(),
+		parser.add_argument('--directory', '-d', default=directory,
 							help='Specify alternative directory '
 							'[default:current directory]')
 		parser.add_argument('port', action='store',
-							default=config.port, type=int,
+							default=port, type=int,
 							nargs='?',
 							help='Specify alternate port [default: 8000]')
 		parser.add_argument('--version', '-v', action='version',
@@ -3230,7 +3235,7 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 		bind = args.bind
 
 
-	print(tools.text_box("Running File: ", config.MAIN_FILE, "Version: ", __version__))
+	print(tools.text_box("Running pyroboxCore: ", config.MAIN_FILE, "Version: ", __version__))
 
 
 
