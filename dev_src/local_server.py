@@ -296,8 +296,7 @@ def reload_server():
 
 def null(*args, **kwargs):
 	pass
-def nothing(arg):
-	return arg
+
 
 #############################################
 #                FILE HANDLER               #
@@ -1522,7 +1521,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'.c': 'text/plain',
 		'.h': 'text/plain',
 		'.css': 'text/css',
-		'html': "text/html",
 
 		'.gz': 'application/gzip',
 		'.Z': 'application/octet-stream',
@@ -1661,7 +1659,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def do_POST(self):
 		"""Serve a POST request."""
 		self.range = None, None
-		DO_NOT_JSON = False # wont convert r, info to json
 
 
 		path = self.translate_path(self.path)
@@ -2460,7 +2457,7 @@ def send_assets(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	#	print("USING ASSETS", path)
 
 	if not os.path.isfile(path):
-		self.send_error(HTTPStatus.NOT_FOUND, "NNN File not found")
+		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 		return None
 
 	return self.return_file(path, first, last)
@@ -2503,7 +2500,7 @@ def default_get(self: SimpleHTTPRequestHandler, filename=None, *args, **kwargs):
 	# See discussion on python-dev and Issue34711 regarding
 	# parseing and rejection of filenames with a trailing slash
 	if path.endswith("/"):
-		self.send_error(HTTPStatus.NOT_FOUND, "XXX File not found")
+		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 		return None
 
 

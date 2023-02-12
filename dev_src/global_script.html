@@ -121,7 +121,7 @@ class Tools {
 	}
 	download(dataurl, filename = null, new_tab=false) {
 		const link = createElement("a");
-		link.href = dataurl;
+		link.href = dataurl+"?dl";
 		link.download = filename;
 		if(new_tab){
 			link.target = "_blank";

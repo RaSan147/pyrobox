@@ -156,9 +156,9 @@ class ContextMenu {
 				popup_msg.close()
 			}
 			menu.appendChild(new_tab)
-		if (type == "video") {
+		if (type != "folder") {
 			var download = createElement("div")
-			download.innerText = "⬇️" + " Download"
+			download.innerText = "📥" + " Download"
 			download.classList.add("menu_options")
 			download.onclick = function() {
 				tools.download(file, name);
@@ -169,7 +169,7 @@ class ContextMenu {
 		}
 		if (type == "folder") {
 			var dl_zip = createElement("div")
-			dl_zip.innerText = "🗃️" + " Download as Zip"
+			dl_zip.innerText = "📦" + " Download as Zip"
 			dl_zip.classList.add("menu_options")
 			dl_zip.onclick = function() {
 				popup_msg.close()
@@ -180,7 +180,7 @@ class ContextMenu {
 		}
 
 		var copy = createElement("div")
-		copy.innerText = "⧉" + " Copy link"
+		copy.innerText = "📋" + " Copy link"
 		copy.classList.add("menu_options")
 		copy.onclick = async function(ev) {
 			popup_msg.close()
@@ -225,7 +225,7 @@ class ContextMenu {
 		}
 		menu.appendChild(del_P)
 		var property = createElement("div")
-		property.innerText = "ℹ️" + " Properties"
+		property.innerText = "📅" + " Properties"
 		property.classList.add("menu_options")
 		property.onclick = function() {
 			that.menu_click('info', file);
@@ -597,7 +597,7 @@ byId("uploader").onsubmit = (e) => {
 <a href="./?admin" class='pagination'>Admin center</a>
 
 
-<p>v4 I ❤️ emoji!</p>
+<p>pyroBox UI v4 - I ❤️ emoji!</p>
 
 </body>
 

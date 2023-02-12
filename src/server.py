@@ -12,6 +12,7 @@ __all__ = [
 import os
 import atexit
 import logging
+from queue import Queue
 
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
@@ -42,7 +43,7 @@ class Config:
 		self.port= 6969  # DEFAULT PORT TO LAUNCH SERVER
 
 		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
-		self.PASSWORD= "SECret".encode('utf-8')
+		self.PASSWORD= "SECret"
 
 		# LOGGING
 		self.log_location = "./"  # fallback log_location = "./"
@@ -184,11 +185,11 @@ class Tools:
 	def term_width(self):
 		return shutil.get_terminal_size()[0]
 
-	def text_box(self, *text, style = "equal"):
+	def text_box(self, *text, style = "equal", sep=" "):
 		"""
 		Returns a string of text with a border around it.
 		"""
-		text = " ".join(map(str, text))
+		text = sep.join(map(str, text))
 		term_col = shutil.get_terminal_size()[0]
 
 		s = self.styles[style] if style in self.styles else style
@@ -205,7 +206,7 @@ tools = Tools()
 config = Config()
 
 
-class Custom_dict(dict):
+class Callable_dict(dict):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.__dict__ = self
@@ -213,6 +214,10 @@ class Custom_dict(dict):
 	def __call__(self, *key):
 		return all([i in self for i in key])
 
+
+class LimitExceed(Exception):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
 
 # FEATURES
 # ----------------------------------------------------------------
@@ -227,9 +232,10 @@ class Custom_dict(dict):
 # * FOLDER CREATION
 # * Pop-up messages (from my Web leach repo)
 
-
-#TODO:
-# RIGHT CLICK CONTEXT MENU
+# TODO
+# ----------------------------------------------------------------
+# * ADD MORE FILE TYPES
+# * ADD SEARCH
 
 
 # INSTALL REQUIRED PACKAGES
@@ -303,7 +309,7 @@ def null(*args, **kwargs):
 #                FILE HANDLER               #
 #############################################
 
-
+# TODO: delete this on next update
 def check_access(path):
 	"""
 	Check if the user has access to the file.
@@ -331,13 +337,119 @@ def get_stat(path):
 	except Exception:
 		return False
 
+# TODO: can be used in search feature
+def get_tree(path, include_dir=True):
+	"""
+	returns a list of files in a directory and its subdirectories.
+	[full path, relative path]
+	"""
+	home = path
+
+	Q = Queue()
+	Q.put(path)
+	tree = []
+	while not Q.empty():
+		path = Q.get()
+
+		try:
+			dir = os.scandir(path)
+		except OSError:
+			continue
+		for entry in dir:
+			try:
+				is_dir = entry.is_dir(follow_symlinks=False)
+			except OSError as error:
+				continue
+			if is_dir:
+				Q.put(entry.path)
+
+			if include_dir or not is_dir:
+				tree.append([entry.path, entry.path.replace(home, "", 1)])
+
+		dir.close()
+	return tree
+
+
+
+def _get_tree_count(path):
+	count = 0
+
+	Q = Queue()
+	Q.put(path)
+	while not Q.empty():
+		path = Q.get()
+
+		try:
+			dir = os.scandir(path)
+		except OSError:
+			continue
+		for entry in dir:
+			try:
+				is_dir = entry.is_dir(follow_symlinks=False)
+			except OSError as error:
+				continue
+			if is_dir:
+				Q.put(entry.path)
+			else:
+				count += 1
+
+		dir.close()
+	return count
+
+
 def get_file_count(path):
-	# n = 0
-	# for _,_,files in os.walk(path, onerror= print):
-	# 	n += len(files)
-	# return n
+	"""
+	Get the number of files in a directory.
+	"""
+	return _get_tree_count(path)
+
 	return sum(1 for _, _, files in os.walk(path) for f in files)
 
+def _get_tree_size(path, limit=None, return_list= False, full_dir=True, both=False, must_read=False):
+	r=[] #if return_list
+	total = 0
+	start_path = path
+
+	Q= Queue()
+	Q.put(path)
+	while not Q.empty():
+		path = Q.get()
+
+		try:
+			dir = os.scandir(path)
+		except OSError:
+			continue
+		for entry in dir:
+			try:
+				is_dir = entry.is_dir(follow_symlinks=False)
+			except OSError as error:
+				continue
+			if is_dir:
+				Q.put(entry.path)
+			else:
+				try:
+					total += entry.stat(follow_symlinks=False).st_size
+					if limit and total>limit:
+						raise LimitExceed
+				except OSError:
+					continue
+
+				if must_read:
+					try:
+						with open(entry.path, "rb") as f:
+							f.read(1)
+					except Exception:
+						continue
+
+				if return_list:
+					_path = entry.path
+					if both: r.append((_path, _path.replace(start_path, "", 1)))
+					else:    r.append(_path if full_dir else _path.replace(start_path, "", 1))
+
+		dir.close()
+
+	if return_list: return total, r
+	return total
 
 def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
 	"""
@@ -347,22 +459,28 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 	limit (int): maximum folder size, if bigger returns `-1`
 	return_list (bool): if True returns a tuple of (total folder size, list of contents)
 	full_dir (bool): if True returns a full path, else relative path
-	both (bool): if True returns a tuple of (total folder size, (full path, full path))
+	both (bool): if True returns a tuple of (total folder size, (full path, relative path))
 	must_read (bool): if True only counts files that can be read
 	"""
+
+	return _get_tree_size(start_path, limit, return_list, full_dir, both, must_read)
+
+
 	r=[] #if return_list
 	total_size = 0
 	start_path = os.path.normpath(start_path)
 
-	for dirpath, dirnames, filenames in os.walk(start_path, onerror= print):
+	for dirpath, dirnames, filenames in os.walk(start_path, onerror= None):
 		for f in filenames:
 			fp = os.path.join(dirpath, f)
-			if not os.path.islink(fp):
-				stat = get_stat(fp)
-				if not stat: continue
-				if must_read and not check_access(fp): continue
+			if os.path.islink(fp):
+				continue
 
-				total_size += stat.st_size
+			stat = get_stat(fp)
+			if not stat: continue
+			if must_read and not check_access(fp): continue
+
+			total_size += stat.st_size
 			if limit!=None and total_size>limit:
 				if return_list: return -1, False
 				return -1
@@ -374,6 +492,58 @@ def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True
 	if return_list: return total_size, r
 	return total_size
 
+def _get_tree_count_n_size(path):
+	total = 0
+	count = 0
+	Q= Queue()
+	Q.put(path)
+	while not Q.empty():
+		path = Q.get()
+
+		try:
+			dir = os.scandir(path)
+		except OSError:
+			continue
+		for entry in dir:
+			try:
+				is_dir = entry.is_dir(follow_symlinks=False)
+			except OSError as error:
+				continue
+			if is_dir:
+				Q.put(entry.path)
+			else:
+				try:
+					total += entry.stat(follow_symlinks=False).st_size
+					count += 1
+				except OSError as error:
+					continue
+
+		dir.close()
+	return count, total
+
+def get_tree_count_n_size(start_path):
+	"""
+	Get the size of a directory and all its subdirectories.
+	returns a tuple of (total folder size, total file count)
+	"""
+
+	return _get_tree_count_n_size(start_path)
+
+	size = 0
+	count = 0
+	for dirpath, dirnames, filenames in os.walk(start_path, onerror= None):
+		for f in filenames:
+			count +=1
+			fp = os.path.join(dirpath, f)
+			if os.path.islink(fp):
+				continue
+
+			stat = get_stat(fp)
+			if not stat: continue
+
+			size += stat.st_size
+
+	return count, size
 
 def fmbytes(B=0, path=''):
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
@@ -579,12 +749,12 @@ except Exception:
 class ZIP_Manager:
 	def __init__(self) -> None:
 		self.zip_temp_dir = tempfile.gettempdir() + '/zip_temp/'
-		self.zip_ids = Custom_dict()
-		self.zip_path_ids = Custom_dict()
-		self.zip_in_progress = Custom_dict()
-		self.zip_id_status = Custom_dict()
+		self.zip_ids = Callable_dict()
+		self.zip_path_ids = Callable_dict()
+		self.zip_in_progress = Callable_dict()
+		self.zip_id_status = Callable_dict()
 
-		self.assigend_zid = Custom_dict()
+		self.assigend_zid = Callable_dict()
 
 		self.cleanup()
 		atexit.register(self.cleanup)
@@ -653,6 +823,10 @@ class ZIP_Manager:
 		self.zip_in_progress[zid] = 0
 
 		source_size, fm = size if size else get_dir_size(path, return_list=True, both=True, must_read=True)
+
+		if len(fm)==0:
+			return err("FOLDER HAS NO FILES")
+
 		source_m_time = get_dir_m_time(path)
 
 
@@ -663,11 +837,6 @@ class ZIP_Manager:
 		zfile_name = os.path.join(self.zip_temp_dir, "{dir_name}({zid})".format(dir_name=dir_name, zid=zid) + ".zip")
 
 		self.init_dir()
-
-		# fm = list_dir(path , both=True)
-
-		if len(fm)==0:
-			return err("FOLDER HAS NO FILES")
 
 
 		paths = []
@@ -743,6 +912,14 @@ def humansorted(li):
 
 	return sorted(li, key=lambda x: x.lower())
 
+def scansort(li):
+	if not config.disabled_func["natsort"]:
+		return natsort.humansorted(li, key=lambda x:x.name)
+
+	return sorted(li, key=lambda x: x.name.lower())
+
+def listsort(li):
+	return humansorted(li)
 
 
 class Template(_Template):
@@ -779,6 +956,59 @@ def _zip_script():
 
 def _admin_page():
 	return _global_script() + _get_template("html_admin.html")
+
+
+
+
+class Zfunc(object):
+	"""Thread safe sequncial printing/queue task handler class"""
+
+	__all__ = ["new", "update"]
+	def __init__(self, caller, store_return=False):
+		super().__init__()
+
+		self.queue = Queue()
+		# stores [args, kwargs], ...
+		self.store_return = store_return
+		self.returner = Queue()
+		# queue to store return value if store_return enabled
+
+		self.BUSY = False
+
+		self.caller = caller
+
+	def next(self):
+		""" check if any item in queje and call, if already running or queue empty, returns """
+		if self.queue.empty() or self.BUSY:
+			return None
+
+		self.BUSY = True
+		args, kwargs = self.queue.get()
+
+		x = self.caller(*args, **kwargs)
+		if self.store_return:
+			self.returner.put(x)
+
+		self.BUSY = False
+
+		if not self.queue.empty():
+			# will make the loop continue running
+			return True
+
+
+	def update(self, *args, **kwargs):
+		""" Uses xprint and parse string"""
+
+		self.queue.put((args, kwargs))
+		while self.next() is True:
+			# use while instead of recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion.... error
+			pass
+
+
+
+	def new(self, caller, store_return=False):
+		self.__init__(caller=caller, store_return=store_return)
+
 
 
 
@@ -874,7 +1104,7 @@ def URL_MANAGER(url:str):
 	parse_result = urllib.parse.urlparse(url)
 
 
-	dict_result = Custom_dict(urllib.parse.parse_qs(parse_result.query, keep_blank_values=True))
+	dict_result = Callable_dict(urllib.parse.parse_qs(parse_result.query, keep_blank_values=True))
 
 	return (parse_result.path, dict_result, parse_result.fragment)
 
@@ -1127,6 +1357,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.query = query
 			self.fragment = fragment
 
+			self.use_range = False
+
 
 			_hash = abs(hash((self.raw_requestline, tools.random_string(10))))
 			self.req_hash = base64.b64encode(str(_hash).encode('ascii')).decode()[:10]
@@ -1135,7 +1367,11 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			w = _w - len(str(self.req_hash)) -2
 			w = w//2
 			print('='*w + f' {self.req_hash} ' + '='*w)
-			print(f'request: {self.command}\nurl: {url_path}\nquery: {query}\nfragment: {fragment}')
+			print(  f'{self.req_hash}|=>\t request\t: {self.command}',
+					f'{self.req_hash}|=>\t url     \t: {url_path}',
+					f'{self.req_hash}|=>\t query   \t: {query}',
+					f'{self.req_hash}|=>\t fragment\t: {fragment}'
+					, sep=f'\n')
 			print('+'*w + f' {self.req_hash} ' + '+'*w)
 
 
@@ -1303,6 +1539,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		"""Default log"""
 		self.log_message(args)
 
+	def _log_writer(self, message):
+		os.makedirs(config.log_location, exist_ok=True)
+		with open(config.log_location + 'log.txt','a+') as f:
+			f.write((f"#{self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"))
 
 
 
@@ -1333,19 +1573,17 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			logger.info(message)
 
 
-		try:
-			if not config.write_log:
-				return
+		if not config.write_log:
+			return
 
-			# create config.log_location if it doesn't exist
-			os.makedirs(config.log_location, exist_ok=True)
-			with open(config.log_location + 'log.txt','a+') as f:
-				f.write(("\n\n# %s by [%s] at [%s] %s\n" %
-						 (self.req_hash, self.address_string(),
-						  self.log_date_time_string(),
-						  message)))
+		if not hasattr(self, "Zlog_writer"):
+			self.Zlog_writer = Zfunc(self._log_writer)
+
+		try:
+			self.Zlog_writer.update(message)
 		except Exception:
 			traceback.print_exc()
+
 
 	def version_string(self):
 		"""Return the server software version string."""
@@ -1421,6 +1659,16 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'.Z': 'application/octet-stream',
 		'.bz2': 'application/x-bzip2',
 		'.xz': 'application/x-xz',
+
+		'.webp': 'image/webp',
+
+		'opus': 'audio/opus',
+		'.oga': 'audio/ogg',
+		'.wav': 'audio/wav',
+
+		'.ogv': 'video/ogg',
+		'.ogg': 'application/ogg',
+		'm4a': 'audio/mp4',
 	})
 
 	handlers = {
@@ -1433,7 +1681,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			directory = os.getcwd()
 		self.directory = os.fspath(directory) # same as directory, but str, new in 3.6
 		super().__init__(*args, **kwargs)
-		self.query = Custom_dict()
+		self.query = Callable_dict()
+
 
 	def do_GET(self):
 		"""Serve a GET request."""
@@ -1458,41 +1707,66 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 	@staticmethod
-	def on_req(type='', url='.*', hasQ=(), QV={}, fragent='', func=null, escape=None):
+	def on_req(type='', url='', hasQ=(), QV={}, fragent='', url_regex = '', func=null):
 		'''called when request is received
 		type: GET, POST, HEAD, ...
-		url: url regex, * for all, must escape special char and start with /
+		url: url (must start with /)
 		hasQ: if url has query
 		QV: match query value
 		fragent: fragent of request
+		url_regex: url regex (must start with /) url regex, the url must start and end with this regex
 
 		if query is tuple, it will only check existence of key
 		if query is dict, it will check value of key
 		'''
 		self = __class__
+
+		type = type.upper()
+		if type == 'GET':
+			type = 'HEAD'
+
+
 		if type not in self.handlers:
 			self.handlers[type] = []
 
+		# FIXING TYPE ISSUE
 		if isinstance(hasQ, str):
 			hasQ = (hasQ,)
 
-		if escape or (escape is None and '*' not in url):
-			url = re.escape(url)
+		if url=='' and url_regex=='':
+			url_regex = '.*'
 
-		to_check = (url, hasQ, QV, fragent)
+
+		to_check = (url, hasQ, QV, fragent, url_regex)
 
 		def decorator(func):
 			self.handlers[type].append((to_check, func))
 			return func
 		return decorator
 
-	def test_req(self, url, hasQ, QV, fragent):
-		'''test if request is matched'''
+	def test_req(self, url='', hasQ=(), QV={}, fragent='', url_regex=''):
+		'''test if request is matched'
+
+		args:
+			url: url relative path (must start with /)
+			hasQ: if url has query
+			QV: match query value
+			fragent: fragent of request
+			url_regex: url regex, the url must start and end with this regex
+
+
+		'''
 		# print("^"+url, hasQ, QV, fragent)
 		# print(self.url_path, self.query, self.fragment)
 		# print(self.url_path != url, self.query(*hasQ), self.query, self.fragment != fragent)
 
-		if not re.search("^"+url, self.url_path): return False
+		if url_regex:
+			if not re.search("^"+url_regex+'$', self.url_path): return False
+		elif url and url!=self.url_path: return False
+
+		if isinstance(hasQ, str):
+			hasQ = (hasQ,)
+
 		if hasQ and self.query(*hasQ)==False: return False
 		if QV:
 			for k, v in QV.items():
@@ -1517,8 +1791,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def do_POST(self):
 		"""Serve a POST request."""
-		self.range = None # bug patch
-		DO_NOT_JSON = False # wont convert r, info to json
+		self.range = None, None
 
 
 		path = self.translate_path(self.path)
@@ -1532,7 +1805,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		try:
 			for case, func in self.handlers['POST']:
 				if self.test_req(*case):
-					f = func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+					try:
+						f = func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+					except PostError:
+						traceback.print_exc()
+						break # break if error is raised and send BAD_REQUEST (at end of loop)
 
 					if f:
 						try:
@@ -1558,7 +1835,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 
-	def return_txt(self, code, msg, write_log=True):
+	def return_txt(self, code, msg, content_type="text/html; charset=utf-8", write_log=False):
 		'''returns only the head to client
 		and returns a file object to be used by copyfile'''
 		self.log_debug(f'[RETURNED] {code} {msg} to client', write=write_log)
@@ -1572,7 +1849,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		f.seek(0)
 
 		self.send_response(code)
-		self.send_header("Content-type", "text/html; charset=utf-8")
+		self.send_header("Content-type", content_type)
 		self.send_header("Content-Length", str(len(encoded)))
 		self.end_headers()
 		return f
@@ -1580,19 +1857,27 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def send_txt(self, code, msg, write_log=True):
 		'''sends the head and file to client'''
 		f = self.return_txt(code, msg, write_log=write_log)
+		if self.command == "HEAD":
+			return # to avoid sending file on get request
 		self.copyfile(f, self.wfile)
 		f.close()
 
 	def send_json(self, obj):
-		self.send_response(200)
-		self.send_header("Content-type", "application/json")
-		self.end_headers()
-		self.wfile.write(json.dumps(obj).encode())
+		"""send object as json
+		obj: json-able object or json.dumps() string"""
+		if not isinstance(obj, str):
+			obj = json.dumps(obj, indent=1)
+		f = self.return_txt(200, obj, content_type="application/json")
+		if self.command == "HEAD":
+			return # to avoid sending file on get request
+		self.copyfile(f, self.wfile)
+		f.close()
 
-	def return_file(self, path, first, last, filename=None):
+	def return_file(self, path, filename=None, download=False):
 		f = None
-		is_attachment = "attachment;" if self.query("dl") else ""
+		is_attachment = "attachment;" if (self.query("dl") or download) else ""
 
+		first, last = 0, None
 
 		try:
 			ctype = self.guess_type(path)
@@ -1601,10 +1886,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			fs = os.fstat(f.fileno())
 
 			file_len = fs[6]
-
-			if self.range and first >= file_len: # PAUSE AND RESUME SUPPORT
-				self.send_error(416, 'Requested Range Not Satisfiable')
-				return None
 			# Use browser cache if possible
 			if ("If-Modified-Since" in self.headers
 					and "If-None-Match" not in self.headers):
@@ -1631,15 +1912,26 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 							self.send_response(HTTPStatus.NOT_MODIFIED)
 							self.end_headers()
 							f.close()
+
 							return None
-			if self.range:
+
+			if self.use_range:
+				first = self.range[0]
+				if first is None:
+					first = 0
+				last = self.range[1]
+				if last is None or last >= file_len:
+					last = file_len - 1
+
+				if first >= file_len: # PAUSE AND RESUME SUPPORT
+					self.send_error(416, 'Requested Range Not Satisfiable')
+					return None
+
 				self.send_response(206)
 				self.send_header('Content-Type', ctype)
 				self.send_header('Accept-Ranges', 'bytes')
 
 
-				if last is None or last >= file_len:
-					last = file_len - 1
 				response_length = last - first + 1
 
 				self.send_header('Content-Range',
@@ -1669,8 +1961,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return None
 
 
-		except:
-			if f and not f.closed(): f.close()
+		except Exception:
+			traceback.print_exc()
+
+			# if f and not f.closed(): f.close()
 			raise
 
 
@@ -1687,15 +1981,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		"""
 
-
 		if 'Range' not in self.headers:
-			self.range = None
+			self.range = None, None
 			first, last = 0, 0
 
 		else:
 			try:
 				self.range = parse_byte_range(self.headers['Range'])
 				first, last = self.range
+				self.use_range = True
 			except ValueError as e:
 				self.send_error(400, 'Invalid byte range')
 				return None
@@ -1704,16 +1998,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		# DIRECTORY DONT CONTAIN SLASH / AT END
 
 
-
 		url_path, query, fragment = self.url_path, self.query, self.fragment
 
 		spathsplit = self.url_path.split("/")
 
 
 
-		for case, func in self.handlers['HEAD']:
+		for case, func in self.handlers['HEAD']: # GET WILL Also BE HANDLED BY HEAD
 			if self.test_req(*case):
-				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, first=first, last=last, spathsplit=spathsplit)
+				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
 
 		return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 
@@ -1721,7 +2014,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 	def get_displaypath(self, url_path):
-		"""Helper to produce a display path for the directory listing.
+		"""
+		Helper to produce a display path for the directory listing.
 		"""
 
 		try:
@@ -1743,7 +2037,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			path = self.translate_path(self.path)
 
 		try:
-			dir_list = humansorted(os.listdir(path))
+			dir_list = scansort(os.scandir(path))
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
@@ -1752,15 +2046,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		dir_dict = []
 
 
-		for name in dir_list:
-			fullname = os.path.join(path, name)
+		for file in dir_list:
+			name = file.name
 			displayname = linkname = name
 
 
-			if os.path.isdir(fullname):
+			if file.is_dir:
 				displayname = name + "/"
 				linkname = name + "/"
-			elif os.path.islink(fullname):
+			elif file.is_symlink:
 				displayname = name + "@"
 
 			dir_dict.append([urllib.parse.quote(linkname, errors='surrogatepass'),
@@ -1788,7 +2082,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		"""
 
 		try:
-			dir_list = humansorted(os.listdir(path))
+			dir_list = scansort(os.scandir(path))
 		except OSError:
 			self.send_error(
 				HTTPStatus.NOT_FOUND,
@@ -1828,21 +2122,22 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 		# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
-		for name in dir_list:
-			fullname = os.path.join(path, name)
+		for file in dir_list:
+			#fullname = os.path.join(path, name)
+			name = file.name
 			displayname = linkname = name
 			size=0
 			# Append / for directories or @ for symbolic links
 			_is_dir_ = True
-			if os.path.isdir(fullname):
+			if file.is_dir():
 				displayname = name + "/"
 				linkname = name + "/"
-			elif os.path.islink(fullname):
+			elif file.is_symlink():
 				displayname = name + "@"
 			else:
 				_is_dir_ =False
-				size = fmbytes(path=fullname)
-				__, ext = posixpath.splitext(fullname)
+				size = fmbytes(file.stat().st_size)
+				__, ext = posixpath.splitext(name)
 				if ext=='.html':
 					r_files.append(LIST_STRING % ("link", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
@@ -1868,7 +2163,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					f_li.append(html.escape(displayname, quote=False))
 
 				else:
-
 					r_files.append(LIST_STRING % ("file", urllib.parse.quote(linkname,
 										errors='surrogatepass'),
 										html.escape(displayname, quote=False)))
@@ -1921,7 +2215,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 	def get_rel_path(self, filename):
-		"""Return the relative path to the file, url encoded."""
+		"""Return the relative path to the file, FOR OS."""
 		return urllib.parse.unquote(posixpath.join(self.url_path, filename), errors='surrogatepass')
 
 
@@ -1998,7 +2292,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 		if not self.range:
-			source.read(1)
+			try:
+				source.read(1)
+			except:
+				traceback.print_exc()
+				print(source)
 			source.seek(0)
 			shutil.copyfileobj(source, outputfile)
 
@@ -2037,6 +2335,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		return self.extensions_map[''] #return 'application/octet-stream'
 
 
+
+class PostError(Exception):
+	pass
 
 
 @SimpleHTTPRequestHandler.on_req('HEAD', '/favicon.ico')
@@ -2113,6 +2414,29 @@ def get_size(self: SimpleHTTPRequestHandler, *args, **kwargs):
 														"humanbyte": humanbyte,
 														"fmbyte": fmbyte}))
 
+@SimpleHTTPRequestHandler.on_req('HEAD', hasQ="size_n_count")
+def get_size_n_count(self: SimpleHTTPRequestHandler, *args, **kwargs):
+	"""Return size of the file"""
+	url_path = kwargs.get('url_path', '')
+
+	xpath = self.translate_path(url_path)
+
+	stat = get_stat(xpath)
+	if not stat:
+		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+	if os.path.isfile(xpath):
+		count, size = 1, stat.st_size
+	else:
+		count, size = get_tree_count_n_size(xpath)
+
+	humanbyte = humanbytes(size)
+	fmbyte = fmbytes(size)
+	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+														"byte": size,
+														"humanbyte": humanbyte,
+														"fmbyte": fmbyte,
+														"count": count}))
+
 
 @SimpleHTTPRequestHandler.on_req('HEAD', hasQ="czip")
 def create_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
@@ -2157,8 +2481,7 @@ def get_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
 	spathsplit = kwargs.get('spathsplit', '')
-	first = kwargs.get('first', '')
-	last = kwargs.get('last', '')
+	first, last = self.range
 
 	query = self.query
 
@@ -2249,7 +2572,7 @@ def send_video_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 
 
-@SimpleHTTPRequestHandler.on_req('HEAD', url="/@assets/.*")
+@SimpleHTTPRequestHandler.on_req('HEAD', url_regex="/@assets/.*")
 def send_assets(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	"""Send assets"""
 	if not config.ASSETS:
@@ -2317,8 +2640,7 @@ def default_get(self: SimpleHTTPRequestHandler, filename=None, *args, **kwargs):
 
 	# else:
 
-	return self.return_file(path, first, last, filename)
-
+	return self.return_file(path, filename)
 
 
 
@@ -2334,8 +2656,26 @@ def default_get(self: SimpleHTTPRequestHandler, filename=None, *args, **kwargs):
 
 
 class DealPostData:
+	"""do_login
+
+#get starting boundary
+0: b'------WebKitFormBoundary7RGDIyjMpWhLXcZa\r\n'
+1: b'Content-Disposition: form-data; name="post-type"\r\n'
+2: b'\r\n'
+3: b'login\r\n'
+4: b'------WebKitFormBoundary7RGDIyjMpWhLXcZa\r\n'
+5: b'Content-Disposition: form-data; name="username"\r\n'
+6: b'\r\n'
+7: b'xxx\r\n'
+8: b'------WebKitFormBoundary7RGDIyjMpWhLXcZa\r\n'
+9: b'Content-Disposition: form-data; name="password"\r\n'
+10: b'\r\n'
+11: b'ccc\r\n'
+12: b'------WebKitFormBoundary7RGDIyjMpWhLXcZa--\r\n'
+"""
+
+
 	boundary = b''
-	uid = None
 	num = 0
 	blank = 0 # blank is used to check if the post is empty or Connection Aborted
 	remainbytes = 0
@@ -2347,7 +2687,7 @@ class DealPostData:
 	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
 
 
-	def get(self, show=True, strip=False):
+	def get(self, show=F, strip=F):
 		"""
 		show: print line
 		strip: strip \r\n at end
@@ -2366,6 +2706,7 @@ class DealPostData:
 			raise ConnectionAbortedError
 		if show:
 			self.num+=1
+			print(f"{self.num}: {line}")
 		self.remainbytes -= len(line)
 
 		if strip and line.endswith(b"\r\n"):
@@ -2374,88 +2715,99 @@ class DealPostData:
 		return line
 
 	def pass_bound(self):
-		line = self.get(F)
+		line = self.get()
 		if not self.boundary in line:
-			return (False, "Content NOT begin with boundary")
+			self.req.log_error("Content NOT begin with boundary\n", [line, self.boundary])
 
-	def get_type(self, line=None, ):
+	def get_name(self, line=None, ):
 		if not line:
 			line = self.get()
 		try:
 			return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
 		except: return None
 
-	def skip(self,):
-		self.get(F)
+	def match_name(self, field_name=''):
+		"""
+		field_name: name of the field (str)
+		"""
+		line = self.get()
+		if field_name and self.get_name(line)!=field_name:
+			raise PostError(f"Invalid request: Expected {field_name} but got {self.get_name(line)}")
 
-	def start(self, post_type=b''):
+		return line
+
+
+	def skip(self,):
+		self.get()
+
+	def start(self):
+		'''reads upto line 0'''
 		req = self.req
 		content_type = req.headers['content-type']
 
 		if not content_type:
-			return (False, "Content-Type header doesn't contain boundary")
+			raise PostError("Content-Type header doesn't contain boundary")
 		self.boundary = content_type.split("=")[1].encode()
 
 		self.remainbytes = int(req.headers['content-length'])
 
 
-		self.pass_bound()# LINE 1
-
-		# get post type
-		if self.get_type()=="post-type":
-			self.skip() # newline
-		else:
-			return (False, "Invalid post request")
-
-		line = self.get()
-		handle_type = line.decode().strip() # post type LINE 3
-
-		if handle_type != post_type.decode():
-			return (False, "Invalid post request")
-
-		self.pass_bound() #boundary for password or guid of user
-
-		return (True, handle_type)
-
-	def get_uid(self,):
-		if self.get_type()=="post-uid":
-			self.skip() # newline
-		else:
-			return (False, "Unknown User request")
-
-		uid = self.get() # uid LINE 5
+		self.pass_bound()# LINE 0
 
 
-		return (True, uid)
+	def get_part(self, verify_name='', verify_msg='', decode=F):
+		'''read a form field
+		ends at boundary'''
+		decoded = False
+		field_name = self.match_name(verify_name) # LINE 1 (field name)
+		# if not verified, raise PostError
+
+		self.skip() # LINE 2 (blank line)
+
+		line = b''
+		while 1:
+			_line = self.get() # from LINE 4 till boundary (form field value)
+			if self.boundary in _line: # boundary
+				break
+			line += _line
+
+		line = line.rpartition(b"\r\n")[0] # remove \r\n at end
+		if decode:
+			line = line.decode()
+			decoded = True
+		if verify_msg:
+			_line = line
+			if not decoded:
+				_line = line.decode()
+			if _line != verify_msg:
+				raise PostError(f"Invalid post request Expected: {[verify_msg]} Got: {[_line]}")
+
+		# self.pass_bound() # LINE 5 (boundary)
+
+		return field_name, line
 
 
 
 
-def AUTHORIZE_POST(req: SimpleHTTPRequestHandler, post:DealPostData, post_type=b''):
+
+
+def AUTHORIZE_POST(req: SimpleHTTPRequestHandler, post:DealPostData, post_type=''):
 	"""Check if the user is authorized to post"""
 
 	# START
-	post_verify = post.start(post_type)
-	if not post_verify[0]:
-		req.send_txt(HTTPStatus.BAD_REQUEST, post_verify[1])
+	post.start()
 
-		return None
+	verify_1 = post.get_part(verify_name='post-type', verify_msg=post_type, decode=T)
+
 
 	# GET UID
-	uid_verify = post.get_uid()
-
-
-
-	# pass boundary
-	post.pass_bound()
-
+	uid_verify = post.get_part(verify_name='post-uid', decode=T)
 
 	if not uid_verify[0]:
-		req.send_txt(HTTPStatus.BAD_REQUEST, uid_verify[1])
+		raise PostError("Invalid request: No uid provided")
 
-		return None
 
-	uid = uid_verify[1].decode()
+	uid = uid_verify[1]
 
 
 	##################################
@@ -2465,9 +2817,6 @@ def AUTHORIZE_POST(req: SimpleHTTPRequestHandler, post:DealPostData, post_type=b
 	##################################
 
 	return uid
-
-
-
 
 
 
@@ -2483,7 +2832,7 @@ def upload(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	post = DealPostData(self)
 
 	# AUTHORIZE
-	uid = AUTHORIZE_POST(self, post, b'upload')
+	uid = AUTHORIZE_POST(self, post, 'upload')
 
 	if not uid:
 		return None
@@ -2494,26 +2843,24 @@ def upload(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 
 	# PASSWORD SYSTEM
-	if post.get_type()!="password":
-		return self.send_txt(HTTPStatus.BAD_REQUEST, "Invalid request")
+	password = post.get_part(verify_name='password', decode=T)[1]
+	# if post.get_type()!="password":
+	# 	return self.send_txt(HTTPStatus.BAD_REQUEST, "Invalid request")
 
-	post.skip()
-	password= post.get(F)
+	# post.skip()
+	# password= post.get(F)
 	self.log_debug(f'post password: {[password]} by client')
-	if password != config.PASSWORD + b'\r\n': # readline returns password with \r\n at end
+	if password != config.PASSWORD: # readline returns password with \r\n at end
 		self.log_info(f"Incorrect password by {uid}")
 
 		return self.send_txt(HTTPStatus.UNAUTHORIZED, "Incorrect password")
-
-
-	post.pass_bound()
 
 	while post.remainbytes > 0:
 		line = post.get()
 
 		fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
 		if not fn:
-			return (False, "Can't find out file name...")
+			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...")
 
 
 		path = self.translate_path(self.path)
@@ -2587,11 +2934,7 @@ def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	post = DealPostData(self)
 
 	# AUTHORIZE
-	uid = AUTHORIZE_POST(self, post, b'del-f')
-
-	if not uid:
-		return None
-
+	uid = AUTHORIZE_POST(self, post, 'del-f')
 
 	if config.disabled_func["send2trash"]:
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
@@ -2599,19 +2942,12 @@ def del_2_recycle(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 
 	# File link to move to recycle bin
-	if post.get_type()!="name":
-		return self.send_json({"head": "Failed", "body":  "Invalid request"})
-
-
-	post.skip()
-	filename = post.get(strip=T).decode()
-
+	filename = post.get_part(verify_name='name', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename)
-
 	xpath = self.translate_path(posixpath.join(url_path, filename))
 
-	self.log_warning(f'send2trash {xpath} by {[uid]}')
+	self.log_warning(f'<-send2trash-> {xpath} by {[uid]}')
 
 	head = "Failed"
 	try:
@@ -2640,24 +2976,12 @@ def del_permanently(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	post = DealPostData(self)
 
 	# AUTHORIZE
-	uid = AUTHORIZE_POST(self, post, b'del-p')
-
-	if not uid:
-		return None
-
-
+	uid = AUTHORIZE_POST(self, post, 'del-p')
 
 
 
 	# File link to move to recycle bin
-	if post.get_type()!="name":
-		return self.send_json({"head": "Failed", "body": "Invalid request"})
-
-
-	post.skip()
-	filename = post.get(strip=T).decode()
-
-
+	filename = post.get_part(verify_name='name', decode=T)[1].strip()
 	path = self.get_rel_path(filename)
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
@@ -2690,32 +3014,14 @@ def rename_content(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	post = DealPostData(self)
 
 	# AUTHORIZE
-	uid = AUTHORIZE_POST(self, post, b'rename')
-
-	if not uid:
-		return None
-
-
+	uid = AUTHORIZE_POST(self, post, 'rename')
 
 
 
 	# File link to move to recycle bin
-	if post.get_type()!="name":
-		return (False, "Invalid request")
+	filename = post.get_part(verify_name='name', decode=T)[1].strip()
 
-
-	post.skip()
-	filename = post.get(strip=T).decode()
-
-	post.pass_bound()
-
-	if post.get_type()!="data":
-		return (False, "Invalid request")
-
-
-	post.skip()
-	new_name = post.get(strip=T).decode()
-
+	new_name = post.get_part(verify_name='data', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename)
 
@@ -2744,28 +3050,21 @@ def get_info(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
+	script = None
+
 
 	post = DealPostData(self)
 
 	# AUTHORIZE
-	uid = AUTHORIZE_POST(self, post, b'info')
+	uid = AUTHORIZE_POST(self, post, 'info')
 
-	if not uid:
-		return None
-
-
-	script = None
 
 
 
 
 	# File link to move to check info
-	if post.get_type()!="name":
-		return self.send_json({"head":"Failed!","body": "Invalid request"})
+	filename = post.get_part(verify_name='name', decode=T)[1].strip()
 
-
-	post.skip()
-	filename = post.get(strip=T).decode() # the filename
 	path = self.get_rel_path(filename) # the relative path of the file or folder
 
 	xpath = self.translate_path(posixpath.join(url_path, filename)) # the absolute path of the file or folder
@@ -2773,9 +3072,12 @@ def get_info(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 	self.log_warning(f'Info Checked "{xpath}" by: {[uid]}')
 
+	if not os.path.exists(xpath):
+		return self.send_json({"head":"Failed", "body":"File/Folder Not Found"})
+
 	file_stat = get_stat(xpath)
 	if not file_stat:
-		return (False, "Permission Denied", script)
+		return self.send_json({"head":"Failed", "body":"Permission Denied"})
 
 	data = []
 	data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
@@ -2792,17 +3094,20 @@ def get_info(self: SimpleHTTPRequestHandler, *args, **kwargs):
 		data.append(["Type", "Folder"])
 		# size = get_dir_size(xpath)
 
-		data.append(["Total Files", get_file_count(xpath)])
+		data.append(["Total Files", '<span id="f_count">Please Wait</span>'])
 
 
 		data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
 		script = '''
-		tools.fetch_json(tools.full_path("''' + path + '''?size")).then(size_resp => {
-		console.log(size_resp);
-		if (size_resp.status) {
-			document.getElementById("f_size").innerHTML = size_resp.humanbyte + " (" + size_resp.byte + " bytes)";
+		tools.fetch_json(tools.full_path("''' + path + '''?size_n_count")).then(resp => {
+		console.log(resp);
+		if (resp.status) {
+			size = resp.humanbyte;
+			count = resp.count;
+			document.getElementById("f_size").innerHTML = resp.humanbyte + " (" + resp.byte + " bytes)";
+			document.getElementById("f_count").innerHTML = count;
 		} else {
-			throw new Error(size_resp.msg);
+			throw new Error(resp.msg);
 		}}).catch(err => {
 		console.log(err);
 		document.getElementById("f_size").innerHTML = "Error";
@@ -2860,20 +3165,9 @@ def new_folder(self: SimpleHTTPRequestHandler, *args, **kwargs):
 	post = DealPostData(self)
 
 	# AUTHORIZE
-	uid = AUTHORIZE_POST(self, post, b'new_folder')
+	uid = AUTHORIZE_POST(self, post, 'new_folder')
 
-	if not uid:
-		return None
-
-	# File link to move to recycle bin
-	if post.get_type()!="name":
-		return (False, "Invalid request")
-
-
-	post.skip()
-	filename = post.get(strip=T).decode()
-
-
+	filename = post.get_part(verify_name='name', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename)
 
@@ -2904,7 +3198,7 @@ def new_folder(self: SimpleHTTPRequestHandler, *args, **kwargs):
 
 @SimpleHTTPRequestHandler.on_req('POST')
 def default_post(self: SimpleHTTPRequestHandler, *args, **kwargs):
-	return self.send_error(400, "Bad Request")
+	raise PostError("Bad Request")
 
 
 
@@ -2997,11 +3291,16 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	local_ip = config.IP if config.IP else get_ip()
 	config.IP= local_ip
 
+
+	on_network = local_ip!="127.0.0.1"
+
 	print(tools.text_box(
-		f"Serving HTTP on {host} port {port} \n" #TODO: need to check since the output is "Serving HTTP on :: port 6969"
-		f"(http://{url_host}:{port}/) ...\n" #TODO: need to check since the output is "(http://[::]:6969/) ..."
-		f"Server is probably running on {config.address()}"
-		, style="star"
+		f"Serving HTTP on {host} port {port} \n", #TODO: need to check since the output is "Serving HTTP on :: port 6969"
+		f"(http://{url_host}:{port}/) ...\n", #TODO: need to check since the output is "(http://[::]:6969/) ..."
+		f"Server is probably running on\n",
+		(f"[over NETWORK] {config.address()}\n" if on_network else ""),
+		f"[on DEVICE] http://localhost:{config.port} & http://127.0.0.1:{config.port}"
+		, style="star", sep=""
 		)
 	)
 	try:
@@ -3062,6 +3361,7 @@ const public_url = "${PY_PUBLIC_URL}";
 body {
 	position: relative;
 	min-height: 100vh;
+	overflow-x: hidden;
 }
 
 html,
@@ -3146,7 +3446,7 @@ a {
 	display: inline-block;
 	font-size: .8em;
 	word-wrap: break-all;
-	padding: 8px;
+	padding: 5px;
 	left: 50px;
 	position: relative;
 }
@@ -3730,7 +4030,7 @@ class Tools {
 	}
 	download(dataurl, filename = null, new_tab=false) {
 		const link = createElement("a");
-		link.href = dataurl;
+		link.href = dataurl+"?dl";
 		link.download = filename;
 		if(new_tab){
 			link.target = "_blank";
@@ -4131,9 +4431,9 @@ class ContextMenu {
 				popup_msg.close()
 			}
 			menu.appendChild(new_tab)
-		if (type == "video") {
+		if (type != "folder") {
 			var download = createElement("div")
-			download.innerText = "⬇️" + " Download"
+			download.innerText = "📥" + " Download"
 			download.classList.add("menu_options")
 			download.onclick = function() {
 				tools.download(file, name);
@@ -4144,7 +4444,7 @@ class ContextMenu {
 		}
 		if (type == "folder") {
 			var dl_zip = createElement("div")
-			dl_zip.innerText = "🗃️" + " Download as Zip"
+			dl_zip.innerText = "📦" + " Download as Zip"
 			dl_zip.classList.add("menu_options")
 			dl_zip.onclick = function() {
 				popup_msg.close()
@@ -4155,7 +4455,7 @@ class ContextMenu {
 		}
 
 		var copy = createElement("div")
-		copy.innerText = "⧉" + " Copy link"
+		copy.innerText = "📋" + " Copy link"
 		copy.classList.add("menu_options")
 		copy.onclick = async function(ev) {
 			popup_msg.close()
@@ -4200,7 +4500,7 @@ class ContextMenu {
 		}
 		menu.appendChild(del_P)
 		var property = createElement("div")
-		property.innerText = "ℹ️" + " Properties"
+		property.innerText = "📅" + " Properties"
 		property.classList.add("menu_options")
 		property.onclick = function() {
 			that.menu_click('info', file);
@@ -4572,7 +4872,7 @@ byId("uploader").onsubmit = (e) => {
 <a href="./?admin" class='pagination'>Admin center</a>
 
 
-<p>v4 I ❤️ emoji!</p>
+<p>pyroBox UI v4 - I ❤️ emoji!</p>
 
 </body>
 
@@ -4613,6 +4913,7 @@ config.file_list['html_vid.html'] = r"""
 -->
 
 <script>
+
 
 
 
@@ -4759,6 +5060,9 @@ poster.onclick = function(e) {
 </script>
 
 <br>
+
+
+<p>pyroBox UI v4 - I ❤️ emoji!</p>
 """
 
 
@@ -4767,9 +5071,6 @@ poster.onclick = function(e) {
 #######################################################
 
 config.file_list["html_zip_page.html"] = r"""
-</ul>
-</div>
-
 <h2>ZIPPING FOLDER</h2>
 <h3 id="zip-prog">Progress</h3>
 <h3 id="zip-perc"></h3>
@@ -4825,6 +5126,9 @@ var prog_timer = setInterval(function() {
 
 
 </script>
+
+
+<p>pyroBox UI v4 - I ❤️ emoji!</p>
 """
 
 
@@ -4916,6 +5220,9 @@ function run_update() {
 
 check_update();
 </script>
+
+
+<p>pyroBox UI v4 - I ❤️ emoji!</p>
 """
 
 
