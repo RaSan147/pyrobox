@@ -1,3 +1,20 @@
+# Version 0.6.5
+  ## Client-side Changes:
+  * Folder info view now recieved a huge speed boost
+  * Any file can be downloaded via R-Click -> Download
+  * Updated some emojis
+  ## Server-side Changes:
+  * moving towards pyroboxCore for future updates
+  * Using os.scandir() instead of os.listdir() for speed boost
+  * Post request handling is now done more cleanly, like how form data works
+  ## Fixes:
+  * Nothing to notice since 0.6.4
+
+
+
+-----------------------------------------------------------------------
+
+
 # Version 0.6.4
   ## Client-side Changes:
   * Nothing to notice
