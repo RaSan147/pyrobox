@@ -1,4 +1,4 @@
-__version__ = "0.6.4"
+__version__ = "0.6.5"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -584,6 +584,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.query = query
 			self.fragment = fragment
 
+			self.use_range = False
+
 
 			_hash = abs(hash((self.raw_requestline, tools.random_string(10))))
 			self.req_hash = base64.b64encode(str(_hash).encode('ascii')).decode()[:10]
@@ -909,6 +911,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		super().__init__(*args, **kwargs)
 		self.query = Callable_dict()
 
+
 	def do_GET(self):
 		"""Serve a GET request."""
 		try:
@@ -1140,7 +1143,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 							return None
 
-			if self.range:
+			if self.use_range:
 				first = self.range[0]
 				if first is None:
 					first = 0
@@ -1206,7 +1209,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		"""
 
-
 		if 'Range' not in self.headers:
 			self.range = None, None
 			first, last = 0, 0
@@ -1215,6 +1217,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			try:
 				self.range = parse_byte_range(self.headers['Range'])
 				first, last = self.range
+				self.use_range = True
 			except ValueError as e:
 				self.send_error(400, 'Invalid byte range')
 				return None
@@ -1358,110 +1361,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 class PostError(Exception):
 	pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

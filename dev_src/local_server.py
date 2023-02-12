@@ -1682,7 +1682,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 						break # break if error is raised and send BAD_REQUEST (at end of loop)
 
 					if f:
-						print(f)
 						try:
 							self.copyfile(f, self.wfile)
 						except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
