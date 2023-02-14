@@ -1,5 +1,14 @@
 # Version 0.6.5
   ## Client-side Changes:
+  * Nothing to notice
+  ## Server-side Changes:
+  * os.scandir() -> item.is_dir to item.is_dir()
+  ## Fixes:
+  * Fixed where files had "/" at the end of their name
+
+
+# Version 0.6.5
+  ## Client-side Changes:
   * Folder info view now recieved a huge speed boost
   * Any file can be downloaded via R-Click -> Download
   * Updated some emojis
