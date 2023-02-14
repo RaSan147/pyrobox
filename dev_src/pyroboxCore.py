@@ -36,7 +36,7 @@ class Config:
 		self.port= 45454  # DEFAULT PORT TO LAUNCH SERVER
 
 		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
-		self.PASSWORD= "SECret".encode('utf-8')
+		self.PASSWORD= "SECret"
 
 		# LOGGING
 		self.log_location = "./"  # fallback log_location = "./"
@@ -881,7 +881,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'.c': 'text/plain',
 		'.h': 'text/plain',
 		'.css': 'text/css',
-		'html': "text/html",
 
 		'.gz': 'application/gzip',
 		'.Z': 'application/octet-stream',
@@ -1061,7 +1060,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return
 
 
-
+	def redirect(self, location):
+		'''redirect to location'''
+		self.send_response(HTTPStatus.FOUND)
+		self.send_header("Location", location)
+		self.end_headers()
 
 	def return_txt(self, code, msg, content_type="text/html; charset=utf-8", write_log=False):
 		'''returns only the head to client
@@ -1082,9 +1085,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.end_headers()
 		return f
 
-	def send_txt(self, code, msg, write_log=True):
+	def send_txt(self, code, msg, content_type="text/html; charset=utf-8", write_log=False):
 		'''sends the head and file to client'''
-		f = self.return_txt(code, msg, write_log=write_log)
+		f = self.return_txt(code, msg, content_type, write_log)
 		if self.command == "HEAD":
 			return # to avoid sending file on get request
 		self.copyfile(f, self.wfile)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-__version__ = "0.6.5"
+__version__ = "0.6.6"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -2051,10 +2051,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			displayname = linkname = name
 
 
-			if file.is_dir:
+			if file.is_dir():
 				displayname = name + "/"
 				linkname = name + "/"
-			elif file.is_symlink:
+			elif file.is_symlink():
 				displayname = name + "@"
 
 			dir_dict.append([urllib.parse.quote(linkname, errors='surrogatepass'),

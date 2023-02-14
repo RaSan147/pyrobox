@@ -1918,10 +1918,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			displayname = linkname = name
 
 
-			if file.is_dir:
+			if file.is_dir():
 				displayname = name + "/"
 				linkname = name + "/"
-			elif file.is_symlink:
+			elif file.is_symlink():
 				displayname = name + "@"
 
 			dir_dict.append([urllib.parse.quote(linkname, errors='surrogatepass'),
