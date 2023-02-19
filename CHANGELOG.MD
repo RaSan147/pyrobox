@@ -1,3 +1,11 @@
+# Version 0.6.9
+  ## Client-side Changes:
+  * Nothing to notice
+  ## Server-side Changes:
+  * Nothing to notice
+  ## Fixes:
+  * Forgot to increment version number in `server.py`
+
 # Version 0.6.8
   ## Client-side Changes:
   * Nothing to notice
