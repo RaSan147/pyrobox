@@ -1,4 +1,13 @@
-# Version 0.6.6
+# Version 0.6.8
+  ## Client-side Changes:
+  * Nothing to notice
+  ## Server-side Changes:
+  * Nothing to notice
+  ## Fixes:
+  * Reload_server button now works
+
+
+# Version 0.6.7
   ## Client-side Changes:
   * Nothing to notice
   ## Server-side Changes:

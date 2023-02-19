@@ -292,7 +292,7 @@ def run_update():
 
 def reload_server():
 	"""reload the server process from file"""
-	file = '"' + config.MAIN_FILE + '"'
+	file = config.MAIN_FILE
 	print("Reloading...")
 	# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
 	try:

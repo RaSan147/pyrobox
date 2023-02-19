@@ -285,10 +285,11 @@ def run_update():
 
 def reload_server():
 	"""reload the server process from file"""
-	file = '"' + config.MAIN_FILE + '"'
+	file = config.MAIN_FILE
 	print("Reloading...")
 	# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
 	try:
+		print("RE-RUNNING: ", sys.executable, sys.executable, file, *sys.argv[1:])
 		os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
 	except:
 		traceback.print_exc()
