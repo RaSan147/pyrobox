@@ -4,7 +4,8 @@ setup(
     package_dir={"pyrobox": "src",},
     install_requires=[
         'natsort',
-        "send2trash"
+        "send2trash",
+        "requests",
     ],
     entry_points='''
         [console_scripts]

@@ -1197,6 +1197,16 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			# if f and not f.closed(): f.close()
 			raise
+			
+	def send_file(self, path, filename=None, download=False):
+		'''sends the head and file to client'''
+		f = self.return_file(path, filename, download)
+		if self.command == "HEAD":
+			return # to avoid sending file on get request
+		try:
+			self.copyfile(f, self.wfile)
+		finally:
+			f.close()
 
 
 

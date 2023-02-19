@@ -1,4 +1,13 @@
-# Version 0.6.5
+# Version 0.6.6
+  ## Client-side Changes:
+  * Nothing to notice
+  ## Server-side Changes:
+  * Nothing to notice
+  ## Fixes:
+  * Added requests in requirements
+
+
+# Version 0.6.6
   ## Client-side Changes:
   * Nothing to notice
   ## Server-side Changes:
