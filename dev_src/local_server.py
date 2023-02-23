@@ -2420,20 +2420,18 @@ def send_video_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
 													PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
 
 
-	r.append("</ul></div>")
+	ctype = self.guess_type(path)
+	warning = ""
+
+	if ctype not in ['video/mp4', 'video/ogg', 'video/webm']:
+		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
+
+		
+	r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+												PY_CTYPE=ctype,
+												PY_UNSUPPORT_WARNING=warning))
 
 
-	if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
-		r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
-	else:
-		ctype = self.guess_type(path)
-		r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
-												PY_CTYPE=ctype))
-
-	r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
-
-
-	r.append('\n<hr>\n</body>\n</html>\n')
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 	return self.return_txt(HTTPStatus.OK, encoded, write_log=False)
