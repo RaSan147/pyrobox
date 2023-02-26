@@ -1238,8 +1238,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			print(  f'{self.req_hash}|=>\t request\t: {self.command}',
 					f'{self.req_hash}|=>\t url     \t: {url_path}',
 					f'{self.req_hash}|=>\t query   \t: {query}',
-					f'{self.req_hash}|=>\t fragment\t: {fragment}'
-					, sep=f'\n')
+					f'{self.req_hash}|=>\t fragment\t: {fragment}',
+					f'{self.req_hash}|=>\t full url \t: {self.path}',
+					sep=f'\n')
 			print('+'*w + f' {self.req_hash} ' + '+'*w)
 
 
@@ -2377,7 +2378,7 @@ def get_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
 		if query("download"):
 			path = zip_manager.zip_ids[id]
 
-			return self.return_file(path, first, last, filename)
+			return self.return_file(path, filename, True)
 
 
 		if query("progress"):
@@ -2640,13 +2641,15 @@ class DealPostData:
 		line = line.rpartition(b"\r\n")[0] # remove \r\n at end
 		if decode:
 			line = line.decode()
+			field_name = field_name.decode()
 			decoded = True
 		if verify_msg:
-			_line = line
 			if not decoded:
-				_line = line.decode()
-			if _line != verify_msg:
-				raise PostError(f"Invalid post request Expected: {[verify_msg]} Got: {[_line]}")
+				if isinstance(verify_msg, str):
+					verify_msg = verify_msg.encode()
+					
+			if line != verify_msg:
+				raise PostError(f"Invalid post request.\n Expected: {[verify_msg]}\n Got: {[line]}")
 
 		# self.pass_bound() # LINE 5 (boundary)
 

@@ -10,7 +10,7 @@ with open('VERSION', 'r') as f:
 
 os.system(f"pip uninstall pyrobox")
 os.system(f"pip install --user ./dist/pyrobox-{version}.tar.gz")
-# os.system("pyrobox 45454")
+os.system("pyrobox 45454")
 
 # post to pypi
-os.system("twine upload dist/*")
+# os.system("twine upload dist/*")
