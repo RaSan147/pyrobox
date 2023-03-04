@@ -37,6 +37,16 @@ from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH, DealPost
 true = T = True
 false = F = False
 
+
+config.parser.add_argument('--password', '-k', 
+							default=config.PASSWORD,
+							type=str,
+							help='Upload Password (default: %(default)s)')
+
+
+args = config.parser.parse_known_args()[0]
+config.PASSWORD = args.password
+
 config.disabled_func.update({
 			"send2trash": False,
 			"natsort": False,
@@ -866,7 +876,7 @@ def fetch_url(url, file = None):
 
 		with open(file, 'wb') as f:
 			f.write(data)
-		return True
+		return data
 	except Exception:
 		traceback.print_exc()
 		return None

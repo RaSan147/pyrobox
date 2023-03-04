@@ -12,6 +12,9 @@ import logging
 from queue import Queue
 from typing import Union
 
+import argparse
+
+
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
 logger = logging.getLogger(__name__)
@@ -81,6 +84,10 @@ class Config:
 		# ASSET MAPPING
 		self.file_list = {}
 
+		# COMMANDLINE ARGUMENTS PARSER
+		self.parser = argparse.ArgumentParser(add_help=False)
+		
+
 	def clear_temp(self):
 		for i in self.temp_file:
 			try:
@@ -107,6 +114,42 @@ class Config:
 
 	def address(self):
 		return "http://%s:%i"%(self.IP, self.port)
+	
+	def parse_default_args(self, port = None, directory = None, bind = None, ):
+		if port is None:
+			port = self.port
+		if directory is None:
+			directory = self.ftp_dir
+		if bind is None:
+			bind = None
+
+		parser = self.parser
+
+		parser.add_argument('--bind', '-b', 
+							metavar='ADDRESS', default=bind,
+							help='Specify alternate bind address '
+								'[default: all interfaces]')
+		parser.add_argument('--directory', '-d', default=directory,
+							help='Specify alternative directory '
+							'[default: current directory]')
+		parser.add_argument('port', action='store',
+							default=port, type=int,
+							nargs='?',
+							help='Specify alternate port [default: 8000]')
+		parser.add_argument('--version', '-v', action='version',
+							version=__version__)
+		
+		self.parser.add_argument('-h', '--help', action='help',
+								default='==SUPPRESS==', 
+								help=('show this help message and exit'))
+		
+		args = parser.parse_known_args()[0]
+
+		return args
+	
+		
+
+
 
 
 
@@ -1631,32 +1674,9 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 
 
 def run(port = None, directory = None, bind = None, arg_parse= True, handler = SimpleHTTPRequestHandler):
-	if port is None:
-		port = config.port
-	if directory is None:
-		directory = config.ftp_dir
 
 	if arg_parse:
-		import argparse
-
-
-
-		parser = argparse.ArgumentParser()
-
-		parser.add_argument('--bind', '-b', metavar='ADDRESS',
-							help='Specify alternate bind address '
-								'[default: all interfaces]')
-		parser.add_argument('--directory', '-d', default=directory,
-							help='Specify alternative directory '
-							'[default:current directory]')
-		parser.add_argument('port', action='store',
-							default=port, type=int,
-							nargs='?',
-							help='Specify alternate port [default: 8000]')
-		parser.add_argument('--version', '-v', action='version',
-							version=__version__)
-
-		args = parser.parse_args()
+		args = config.parse_default_args(port=port, directory=directory, bind=bind)
 
 		port = args.port
 		directory = args.directory
