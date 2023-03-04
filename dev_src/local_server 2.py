@@ -1112,10 +1112,7 @@ def send_assets(self: SH, *args, **kwargs):
 
 
 	path = kwargs.get('path', '')
-	url_path = kwargs.get('url_path', '')
 	spathsplit = kwargs.get('spathsplit', '')
-	first = kwargs.get('first', '')
-	last = kwargs.get('last', '')
 
 	path = config.ASSETS_dir + "/".join(spathsplit[2:])
 	#	print("USING ASSETS", path)
@@ -1124,7 +1121,7 @@ def send_assets(self: SH, *args, **kwargs):
 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 		return None
 
-	return self.return_file(path, first, last)
+	return self.return_file(path)
 
 
 
@@ -1132,12 +1129,7 @@ def send_assets(self: SH, *args, **kwargs):
 def default_get(self: SH, filename=None, *args, **kwargs):
 	"""Serve a GET request."""
 	path = kwargs.get('path', '')
-	url_path = kwargs.get('url_path', '')
-	spathsplit = kwargs.get('spathsplit', '')
-	first = kwargs.get('first', '')
-	last = kwargs.get('last', '')
 
-	print("XXX path", path)
 	if os.path.isdir(path):
 		parts = urllib.parse.urlsplit(self.path)
 		if not parts.path.endswith('/'):
@@ -1163,7 +1155,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# However, some OS platforms accept a trailingSlash as a filename
 	# See discussion on python-dev and Issue34711 regarding
 	# parseing and rejection of filenames with a trailing slash
-	print("YYY path", path)
+
 	if path.endswith("/"):
 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 		return None
@@ -1630,4 +1622,3 @@ def main():
 
 if __name__ == '__main__':
 	main()
-	
