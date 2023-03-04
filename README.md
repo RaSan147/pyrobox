@@ -33,7 +33,7 @@ Basic FEATURES
 * 🧨 RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
 * 🆕 FOLDER CREATION
 * 💬 Pop-up messages UI(from my Web leach repo)
-* 🌐 If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (also vulnerable, since you can't control access *yet*)
+* 🌐 (Didn't test yet) If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (also vulnerable, since you can't control access *yet*)
 * 🧬 Clone entire directory from Host to Client with least changes (last modified preserved)
 * 🔜 More comming soon
 
