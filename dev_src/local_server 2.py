@@ -1,11 +1,9 @@
-__version__ = "0.6.5"
+__version__ = "0.7.0"
 enc = "utf-8"
 
-import contextlib
 import html
 import io
 import os
-import socket
 import sys
 import posixpath
 import shutil
@@ -1045,7 +1043,7 @@ def get_zip(self: SH, *args, **kwargs):
 		if query("download"):
 			path = zip_manager.zip_ids[id]
 
-			return self.return_file(path, first, last, filename)
+			return self.return_file(path, filename, True)
 
 
 		if query("progress"):
@@ -1062,7 +1060,7 @@ def get_zip(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="json")
 def send_ls_json(self: SH, *args, **kwargs):
 	"""Send directory listing in JSON format"""
-	return self.list_directory_json()
+	return list_directory_json(self)
 
 @SH.on_req('HEAD', hasQ="vid")
 def send_video_page(self: SH, *args, **kwargs):
@@ -1087,21 +1085,18 @@ def send_video_page(self: SH, *args, **kwargs):
 													PY_PUBLIC_URL=config.address(),
 													PY_DIR_TREE_NO_JS= dir_navigator(displaypath)))
 
+	ctype = self.guess_type(path)
+	warning = ""
 
-	r.append("</ul></div>")
+	if ctype not in ['video/mp4', 'video/ogg', 'video/webm']:
+		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
 
-
-	if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
-		r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
-	else:
-		ctype = self.guess_type(path)
-		r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
-												PY_CTYPE=ctype))
-
-	r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
+		
+	r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+												PY_CTYPE=ctype,
+												PY_UNSUPPORT_WARNING=warning))
 
 
-	r.append('\n<hr>\n</body>\n</html>\n')
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 	return self.return_txt(HTTPStatus.OK, encoded, write_log=False)
@@ -1142,7 +1137,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	first = kwargs.get('first', '')
 	last = kwargs.get('last', '')
 
-
+	print("XXX path", path)
 	if os.path.isdir(path):
 		parts = urllib.parse.urlsplit(self.path)
 		if not parts.path.endswith('/'):
@@ -1168,6 +1163,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# However, some OS platforms accept a trailingSlash as a filename
 	# See discussion on python-dev and Issue34711 regarding
 	# parseing and rejection of filenames with a trailing slash
+	print("YYY path", path)
 	if path.endswith("/"):
 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 		return None

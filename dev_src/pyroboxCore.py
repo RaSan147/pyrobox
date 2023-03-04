@@ -187,10 +187,12 @@ class Callable_dict(dict):
 
 def reload_server():
 	"""reload the server process from file"""
-	file = '"' + config.MAIN_FILE + '"'
+	file = config.MAIN_FILE
 	print("Reloading...")
 	# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
 	try:
+		logger.debug(" ".join(["RE-RUNNING: ", sys.executable, sys.executable, file, *sys.argv[1:]]))
+
 		os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
 	except:
 		traceback.print_exc()
@@ -597,8 +599,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			print(  f'{self.req_hash}|=>\t request\t: {self.command}',
 					f'{self.req_hash}|=>\t url     \t: {url_path}',
 					f'{self.req_hash}|=>\t query   \t: {query}',
-					f'{self.req_hash}|=>\t fragment\t: {fragment}'
-					, sep=f'\n')
+					f'{self.req_hash}|=>\t fragment\t: {fragment}',
+					f'{self.req_hash}|=>\t full url \t: {self.path}',
+					sep=f'\n')
 			print('+'*w + f' {self.req_hash} ' + '+'*w)
 
 
@@ -1449,7 +1452,10 @@ class DealPostData:
 			return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
 		except: return None
 
-	def match_name(self, field_name=None):
+	def match_name(self, field_name=''):
+		"""
+		field_name: name of the field (str)
+		"""
 		line = self.get()
 		if field_name and self.get_name(line)!=field_name:
 			raise PostError(f"Invalid request: Expected {field_name} but got {self.get_name(line)}")
@@ -1475,8 +1481,10 @@ class DealPostData:
 		self.pass_bound()# LINE 0
 
 
-	def get_part(self, verify_name=None, verify_msg=None, decode=F):
-		'''read a form field'''
+	def get_part(self, verify_name='', verify_msg='', decode=F):
+		'''read a form field
+		ends at boundary'''
+		decoded = False
 		field_name = self.match_name(verify_name) # LINE 1 (field name)
 		# if not verified, raise PostError
 
@@ -1492,8 +1500,15 @@ class DealPostData:
 		line = line.rpartition(b"\r\n")[0] # remove \r\n at end
 		if decode:
 			line = line.decode()
-		if verify_msg and line != verify_msg:
-			raise PostError(f"Invalid post request Expected: {[verify_msg]} Got: {[line]}")
+			field_name = field_name.decode()
+			decoded = True
+		if verify_msg:
+			if not decoded:
+				if isinstance(verify_msg, str):
+					verify_msg = verify_msg.encode()
+					
+			if line != verify_msg:
+				raise PostError(f"Invalid post request.\n Expected: {[verify_msg]}\n Got: {[line]}")
 
 		# self.pass_bound() # LINE 5 (boundary)
 
@@ -1513,8 +1528,8 @@ def _get_best_family(*address):
 	family, type, proto, canonname, sockaddr = next(iter(infos))
 	return family, sockaddr
 
-def get_ip():
-	IP = '127.0.0.1'
+def get_ip(bind=None):
+	IP = bind # or "127.0.0.1"
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.settimeout(0)
 	try:
@@ -1544,21 +1559,24 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	"""
 
 	global httpd
-	if sys.version_info>(3,7,2): # BACKWARD COMPATIBILITY
+	if sys.version_info>=(3,8): # BACKWARD COMPATIBILITY
 		ServerClass.address_family, addr = _get_best_family(bind, port)
 	else:
 		addr =(bind if bind!=None else '', port)
+
+	device_ip = bind or "127.0.0.1"
+	# bind can be None (=> 127.0.0.1) or a string (=> 127.0.0.DDD)
 
 	HandlerClass.protocol_version = protocol
 	httpd = ServerClass(addr, HandlerClass)
 	host, port = httpd.socket.getsockname()[:2]
 	url_host = f'[{host}]' if ':' in host else host
 	hostname = socket.gethostname()
-	local_ip = config.IP if config.IP else get_ip()
+	local_ip = config.IP if config.IP else get_ip(device_ip)
 	config.IP= local_ip
 
 
-	on_network = local_ip!="127.0.0.1"
+	on_network = local_ip!=(device_ip)
 
 	print(tools.text_box(
 		f"Serving HTTP on {host} port {port} \n", #TODO: need to check since the output is "Serving HTTP on :: port 6969"
@@ -1570,7 +1588,7 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 		)
 	)
 	try:
-		httpd.serve_forever()
+		httpd.serve_forever(poll_interval=0.1)
 	except KeyboardInterrupt:
 		print("\nKeyboard interrupt received, exiting.")
 
@@ -1648,7 +1666,7 @@ def run(port = None, directory = None, bind = None, arg_parse= True, handler = S
 	config.ftp_dir = directory
 
 	if not config.reload:
-		if sys.version_info>(3,7,2):
+		if sys.version_info>(3,8):
 			test(
 			HandlerClass=handler_class,
 			ServerClass=DualStackServer,

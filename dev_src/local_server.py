@@ -289,7 +289,8 @@ def reload_server():
 	print("Reloading...")
 	# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
 	try:
-		print("RE-RUNNING: ", sys.executable, sys.executable, file, *sys.argv[1:])
+		logger.debug(" ".join(["RE-RUNNING: ", sys.executable, sys.executable, file, *sys.argv[1:]]))
+		
 		os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
 	except:
 		traceback.print_exc()
@@ -1702,7 +1703,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return
 
 
-
+	def redirect(self, location):
+		'''redirect to location'''
+		self.send_response(HTTPStatus.FOUND)
+		self.send_header("Location", location)
+		self.end_headers()
 
 	def return_txt(self, code, msg, content_type="text/html; charset=utf-8", write_log=False):
 		'''returns only the head to client
@@ -3116,8 +3121,8 @@ def _get_best_family(*address):
 	family, type, proto, canonname, sockaddr = next(iter(infos))
 	return family, sockaddr
 
-def get_ip():
-	IP = '127.0.0.1'
+def get_ip(bind=None):
+	IP = bind # or "127.0.0.1"
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.settimeout(0)
 	try:
@@ -3147,21 +3152,24 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	"""
 
 	global httpd
-	if sys.version_info>(3,7,2): # BACKWARD COMPATIBILITY
+	if sys.version_info>=(3,8): # BACKWARD COMPATIBILITY
 		ServerClass.address_family, addr = _get_best_family(bind, port)
 	else:
 		addr =(bind if bind!=None else '', port)
+
+	device_ip = bind or "127.0.0.1"
+	# bind can be None (=> 127.0.0.1) or a string (=> 127.0.0.DDD)
 
 	HandlerClass.protocol_version = protocol
 	httpd = ServerClass(addr, HandlerClass)
 	host, port = httpd.socket.getsockname()[:2]
 	url_host = f'[{host}]' if ':' in host else host
 	hostname = socket.gethostname()
-	local_ip = config.IP if config.IP else get_ip()
+	local_ip = config.IP if config.IP else get_ip(device_ip)
 	config.IP= local_ip
 
 
-	on_network = local_ip!="127.0.0.1"
+	on_network = local_ip!=(device_ip)
 
 	print(tools.text_box(
 		f"Serving HTTP on {host} port {port} \n", #TODO: need to check since the output is "Serving HTTP on :: port 6969"
@@ -3173,7 +3181,7 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 		)
 	)
 	try:
-		httpd.serve_forever()
+		httpd.serve_forever(poll_interval=0.1)
 	except KeyboardInterrupt:
 		print("\nKeyboard interrupt received, exiting.")
 
@@ -3239,7 +3247,6 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 	print(tools.text_box("Running pyroboxCore: ", config.MAIN_FILE, "Version: ", __version__))
 
 
-
 	if directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
 		print(config.ftp_dir, "not found!\nReseting directory to current directory")
 		directory = "."
@@ -3251,7 +3258,7 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 	config.ftp_dir = directory
 
 	if not config.reload:
-		if sys.version_info>(3,7,2):
+		if sys.version_info>=(3,8):
 			test(
 			HandlerClass=handler_class,
 			ServerClass=DualStackServer,
