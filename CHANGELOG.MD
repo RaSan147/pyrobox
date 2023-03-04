@@ -16,7 +16,7 @@
 
   ## Fixes:
   * FIXED Python 3.7 support
-  * Fixed Video player text issue https://github.com/RaSan147/py_httpserver_Ult/issues/70
+  * Fixed Video player text issue https://github.com/RaSan147/pyrobox/issues/70
   * Fixed zip download not working
   * Fixed many bugs
 ------------------------------------------------------------------------
