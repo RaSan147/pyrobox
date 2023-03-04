@@ -10,6 +10,7 @@ import os
 import atexit
 import logging
 from queue import Queue
+from typing import Union
 
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
 
@@ -1452,12 +1453,15 @@ class DealPostData:
 			return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
 		except: return None
 
-	def match_name(self, field_name=''):
+	def match_name(self, field_name:Union[None, str]=None):
 		"""
 		field_name: name of the field (str)
+		* if None, skip checking field name
+		* if `empty string`, field name must be empty too
 		"""
 		line = self.get()
-		if field_name and self.get_name(line)!=field_name:
+
+		if field_name is not None and self.get_name(line)!=field_name:
 			raise PostError(f"Invalid request: Expected {field_name} but got {self.get_name(line)}")
 
 		return line
@@ -1481,10 +1485,19 @@ class DealPostData:
 		self.pass_bound()# LINE 0
 
 
-	def get_part(self, verify_name='', verify_msg='', decode=F):
+	def get_part(self, verify_name:Union[None, bytes, str] =None, verify_msg:Union[None, bytes, str] =None, decode=F):
 		'''read a form field
-		ends at boundary'''
+		ends at boundary
+		verify_name: name of the field (str|bytes|None)
+		verify_msg: message to verify (str|bytes)
+		decode: decode the message
+		* if None, skip checking field name
+		* if `empty string`, field name must be empty too'''
 		decoded = False
+		
+		if isinstance(verify_name, bytes):
+			verify_name = verify_name.decode()
+
 		field_name = self.match_name(verify_name) # LINE 1 (field name)
 		# if not verified, raise PostError
 
@@ -1500,9 +1513,8 @@ class DealPostData:
 		line = line.rpartition(b"\r\n")[0] # remove \r\n at end
 		if decode:
 			line = line.decode()
-			field_name = field_name.decode()
 			decoded = True
-		if verify_msg:
+		if verify_msg is not None:
 			if not decoded:
 				if isinstance(verify_msg, str):
 					verify_msg = verify_msg.encode()
