@@ -1,4 +1,4 @@
-__all__ = ["server", "clone"]
+__all__ = ["server", "pyroboxCore"]
 
 from . import server
-from . import clone
+from . import pyroboxCore

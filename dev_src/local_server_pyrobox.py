@@ -38,7 +38,7 @@ true = T = True
 false = F = False
 
 
-config.parser.add_argument('--password', '-k', 
+config.parser.add_argument('--password', '-k',
 							default=config.PASSWORD,
 							type=str,
 							help='Upload Password (default: %(default)s)')
@@ -439,14 +439,21 @@ def get_dir_m_time(path):
 
 
 
-def get_titles(path):
+def get_titles(path, file=False):
+	"""Make titles for the header directory
+	path: the path of the file or directory
+	file: if True, path is a file, else it's a directory
+
+	output: `Viewing NAME`"""
 
 	paths = path.split('/')
+	if file:
+		return 'Viewing ' + paths[-1]
 	if paths[-2]=='':
 		return 'Viewing &#127968; HOME'
 	else:
 		return 'Viewing ' + paths[-2]
-	
+
 
 
 def dir_navigator(path):
@@ -637,7 +644,7 @@ def list_directory(self:SH, path):
 
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-	
+
 	return self.send_txt(HTTPStatus.OK, encoded)
 
 
@@ -1089,7 +1096,7 @@ def send_video_page(self: SH, *args, **kwargs):
 
 
 
-	title = get_titles(displaypath)
+	title = get_titles(displaypath, file=True)
 
 	r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 													PY_PUBLIC_URL=config.address(),
@@ -1101,8 +1108,9 @@ def send_video_page(self: SH, *args, **kwargs):
 	if ctype not in ['video/mp4', 'video/ogg', 'video/webm']:
 		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
 
-		
+
 	r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+												PY_FILE_NAME = displaypath.split("/")[-1],
 												PY_CTYPE=ctype,
 												PY_UNSUPPORT_WARNING=warning))
 
@@ -1241,7 +1249,7 @@ def upload(self: SH, *args, **kwargs):
 
 	# PASSWORD SYSTEM
 	password = post.get_part(verify_name='password', decode=T)[1]
-	
+
 	self.log_debug(f'post password: {[password]} by client')
 	if password != config.PASSWORD: # readline returns password with \r\n at end
 		self.log_info(f"Incorrect password by {uid}")
@@ -1627,8 +1635,9 @@ def default_post(self: SH, *args, **kwargs):
 
 
 
-def main():
-	run_server(handler=SH)
+
+# proxy for old versions
+run = run_server
 
 if __name__ == '__main__':
-	main()
+	run()

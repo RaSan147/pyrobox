@@ -8,8 +8,8 @@ os.system("python -m build")
 with open('VERSION', 'r') as f:
 	version = f.read().strip()
 
-os.system(f"pip uninstall pyrobox")
-os.system(f"pip install --user ./dist/pyrobox-{version}.tar.gz")
+os.system(f"pip uninstall pyrobox -y")
+os.system(f"pip install ./dist/pyrobox-{version}.tar.gz")
 os.system("pyrobox 45454")
 
 # post to pypi

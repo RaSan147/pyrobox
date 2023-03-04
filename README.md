@@ -4,7 +4,9 @@ And also for the same reason, I'm punching too many updates (acually bug fixes) 
 """
 # pyrobox 🔥
 
-` Note ` UPLOAD PASSWORD: `SECret`
+**`Note :`** DEFAULT UPLOAD PASSWORD: `SECret`
+* you can change it by editing the code (see `config` class at top)
+* to set password from command line, use `-k` or `--password` flag
 
 # Status 
 [![Downloads](https://static.pepy.tech/badge/pyrobox)](https://pepy.tech/project/pyrobox)
@@ -50,6 +52,7 @@ Server side requirement
 # Installation
 ----------------------------------------------------------------
   * **Install Python 3.7 or higher**
+  * **Close older pyrobox process if already running**
   1. Install using PIP
   ### On Windows:
   * Open `CMD` or `PowerShell`
@@ -60,6 +63,7 @@ Server side requirement
   * Open `Terminal`
   * Run `pip3 install pyrobox`
   * Run `pyrobox` to launch the server
+
 
 CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 
@@ -81,7 +85,14 @@ CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
        -  `pyrobox -d . 45678` # will run on port 45678 in current directory
 
 1. To specify alternate bind address
-    - Add bind add `-bind {address}` # idk if it works and how it works, but it's there
+    - Add bind add `-bind {address}` # ie: `-bind 127.0.0.2` or `-bind 127.0.0.99`
+
+1. To change upload password
+    - i) or add `-k` or `--password` command line argument when launching the program
+        - `pyrobox -k "my new password"` to launch the server with new password
+        - `pyrobox -k ""` to launch the server without password
+        - `pyrobox` to launch the server with default password (SECret)
+    - ii) just edit the code for permanent change  (see `config` class at top)
 
  TODO:
 --------------------------------------------------------------
@@ -91,7 +102,6 @@ CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 * https://github.com/RaSan147/py_httpserver_Ult/issues/36 Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
 * https://github.com/RaSan147/py_httpserver_Ult/issues/37 Backup code if Reload causes unhandled issue and can't be accessed
-* https://github.com/RaSan147/py_httpserver_Ult/issues/38 command line arg for passwords (vulnerable on reload)
 * https://github.com/RaSan147/py_httpserver_Ult/issues/39 User login and user based permission set. 🔑
 
 # Support for more features

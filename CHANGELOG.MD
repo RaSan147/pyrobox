@@ -1,3 +1,28 @@
+# Version 0.7.0
+  ## Client-side Changes:
+  * Video plater page shows title of video
+  * Video player page predicts whether video is playable or not by Browser
+  ## Server-side Changes:
+  * Added manual password, use `--password` or `-k` flag to set password
+  * Using pyroboxCore as External module
+  * all prints are now using `logger.log|info|warn|error|debug` instead of `print`
+  * `TODO`: To change log level, use `--log-level` or `-l` flag
+  * To change log level programmatically, use `pyroboxCore.logger.setLevel(logging.DEBUG|INFO|WARN|ERROR)`
+  * REMOVED `pyrobox.clone` module (stil available in `dev_src` folder)
+  * The Entire server is now using `@SimpleHTTPRequestHandler.on_req` decorator importing from pyroboxCore to handle requests 
+    ### check v0.6.1 for more info
+  * added send_file function to pyroboxCore
+  * improved POST request handling
+
+  ## Fixes:
+  * FIXED Python 3.7 support
+  * Fixed Video player text issue https://github.com/RaSan147/py_httpserver_Ult/issues/70
+  * Fixed zip download not working
+  * Fixed many bugs
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+
+
 # Version 0.6.9
   ## Client-side Changes:
   * Nothing to notice
@@ -5,6 +30,9 @@
   * Nothing to notice
   ## Fixes:
   * Forgot to increment version number in `server.py`
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 # Version 0.6.8
   ## Client-side Changes:
@@ -14,6 +42,8 @@
   ## Fixes:
   * Reload_server button now works
 
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 # Version 0.6.7
   ## Client-side Changes:
@@ -23,6 +53,8 @@
   ## Fixes:
   * Added requests in requirements
 
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 # Version 0.6.6
   ## Client-side Changes:
@@ -32,6 +64,8 @@
   ## Fixes:
   * Fixed where files had "/" at the end of their name
 
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 # Version 0.6.5
   ## Client-side Changes:
@@ -45,9 +79,8 @@
   ## Fixes:
   * Nothing to notice since 0.6.4
 
-
-
------------------------------------------------------------------------
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 
 # Version 0.6.4
@@ -59,6 +92,7 @@
   * fixed update not working due to permission issues
 
 
+------------------------------------------------------------------------
 ------------------------------------------------------------------------
 
 
@@ -72,6 +106,7 @@
 
 
 ------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 # Version 0.6.2
   ## Client-side Changes:
@@ -82,6 +117,7 @@
   * fixed upload form not working due to missing `action="?upload"` which is required for POST requests
 
 
+------------------------------------------------------------------------
 ------------------------------------------------------------------------
 
 # Version 0.6.1
