@@ -5,11 +5,9 @@ setup(
     install_requires=[
         'natsort',
         "send2trash",
-        "requests",
     ],
     entry_points='''
         [console_scripts]
         pyrobox=pyrobox:server.run
-        # pyrobox-clone=pyrobox:clone
     ''',
 )

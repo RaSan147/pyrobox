@@ -121,7 +121,12 @@ class Tools {
 	}
 	download(dataurl, filename = null, new_tab=false) {
 		const link = createElement("a");
-		link.href = dataurl+"?dl";
+		var Q = "?dl"
+		// if ? in URL as Query, then use & to add dl
+		if(dataurl.indexOf("?") > -1){
+			Q = "&dl"
+		}
+		link.href = dataurl+Q;
 		link.download = filename;
 		if(new_tab){
 			link.target = "_blank";

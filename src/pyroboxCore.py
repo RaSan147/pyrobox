@@ -15,7 +15,7 @@ from typing import Union
 import argparse
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: \n%(message)s')
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: \n%(message)s')
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

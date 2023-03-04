@@ -8,6 +8,7 @@
 <title>${PY_PAGE_TITLE}</title>
 </head>
 
+<body>
 <script>
 const public_url = "${PY_PUBLIC_URL}";
 </script>
@@ -247,12 +248,15 @@ a {
 .file-name, .link_name {
 	display: inline-block;
 	word-wrap: break-all;
+	overflow-wrap: anywhere;
 	width: 70%;
 }
 
 .link_name {
 	width: calc(100% - 57px);
+	
 }
+
 
 .file-remove {
   padding: 5px 7px;
@@ -544,9 +548,7 @@ ul{
 
 <link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.png?raw=true" type="image/png">
 
-</head>
 
-<body>
 
 <div id="popup-container"></div>
 

@@ -289,7 +289,8 @@ def reload_server():
 	print("Reloading...")
 	# print(sys.executable, config.MAIN_FILE, *sys.argv[1:])
 	try:
-		print("RE-RUNNING: ", sys.executable, sys.executable, file, *sys.argv[1:])
+		logger.debug(" ".join(["RE-RUNNING: ", sys.executable, sys.executable, file, *sys.argv[1:]]))
+		
 		os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
 	except:
 		traceback.print_exc()
@@ -1238,8 +1239,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			print(  f'{self.req_hash}|=>\t request\t: {self.command}',
 					f'{self.req_hash}|=>\t url     \t: {url_path}',
 					f'{self.req_hash}|=>\t query   \t: {query}',
-					f'{self.req_hash}|=>\t fragment\t: {fragment}'
-					, sep=f'\n')
+					f'{self.req_hash}|=>\t fragment\t: {fragment}',
+					f'{self.req_hash}|=>\t full url \t: {self.path}',
+					sep=f'\n')
 			print('+'*w + f' {self.req_hash} ' + '+'*w)
 
 
@@ -1701,7 +1703,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return
 
 
-
+	def redirect(self, location):
+		'''redirect to location'''
+		self.send_response(HTTPStatus.FOUND)
+		self.send_header("Location", location)
+		self.end_headers()
 
 	def return_txt(self, code, msg, content_type="text/html; charset=utf-8", write_log=False):
 		'''returns only the head to client
@@ -2377,7 +2383,7 @@ def get_zip(self: SimpleHTTPRequestHandler, *args, **kwargs):
 		if query("download"):
 			path = zip_manager.zip_ids[id]
 
-			return self.return_file(path, first, last, filename)
+			return self.return_file(path, filename, True)
 
 
 		if query("progress"):
@@ -2420,20 +2426,18 @@ def send_video_page(self: SimpleHTTPRequestHandler, *args, **kwargs):
 													PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath)))
 
 
-	r.append("</ul></div>")
+	ctype = self.guess_type(path)
+	warning = ""
+
+	if ctype not in ['video/mp4', 'video/ogg', 'video/webm']:
+		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
+
+		
+	r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+												PY_CTYPE=ctype,
+												PY_UNSUPPORT_WARNING=warning))
 
 
-	if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
-		r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
-	else:
-		ctype = self.guess_type(path)
-		r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
-												PY_CTYPE=ctype))
-
-	r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
-
-
-	r.append('\n<hr>\n</body>\n</html>\n')
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 	return self.return_txt(HTTPStatus.OK, encoded, write_log=False)
@@ -2642,13 +2646,15 @@ class DealPostData:
 		line = line.rpartition(b"\r\n")[0] # remove \r\n at end
 		if decode:
 			line = line.decode()
+			field_name = field_name.decode()
 			decoded = True
 		if verify_msg:
-			_line = line
 			if not decoded:
-				_line = line.decode()
-			if _line != verify_msg:
-				raise PostError(f"Invalid post request Expected: {[verify_msg]} Got: {[_line]}")
+				if isinstance(verify_msg, str):
+					verify_msg = verify_msg.encode()
+					
+			if line != verify_msg:
+				raise PostError(f"Invalid post request.\n Expected: {[verify_msg]}\n Got: {[line]}")
 
 		# self.pass_bound() # LINE 5 (boundary)
 
@@ -3115,8 +3121,8 @@ def _get_best_family(*address):
 	family, type, proto, canonname, sockaddr = next(iter(infos))
 	return family, sockaddr
 
-def get_ip():
-	IP = '127.0.0.1'
+def get_ip(bind=None):
+	IP = bind # or "127.0.0.1"
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.settimeout(0)
 	try:
@@ -3146,21 +3152,24 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	"""
 
 	global httpd
-	if sys.version_info>(3,7,2): # BACKWARD COMPATIBILITY
+	if sys.version_info>=(3,8): # BACKWARD COMPATIBILITY
 		ServerClass.address_family, addr = _get_best_family(bind, port)
 	else:
 		addr =(bind if bind!=None else '', port)
+
+	device_ip = bind or "127.0.0.1"
+	# bind can be None (=> 127.0.0.1) or a string (=> 127.0.0.DDD)
 
 	HandlerClass.protocol_version = protocol
 	httpd = ServerClass(addr, HandlerClass)
 	host, port = httpd.socket.getsockname()[:2]
 	url_host = f'[{host}]' if ':' in host else host
 	hostname = socket.gethostname()
-	local_ip = config.IP if config.IP else get_ip()
+	local_ip = config.IP if config.IP else get_ip(device_ip)
 	config.IP= local_ip
 
 
-	on_network = local_ip!="127.0.0.1"
+	on_network = local_ip!=(device_ip)
 
 	print(tools.text_box(
 		f"Serving HTTP on {host} port {port} \n", #TODO: need to check since the output is "Serving HTTP on :: port 6969"
@@ -3172,7 +3181,7 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 		)
 	)
 	try:
-		httpd.serve_forever()
+		httpd.serve_forever(poll_interval=0.1)
 	except KeyboardInterrupt:
 		print("\nKeyboard interrupt received, exiting.")
 
@@ -3238,7 +3247,6 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 	print(tools.text_box("Running pyroboxCore: ", config.MAIN_FILE, "Version: ", __version__))
 
 
-
 	if directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
 		print(config.ftp_dir, "not found!\nReseting directory to current directory")
 		directory = "."
@@ -3250,7 +3258,7 @@ def run(port = None, directory = None, bind = None, arg_parse= True):
 	config.ftp_dir = directory
 
 	if not config.reload:
-		if sys.version_info>(3,7,2):
+		if sys.version_info>=(3,8):
 			test(
 			HandlerClass=handler_class,
 			ServerClass=DualStackServer,

@@ -1,11 +1,9 @@
-__version__ = "0.6.5"
+__version__ = "0.7.0"
 enc = "utf-8"
 
-import contextlib
 import html
 import io
 import os
-import socket
 import sys
 import posixpath
 import shutil
@@ -38,6 +36,16 @@ from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH, DealPost
 
 true = T = True
 false = F = False
+
+
+config.parser.add_argument('--password', '-k',
+							default=config.PASSWORD,
+							type=str,
+							help='Upload Password (default: %(default)s)')
+
+
+args = config.parser.parse_known_args()[0]
+config.PASSWORD = args.password
 
 config.disabled_func.update({
 			"send2trash": False,
@@ -431,14 +439,21 @@ def get_dir_m_time(path):
 
 
 
-def get_titles(path):
+def get_titles(path, file=False):
+	"""Make titles for the header directory
+	path: the path of the file or directory
+	file: if True, path is a file, else it's a directory
+
+	output: `Viewing NAME`"""
 
 	paths = path.split('/')
+	if file:
+		return 'Viewing ' + paths[-1]
 	if paths[-2]=='':
 		return 'Viewing &#127968; HOME'
 	else:
 		return 'Viewing ' + paths[-2]
-	
+
 
 
 def dir_navigator(path):
@@ -629,7 +644,7 @@ def list_directory(self:SH, path):
 
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-	
+
 	return self.send_txt(HTTPStatus.OK, encoded)
 
 
@@ -868,7 +883,7 @@ def fetch_url(url, file = None):
 
 		with open(file, 'wb') as f:
 			f.write(data)
-		return True
+		return data
 	except Exception:
 		traceback.print_exc()
 		return None
@@ -1045,7 +1060,7 @@ def get_zip(self: SH, *args, **kwargs):
 		if query("download"):
 			path = zip_manager.zip_ids[id]
 
-			return self.return_file(path, first, last, filename)
+			return self.return_file(path, filename, True)
 
 
 		if query("progress"):
@@ -1062,7 +1077,7 @@ def get_zip(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="json")
 def send_ls_json(self: SH, *args, **kwargs):
 	"""Send directory listing in JSON format"""
-	return self.list_directory_json()
+	return list_directory_json(self)
 
 @SH.on_req('HEAD', hasQ="vid")
 def send_video_page(self: SH, *args, **kwargs):
@@ -1081,27 +1096,25 @@ def send_video_page(self: SH, *args, **kwargs):
 
 
 
-	title = get_titles(displaypath)
+	title = get_titles(displaypath, file=True)
 
 	r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 													PY_PUBLIC_URL=config.address(),
 													PY_DIR_TREE_NO_JS= dir_navigator(displaypath)))
 
+	ctype = self.guess_type(path)
+	warning = ""
 
-	r.append("</ul></div>")
-
-
-	if self.guess_type(path) not in ['video/mp4', 'video/ogg', 'video/webm']:
-		r.append('<h2>It seems HTML player can\'t play this Video format, Try Downloading</h2>')
-	else:
-		ctype = self.guess_type(path)
-		r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
-												PY_CTYPE=ctype))
-
-	r.append(f'<br><a href="{vid_source}"  download class=\'pagination\'>Download</a></li>')
+	if ctype not in ['video/mp4', 'video/ogg', 'video/webm']:
+		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
 
 
-	r.append('\n<hr>\n</body>\n</html>\n')
+	r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+												PY_FILE_NAME = displaypath.split("/")[-1],
+												PY_CTYPE=ctype,
+												PY_UNSUPPORT_WARNING=warning))
+
+
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 	return self.return_txt(HTTPStatus.OK, encoded, write_log=False)
@@ -1117,10 +1130,7 @@ def send_assets(self: SH, *args, **kwargs):
 
 
 	path = kwargs.get('path', '')
-	url_path = kwargs.get('url_path', '')
 	spathsplit = kwargs.get('spathsplit', '')
-	first = kwargs.get('first', '')
-	last = kwargs.get('last', '')
 
 	path = config.ASSETS_dir + "/".join(spathsplit[2:])
 	#	print("USING ASSETS", path)
@@ -1129,7 +1139,7 @@ def send_assets(self: SH, *args, **kwargs):
 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 		return None
 
-	return self.return_file(path, first, last)
+	return self.return_file(path)
 
 
 
@@ -1137,11 +1147,6 @@ def send_assets(self: SH, *args, **kwargs):
 def default_get(self: SH, filename=None, *args, **kwargs):
 	"""Serve a GET request."""
 	path = kwargs.get('path', '')
-	url_path = kwargs.get('url_path', '')
-	spathsplit = kwargs.get('spathsplit', '')
-	first = kwargs.get('first', '')
-	last = kwargs.get('last', '')
-
 
 	if os.path.isdir(path):
 		parts = urllib.parse.urlsplit(self.path)
@@ -1168,6 +1173,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# However, some OS platforms accept a trailingSlash as a filename
 	# See discussion on python-dev and Issue34711 regarding
 	# parseing and rejection of filenames with a trailing slash
+
 	if path.endswith("/"):
 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 		return None
@@ -1243,7 +1249,7 @@ def upload(self: SH, *args, **kwargs):
 
 	# PASSWORD SYSTEM
 	password = post.get_part(verify_name='password', decode=T)[1]
-	
+
 	self.log_debug(f'post password: {[password]} by client')
 	if password != config.PASSWORD: # readline returns password with \r\n at end
 		self.log_info(f"Incorrect password by {uid}")
@@ -1629,9 +1635,9 @@ def default_post(self: SH, *args, **kwargs):
 
 
 
-def main():
-	run_server(handler=SH)
+
+# proxy for old versions
+run = run_server
 
 if __name__ == '__main__':
-	main()
-	
+	run()
