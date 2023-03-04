@@ -65,7 +65,7 @@ class Config:
 
 		# RUNNING SERVER STATS
 		self.ftp_dir = self.get_default_dir()
-		self.dev_mode = False
+		self.dev_mode = True
 		self.ASSETS = False # if you want to use assets folder, set this to True
 		self.ASSETS_dir = os.path.join(self.MAIN_FILE_dir, "/../assets/")
 		self.reload = False
