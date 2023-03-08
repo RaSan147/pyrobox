@@ -1445,7 +1445,6 @@ class DealPostData:
 
 	boundary = b''
 	num = 0
-	blank = 0 # blank is used to check if the post is empty or Connection Aborted
 	remainbytes = 0
 
 	def __init__(self, req:SimpleHTTPRequestHandler) -> None:
@@ -1455,25 +1454,24 @@ class DealPostData:
 	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
 
 
-	def get(self, show=F, strip=F):
+	def get(self, show=F, strip=F, Timeout=20):
 		"""
 		show: print line
 		strip: strip \r\n at end
+		Timeout: if having network issue on any side, will keep trying to get content until Timeout (in seconds)
 		"""
 		req = self.req
-		line = req.rfile.readline()
+		
 
-		if line == b'':
-			self.blank += 1
+		for _ in range(Timeout*2):
+			line = req.rfile.readline()
+			if line:
+				break
+			time.sleep(.5)
 		else:
-			self.blank = 0
-		if self.blank>=20: # allow 20 loss packets
-			req.send_error(408, "Request Timeout")
-			time.sleep(1) # wait for the client to close the connection
-
 			raise ConnectionAbortedError
+		self.num+=1
 		if show:
-			self.num+=1
 			print(f"{self.num}: {line}")
 		self.remainbytes -= len(line)
 
