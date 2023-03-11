@@ -917,7 +917,7 @@ def admin_page(self: SH, *args, **kwargs):
 												PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
 	tail = _admin_page().template
-	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}", write_log=False)
+	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
 
 @SH.on_req('HEAD', hasQ="update")
 def update(self: SH, *args, **kwargs):
@@ -1020,7 +1020,7 @@ def create_zip(self: SH, *args, **kwargs):
 		tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
 		PY_ZIP_NAME = filename)
 		return self.return_txt(HTTPStatus.OK,
-		f"{head} {tail}", write_log=False)
+		f"{head} {tail}")
 	except Exception:
 		self.log_error(traceback.format_exc())
 		return self.return_txt(HTTPStatus.OK, "ERROR")
@@ -1117,7 +1117,7 @@ def send_video_page(self: SH, *args, **kwargs):
 
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-	return self.return_txt(HTTPStatus.OK, encoded, write_log=False)
+	return self.return_txt(HTTPStatus.OK, encoded)
 
 
 
