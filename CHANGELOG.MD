@@ -1,3 +1,13 @@
+# Version 0.7.1 - 0.7.3
+  ## Client-side Changes:
+  * Nothing to notice
+  ## Server-side Changes:
+  * Nothing to notice
+  ## Fixes:
+  * Fixed "send_txt" function not working
+
+
+
 # Version 0.7.0
   ## Client-side Changes:
   * Video plater page shows title of video

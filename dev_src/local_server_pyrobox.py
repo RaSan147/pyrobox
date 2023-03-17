@@ -1,4 +1,3 @@
-__version__ = "0.7.0"
 enc = "utf-8"
 
 import html
@@ -31,9 +30,9 @@ from http import HTTPStatus
 import traceback
 import atexit
 
-from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH, DealPostData as DPD, run as run_server, tools, Callable_dict, reload_server
+from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH, DealPostData as DPD, run as run_server, tools, Callable_dict, reload_server, __version__
 
-
+__version__ = __version__
 true = T = True
 false = F = False
 
@@ -46,6 +45,8 @@ config.parser.add_argument('--password', '-k',
 
 args = config.parser.parse_known_args()[0]
 config.PASSWORD = args.password
+
+config.MAIN_FILE = os.path.abspath(__file__)
 
 config.disabled_func.update({
 			"send2trash": False,

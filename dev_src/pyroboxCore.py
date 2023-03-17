@@ -1,4 +1,4 @@
-__version__ = "0.7.0"
+__version__ = "0.7.3"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -398,6 +398,7 @@ DEFAULT_ERROR_MESSAGE = """
 		<p>Error code: %(code)d</p>
 		<p>Message: %(message)s.</p>
 		<p>Error code explanation: %(code)s - %(explain)s.</p>
+		<h3>PyroBox Version: %(version)s
 	</body>
 </html>
 """
@@ -720,7 +721,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			content = (self.error_message_format % {
 				'code': code,
 				'message': html.escape(message, quote=False),
-				'explain': html.escape(explain, quote=False)
+				'explain': html.escape(explain, quote=False),
+				'version': __version__
 			})
 			body = content.encode('UTF-8', 'replace')
 			self.send_header("Content-Type", self.error_content_type)
