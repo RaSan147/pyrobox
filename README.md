@@ -1,7 +1,3 @@
-"""
-Since this is almost in the alpha stage, I'm not sure if I should call it a beta or not. But it's almost there. I'm still working on it. So, if you find any issue, please report it. I'll try to fix it as soon as possible.
-And also for the same reason, I'm punching too many updates (acually bug fixes) in a short time.
-"""
 # pyrobox 🔥
 
 **`Note :`** DEFAULT UPLOAD PASSWORD: `SECret`
@@ -97,12 +93,12 @@ CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
  TODO:
 --------------------------------------------------------------
 
-* https://github.com/RaSan147/py_httpserver_Ult/issues/33 Show thumbnails, for png and jpg (how to do with just standard library?), For others, just show extension.
-* https://github.com/RaSan147/py_httpserver_Ult/issues/34 Copy stream URL for videos to play with any video player
-* https://github.com/RaSan147/py_httpserver_Ult/issues/36 Add side bar to do something 🤔
+* https://github.com/RaSan147/pyrobox/issues/33 Show thumbnails, for png and jpg (how to do with just standard library?), For others, just show extension.
+* https://github.com/RaSan147/pyrobox/issues/34 Copy stream URL for videos to play with any video player
+* https://github.com/RaSan147/pyrobox/issues/36 Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
-* https://github.com/RaSan147/py_httpserver_Ult/issues/37 Backup code if Reload causes unhandled issue and can't be accessed
-* https://github.com/RaSan147/py_httpserver_Ult/issues/39 User login and user based permission set. 🔑
+* https://github.com/RaSan147/pyrobox/issues/37 Backup code if Reload causes unhandled issue and can't be accessed
+* https://github.com/RaSan147/pyrobox/issues/39 User login and user based permission set. 🔑
 
 # Support for more features
 
