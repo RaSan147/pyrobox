@@ -99,6 +99,7 @@ CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 * check output ip and port accuracy on multiple os  
 * https://github.com/RaSan147/pyrobox/issues/37 Backup code if Reload causes unhandled issue and can't be accessed
 * https://github.com/RaSan147/pyrobox/issues/39 User login and user based permission set. 🔑
+* Add more flags to disable specific features
 
 # Support for more features
 
