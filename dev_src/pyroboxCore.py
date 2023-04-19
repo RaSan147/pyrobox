@@ -87,6 +87,31 @@ class Config:
 
 		# COMMANDLINE ARGUMENTS PARSER
 		self.parser = argparse.ArgumentParser(add_help=False)
+
+
+		
+
+		# Default error message template
+		self.DEFAULT_ERROR_MESSAGE = """
+		<!DOCTYPE HTML>
+		<html lang="en">
+		<html>
+			<head>
+				<meta charset="utf-8">
+				<title>Error response</title>
+			</head>
+			<body>
+				<h1>Error response</h1>
+				<p>Error code: %(code)d</p>
+				<p>Message: %(message)s.</p>
+				<p>Error code explanation: %(code)s - %(explain)s.</p>
+				<h3>PyroBox Version: %(version)s
+			</body>
+		</html>
+		"""
+
+		self.DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
+		
 		
 
 	def clear_temp(self):
@@ -384,27 +409,6 @@ def URL_MANAGER(url:str):
 
 
 
-# Default error message template
-DEFAULT_ERROR_MESSAGE = """
-<!DOCTYPE HTML>
-<html lang="en">
-<html>
-	<head>
-		<meta charset="utf-8">
-		<title>Error response</title>
-	</head>
-	<body>
-		<h1>Error response</h1>
-		<p>Error code: %(code)d</p>
-		<p>Message: %(message)s.</p>
-		<p>Error code explanation: %(code)s - %(explain)s.</p>
-		<h3>PyroBox Version: %(version)s
-	</body>
-</html>
-"""
-
-DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
-
 class HTTPServer(socketserver.TCPServer):
 
 	allow_reuse_address = True	# Seems to make sense in testing environment
@@ -463,8 +467,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 	# where each string is of the form name[/version].
 	server_version = "BaseHTTP/" + __version__
 
-	error_message_format = DEFAULT_ERROR_MESSAGE
-	error_content_type = DEFAULT_ERROR_CONTENT_TYPE
 
 	# The default request version.  This only affects responses up until
 	# the point where the request line is parsed, so it mainly decides what
@@ -696,6 +698,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		"""
 
+		
+		error_message_format = config.DEFAULT_ERROR_MESSAGE
+		error_content_type = config.DEFAULT_ERROR_CONTENT_TYPE
+
 		try:
 			shortmsg, longmsg = self.responses[code]
 		except KeyError:
@@ -718,14 +724,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 						 HTTPStatus.NOT_MODIFIED)):
 			# HTML encode to prevent Cross Site Scripting attacks
 			# (see bug #1100201)
-			content = (self.error_message_format % {
+			content = (error_message_format % {
 				'code': code,
 				'message': html.escape(message, quote=False),
 				'explain': html.escape(explain, quote=False),
 				'version': __version__
 			})
 			body = content.encode('UTF-8', 'replace')
-			self.send_header("Content-Type", self.error_content_type)
+			self.send_header("Content-Type", error_content_type)
 			self.send_header('Content-Length', str(len(body)))
 		self.end_headers()
 
@@ -1693,6 +1699,9 @@ def run(port = None, directory = None, bind = None, arg_parse= True, handler = S
 								directory=directory)
 
 	config.port = port
+	if port > 65535 or port < 0:
+		raise ValueError("Port must be between 0 and 65535")
+	
 	config.ftp_dir = directory
 
 	if not config.reload:

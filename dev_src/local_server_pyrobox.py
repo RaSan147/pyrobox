@@ -31,20 +31,23 @@ import traceback
 import atexit
 
 from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH, DealPostData as DPD, run as run_server, tools, Callable_dict, reload_server, __version__
+from arg_parser import main as arg_parser
 
 __version__ = __version__
 true = T = True
 false = F = False
 
+###########################################
+# ADD COMMAND LINE ARGUMENTS
+###########################################
+arg_parser(config)
+cli_args = config.parser.parse_known_args()[0]
+config.PASSWORD = cli_args.password
+config.port = 45454
 
-config.parser.add_argument('--password', '-k',
-							default=config.PASSWORD,
-							type=str,
-							help='Upload Password (default: %(default)s)')
+logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args))))
 
-
-args = config.parser.parse_known_args()[0]
-config.PASSWORD = args.password
+###########################################
 
 config.MAIN_FILE = os.path.abspath(__file__)
 
@@ -59,6 +62,26 @@ config.disabled_func.update({
 			"new_folder": False,
 			"rename": False,
 })
+
+config.DEFAULT_ERROR_MESSAGE = """
+	<!DOCTYPE HTML>
+	<html lang="en">
+	<html>
+		<head>
+			<meta charset="utf-8">
+			<title>Error response</title>
+		</head>
+		<body>
+			<h1>Error response</h1>
+			<p>Error code: %(code)d</p>
+			<p>Message: %(message)s.</p>
+			<p>Error code explanation: %(code)s - %(explain)s.</p>
+			<h3>PyroBox Version: %(version)s</h3>
+			<br>
+			<center><img src = "https://http.cat/%(code)d"></img></center>
+		</body>
+	</html>
+"""
 
 class LimitExceed(Exception):
 	def __init__(self, *args, **kwargs):
@@ -638,6 +661,12 @@ def list_directory(self:SH, path):
 				<!-- END CONTENT LIST (NO JS) -->
 				<div id="js-content_list" class="jsonly"></div>
 			""")
+	
+	r.append(_file_list().safe_substitute())
+
+	if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
+
+		r.append(_upload_form().safe_substitute(PY_PUBLIC_URL=config.address()))
 
 	r.append(_js_script().safe_substitute(PY_LINK_LIST=str(r_li),
 										PY_FILE_LIST=str(f_li),
@@ -857,8 +886,15 @@ def _get_template(path):
 def directory_explorer_header():
 	return _get_template("html_page.html")
 
+
 def _global_script():
 	return _get_template("global_script.html")
+
+def _file_list():
+	return _global_script() + _get_template("html_file_list.html")
+
+def _upload_form():
+	return _get_template("html_upload.html")
 
 def _js_script():
 	return _global_script() + _get_template("html_script.html")
@@ -1183,6 +1219,8 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 
 	# else:
 
+	if cli_args.view_only or cli_args.no_download:
+		return self.send_error(HTTPStatus.FORBIDDEN, "Download is disabled")
 	return self.return_file(path, filename)
 
 
@@ -1231,6 +1269,10 @@ def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 @SH.on_req('POST', hasQ="upload")
 def upload(self: SH, *args, **kwargs):
 	"""GET Uploaded files"""
+	if cli_args.no_upload or cli_args.read_only or cli_args.view_only:
+		return self.send_txt(HTTPStatus.SERVICE_UNAVAILABLE, "Upload not allowed")
+
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1302,6 +1344,11 @@ def upload(self: SH, *args, **kwargs):
 						preline = line
 
 
+			while cli_args.no_update and os.path.isfile(fn):
+				n = 1
+				name, ext = os.path.splitext(fn)
+				fn = f"{name}({n}){ext}"
+				n += 1
 			os.replace(temp_fn, fn)
 
 
@@ -1329,6 +1376,10 @@ def upload(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-f")
 def del_2_recycle(self: SH, *args, **kwargs):
 	"""Move 2 recycle bin"""
+
+	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+	
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1371,6 +1422,9 @@ def del_2_recycle(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-p")
 def del_permanently(self: SH, *args, **kwargs):
 	"""DELETE files permanently"""
+	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+	
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1409,6 +1463,13 @@ def del_permanently(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="rename")
 def rename_content(self: SH, *args, **kwargs):
 	"""Rename files"""
+
+	print(cli_args.read_only , cli_args.view_only , cli_args.no_update)
+	
+	if cli_args.read_only or cli_args.view_only or cli_args.no_update:
+		return self.send_json({"head": "Failed", "body": "Renaming is disabled."})
+
+	
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
