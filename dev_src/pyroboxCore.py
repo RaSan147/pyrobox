@@ -161,7 +161,7 @@ class Config:
 		parser.add_argument('port', action='store',
 							default=port, type=int,
 							nargs='?',
-							help='Specify alternate port [default: 8000]')
+							help=f'Specify alternate port [default: {port}]')
 		parser.add_argument('--version', '-v', action='version',
 							version=__version__)
 		

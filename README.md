@@ -90,6 +90,38 @@ CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
         - `pyrobox` to launch the server with default password (SECret)
     - ii) just edit the code for permanent change  (see `config` class at top)
 
+1. Optional configurations
+
+usage: `local_server_pyrobox.py [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--no-delete] [--no-download] [--read-only] [--view-only] [--bind ADDRESS] [--directory DIRECTORY] [--version] [-h] [port]`
+
+# positional arguments:
+  | arg value             | Description |
+  | --------------------- | ------------|
+  | `port`                | Specify alternate port [default: 6969] |
+
+
+# options:
+  | arg `value`           | Description |
+  | --------------------- | ------------|
+  |--password `PASSWORD`, -k  `PASSWORD` | Upload Password (default: SECret)|
+  |--directory `DIRECTORY`, -d `DIRECTORY` | Specify alternative directory [default: current directory]
+  |--bind `ADDRESS`, -b `ADDRESS` | Specify alternate bind address [default: all interfaces]|
+
+
+# Customisation options:
+  | arg                  | Description |
+  | -------------------- | ------------|
+  |--no-upload, -nu      | Files can't be uploaded (default: False)|
+  |--no-zip, -nz         | Disable Folder->Zip downloading (default: False)|
+  |--no-update, -no      | Disable File Updating (ie: **renaming**, **overwriting existing files**) (On upload, if file exists, will add a number at the end(default: False)|
+  |--no-delete, -nd      | Disable File Deletion (default: False)|
+  |--no-download, -ndw   | Disable File Downloading [**videos won't play either**] (default: False)|
+  |--read-only, -ro      | Read Only Mode *disables upload and any modifications ie: rename, delete* (default: False)|
+  |--view-only, -vo      | Only allowed to see file list, nothing else (default: False)|
+  --version, -v          | show program's version number and exit|
+  -h, --help             | show this help message and exit|
+
+
  TODO:
 --------------------------------------------------------------
 

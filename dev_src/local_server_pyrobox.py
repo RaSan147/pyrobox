@@ -43,7 +43,6 @@ false = F = False
 arg_parser(config)
 cli_args = config.parser.parse_known_args()[0]
 config.PASSWORD = cli_args.password
-config.port = 45454
 
 logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args))))
 
