@@ -11,6 +11,7 @@ import atexit
 import logging
 from queue import Queue
 from typing import Union
+from string import Template
 
 import argparse
 
@@ -92,7 +93,7 @@ class Config:
 		
 
 		# Default error message template
-		self.DEFAULT_ERROR_MESSAGE = """
+		self.DEFAULT_ERROR_MESSAGE = Template("""
 		<!DOCTYPE HTML>
 		<html lang="en">
 		<html>
@@ -102,13 +103,13 @@ class Config:
 			</head>
 			<body>
 				<h1>Error response</h1>
-				<p>Error code: %(code)d</p>
-				<p>Message: %(message)s.</p>
-				<p>Error code explanation: %(code)s - %(explain)s.</p>
-				<h3>PyroBox Version: %(version)s
+				<p>Error code: ${code}</p>
+				<p>Message: ${message}</p>
+				<p>Error code explanation: ${code} - ${explain}</p>
+				<h3>PyroBox Version: ${version}</h3>
 			</body>
 		</html>
-		"""
+		""")
 
 		self.DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
 		
@@ -680,7 +681,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		while not self.close_connection:
 			self.handle_one_request()
 
-	def send_error(self, code, message=None, explain=None):
+	def send_error(self, code, message=None, explain=None, error_message_format:Template=None):
 		"""Send and log an error reply.
 
 		Arguments are
@@ -691,6 +692,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				   defaults to short entry matching the response code
 		* explain: a detailed message defaults to the long entry
 				   matching the response code.
+		* error_message_format: a `string.Template` for the error message
+				   defaults to `config.DEFAULT_ERROR_MESSAGE`
+
+				   auto-formatting values:
+						`${code}`: the HTTP error code
+						`${message}`: the HTTP error message
+						`${explain}`: the detailed error message
+						`${version}`: the server software version string
 
 		This sends an error response (so it must be called before any
 		output has been generated), logs the error, and finally sends
@@ -699,7 +708,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		"""
 
 		
-		error_message_format = config.DEFAULT_ERROR_MESSAGE
+		error_message_format = error_message_format if error_message_format else config.DEFAULT_ERROR_MESSAGE
+
 		error_content_type = config.DEFAULT_ERROR_CONTENT_TYPE
 
 		try:
@@ -724,12 +734,12 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 						 HTTPStatus.NOT_MODIFIED)):
 			# HTML encode to prevent Cross Site Scripting attacks
 			# (see bug #1100201)
-			content = (error_message_format % {
-				'code': code,
-				'message': html.escape(message, quote=False),
-				'explain': html.escape(explain, quote=False),
-				'version': __version__
-			})
+			content = (error_message_format.safe_substitute(
+				code= code,
+				message= html.escape(message, quote=False),
+				explain= html.escape(explain, quote=False),
+				version= __version__
+			))
 			body = content.encode('UTF-8', 'replace')
 			self.send_header("Content-Type", error_content_type)
 			self.send_header('Content-Length', str(len(body)))
