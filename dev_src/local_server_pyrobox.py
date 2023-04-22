@@ -147,7 +147,6 @@ class SH(SH_base):
 	Just a wrapper for SH_base to add some extra functionality
 	"""
 	def __init__(self, *args, **kwargs):
-		print(tools.text_box("SH SSSS"))
 		super().__init__(*args, **kwargs)
 
 	def send_error(self, code, message=None, explain=None):
@@ -346,11 +345,7 @@ def list_directory(self:SH, path):
 #               ZIP INITIALIZE              #
 #############################################
 
-try:
-	from zipfly_local import ZipFly
-except ImportError:
-	config.disabled_func["zip"] = True
-	logger.warning("Failed to initialize zipfly, ZIP feature is disabled.")
+from zipfly_local import ZipFly
 
 class ZIP_Manager:
 	def __init__(self) -> None:
