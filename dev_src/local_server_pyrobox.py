@@ -133,7 +133,7 @@ def run_update():
 	else:
 		print("Failed to load ", i)
 		return False
-	
+
 
 
 #############################################
@@ -152,7 +152,7 @@ class SH(SH_base):
 
 	def send_error(self, code, message=None, explain=None):
 		print("ERROR", code, message, explain)
-		
+
 		displaypath = self.get_displaypath(self.url_path)
 
 		title = get_titles(displaypath)
@@ -202,17 +202,7 @@ def list_directory_json(self:SH, path=None):
 		dir_dict.append([urllib.parse.quote(linkname, errors='surrogatepass'),
 						html.escape(displayname, quote=False)])
 
-	# encoded = json.dumps(dir_dict).encode("utf-8", 'surrogateescape')
-
 	return self.send_json(dir_dict)
-	# f = io.BytesIO()
-	# f.write(encoded)
-	# f.seek(0)
-	# self.send_response(HTTPStatus.OK)
-	# self.send_header("Content-type", "application/json; charset=%s" % "utf-8")
-	# self.send_header("Content-Length", str(len(encoded)))
-	# self.end_headers()
-	# return f
 
 
 
@@ -333,7 +323,7 @@ def list_directory(self:SH, path):
 				<!-- END CONTENT LIST (NO JS) -->
 				<div id="js-content_list" class="jsonly"></div>
 			""")
-	
+
 	r.append(pt.file_list().safe_substitute())
 
 	if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
@@ -439,11 +429,8 @@ class ZIP_Manager:
 		self.zip_in_progress[zid] = 0
 
 		fs = _get_tree_path_n_size(path, must_read=True, path_type="both")
-		print(fs)
 		source_size = sum(i[1] for i in fs)
 		fm = [i[0] for i in fs]
-
-		# source_size, fm = size if size else get(path, return_list=True, both=True, must_read=True)
 
 		if len(fm)==0:
 			return err("FOLDER HAS NO FILES")
@@ -1047,7 +1034,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
-	
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1092,7 +1079,7 @@ def del_permanently(self: SH, *args, **kwargs):
 	"""DELETE files permanently"""
 	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
-	
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1133,11 +1120,11 @@ def rename_content(self: SH, *args, **kwargs):
 	"""Rename files"""
 
 	print(cli_args.read_only , cli_args.view_only , cli_args.no_update)
-	
+
 	if cli_args.read_only or cli_args.view_only or cli_args.no_update:
 		return self.send_json({"head": "Failed", "body": "Renaming is disabled."})
 
-	
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1367,7 +1354,8 @@ def default_post(self: SH, *args, **kwargs):
 
 
 # proxy for old versions
-run = run_server
+def run():
+	run_server(handler=SH)
 
 if __name__ == '__main__':
-	run(handler=SH)
+	run()

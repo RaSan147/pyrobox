@@ -1,3 +1,23 @@
+# Version 0.7.4
+  ## Client-side Changes:
+  * Updated Error page (with http.cat 😸)
+  ## Server-side Changes:
+  * Server.py file is now separated into multiple files
+    * `fs_utils.py` : File system utils
+    * `server.py` : Server
+    * `exceptions.py` : Exceptions
+    * `arg_parser.py` : New Argument parser
+    * `page_templates.py` : Page templates
+    * `zipfly_local.py` : Zipfly local version
+  * Added `--no-upload` and lots of other flags
+  ## Fixes:
+  * Fixed showing wrong port number
+  ## TODO:
+  * On flags, remove some right click options
+
+
+
+
 # Version 0.7.1 - 0.7.3
   ## Client-side Changes:
   * Nothing to notice
