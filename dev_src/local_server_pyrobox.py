@@ -1,7 +1,7 @@
 enc = "utf-8"
 
 import html
-import io
+from string import Template
 import os
 import sys
 import posixpath
@@ -10,14 +10,12 @@ import shutil
 import time
 import datetime
 
-from queue import Queue
 import importlib.util
 import re
 
 import urllib.parse
 import urllib.request
 
-from string import Template as _Template # using this because js also use {$var} and {var} syntax and py .format is often unsafe
 import threading
 
 import subprocess
@@ -30,21 +28,27 @@ from http import HTTPStatus
 import traceback
 import atexit
 
-from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH, DealPostData as DPD, run as run_server, tools, Callable_dict, reload_server, __version__
+from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH_base, DealPostData as DPD, run as run_server, tools, Callable_dict, reload_server, __version__
+from arg_parser import main as arg_parser
+from fs_utils import get_titles, dir_navigator, get_dir_size, get_dir_m_time, get_stat, get_tree_count_n_size, _get_tree_path_n_size, fmbytes, humanbytes
+
+import page_templates as pt
 
 __version__ = __version__
 true = T = True
 false = F = False
 
+###########################################
+# ADD COMMAND LINE ARGUMENTS
+###########################################
+arg_parser(config)
+cli_args = config.parser.parse_known_args()[0]
+config.PASSWORD = cli_args.password
 
-config.parser.add_argument('--password', '-k',
-							default=config.PASSWORD,
-							type=str,
-							help='Upload Password (default: %(default)s)')
+logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args))))
 
-
-args = config.parser.parse_known_args()[0]
-config.PASSWORD = args.password
+###########################################
+pt.pt_config.dev_mode = config.dev_mode
 
 config.MAIN_FILE = os.path.abspath(__file__)
 
@@ -60,9 +64,6 @@ config.disabled_func.update({
 			"rename": False,
 })
 
-class LimitExceed(Exception):
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
 
 # FEATURES
 # ----------------------------------------------------------------
@@ -134,348 +135,39 @@ def run_update():
 		return False
 
 
+
+#############################################
+#            PATCH SERVER CLASS            #
+#############################################
+
+
+
+class SH(SH_base):
+	"""
+	Just a wrapper for SH_base to add some extra functionality
+	"""
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+	def send_error(self, code, message=None, explain=None):
+		print("ERROR", code, message, explain)
+
+		displaypath = self.get_displaypath(self.url_path)
+
+		title = get_titles(displaypath)
+
+		_format = pt.error_page().safe_substitute(PY_PAGE_TITLE=title,
+													PY_PUBLIC_URL=config.address(),
+													PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+
+		return super().send_error(code, message, explain, Template(_format))
+
+
+
+
 #############################################
 #                FILE HANDLER               #
 #############################################
-
-# TODO: delete this on next update
-def check_access(path):
-	"""
-	Check if the user has access to the file.
-
-	path: path to the file
-	"""
-	if os.path.exists(path):
-		try:
-			with open(path):
-				return True
-		except Exception:
-			pass
-	return False
-
-def get_stat(path):
-	"""
-	Get the stat of a file.
-
-	path: path to the file
-
-	* can act as check_access(path)
-	"""
-	try:
-		return os.stat(path)
-	except Exception:
-		return False
-
-# TODO: can be used in search feature
-def get_tree(path, include_dir=True):
-	"""
-	returns a list of files in a directory and its subdirectories.
-	[full path, relative path]
-	"""
-	home = path
-
-	Q = Queue()
-	Q.put(path)
-	tree = []
-	while not Q.empty():
-		path = Q.get()
-
-		try:
-			dir = os.scandir(path)
-		except OSError:
-			continue
-		for entry in dir:
-			try:
-				is_dir = entry.is_dir(follow_symlinks=False)
-			except OSError as error:
-				continue
-			if is_dir:
-				Q.put(entry.path)
-
-			if include_dir or not is_dir:
-				tree.append([entry.path, entry.path.replace(home, "", 1)])
-
-		dir.close()
-	return tree
-
-
-
-def _get_tree_count(path):
-	count = 0
-
-	Q = Queue()
-	Q.put(path)
-	while not Q.empty():
-		path = Q.get()
-
-		try:
-			dir = os.scandir(path)
-		except OSError:
-			continue
-		for entry in dir:
-			try:
-				is_dir = entry.is_dir(follow_symlinks=False)
-			except OSError as error:
-				continue
-			if is_dir:
-				Q.put(entry.path)
-			else:
-				count += 1
-
-		dir.close()
-	return count
-
-
-def get_file_count(path):
-	"""
-	Get the number of files in a directory.
-	"""
-	return _get_tree_count(path)
-
-	return sum(1 for _, _, files in os.walk(path) for f in files)
-
-def _get_tree_size(path, limit=None, return_list= False, full_dir=True, both=False, must_read=False):
-	r=[] #if return_list
-	total = 0
-	start_path = path
-
-	Q= Queue()
-	Q.put(path)
-	while not Q.empty():
-		path = Q.get()
-
-		try:
-			dir = os.scandir(path)
-		except OSError:
-			continue
-		for entry in dir:
-			try:
-				is_dir = entry.is_dir(follow_symlinks=False)
-			except OSError as error:
-				continue
-			if is_dir:
-				Q.put(entry.path)
-			else:
-				try:
-					total += entry.stat(follow_symlinks=False).st_size
-					if limit and total>limit:
-						raise LimitExceed
-				except OSError:
-					continue
-
-				if must_read:
-					try:
-						with open(entry.path, "rb") as f:
-							f.read(1)
-					except Exception:
-						continue
-
-				if return_list:
-					_path = entry.path
-					if both: r.append((_path, _path.replace(start_path, "", 1)))
-					else:    r.append(_path if full_dir else _path.replace(start_path, "", 1))
-
-		dir.close()
-
-	if return_list: return total, r
-	return total
-
-def get_dir_size(start_path = '.', limit=None, return_list= False, full_dir=True, both=False, must_read=False):
-	"""
-	Get the size of a directory and all its subdirectories.
-
-	start_path: path to start calculating from
-	limit (int): maximum folder size, if bigger returns `-1`
-	return_list (bool): if True returns a tuple of (total folder size, list of contents)
-	full_dir (bool): if True returns a full path, else relative path
-	both (bool): if True returns a tuple of (total folder size, (full path, relative path))
-	must_read (bool): if True only counts files that can be read
-	"""
-
-	return _get_tree_size(start_path, limit, return_list, full_dir, both, must_read)
-
-
-	r=[] #if return_list
-	total_size = 0
-	start_path = os.path.normpath(start_path)
-
-	for dirpath, dirnames, filenames in os.walk(start_path, onerror= None):
-		for f in filenames:
-			fp = os.path.join(dirpath, f)
-			if os.path.islink(fp):
-				continue
-
-			stat = get_stat(fp)
-			if not stat: continue
-			if must_read and not check_access(fp): continue
-
-			total_size += stat.st_size
-			if limit!=None and total_size>limit:
-				if return_list: return -1, False
-				return -1
-
-			if return_list:
-				if both: r.append((fp, fp.replace(start_path, "", 1)))
-				else:    r.append(fp if full_dir else fp.replace(start_path, "", 1))
-
-	if return_list: return total_size, r
-	return total_size
-
-def _get_tree_count_n_size(path):
-	total = 0
-	count = 0
-	Q= Queue()
-	Q.put(path)
-	while not Q.empty():
-		path = Q.get()
-
-		try:
-			dir = os.scandir(path)
-		except OSError:
-			continue
-		for entry in dir:
-			try:
-				is_dir = entry.is_dir(follow_symlinks=False)
-			except OSError as error:
-				continue
-			if is_dir:
-				Q.put(entry.path)
-			else:
-				try:
-					total += entry.stat(follow_symlinks=False).st_size
-					count += 1
-				except OSError as error:
-					continue
-
-		dir.close()
-	return count, total
-
-def get_tree_count_n_size(start_path):
-	"""
-	Get the size of a directory and all its subdirectories.
-	returns a tuple of (total folder size, total file count)
-	"""
-
-	return _get_tree_count_n_size(start_path)
-
-	size = 0
-	count = 0
-	for dirpath, dirnames, filenames in os.walk(start_path, onerror= None):
-		for f in filenames:
-			count +=1
-			fp = os.path.join(dirpath, f)
-			if os.path.islink(fp):
-				continue
-
-			stat = get_stat(fp)
-			if not stat: continue
-
-			size += stat.st_size
-
-	return count, size
-
-def fmbytes(B=0, path=''):
-	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
-	if path:
-		stat = get_stat(path)
-		if not stat: return "Unknown"
-		B = stat.st_size
-
-	B = B
-	KB = 1024
-	MB = (KB ** 2) # 1,048,576
-	GB = (KB ** 3) # 1,073,741,824
-	TB = (KB ** 4) # 1,099,511,627,776
-
-
-	if B/TB>1:
-		return '%.2f TB  '%(B/TB)
-	if B/GB>1:
-		return '%.2f GB  '%(B/GB)
-	if B/MB>1:
-		return '%.2f MB  '%(B/MB)
-	if B/KB>1:
-		return '%.2f KB  '%(B/KB)
-	if B>1:
-		return '%i bytes'%B
-
-	return "%i byte"%B
-
-
-def humanbytes(B):
-	'Return the given bytes as a human friendly KB, MB, GB, or TB string'
-	B = B
-	KB = 1024
-	MB = (KB ** 2) # 1,048,576
-	GB = (KB ** 3) # 1,073,741,824
-	TB = (KB ** 4) # 1,099,511,627,776
-	ret=''
-
-	if B>=TB:
-		ret+= '%i TB  '%(B//TB)
-		B%=TB
-	if B>=GB:
-		ret+= '%i GB  '%(B//GB)
-		B%=GB
-	if B>=MB:
-		ret+= '%i MB  '%(B//MB)
-		B%=MB
-	if B>=KB:
-		ret+= '%i KB  '%(B//KB)
-		B%=KB
-	if B>0:
-		ret+= '%i bytes'%B
-
-	return ret
-
-def get_dir_m_time(path):
-	"""
-	Get the last modified time of a directory and all its subdirectories.
-	"""
-
-	stat = get_stat(path)
-	return stat.st_mtime if stat else 0
-
-
-
-
-
-def get_titles(path, file=False):
-	"""Make titles for the header directory
-	path: the path of the file or directory
-	file: if True, path is a file, else it's a directory
-
-	output: `Viewing NAME`"""
-
-	paths = path.split('/')
-	if file:
-		return 'Viewing ' + paths[-1]
-	if paths[-2]=='':
-		return 'Viewing &#127968; HOME'
-	else:
-		return 'Viewing ' + paths[-2]
-
-
-
-def dir_navigator(path):
-	"""Makes each part of the header directory accessible like links
-	just like file manager, but with less CSS"""
-
-	dirs = re.sub("/{2,}", "/", path).split('/')
-	urls = ['/']
-	names = ['&#127968; HOME']
-	r = []
-
-	for i in range(1, len(dirs)-1):
-		dir = dirs[i]
-		urls.append(urls[i-1] + urllib.parse.quote(dir, errors='surrogatepass' )+ '/' if not dir.endswith('/') else "")
-		names.append(dir)
-
-	for i in range(len(names)):
-		tag = "<a class='dir_turns' href='" + urls[i] + "'>" + names[i] + "</a>"
-		r.append(tag)
-
-	return '<span class="dir_arrow">&#10151;</span>'.join(r)
 
 
 
@@ -509,15 +201,7 @@ def list_directory_json(self:SH, path=None):
 		dir_dict.append([urllib.parse.quote(linkname, errors='surrogatepass'),
 						html.escape(displayname, quote=False)])
 
-	encoded = json.dumps(dir_dict).encode("utf-8", 'surrogateescape')
-	f = io.BytesIO()
-	f.write(encoded)
-	f.seek(0)
-	self.send_response(HTTPStatus.OK)
-	self.send_header("Content-type", "application/json; charset=%s" % "utf-8")
-	self.send_header("Content-Length", str(len(encoded)))
-	self.end_headers()
-	return f
+	return self.send_json(dir_dict)
 
 
 
@@ -545,7 +229,7 @@ def list_directory(self:SH, path):
 	title = get_titles(displaypath)
 
 
-	r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+	r.append(pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 													PY_PUBLIC_URL=config.address(),
 													PY_DIR_TREE_NO_JS=dir_navigator(displaypath)))
 
@@ -639,7 +323,13 @@ def list_directory(self:SH, path):
 				<div id="js-content_list" class="jsonly"></div>
 			""")
 
-	r.append(_js_script().safe_substitute(PY_LINK_LIST=str(r_li),
+	r.append(pt.file_list().safe_substitute())
+
+	if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
+
+		r.append(pt.upload_form().safe_substitute(PY_PUBLIC_URL=config.address()))
+
+	r.append(pt.js_script().safe_substitute(PY_LINK_LIST=str(r_li),
 										PY_FILE_LIST=str(f_li),
 										PY_FILE_SIZE =str(s_li)))
 
@@ -655,11 +345,7 @@ def list_directory(self:SH, path):
 #               ZIP INITIALIZE              #
 #############################################
 
-try:
-	from zipfly_local import ZipFly
-except ImportError:
-	config.disabled_func["zip"] = True
-	logger.warning("Failed to initialize zipfly, ZIP feature is disabled.")
+from zipfly_local import ZipFly
 
 class ZIP_Manager:
 	def __init__(self) -> None:
@@ -737,7 +423,9 @@ class ZIP_Manager:
 		# run zipfly
 		self.zip_in_progress[zid] = 0
 
-		source_size, fm = size if size else get_dir_size(path, return_list=True, both=True, must_read=True)
+		fs = _get_tree_path_n_size(path, must_read=True, path_type="both")
+		source_size = sum(i[1] for i in fs)
+		fm = [i[0] for i in fs]
 
 		if len(fm)==0:
 			return err("FOLDER HAS NO FILES")
@@ -837,40 +525,27 @@ def listsort(li):
 	return humansorted(li)
 
 
-class Template(_Template):
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-
-	def __add__(self, other):
-		if isinstance(other, _Template):
-			return Template(self.template + other.template)
-		return Template(self.template + str(other))
 
 
-def _get_template(path):
-	if config.dev_mode:
-		with open(path, encoding=enc) as f:
-			return Template(f.read())
 
-	return Template(config.file_list[path])
 
-def directory_explorer_header():
-	return _get_template("html_page.html")
 
-def _global_script():
-	return _get_template("global_script.html")
 
-def _js_script():
-	return _global_script() + _get_template("html_script.html")
 
-def _video_script():
-	return _global_script() + _get_template("html_vid.html")
 
-def _zip_script():
-	return _global_script() + _get_template("html_zip_page.html")
 
-def _admin_page():
-	return _global_script() + _get_template("html_admin.html")
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -896,6 +571,10 @@ class PostError(Exception):
 	pass
 
 
+
+
+
+
 @SH.on_req('HEAD', '/favicon.ico')
 def send_favicon(self: SH, *args, **kwargs):
 	self.redirect('https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
@@ -913,11 +592,11 @@ def admin_page(self: SH, *args, **kwargs):
 	url_path = kwargs.get('url_path', '')
 	displaypath = self.get_displaypath(url_path)
 
-	head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+	head = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 												PY_PUBLIC_URL=config.address(),
 												PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
-	tail = _admin_page().template
+	tail = pt.admin_page().template
 	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
 
 @SH.on_req('HEAD', hasQ="update")
@@ -1014,11 +693,11 @@ def create_zip(self: SH, *args, **kwargs):
 		zid = zip_manager.get_id(path, dir_size)
 		title = "Creating ZIP"
 
-		head = directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+		head = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 												PY_PUBLIC_URL=config.address(),
 												PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
-		tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
+		tail = pt.zip_script().safe_substitute(PY_ZIP_ID = zid,
 		PY_ZIP_NAME = filename)
 		return self.return_txt(HTTPStatus.OK,
 		f"{head} {tail}")
@@ -1031,18 +710,21 @@ def get_zip(self: SH, *args, **kwargs):
 	"""Return ZIP file if available
 	Else return progress of the task"""
 	path = kwargs.get('path', '')
-	url_path = kwargs.get('url_path', '')
 	spathsplit = kwargs.get('spathsplit', '')
-	first, last = self.range
 
 	query = self.query
-
 	msg = False
 
+	def reply(status, msg=""):
+		return self.send_json({
+			"status": status,
+			"message": msg
+		})
+
 	if not os.path.isdir(path):
-		msg = "Zip function is not available, please Contact the host"
+		msg = "Folder not found. Failed to create zip"
 		self.log_error(msg)
-		return self.return_txt(HTTPStatus.OK, msg)
+		return reply("ERROR", msg)
 
 
 	filename = spathsplit[-2] + ".zip"
@@ -1054,7 +736,7 @@ def get_zip(self: SH, *args, **kwargs):
 		t = zip_manager.archive_thread(path, id)
 		t.start()
 
-		return self.return_txt(HTTPStatus.OK, "SUCCESS")
+		return reply("SUCCESS", "ARCHIVING")
 
 
 	if zip_manager.zip_id_status[id] == "DONE":
@@ -1065,15 +747,17 @@ def get_zip(self: SH, *args, **kwargs):
 
 
 		if query("progress"):
-			return self.return_txt(HTTPStatus.OK, "DONE") #if query("progress") or no query
+			return reply("DONE") #if query("progress") or no query
 
 	# IF IN PROGRESS
 	if zip_manager.zip_id_status[id] == "ARCHIVING":
 		progress = zip_manager.zip_in_progress[id]
-		return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
+		# return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
+		return reply("PROGRESS", "%.2f" % progress)
 
 	if zip_manager.zip_id_status[id].startswith("ERROR"):
-		return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
+		# return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
+		return reply("ERROR", zip_manager.zip_id_status[id])
 
 @SH.on_req('HEAD', hasQ="json")
 def send_ls_json(self: SH, *args, **kwargs):
@@ -1099,7 +783,7 @@ def send_video_page(self: SH, *args, **kwargs):
 
 	title = get_titles(displaypath, file=True)
 
-	r.append(directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+	r.append(pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 													PY_PUBLIC_URL=config.address(),
 													PY_DIR_TREE_NO_JS= dir_navigator(displaypath)))
 
@@ -1110,7 +794,7 @@ def send_video_page(self: SH, *args, **kwargs):
 		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
 
 
-	r.append(_video_script().safe_substitute(PY_VID_SOURCE=vid_source,
+	r.append(pt.video_script().safe_substitute(PY_VID_SOURCE=vid_source,
 												PY_FILE_NAME = displaypath.split("/")[-1],
 												PY_CTYPE=ctype,
 												PY_UNSUPPORT_WARNING=warning))
@@ -1183,6 +867,10 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 
 	# else:
 
+	if cli_args.view_only or cli_args.no_download:
+		if not os.path.exists(path):
+			return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Download is disabled")
 	return self.return_file(path, filename)
 
 
@@ -1231,6 +919,10 @@ def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 @SH.on_req('POST', hasQ="upload")
 def upload(self: SH, *args, **kwargs):
 	"""GET Uploaded files"""
+	if cli_args.no_upload or cli_args.read_only or cli_args.view_only:
+		return self.send_txt(HTTPStatus.SERVICE_UNAVAILABLE, "Upload not allowed")
+
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1302,13 +994,18 @@ def upload(self: SH, *args, **kwargs):
 						preline = line
 
 
+			while cli_args.no_update and os.path.isfile(fn):
+				n = 1
+				name, ext = os.path.splitext(fn)
+				fn = f"{name}({n}){ext}"
+				n += 1
 			os.replace(temp_fn, fn)
 
 
 
 		except (IOError, OSError):
 			traceback.print_exc()
-			return self.send_txt(HTTPStatus.FORBIDDEN, "Can't create file to write, do you have permission to write?")
+			return self.send_txt(HTTPStatus.SERVICE_UNAVAILABLE, "Can't create file to write, do you have permission to write?")
 
 		finally:
 			try:
@@ -1329,6 +1026,10 @@ def upload(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-f")
 def del_2_recycle(self: SH, *args, **kwargs):
 	"""Move 2 recycle bin"""
+
+	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1371,6 +1072,9 @@ def del_2_recycle(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-p")
 def del_permanently(self: SH, *args, **kwargs):
 	"""DELETE files permanently"""
+	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1409,6 +1113,13 @@ def del_permanently(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="rename")
 def rename_content(self: SH, *args, **kwargs):
 	"""Rename files"""
+
+	print(cli_args.read_only , cli_args.view_only , cli_args.no_update)
+
+	if cli_args.read_only or cli_args.view_only or cli_args.no_update:
+		return self.send_json({"head": "Failed", "body": "Renaming is disabled."})
+
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1638,7 +1349,8 @@ def default_post(self: SH, *args, **kwargs):
 
 
 # proxy for old versions
-run = run_server
+def run():
+	run_server(handler=SH)
 
 if __name__ == '__main__':
 	run()

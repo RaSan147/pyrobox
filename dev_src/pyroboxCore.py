@@ -1,4 +1,4 @@
-__version__ = "0.7.3"
+__version__ = "0.7.4"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -11,6 +11,7 @@ import atexit
 import logging
 from queue import Queue
 from typing import Union
+from string import Template
 
 import argparse
 
@@ -87,6 +88,31 @@ class Config:
 
 		# COMMANDLINE ARGUMENTS PARSER
 		self.parser = argparse.ArgumentParser(add_help=False)
+
+
+		
+
+		# Default error message template
+		self.DEFAULT_ERROR_MESSAGE = Template("""
+		<!DOCTYPE HTML>
+		<html lang="en">
+		<html>
+			<head>
+				<meta charset="utf-8">
+				<title>Error response</title>
+			</head>
+			<body>
+				<h1>Error response</h1>
+				<p>Error code: ${code}</p>
+				<p>Message: ${message}</p>
+				<p>Error code explanation: ${code} - ${explain}</p>
+				<h3>PyroBox Version: ${version}</h3>
+			</body>
+		</html>
+		""")
+
+		self.DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
+		
 		
 
 	def clear_temp(self):
@@ -136,7 +162,7 @@ class Config:
 		parser.add_argument('port', action='store',
 							default=port, type=int,
 							nargs='?',
-							help='Specify alternate port [default: 8000]')
+							help=f'Specify alternate port [default: {port}]')
 		parser.add_argument('--version', '-v', action='version',
 							version=__version__)
 		
@@ -384,27 +410,6 @@ def URL_MANAGER(url:str):
 
 
 
-# Default error message template
-DEFAULT_ERROR_MESSAGE = """
-<!DOCTYPE HTML>
-<html lang="en">
-<html>
-	<head>
-		<meta charset="utf-8">
-		<title>Error response</title>
-	</head>
-	<body>
-		<h1>Error response</h1>
-		<p>Error code: %(code)d</p>
-		<p>Message: %(message)s.</p>
-		<p>Error code explanation: %(code)s - %(explain)s.</p>
-		<h3>PyroBox Version: %(version)s
-	</body>
-</html>
-"""
-
-DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
-
 class HTTPServer(socketserver.TCPServer):
 
 	allow_reuse_address = True	# Seems to make sense in testing environment
@@ -463,8 +468,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 	# where each string is of the form name[/version].
 	server_version = "BaseHTTP/" + __version__
 
-	error_message_format = DEFAULT_ERROR_MESSAGE
-	error_content_type = DEFAULT_ERROR_CONTENT_TYPE
 
 	# The default request version.  This only affects responses up until
 	# the point where the request line is parsed, so it mainly decides what
@@ -678,7 +681,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		while not self.close_connection:
 			self.handle_one_request()
 
-	def send_error(self, code, message=None, explain=None):
+	def send_error(self, code, message=None, explain=None, error_message_format:Template=None):
 		"""Send and log an error reply.
 
 		Arguments are
@@ -689,12 +692,25 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				   defaults to short entry matching the response code
 		* explain: a detailed message defaults to the long entry
 				   matching the response code.
+		* error_message_format: a `string.Template` for the error message
+				   defaults to `config.DEFAULT_ERROR_MESSAGE`
+
+				   auto-formatting values:
+						`${code}`: the HTTP error code
+						`${message}`: the HTTP error message
+						`${explain}`: the detailed error message
+						`${version}`: the server software version string
 
 		This sends an error response (so it must be called before any
 		output has been generated), logs the error, and finally sends
 		a piece of HTML explaining the error to the user.
 
 		"""
+
+		
+		error_message_format = error_message_format if error_message_format else config.DEFAULT_ERROR_MESSAGE
+
+		error_content_type = config.DEFAULT_ERROR_CONTENT_TYPE
 
 		try:
 			shortmsg, longmsg = self.responses[code]
@@ -718,14 +734,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 						 HTTPStatus.NOT_MODIFIED)):
 			# HTML encode to prevent Cross Site Scripting attacks
 			# (see bug #1100201)
-			content = (self.error_message_format % {
-				'code': code,
-				'message': html.escape(message, quote=False),
-				'explain': html.escape(explain, quote=False),
-				'version': __version__
-			})
+			content = (error_message_format.safe_substitute(
+				code= code,
+				message= html.escape(message, quote=False),
+				explain= html.escape(explain, quote=False),
+				version= __version__
+			))
 			body = content.encode('UTF-8', 'replace')
-			self.send_header("Content-Type", self.error_content_type)
+			self.send_header("Content-Type", error_content_type)
 			self.send_header('Content-Length', str(len(body)))
 		self.end_headers()
 
@@ -1693,6 +1709,9 @@ def run(port = None, directory = None, bind = None, arg_parse= True, handler = S
 								directory=directory)
 
 	config.port = port
+	if port > 65535 or port < 0:
+		raise ValueError("Port must be between 0 and 65535")
+	
 	config.ftp_dir = directory
 
 	if not config.reload:
