@@ -1,4 +1,4 @@
-__version__ = "0.7.3"
+__version__ = "0.7.4"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
