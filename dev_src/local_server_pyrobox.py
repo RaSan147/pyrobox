@@ -156,9 +156,10 @@ class SH(SH_base):
 
 		title = get_titles(displaypath)
 
-		_format = pt.error_page().safe_substitute(PY_PAGE_TITLE=title,
-													PY_PUBLIC_URL=config.address(),
-													PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+		_format = pt.error_page().safe_substitute(
+			PY_PAGE_TITLE=title,
+			PY_PUBLIC_URL=config.address(),
+			PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
 		return super().send_error(code, message, explain, Template(_format))
 
@@ -329,7 +330,7 @@ def list_directory(self:SH, path):
 
 		r.append(pt.upload_form().safe_substitute(PY_PUBLIC_URL=config.address()))
 
-	r.append(pt.js_script().safe_substitute(PY_LINK_LIST=str(r_li),
+	r.append(pt.file_list_script().safe_substitute(PY_LINK_LIST=str(r_li),
 										PY_FILE_LIST=str(f_li),
 										PY_FILE_SIZE =str(s_li)))
 
