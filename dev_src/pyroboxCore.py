@@ -1,22 +1,44 @@
-__version__ = "0.7.4"
+import traceback
+import json
+import string
+import random
+import base64
+import re
+from http import HTTPStatus
+from functools import partial
+import contextlib
+import urllib.request
+import urllib.parse
+import time
+import sys
+import socketserver
+import socket  # For gethostbyaddr()
+import shutil
+import posixpath
+import mimetypes
+import io
+import http.client
+import html
+import email.utils
+import datetime
+import argparse
+from string import Template
+from typing import Union
+from queue import Queue
+import logging
+import atexit
+import os
+
+
+__version__ = "0.8.0"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
 	"SimpleHTTPRequestHandler",
-
 ]
 
-import os
-import atexit
-import logging
-from queue import Queue
-from typing import Union
-from string import Template
 
-import argparse
-
-
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: \n%(message)s')
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: \n%(message)s')
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -25,32 +47,33 @@ logger.setLevel(logging.INFO)
 # set ERROR to see only the requests that made the errors
 
 
-
 endl = "\n"
-T = t = true = True # too lazy to type
-F = f = false = False # too lazy to type
+T = t = true = True  # too lazy to type
+F = f = false = False  # too lazy to type
+
 
 class Config:
 	def __init__(self):
 		# DEFAULT DIRECTORY TO LAUNCH SERVER
-		self.ftp_dir = "." # DEFAULT DIRECTORY TO LAUNCH SERVER
+		self.ftp_dir = "."  # DEFAULT DIRECTORY TO LAUNCH SERVER
 
-		self.IP = None # will be assigned by checking
+		self.IP = None  # will be assigned by checking
 
 		# DEFAULT PORT TO LAUNCH SERVER
-		self.port= 6969  # DEFAULT PORT TO LAUNCH SERVER
+		self.port = 6969  # DEFAULT PORT TO LAUNCH SERVER
 
 		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
 		# CAN BE CHANGED BY USING --password NEW_PASSWORD
-		self.PASSWORD= "SECret"
+		self.PASSWORD = "SECret"
 
 		# LOGGING
 		self.log_location = "./"  # fallback log_location = "./"
-		self.allow_web_log = True # if you want to see some important LOG in browser, may contain your important information
-		self.write_log = False # if you want to write log to file
+		# if you want to see some important LOG in browser, may contain your important information
+		self.allow_web_log = True
+		self.write_log = False  # if you want to write log to file
 
 		# ZIP FEATURES
-		self.default_zip = "zipfile" # or "zipfile" to use python built in zip module
+		self.default_zip = "zipfile"  # or "zipfile" to use python built in zip module
 
 		# CHECK FOR MISSING REQUEIREMENTS
 		self.run_req_check = True
@@ -59,18 +82,15 @@ class Config:
 		self.MAIN_FILE = os.path.realpath(__file__)
 		self.MAIN_FILE_dir = os.path.dirname(self.MAIN_FILE)
 
-
 		# OS DETECTION
 		self.OS = self.get_os()
-
 
 		# RUNNING SERVER STATS
 		self.ftp_dir = self.get_default_dir()
 		self.dev_mode = True
-		self.ASSETS = False # if you want to use assets folder, set this to True
+		self.ASSETS = False  # if you want to use assets folder, set this to True
 		self.ASSETS_dir = os.path.join(self.MAIN_FILE_dir, "/../assets/")
 		self.reload = False
-
 
 		self.disabled_func = {
 			"reload": False,
@@ -82,15 +102,11 @@ class Config:
 		# CLEAN TEMP FILES ON EXIT
 		atexit.register(self.clear_temp)
 
-
 		# ASSET MAPPING
 		self.file_list = {}
 
 		# COMMANDLINE ARGUMENTS PARSER
 		self.parser = argparse.ArgumentParser(add_help=False)
-
-
-		
 
 		# Default error message template
 		self.DEFAULT_ERROR_MESSAGE = Template("""
@@ -112,8 +128,6 @@ class Config:
 		""")
 
 		self.DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
-		
-		
 
 	def clear_temp(self):
 		for i in self.temp_file:
@@ -122,109 +136,69 @@ class Config:
 			except:
 				pass
 
-
-
 	def get_os(self):
 		from platform import system as platform_system
 
 		out = platform_system()
-		if out=="Linux":
-			if hasattr(sys, 'getandroidapilevel'):
-				#self.IP = "192.168.43.1"
-				return 'Android'
+		if out == "Linux" and hasattr(sys, 'getandroidapilevel'):
+			# self.IP = "192.168.43.1"
+			return 'Android'
 
 		return out
 
 	def get_default_dir(self):
 		return './'
 
-
 	def address(self):
-		return "http://%s:%i"%(self.IP, self.port)
-	
-	def parse_default_args(self, port = None, directory = None, bind = None, ):
-		if port is None:
+		return "http://%s:%i" % (self.IP, self.port)
+
+	def parse_default_args(self, port=0, directory="", bind=None):
+		if not port:
 			port = self.port
-		if directory is None:
+		if not directory:
 			directory = self.ftp_dir
-		if bind is None:
+		if not bind:
 			bind = None
 
 		parser = self.parser
 
-		parser.add_argument('--bind', '-b', 
+		parser.add_argument('--bind', '-b',
 							metavar='ADDRESS', default=bind,
 							help='Specify alternate bind address '
 								'[default: all interfaces]')
 		parser.add_argument('--directory', '-d', default=directory,
 							help='Specify alternative directory '
-							'[default: current directory]')
+								'[default: current directory]')
 		parser.add_argument('port', action='store',
 							default=port, type=int,
 							nargs='?',
 							help=f'Specify alternate port [default: {port}]')
 		parser.add_argument('--version', '-v', action='version',
 							version=__version__)
-		
+
 		self.parser.add_argument('-h', '--help', action='help',
-								default='==SUPPRESS==', 
+								default='==SUPPRESS==',
 								help=('show this help message and exit'))
-		
+
 		args = parser.parse_known_args()[0]
 
 		return args
-	
-		
-
-
-
-
-
-
-
-import datetime
-import email.utils
-import html
-import http.client
-import io
-import mimetypes
-import posixpath
-import shutil
-import socket # For gethostbyaddr()
-import socketserver
-import sys
-import time
-import urllib.parse
-import urllib.request
-import contextlib
-from functools import partial
-from http import HTTPStatus
-
-import re
-import base64
-
-import random
-import string
-import json
-import traceback
-
-
 
 
 class Tools:
 	def __init__(self):
 		self.styles = {
-			"equal" : "=",
-			"star"    : "*",
-			"hash"  : "#",
-			"dash"  : "-",
+			"equal": "=",
+			"star": "*",
+			"hash": "#",
+			"dash": "-",
 			"udash": "_"
 		}
 
 	def term_width(self):
 		return shutil.get_terminal_size()[0]
 
-	def text_box(self, *text, style = "equal", sep=" "):
+	def text_box(self, *text, style="equal", sep=" "):
 		"""
 		Returns a string of text with a border around it.
 		"""
@@ -240,6 +214,7 @@ class Tools:
 	def random_string(self, length=10):
 		letters = string.ascii_lowercase
 		return ''.join(random.choice(letters) for i in range(length))
+
 
 tools = Tools()
 config = Config()
@@ -259,9 +234,10 @@ class Callable_dict(dict):
 def reload_server():
 	"""reload the server process from file"""
 	file = config.MAIN_FILE
-	logger.info("Reloading...\n"+
+	logger.info("Reloading...\n" +
 				" ".join(
-					["RE-RUNNING: ", sys.executable, sys.executable, file, *sys.argv[1:]]
+					["RE-RUNNING: ", sys.executable,
+						sys.executable, file, *sys.argv[1:]]
 				))
 	try:
 		os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
@@ -269,16 +245,16 @@ def reload_server():
 		traceback.print_exc()
 	sys.exit(0)
 
+
 def null(*args, **kwargs):
 	pass
-
-
 
 
 class Zfunc(object):
 	"""Thread safe sequncial printing/queue task handler class"""
 
 	__all__ = ["new", "update"]
+
 	def __init__(self, caller, store_return=False):
 		super().__init__()
 
@@ -310,7 +286,6 @@ class Zfunc(object):
 			# will make the loop continue running
 			return True
 
-
 	def update(self, *args, **kwargs):
 		""" Uses xprint and parse string"""
 
@@ -319,12 +294,8 @@ class Zfunc(object):
 			# use while instead of recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion.... error
 			pass
 
-
-
 	def new(self, caller, store_return=False):
 		self.__init__(caller=caller, store_return=store_return)
-
-
 
 
 """HTTP server classes.
@@ -344,8 +315,6 @@ XXX To do:
 """
 
 
-
-
 ##############################################
 #         PAUSE AND RESUME FEATURE           #
 ##############################################
@@ -356,7 +325,8 @@ def copy_byte_range(infile, outfile, start=None, stop=None, bufsize=16*1024):
 	Like shutil.copyfileobj, but only copy a range of the streams.
 	Both start and stop are inclusive.
 	'''
-	if start is not None: infile.seek(start)
+	if start is not None:
+		infile.seek(start)
 	while 1:
 		to_read = min(bufsize, stop + 1 - infile.tell() if stop else bufsize)
 		buf = infile.read(to_read)
@@ -366,6 +336,8 @@ def copy_byte_range(infile, outfile, start=None, stop=None, bufsize=16*1024):
 
 
 BYTE_RANGE_RE = re.compile(r'bytes=(\d+)-(\d+)?$')
+
+
 def parse_byte_range(byte_range):
 	'''Returns the two numbers in 'bytes=123-456' or throws ValueError.
 	The last number or both numbers may be None.
@@ -377,7 +349,7 @@ def parse_byte_range(byte_range):
 	if not m:
 		raise ValueError('Invalid byte range %s' % byte_range)
 
-	#first, last = [x and int(x) for x in m.groups()] #
+	# first, last = [x and int(x) for x in m.groups()] #
 
 	first, last = map((lambda x: int(x) if x else None), m.groups())
 
@@ -385,12 +357,10 @@ def parse_byte_range(byte_range):
 		raise ValueError('Invalid byte range %s' % byte_range)
 	return first, last
 
-#---------------------------x--------------------------------
+# ---------------------------x--------------------------------
 
 
-
-
-def URL_MANAGER(url:str):
+def URL_MANAGER(url: str):
 	"""
 	returns a tuple of (`path`, `query_dict`, `fragment`)\n
 
@@ -403,8 +373,8 @@ def URL_MANAGER(url:str):
 	# url = '/store?page=10&limit=15&price#dskjfhs'
 	parse_result = urllib.parse.urlparse(url)
 
-
-	dict_result = Callable_dict(urllib.parse.parse_qs(parse_result.query, keep_blank_values=True))
+	dict_result = Callable_dict(urllib.parse.parse_qs(
+		parse_result.query, keep_blank_values=True))
 
 	return (parse_result.path, dict_result, parse_result.fragment)
 
@@ -412,7 +382,7 @@ def URL_MANAGER(url:str):
 
 class HTTPServer(socketserver.TCPServer):
 
-	allow_reuse_address = True	# Seems to make sense in testing environment
+	allow_reuse_address = True  # Seems to make sense in testing environment
 
 	def server_bind(self):
 		"""Override server_bind to store the server name."""
@@ -505,9 +475,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				version_number = base_version_number.split(".")
 				# RFC 2145 section 3.1 says there can be only one "." and
 				#   - major and minor numbers MUST be treated as
-				#	  separate integers;
+				#     separate integers;
 				#   - HTTP/2.4 is a lower version than HTTP/2.13, which in
-				#	  turn is lower than HTTP/12.3;
+				#     turn is lower than HTTP/12.3;
 				#   - Leading zeros MUST be ignored by recipients.
 				if len(version_number) != 2:
 					raise ValueError
@@ -576,7 +546,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		# Examine the headers and look for an Expect directive
 		expect = self.headers.get('Expect', "")
 		if (expect.lower() == "100-continue" and
-				self.protocol_version >= "HTTP/1.1" and
+			self.protocol_version >= "HTTP/1.1" and
 				self.request_version >= "HTTP/1.1"):
 			if not self.handle_expect_100():
 				return False
@@ -637,38 +607,39 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 			self.use_range = False
 
-
 			_hash = abs(hash((self.raw_requestline, tools.random_string(10))))
-			self.req_hash = base64.b64encode(str(_hash).encode('ascii')).decode()[:10]
+			self.req_hash = base64.b64encode(
+					str(_hash).encode('ascii')
+				).decode()[:10]
 
 			_w = tools.term_width()
-			w = _w - len(str(self.req_hash)) -2
+			w = _w - len(str(self.req_hash)) - 2
 			w = w//2
-			logger.info('='*w + f' {self.req_hash} ' + '='*w + '\n'+ 
-					'\n'.join(
-						[f'{self.req_hash}|=>\t request\t: {self.command}',
-						f'{self.req_hash}|=>\t url     \t: {url_path}',
-						f'{self.req_hash}|=>\t query   \t: {query}',
-						f'{self.req_hash}|=>\t fragment\t: {fragment}',
-						f'{self.req_hash}|=>\t full url \t: {self.path}',
-						]) + '\n'+
-					'+'*w + f' {self.req_hash} ' + '+'*w
-				)
-
-
-
+			logger.info('='*w + f' {self.req_hash} ' + '='*w + '\n' +
+						'\n'.join(
+								[f'{self.req_hash}|=>\t request\t: {self.command}',
+								 f'{self.req_hash}|=>\t url     \t: {url_path}',
+								 f'{self.req_hash}|=>\t query   \t: {query}',
+								 f'{self.req_hash}|=>\t fragment\t: {fragment}',
+								 f'{self.req_hash}|=>\t full url \t: {self.path}',
+								 ]) + '\n' +
+						'+'*w + f' {self.req_hash} ' + '+'*w
+						)
 
 			try:
 				method()
 			except Exception:
 				traceback.print_exc()
 
-			logger.info('-'*w + f' {self.req_hash} ' + '-'*w + '\n'+
+			logger.info('-'*w + f' {self.req_hash} ' + '-'*w + '\n' +
 						'#'*_w
 						)
-			self.wfile.flush() #actually send the response if not already done.
+			
+			# actually send the response if not already done.
+			self.wfile.flush()
+
 		except (TimeoutError, socket.timeout) as e:
-			#a read or a write timed out.  Discard this connection
+			# a read or a write timed out.  Discard this connection
 			self.log_error("Request timed out:", e)
 			self.close_connection = True
 			return
@@ -681,21 +652,21 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		while not self.close_connection:
 			self.handle_one_request()
 
-	def send_error(self, code, message=None, explain=None, error_message_format:Template=None):
+	def send_error(self, code, message=None, explain=None, error_message_format: Template = None):
 		"""Send and log an error reply.
 
 		Arguments are
 		* code:	an HTTP error code
-				   3 digits
+					3 digits
 		* message: a simple optional 1 line reason phrase.
-				   *( HTAB / SP / VCHAR / %x80-FF )
-				   defaults to short entry matching the response code
+					*( HTAB / SP / VCHAR / %x80-FF )
+					defaults to short entry matching the response code
 		* explain: a detailed message defaults to the long entry
-				   matching the response code.
+					matching the response code.
 		* error_message_format: a `string.Template` for the error message
-				   defaults to `config.DEFAULT_ERROR_MESSAGE`
+					defaults to `config.DEFAULT_ERROR_MESSAGE`
 
-				   auto-formatting values:
+					auto-formatting values:
 						`${code}`: the HTTP error code
 						`${message}`: the HTTP error message
 						`${explain}`: the detailed error message
@@ -707,7 +678,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		"""
 
-		
 		error_message_format = error_message_format if error_message_format else config.DEFAULT_ERROR_MESSAGE
 
 		error_content_type = config.DEFAULT_ERROR_CONTENT_TYPE
@@ -729,16 +699,16 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		#  - RFC7231: 6.3.6. 205(Reset Content)
 		body = None
 		if (code >= 200 and
-			code not in (HTTPStatus.NO_CONTENT,
-						 HTTPStatus.RESET_CONTENT,
-						 HTTPStatus.NOT_MODIFIED)):
+				code not in (HTTPStatus.NO_CONTENT,
+							 HTTPStatus.RESET_CONTENT,
+							 HTTPStatus.NOT_MODIFIED)):
 			# HTML encode to prevent Cross Site Scripting attacks
 			# (see bug #1100201)
 			content = (error_message_format.safe_substitute(
-				code= code,
-				message= html.escape(message, quote=False),
-				explain= html.escape(explain, quote=False),
-				version= __version__
+				code=code,
+				message=html.escape(message, quote=False),
+				explain=html.escape(explain, quote=False),
+				version=__version__
 			))
 			body = content.encode('UTF-8', 'replace')
 			self.send_header("Content-Type", error_content_type)
@@ -772,8 +742,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			if not hasattr(self, '_headers_buffer'):
 				self._headers_buffer = []
 			self._headers_buffer.append(("%s %d %s\r\n" %
-					(self.protocol_version, code, message)).encode(
-						'utf-8', 'strict'))
+				(self.protocol_version, code, message)).encode(
+				'utf-8', 'strict'))
 
 	def send_header(self, keyword, value):
 		"""Send a MIME header to the headers buffer."""
@@ -821,28 +791,27 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		XXX This should go to the separate error log.
 
 		"""
-		self.log_message(args, error = True)
+		self.log_message(args, error=True)
 
 	def log_warning(self, *args):
 		"""Log a warning message [HIGH PRIORITY]"""
-		self.log_message(args, warning = True)
+		self.log_message(args, warning=True)
 
-	def log_debug(self, *args, write = True):
+	def log_debug(self, *args, write=True):
 		"""Log a debug message [LOWEST PRIORITY]"""
-		self.log_message(args, debug = True, write = write)
+		self.log_message(args, debug=True, write=write)
 
-	def log_info(self, *args, write = False):
+	def log_info(self, *args, write=False):
 		"""Default log message [MEDIUM PRIORITY]"""
-		self.log_message(args, write = write)
+		self.log_message(args, write=write)
 
 	def _log_writer(self, message):
 		os.makedirs(config.log_location, exist_ok=True)
-		with open(config.log_location + 'log.txt','a+') as f:
-			f.write((f"#{self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"))
+		with open(config.log_location + 'log.txt', 'a+') as f:
+			f.write(
+				(f"#{self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"))
 
-
-
-	def log_message(self, *args, error = False, warning = False, debug = False, write = True):
+	def log_message(self, *args, error=False, warning=False, debug=False, write=True):
 		"""Log an arbitrary message.
 
 		This is used by all other logging functions.  Override
@@ -855,10 +824,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		message = ' '.join(map(str, args))
 
-		message = ("# %s by [%s] at [%s] %s\n" %
-						 (self.req_hash, self.address_string(),
-						  self.log_date_time_string(),
-						  message))
+		message = f"# {self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"
+
 		if error:
 			logger.error(message)
 		elif warning:
@@ -867,7 +834,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			logger.debug(message)
 		else:
 			logger.info(message)
-
 
 		if not config.write_log:
 			return
@@ -879,7 +845,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.Zlog_writer.update(message)
 		except Exception:
 			traceback.print_exc()
-
 
 	def version_string(self):
 		"""Return the server software version string."""
@@ -896,7 +861,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		now = time.time()
 		year, month, day, hh, mm, ss, x, y, z = time.localtime(now)
 		s = "%02d/%3s/%04d %02d:%02d:%02d" % (
-				day, self.monthname[month], year, hh, mm, ss)
+			day, self.monthname[month], year, hh, mm, ss)
 		return s
 
 	weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -942,43 +907,43 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	server_version = "SimpleHTTP/" + __version__
 
 	if not mimetypes.inited:
-		mimetypes.init() # try to read system mime.types
+		mimetypes.init()  # try to read system mime.types
 	extensions_map = mimetypes.types_map.copy()
 	extensions_map.update({
-		'': 'application/octet-stream', # Default
-		'.py': 'text/plain',
-		'.c': 'text/plain',
-		'.h': 'text/plain',
-		'.css': 'text/css',
+		'': 'application/octet-stream',  # Default
+			'.py': 'text/plain',
+			'.c': 'text/plain',
+			'.h': 'text/plain',
+			'.css': 'text/css',
 
-		'.gz': 'application/gzip',
-		'.Z': 'application/octet-stream',
-		'.bz2': 'application/x-bzip2',
-		'.xz': 'application/x-xz',
+			'.gz': 'application/gzip',
+			'.Z': 'application/octet-stream',
+			'.bz2': 'application/x-bzip2',
+			'.xz': 'application/x-xz',
 
-		'.webp': 'image/webp',
+			'.webp': 'image/webp',
 
-		'opus': 'audio/opus',
-		'.oga': 'audio/ogg',
-		'.wav': 'audio/wav',
+			'opus': 'audio/opus',
+			'.oga': 'audio/ogg',
+			'.wav': 'audio/wav',
 
-		'.ogv': 'video/ogg',
-		'.ogg': 'application/ogg',
-		'm4a': 'audio/mp4',
+			'.ogv': 'video/ogg',
+			'.ogg': 'application/ogg',
+			'm4a': 'audio/mp4',
 	})
 
 	handlers = {
-			'HEAD': [],
-			'POST': [],
-		}
+		'HEAD': [],
+		'POST': [],
+	}
 
 	def __init__(self, *args, directory=None, **kwargs):
 		if directory is None:
 			directory = os.getcwd()
-		self.directory = os.fspath(directory) # same as directory, but str, new in 3.6
+		# os.fspath() same as directory, but str, new in 3.6
+		self.directory = os.fspath(directory)
 		super().__init__(*args, **kwargs)
 		self.query = Callable_dict()
-
 
 	def do_GET(self):
 		"""Serve a GET request."""
@@ -993,7 +958,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			try:
 				self.copyfile(f, self.wfile)
 			except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-				self.log_info(tools.text_box(e.__class__.__name__, e,"\nby ", self.address_string()))
+				self.log_info(tools.text_box(e.__class__.__name__,
+							  e, "\nby ", self.address_string()))
 			finally:
 				f.close()
 
@@ -1001,9 +967,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'''incase of errored request'''
 		self.send_error(HTTPStatus.BAD_REQUEST, "Bad request.")
 
-
 	@staticmethod
-	def on_req(type='', url='', hasQ=(), QV={}, fragent='', url_regex = '', func=null):
+	def on_req(type='', url='', hasQ=(), QV={}, fragent='', url_regex='', func=null):
 		'''called when request is received
 		type: GET, POST, HEAD, ...
 		url: url (must start with /)
@@ -1012,7 +977,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		fragent: fragent of request
 		url_regex: url regex (must start with /) url regex, the url must start and end with this regex
 
-		if query is tuple, it will only check existence of key
+		if query is tuple|list, it will only check existence of key
 		if query is dict, it will check value of key
 		'''
 		self = __class__
@@ -1021,7 +986,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if type == 'GET':
 			type = 'HEAD'
 
-
 		if type not in self.handlers:
 			self.handlers[type] = []
 
@@ -1029,9 +993,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if isinstance(hasQ, str):
 			hasQ = (hasQ,)
 
-		if url=='' and url_regex=='':
+		if url == '' and url_regex == '':
 			url_regex = '.*'
-
 
 		to_check = (url, hasQ, QV, fragent, url_regex)
 
@@ -1052,20 +1015,25 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 		'''
-		if url_regex:
-			if not re.search("^"+url_regex+'$', self.url_path): return False
-		elif url and url!=self.url_path: return False
+		if url_regex and not re.search("^"+url_regex+'$', self.url_path):
+				return False
+		elif url and url != self.url_path:
+			return False
 
 		if isinstance(hasQ, str):
 			hasQ = (hasQ,)
 
-		if hasQ and self.query(*hasQ)==False: return False
+		if hasQ and self.query(*hasQ) == False:
+			return False
 		if QV:
 			for k, v in QV.items():
-				if not self.query(k): return False
-				if self.query[k] != v: return False
+				if not self.query(k):
+					return False
+				if self.query[k] != v:
+					return False
 
-		if fragent and self.fragment != fragent: return False
+		if fragent and self.fragment != fragent:
+			return False
 
 		return True
 
@@ -1085,44 +1053,43 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		"""Serve a POST request."""
 		self.range = None, None
 
-
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
 
 		url_path, query, fragment = self.url_path, self.query, self.fragment
 		spathsplit = self.url_path.split("/")
 
-
 		try:
 			for case, func in self.handlers['POST']:
 				if self.test_req(*case):
 					try:
-						f = func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+						f = func(self, url_path=url_path, query=query,
+								 fragment=fragment, path=path, spathsplit=spathsplit)
 					except PostError:
 						traceback.print_exc()
-						break # break if error is raised and send BAD_REQUEST (at end of loop)
+						# break if error is raised and send BAD_REQUEST (at end of loop)
+						break
 
 					if f:
 						try:
 							self.copyfile(f, self.wfile)
 						except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-							logger.info(tools.text_box(e.__class__.__name__, e,"\nby ", [self.address_string()]))
+							logger.info(tools.text_box(
+								e.__class__.__name__, e, "\nby ", [self.address_string()]))
 						finally:
 							f.close()
 					return
 
-
-
 			return self.send_error(HTTPStatus.BAD_REQUEST, "Invalid request.")
 
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-			logger.info(tools.text_box(e.__class__.__name__, e,"\nby ", [self.address_string()]))
+			logger.info(tools.text_box(e.__class__.__name__,
+						e, "\nby ", [self.address_string()]))
 			return
 		except Exception as e:
 			traceback.print_exc()
 			self.send_error(500, str(e))
 			return
-
 
 	def redirect(self, location):
 		'''redirect to location'''
@@ -1153,9 +1120,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'''sends the head and file to client'''
 		f = self.return_txt(code, msg, content_type)
 		if self.command == "HEAD":
-			return # to avoid sending file on get request
+			return  # to avoid sending file on get request
 		self.copyfile(f, self.wfile)
 		f.close()
+
+	def send_text(self, code, msg, content_type="text/html; charset=utf-8"):
+		'''proxy to send_txt'''
+		self.send_txt(code, msg, content_type)
 
 	def send_json(self, obj):
 		"""send object as json
@@ -1164,7 +1135,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			obj = json.dumps(obj, indent=1)
 		f = self.return_txt(200, obj, content_type="application/json")
 		if self.command == "HEAD":
-			return # to avoid sending file on get request
+			return  # to avoid sending file on get request
 		self.copyfile(f, self.wfile)
 		f.close()
 
@@ -1218,7 +1189,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if last is None or last >= file_len:
 					last = file_len - 1
 
-				if first >= file_len: # PAUSE AND RESUME SUPPORT
+				if first >= file_len:  # PAUSE AND RESUME SUPPORT
 					self.send_error(416, 'Requested Range Not Satisfiable')
 					return None
 
@@ -1226,14 +1197,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				self.send_header('Content-Type', ctype)
 				self.send_header('Accept-Ranges', 'bytes')
 
-
 				response_length = last - first + 1
 
 				self.send_header('Content-Range',
-								'bytes %s-%s/%s' % (first, last, file_len))
+								 'bytes %s-%s/%s' % (first, last, file_len))
 				self.send_header('Content-Length', str(response_length))
-
-
 
 			else:
 				self.send_response(HTTPStatus.OK)
@@ -1241,8 +1209,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				self.send_header("Content-Length", str(file_len))
 
 			self.send_header("Last-Modified",
-							self.date_time_string(fs.st_mtime))
-			self.send_header("Content-Disposition", is_attachment+'filename="%s"' % (os.path.basename(path) if filename is None else filename))
+							 self.date_time_string(fs.st_mtime))
+			self.send_header("Content-Disposition", is_attachment+' filename="%s"' %
+							 (os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
 			return f
@@ -1255,24 +1224,21 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 			return None
 
-
 		except Exception:
 			traceback.print_exc()
 
 			# if f and not f.closed(): f.close()
 			raise
-			
+
 	def send_file(self, path, filename=None, download=False):
 		'''sends the head and file to client'''
 		f = self.return_file(path, filename, download)
 		if self.command == "HEAD":
-			return # to avoid sending file on get request
+			return  # to avoid sending file on get request
 		try:
 			self.copyfile(f, self.wfile)
 		finally:
 			f.close()
-
-
 
 	def send_head(self):
 		"""Common code for GET and HEAD commands.
@@ -1302,21 +1268,16 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
 
-
 		url_path, query, fragment = self.url_path, self.query, self.fragment
 
 		spathsplit = self.url_path.split("/")
 
-
-
-		for case, func in self.handlers['HEAD']: # GET WILL Also BE HANDLED BY HEAD
+		# GET WILL Also BE HANDLED BY HEAD
+		for case, func in self.handlers['HEAD']:
 			if self.test_req(*case):
 				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
 
 		return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-
-
-
 
 	def get_displaypath(self, url_path):
 		"""
@@ -1324,22 +1285,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		"""
 
 		try:
-			displaypath = urllib.parse.unquote(url_path, errors='surrogatepass')
+			displaypath = urllib.parse.unquote(
+				url_path, errors='surrogatepass')
 		except UnicodeDecodeError:
 			displaypath = urllib.parse.unquote(url_path)
 		displaypath = html.escape(displaypath, quote=False)
 
 		return displaypath
 
-
-
-
-
-
 	def get_rel_path(self, filename):
 		"""Return the relative path to the file, FOR OS."""
 		return urllib.parse.unquote(posixpath.join(self.url_path, filename), errors='surrogatepass')
-
 
 	def translate_path(self, path):
 		"""Translate a /-separated PATH to the local filename syntax.
@@ -1350,8 +1306,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		"""
 		# abandon query parameters
-		path = path.split('?',1)[0]
-		path = path.split('#',1)[0]
+		path = path.split('?', 1)[0]
+		path = path.split('#', 1)[0]
 		# Don't forget explicit trailing slash when normalizing. Issue17324
 		trailing_slash = path.rstrip().endswith('/')
 
@@ -1364,7 +1320,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		words = filter(None, words)
 		path = self.directory
 
-
 		for word in words:
 			if os.path.dirname(word) or word in (os.curdir, os.pardir):
 				# Ignore components that are not a simple file/directory name
@@ -1373,7 +1328,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if trailing_slash:
 			path += '/'
 
-		return os.path.normpath(path) # fix OS based path issue
+		return os.path.normpath(path)  # fix OS based path issue
 
 	def copyfile(self, source, outputfile):
 		"""Copy all data between two file objects.
@@ -1390,7 +1345,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		"""
 
-
 		if not self.range:
 			try:
 				source.read(1)
@@ -1404,7 +1358,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			# you stop the copying before the end of the file.
 			start, stop = self.range  # set in send_head()
 			copy_byte_range(source, outputfile, start, stop)
-
 
 	def guess_type(self, path):
 		"""Guess the type of a file.
@@ -1431,14 +1384,60 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		if guess:
 			return guess
 
-		return self.extensions_map[''] #return 'application/octet-stream'
-
+		return self.extensions_map['']  # return 'application/octet-stream'
 
 
 class PostError(Exception):
 	pass
 
 
+class ContentDisposition:
+	def __init__(self, content_disposition):
+		self.content_disposition = content_disposition
+		self.items = {}
+		self.parse()
+
+	def parse(self):
+		# Content-Disposition: form-data; name="post-type"
+		# Content-Disposition: form-data; name="file"; filename="C:\Users\user\Desktop\test.txt"
+		# Content-Disposition: form-data; name="file"; filename*=utf-8''%E6%B5%8B%E8%AF%95.txt
+
+		line = re.subn(r"Content-Disposition:", "",
+					   self.content_disposition, flags=re.IGNORECASE, count=1)[0]
+
+		# form-data; name="post-type"
+		# form-data; name="file"; filename="C:\Users\user\Desktop\test.txt"
+		# form-data; name="file"; filename*=utf-8''%E6%B5%8B%E8%AF%95.txt
+		parts = (i.strip() for i in line.split(";") if i.strip())
+
+		# form-data
+		# name="post-type"
+		# name="file"
+		# filename="C:\Users\user\Desktop\test.txt"
+		# filename*=utf-8''%E6%B5%8B%E8%AF%95.txt
+
+		for part in parts:
+			pair = [i.strip() for i in part.split("=", 1)]
+
+			key = pair[0]
+			value = pair[1] if len(pair) > 1 else ""
+
+			if key.lower() == "filename*" and value.lower().startswith("utf-8''"):
+				value = urllib.parse.unquote(
+					value[7:], encoding="utf-8", errors='surrogatepass')
+
+				key = "filename"
+
+			self.items[key.lower()] = value.strip('"')
+
+	def get(self, key, default=None):
+		return self.items.get(key.lower(), default)
+
+	def __getitem__(self, key):
+		return self.items[key.lower()]
+
+	def __contains__(self, key):
+		return key.lower() in self.items
 
 
 class DealPostData:
@@ -1460,69 +1459,110 @@ class DealPostData:
 12: b'------WebKitFormBoundary7RGDIyjMpWhLXcZa--\r\n'
 """
 
-
 	boundary = b''
 	num = 0
 	remainbytes = 0
 
-	def __init__(self, req:SimpleHTTPRequestHandler) -> None:
+	def __init__(self, req: SimpleHTTPRequestHandler) -> None:
+		"""After init, must call start() to get boundary and content_length"""
 		self.req = req
+		self.content_length = 0
+		self.content_type = ""
 
+		self.form = FormData(req, self, fake=True)
 
 	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
 
+	def is_multipart(self):
+		return self.content_type.startswith("multipart/form-data")
 
-	def get(self, show=F, strip=F, Timeout=20):
+	def is_urlencoded(self):
+		return self.content_type.startswith("application/x-www-form-urlencoded")
+
+	def is_form_data(self):
+		return self.is_urlencoded() or self.is_multipart()
+
+	def is_json(self):
+		return self.content_type == "application/json"
+
+	def check_size_limit(self, max_size=-1):
+		"""
+		* check if content size is within limit
+		* return True if within limit
+		"""
+		if not max_size < 0 or self.content_length <= max_size:
+			raise PostError(
+				f"Content size limit exceeded: {self.content_length} > {max_size}")
+
+	def get(self, show=F, strip=F, Timeout=20, chunk_size=0):
 		"""
 		show: print line
 		strip: strip \r\n at end
 		Timeout: if having network issue on any side, will keep trying to get content until Timeout (in seconds)
 		"""
 		req = self.req
-		
+
+		if self.remainbytes <= 0:
+			return b""
+
+		if chunk_size <= 0:
+			chunk_size = self.remainbytes
 
 		for _ in range(Timeout*2):
-			line = req.rfile.readline()
+			if self.is_multipart():
+				line = req.rfile.readline()
+			else:
+				line = req.rfile.read(chunk_size)
 			if line:
 				break
 			time.sleep(.5)
 		else:
 			raise ConnectionAbortedError
-		self.num+=1
+
 		if show:
 			print(f"{self.num}: {line}")
 		self.remainbytes -= len(line)
+		self.num += 1
 
-		if strip and line.endswith(b"\r\n"):
+		if strip and self.is_multipart() and line.endswith(b"\r\n"):
 			line = line.rpartition(b"\r\n")[0]
 
 		return line
 
-	def pass_bound(self):
-		line = self.get()
-		if not self.boundary in line:
-			self.req.log_error("Content NOT begin with boundary\n", [line, self.boundary])
-
-	def get_name(self, line=None, ):
-		if not line:
-			line = self.get()
-		try:
-			return re.findall(r'Content-Disposition.*name="(.*?)"', line.decode())[0]
-		except: return None
-
-	def match_name(self, field_name:Union[None, str]=None):
+	def get_content(self, max_size=-1, chunk_size=0):
 		"""
-		field_name: name of the field (str)
-		* if None, skip checking field name
-		* if `empty string`, field name must be empty too
+		* get content if not multipart
+		* return content
 		"""
-		line = self.get()
 
-		if field_name is not None and self.get_name(line)!=field_name:
-			raise PostError(f"Invalid request: Expected {field_name} but got {self.get_name(line)}")
+		self.check_size_limit(max_size=max_size)
+
+		n = self.remainbytes
+		line = b""
+
+		while n > 0:
+			chunk = n % 1024
+			n -= chunk
+
+			_line = self.get(chunk_size=chunk)
+			if not _line:
+				break
+			line += _line
 
 		return line
 
+	def get_json(self, max_size=-1):
+		"""
+		* get json data
+		* return parsed json data
+		"""
+
+		if not self.content_type == "application/json":
+			raise PostError("Content-Type is not application/json")
+
+		line = self.get_content(max_size=max_size)
+
+		return json.loads(line)
 
 	def skip(self,):
 		self.get()
@@ -1530,44 +1570,155 @@ class DealPostData:
 	def start(self):
 		'''reads upto line 0'''
 		req = self.req
-		content_type = req.headers['content-type']
+		self.content_type = req.headers['content-type']
 
-		if not content_type:
-			raise PostError("Content-Type header doesn't contain boundary")
-		self.boundary = content_type.split("=")[1].encode()
+		if not self.content_type:
+			raise PostError("POST request without Content-Type")
+		if self.is_multipart():
+			self.boundary = self.content_type.split("=")[1].encode()
 
 		self.remainbytes = int(req.headers['content-length'])
+		self.content_length = self.remainbytes
+
+		# print(f"Content-Type: {self.content_type}")
+		# print(f"Content-Length: {self.content_length}")
+		# print(f"Request-header: {req.headers}")
+		# print(self.is_form_data())
+
+		if self.is_form_data():
+			self.form = FormData(req, self)
 
 
-		self.pass_bound()# LINE 0
+class FormData:
+	"""
+	Handler for
+	`multipart/form-data` and
+	`application/x-www-form-urlencoded`
+	"""
 
+	def __init__(self, req: SimpleHTTPRequestHandler, dpd: DealPostData, fake=False) -> None:
+		"""
+		must be initialized from DealPostData
+		"""
+		self.req = req
+		self.dpd = dpd
+		self.fake = fake
 
-	def get_part(self, verify_name:Union[None, bytes, str] =None, verify_msg:Union[None, bytes, str] =None, decode=F):
+		self.content_length = dpd.content_length
+		self.content_type = dpd.content_type
+
+		if self.fake:
+			return
+		self.is_multipart = self.dpd.is_multipart()
+		self.boundary = dpd.boundary
+		if self.is_multipart:
+			# pass first boundary line (because after every field, there is a boundary line)
+			self.pass_bound()
+
+	def pass_bound(self):
+		"""
+		* pass boundary line in multipart
+		* raise error if boundary not found
+		"""
+		if self.fake:
+			raise PostError("Fake FormData")
+
+		if not self.is_multipart:
+			raise PostError("Not multipart")
+
+		line = self.dpd.get()
+		if not self.boundary in line:
+			self.req.log_error(f"Content boundary missing on line {self.dpd.num}\n", [
+							   line, self.boundary])
+
+	def get_a_dline(self, line: Union[bytes, str, None] = None):
+		"""
+		* get a line if not provided
+		* decoded if its in bytes
+		* return decoded line
+		"""
+		if self.fake:
+			raise PostError("Fake FormData")
+		# only these 2 needs fake check
+
+		if not line:
+			line = self.dpd.get()
+
+		if isinstance(line, bytes):
+			line = line.decode()
+
+		return line
+
+	def get_file_name(self, line: Union[bytes, str, None] = None):
+		"""
+		* get file name from Content-Disposition
+		* return file name
+		"""
+		line = self.get_a_dline(line)
+
+		cd = ContentDisposition(line)
+		fn = cd.get('filename')
+
+		if not fn:
+			raise PostError("Can't find out file name...")
+
+		return fn
+
+	def get_field_name(self, line=None):
+		"""
+		* get field name from Content-Disposition
+		* return field name
+		"""
+		line = self.get_a_dline(line)
+
+		# get name from Content-Disposition
+		return ContentDisposition(line).get('name')
+
+	def match_field_name(self, field_name: Union[None, str] = None):
+		"""
+		field_name: Expecting name of the field (str)
+		* if None, skip checking field name
+		* if `empty string`, field name must be empty too
+		"""
+		line = self.dpd.get()
+		got_field_name = self.get_field_name(line)
+
+		if field_name is not None and got_field_name != field_name:
+			raise PostError(
+				f"Invalid request: Expected {field_name} but got {got_field_name}")
+
+		return line
+
+	def get_multi_field(self, verify_name: Union[None, bytes, str] = None, verify_msg: Union[None, bytes, str] = None, decode=F):
 		'''read a form field
 		ends at boundary
 		verify_name: name of the field (str|bytes|None)
 		verify_msg: message to verify (str|bytes)
 		decode: decode the message
 		* if None, skip checking field name
-		* if `empty string`, field name must be empty too'''
+		* if `empty string`, field name must be empty too
+
+		returns: field `(name, value)` (str|bytes)
+		'''
 		decoded = False
-		
+
 		if isinstance(verify_name, bytes):
 			verify_name = verify_name.decode()
 
-		field_name = self.match_name(verify_name) # LINE 1 (field name)
+		# LINE 0 (boundary)
+		field_name = self.match_field_name(verify_name)  # LINE 1 (field name)
 		# if not verified, raise PostError
 
-		self.skip() # LINE 2 (blank line)
+		self.dpd.skip()  # LINE 2 (blank line)
 
 		line = b''
 		while 1:
-			_line = self.get() # from LINE 4 till boundary (form field value)
-			if self.boundary in _line: # boundary
+			_line = self.dpd.get()  # from LINE 3 till boundary (form field value)
+			if (not _line) or (self.boundary in _line):  # boundary
 				break
 			line += _line
 
-		line = line.rpartition(b"\r\n")[0] # remove \r\n at end
+		line = line.rpartition(b"\r\n")[0]  # remove \r\n at end
 		if decode:
 			line = line.decode()
 			decoded = True
@@ -1575,17 +1726,86 @@ class DealPostData:
 			if not decoded:
 				if isinstance(verify_msg, str):
 					verify_msg = verify_msg.encode()
-					
+
 			if line != verify_msg:
-				raise PostError(f"Invalid post request.\n Expected: {[verify_msg]}\n Got: {[line]}")
+				raise PostError(
+					f"Invalid post request.\n Expected: {[verify_msg]}\n Got: {[line]}")
 
 		# self.pass_bound() # LINE 5 (boundary)
 
 		return field_name, line
 
+	def get_urlencoded_field(self, verify_name: Union[None, bytes, str] = None, verify_msg: Union[None, bytes, str] = None):
+		"""
+		* get a field from form data
+		* return decoded name, value
 
+		"""
+		line = b""
+		data = self.dpd.get(chunk_size=1)
+		while data or data == b"&":
+			line += data
 
+			data = self.dpd.get(chunk_size=1)
 
+		name, value = line.split(b"=", 1)
+		# URL decode
+		name, value = urllib.parse.unquote(name), urllib.parse.unquote(value)
+
+		if verify_name is not None:
+			if isinstance(verify_name, bytes):
+				verify_name = verify_name.decode()
+
+			if name != verify_name:
+				raise PostError(
+					f"Invalid post request.\n Expected: {verify_name}\n Got: {name}")
+
+		if verify_msg is not None:
+			if isinstance(verify_msg, bytes):
+				verify_msg = verify_msg.decode()
+
+			if value != verify_msg:
+				raise PostError(
+					f"Invalid post request.\n Expected: {verify_msg}\n Got: {value}")
+		return name, value
+
+	def get_urlencoded_iter(self, max_size=-1):
+		"""
+		Generator that yields the parts of the form data as dict.
+		"""
+
+		self.dpd.check_size_limit(max_size)
+
+		data = self.dpd.get().decode()
+		for part in data.split("&"):
+			name, value = part.split("=")
+			name, value = urllib.parse.unquote(
+				name), urllib.parse.unquote(value)
+
+			yield name, value
+
+	def get_multipart_iter(self, max_size=-1):
+		"""
+		Generator that yields the parts of the form data as dict.
+		"""
+
+		self.dpd.check_size_limit(max_size)
+
+		while True:
+			field_name, value = self.get_multi_field(decode=True)
+			yield field_name, value
+
+	def get_parts(self, max_size=-1):
+		"""
+		Generator that yields the parts of the form data.
+		"""
+		if self.is_multipart:
+			g = self.get_multipart_iter
+		else:
+			g = self.get_urlencoded_iter
+
+		for part in g(max_size):
+			yield part
 
 
 def _get_best_family(*address):
@@ -1597,8 +1817,9 @@ def _get_best_family(*address):
 	family, type, proto, canonname, sockaddr = next(iter(infos))
 	return family, sockaddr
 
+
 def get_ip(bind=None):
-	IP = bind # or "127.0.0.1"
+	IP = bind  # or "127.0.0.1"
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.settimeout(0)
 	try:
@@ -1607,7 +1828,7 @@ def get_ip(bind=None):
 		IP = s.getsockname()[0]
 	except:
 		try:
-			if config.OS=="Android":
+			if config.OS == "Android":
 				IP = s.connect(("192.168.43.1",  1))
 				IP = s.getsockname()[0]
 				# Assigning this variable because Android does't return actual IP when hosting a hotspot
@@ -1628,10 +1849,10 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	"""
 
 	global httpd
-	if sys.version_info>=(3,8): # BACKWARD COMPATIBILITY
+	if sys.version_info >= (3, 8):  # BACKWARD COMPATIBILITY
 		ServerClass.address_family, addr = _get_best_family(bind, port)
 	else:
-		addr =(bind if bind!=None else '', port)
+		addr = (bind if bind != None else '', port)
 
 	device_ip = bind or "127.0.0.1"
 	# bind can be None (=> 127.0.0.1) or a string (=> 127.0.0.DDD)
@@ -1642,19 +1863,19 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	url_host = f'[{host}]' if ':' in host else host
 	hostname = socket.gethostname()
 	local_ip = config.IP if config.IP else get_ip(device_ip)
-	config.IP= local_ip
+	config.IP = local_ip
 
-
-	on_network = local_ip!=(device_ip)
+	on_network = local_ip != (device_ip)
 
 	logger.info(tools.text_box(
-		f"Serving HTTP on {host} port {port} \n", #TODO: need to check since the output is "Serving HTTP on :: port 6969"
-		f"(http://{url_host}:{port}/) ...\n", #TODO: need to check since the output is "(http://[::]:6969/) ..."
+		# TODO: need to check since the output is "Serving HTTP on :: port 6969"
+		f"Serving HTTP on {host} port {port} \n",
+		# TODO: need to check since the output is "(http://[::]:6969/) ..."
+		f"(http://{url_host}:{port}/) ...\n",
 		f"Server is probably running on\n",
 		(f"[over NETWORK] {config.address()}\n" if on_network else ""),
-		f"[on DEVICE] http://localhost:{config.port} & http://127.0.0.1:{config.port}"
-		, style="star", sep=""
-		)
+		f"[on DEVICE] http://localhost:{config.port} & http://127.0.0.1:{config.port}", style="star", sep=""
+	)
 	)
 	try:
 		httpd.serve_forever(poll_interval=0.1)
@@ -1668,7 +1889,7 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 			sys.exit(0)
 
 
-class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
+class DualStackServer(ThreadingHTTPServer):  # UNSUPPORTED IN PYTHON 3.7
 
 	def handle_error(self, request, client_address):
 		pass
@@ -1681,60 +1902,55 @@ class DualStackServer(ThreadingHTTPServer): # UNSUPPORTED IN PYTHON 3.7
 		return super().server_bind()
 
 	def finish_request(self, request, client_address):
-			self.RequestHandlerClass(request, client_address, self,
-									directory=config.ftp_dir)
+		self.RequestHandlerClass(request, client_address, self,
+								 directory=config.ftp_dir)
 
 
-
-
-def run(port = None, directory = None, bind = None, arg_parse= True, handler = SimpleHTTPRequestHandler):
+def run(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler):
 
 	if arg_parse:
-		args = config.parse_default_args(port=port, directory=directory, bind=bind)
+		args = config.parse_default_args(
+			port=port, directory=directory, bind=bind)
 
 		port = args.port
 		directory = args.directory
 		bind = args.bind
 
-
-
-	logger.info(tools.text_box("Running pyroboxCore: ", config.MAIN_FILE, "Version: ", __version__))
-
+	logger.info(tools.text_box("Running pyroboxCore: ",
+				config.MAIN_FILE, "Version: ", __version__))
 
 	if directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
-		logger.warning(config.ftp_dir, "not found!\nReseting directory to current directory")
+		logger.warning(
+			config.ftp_dir, "not found!\nReseting directory to current directory")
 		directory = "."
 
 	handler_class = partial(handler,
-								directory=directory)
+							directory=directory)
 
 	config.port = port
 	if port > 65535 or port < 0:
 		raise ValueError("Port must be between 0 and 65535")
-	
+
 	config.ftp_dir = directory
 
 	if not config.reload:
-		if sys.version_info>(3,8):
+		if sys.version_info > (3, 8):
 			test(
-			HandlerClass=handler_class,
-			ServerClass=DualStackServer,
-			port=port,
-			bind=bind,
+				HandlerClass=handler_class,
+				ServerClass=DualStackServer,
+				port=port,
+				bind=bind,
 			)
-		else: # BACKWARD COMPATIBILITY
+		else:  # BACKWARD COMPATIBILITY
 			test(
-			HandlerClass=handler_class,
-			ServerClass=ThreadingHTTPServer,
-			port=port,
-			bind=bind,
+				HandlerClass=handler_class,
+				ServerClass=ThreadingHTTPServer,
+				port=port,
+				bind=bind,
 			)
-
 
 	if config.reload == True:
 		reload_server()
-
-
 
 
 if __name__ == '__main__':

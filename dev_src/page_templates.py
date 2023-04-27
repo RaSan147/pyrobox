@@ -33,7 +33,7 @@ enc = "utf-8"
 
 
 class config:
-	dev_mode = False
+	dev_mode = True
 	file_list = {}
 
 pt_config = config()
@@ -73,4 +73,6 @@ def admin_page():
 
 def error_page():
 	return directory_explorer_header() + get_template("html_error.html")
+
+directory_explorer_header()
 

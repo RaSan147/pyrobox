@@ -891,18 +891,20 @@ def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 
 	# START
 	post.start()
+	form = post.form
 
-	verify_1 = post.get_part(verify_name='post-type', verify_msg=post_type, decode=T)
+	verify_1 = form.get_multi_field(verify_name='post-type', verify_msg=post_type, decode=T)
 
 
 	# GET UID
-	uid_verify = post.get_part(verify_name='post-uid', decode=T)
+	uid_verify = form.get_multi_field(verify_name='post-uid', decode=T)
 
-	if not uid_verify[0]:
+	uid = uid_verify[1]
+
+	if not uid:
 		raise PostError("Invalid request: No uid provided")
 
 
-	uid = uid_verify[1]
 
 
 	##################################
@@ -930,8 +932,11 @@ def upload(self: SH, *args, **kwargs):
 
 	post = DPD(self)
 
+
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'upload')
+
+	form = post.form
 
 	if not uid:
 		return None
@@ -942,7 +947,7 @@ def upload(self: SH, *args, **kwargs):
 
 
 	# PASSWORD SYSTEM
-	password = post.get_part(verify_name='password', decode=T)[1]
+	password = form.get_multi_field(verify_name='password', decode=T)[1]
 
 	self.log_debug(f'post password: {[password]} by client')
 	if password != config.PASSWORD: # readline returns password with \r\n at end
@@ -951,38 +956,33 @@ def upload(self: SH, *args, **kwargs):
 		return self.send_txt(HTTPStatus.UNAUTHORIZED, "Incorrect password")
 
 	while post.remainbytes > 0:
-		line = post.get()
-
-		fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
+		fn = form.get_file_name() # reads the next line and returns the file name
 		if not fn:
 			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...")
 
 
 		path = self.translate_path(self.path)
-		rltv_path = posixpath.join(url_path, fn[0])
-
-		if len(fn[0])==0:
-			return self.send_txt(HTTPStatus.BAD_REQUEST, "Invalid file name")
+		rltv_path = posixpath.join(url_path, fn)
 
 		temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
 		config.temp_file.add(temp_fn)
 
 
-		fn = os.path.join(path, fn[0])
+		fn = os.path.join(path, fn)
 
 
 
-		line = post.get(F) # content type
-		line = post.get(F) # line gap
+		line = post.get() # content type
+		line = post.get() # line gap
 
 
 
 		# ORIGINAL FILE STARTS FROM HERE
 		try:
 			with open(temp_fn, 'wb') as out:
-				preline = post.get(F)
+				preline = post.get()
 				while post.remainbytes > 0:
-					line = post.get(F)
+					line = post.get()
 					if post.boundary in line:
 						preline = preline[0:-1]
 						if preline.endswith(b'\r'):
@@ -1039,6 +1039,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'del-f')
+	form = post.form
 
 	if config.disabled_func["send2trash"]:
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
@@ -1046,7 +1047,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 
 	# File link to move to recycle bin
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename)
 	xpath = self.translate_path(posixpath.join(url_path, filename))
@@ -1084,11 +1085,12 @@ def del_permanently(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'del-p')
+	form = post.form
 
 
 
 	# File link to move to recycle bin
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 	path = self.get_rel_path(filename)
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
@@ -1129,13 +1131,14 @@ def rename_content(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'rename')
+	form = post.form
 
 
 
 	# File link to move to recycle bin
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
-	new_name = post.get_part(verify_name='data', decode=T)[1].strip()
+	new_name = form.get_multi_field(verify_name='data', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename)
 
@@ -1171,13 +1174,14 @@ def get_info(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'info')
+	form = post.form
 
 
 
 
 
 	# File link to move to check info
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename) # the relative path of the file or folder
 
@@ -1280,8 +1284,9 @@ def new_folder(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'new_folder')
+	form = post.form
 
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename)
 
