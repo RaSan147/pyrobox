@@ -21,7 +21,7 @@ import re
 import urllib.parse
 
 
-from exceptions import LimitExceed
+from ._exceptions import LimitExceed
 
 
 
@@ -194,12 +194,8 @@ def _get_tree_size(path, limit=None, must_read=False):
 		if limit and total>limit:
 			raise LimitExceed
 
-		if must_read:
-			try:
-				with open(entry.path, "rb") as f:
-					f.read(1)
-			except Exception:
-				continue
+		if must_read and not check_access(entry.path):
+			continue
 
 	return total
 
