@@ -1,5 +1,11 @@
 enc = "utf-8"
 
+# TODO
+# ----------------------------------------------------------------
+# * ADD MORE FILE TYPES
+# * ADD SEARCH
+
+
 import html
 from string import Template
 import os
@@ -29,12 +35,12 @@ import traceback
 import atexit
 
 from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH_base, DealPostData as DPD, run as run_server, tools, reload_server, __version__
-from arg_parser import main as arg_parser
-from fs_utils import get_titles, dir_navigator, get_dir_size, get_dir_m_time, get_stat, get_tree_count_n_size, _get_tree_path_n_size, fmbytes, humanbytes
 
-import page_templates as pt
-
+from _fs_utils import get_titles, dir_navigator, get_dir_size, get_dir_m_time, get_stat, get_tree_count_n_size, _get_tree_path_n_size, fmbytes, humanbytes
+from _arg_parser import main as arg_parser
+import _page_templates as pt
 from _exceptions import LimitExceed
+from _zipfly_manager import ZIP_Manager
 
 __version__ = __version__
 true = T = True
@@ -66,26 +72,12 @@ config.disabled_func.update({
 			"rename": False,
 })
 
+########## ZIP MANAGER ################################
 config.max_zip_size = 6*1024*1024*1024
+zip_manager = ZIP_Manager(config, size_limit=config.max_zip_size)
 
+#######################################################
 
-# FEATURES
-# ----------------------------------------------------------------
-# * PAUSE AND RESUME
-# * UPLOAD WITH PASSWORD
-# * FOLDER DOWNLOAD (uses temp folder)
-# * VIDEO PLAYER
-# * DELETE FILE FROM REMOTEp (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
-# * File manager like NAVIGATION BAR
-# * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
-# * MULTIPLE FILE UPLOAD
-# * FOLDER CREATION
-# * Pop-up messages (from my Web leach repo)
-
-# TODO
-# ----------------------------------------------------------------
-# * ADD MORE FILE TYPES
-# * ADD SEARCH
 
 
 # INSTALL REQUIRED PACKAGES
@@ -345,15 +337,6 @@ def list_directory(self:SH, path):
 
 
 
-
-#############################################
-#               ZIP INITIALIZE              #
-#############################################
-
-from zipfly_manager import ZIP_Manager
-zip_manager = ZIP_Manager(config, size_limit=config.max_zip_size)
-
-#---------------------------x--------------------------------
 
 
 if not os.path.isdir(config.log_location):

@@ -15,7 +15,7 @@ import traceback
 import threading
 from collections import OrderedDict
 
-from fs_utils import get_dir_size, get_dir_m_time, _get_tree_path_n_size
+from _fs_utils import get_dir_size, get_dir_m_time, _get_tree_path_n_size
 from _exceptions import LimitExceed
 
 
