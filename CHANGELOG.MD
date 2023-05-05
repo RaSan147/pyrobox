@@ -1,3 +1,17 @@
+# Version 0.8.0
+  ## Client-side Changes:
+  * Zip page shows more info (Calculating notice)
+  ## Server-side Changes:
+  * (RENAMED) Server.py util files
+  * Improved zip functionality and cache based speed boost
+  ## Fixes:
+  * While calculating zip size, client kept requesting zip size, which caused server to calculate zip size again and again
+    * and make new zip instance again and again
+  ## TODO:
+  * Study hard, exam soon
+
+
+
 # Version 0.7.4
   ## Client-side Changes:
   * Updated Error page (with http.cat 😸)

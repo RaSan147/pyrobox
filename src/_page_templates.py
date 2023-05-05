@@ -5,7 +5,7 @@ __all__ = [
 	"global_script",
 	"file_list",
 	"upload_form",
-	"js_script",
+	"file_list_script",
 	"video_script",
 	"zip_script",
 	"admin_page",
@@ -56,11 +56,11 @@ def global_script():
 def file_list():
 	return global_script() + get_template("html_file_list.html")
 
+def file_list_script():
+	return get_template("html_script.html")
+
 def upload_form():
 	return get_template("html_upload.html")
-
-def js_script():
-	return global_script() + get_template("html_script.html")
 
 def video_script():
 	return global_script() + get_template("html_vid.html")

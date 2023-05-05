@@ -2,7 +2,11 @@
 # -*- coding: utf-8 -*-
 
 
-enc = "utf-8"
+
+# TODO
+# ----------------------------------------------------------------
+# * ADD MORE FILE TYPES
+# * ADD SEARCH
 
 import html
 from string import Template
@@ -32,15 +36,18 @@ from http import HTTPStatus
 import traceback
 import atexit
 
-from .pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH_base, DealPostData as DPD, run as run_server, tools, Callable_dict, reload_server, __version__
-from .arg_parser import main as arg_parser
-from .fs_utils import get_titles, dir_navigator, get_dir_size, get_dir_m_time, get_stat, get_tree_count_n_size, _get_tree_path_n_size, fmbytes, humanbytes
+from .pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH_base, DealPostData as DPD, run as run_server, tools, reload_server, __version__
 
-from . import page_templates as pt
+from ._fs_utils import get_titles, dir_navigator, get_dir_size, get_dir_m_time, get_stat, get_tree_count_n_size, _get_tree_path_n_size, fmbytes, humanbytes
+from ._arg_parser import main as arg_parser
+from . import _page_templates as pt
+from ._exceptions import LimitExceed
+from ._zipfly_manager import ZIP_Manager
 
 __version__ = __version__
 true = T = True
 false = F = False
+enc = "utf-8"
 
 ###########################################
 # ADD COMMAND LINE ARGUMENTS
@@ -68,24 +75,12 @@ config.disabled_func.update({
 			"rename": False,
 })
 
+########## ZIP MANAGER ################################
+config.max_zip_size = 6*1024*1024*1024
+zip_manager = ZIP_Manager(config, size_limit=config.max_zip_size)
 
-# FEATURES
-# ----------------------------------------------------------------
-# * PAUSE AND RESUME
-# * UPLOAD WITH PASSWORD
-# * FOLDER DOWNLOAD (uses temp folder)
-# * VIDEO PLAYER
-# * DELETE FILE FROM REMOTEp (RECYCLE BIN) # PERMANENTLY DELETE IS VULNERABLE
-# * File manager like NAVIGATION BAR
-# * RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
-# * MULTIPLE FILE UPLOAD
-# * FOLDER CREATION
-# * Pop-up messages (from my Web leach repo)
+#######################################################
 
-# TODO
-# ----------------------------------------------------------------
-# * ADD MORE FILE TYPES
-# * ADD SEARCH
 
 
 # INSTALL REQUIRED PACKAGES
@@ -160,9 +155,10 @@ class SH(SH_base):
 
 		title = get_titles(displaypath)
 
-		_format = pt.error_page().safe_substitute(PY_PAGE_TITLE=title,
-													PY_PUBLIC_URL=config.address(),
-													PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+		_format = pt.error_page().safe_substitute(
+			PY_PAGE_TITLE=title,
+			PY_PUBLIC_URL=config.address(),
+			PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
 		return super().send_error(code, message, explain, Template(_format))
 
@@ -333,7 +329,7 @@ def list_directory(self:SH, path):
 
 		r.append(pt.upload_form().safe_substitute(PY_PUBLIC_URL=config.address()))
 
-	r.append(pt.js_script().safe_substitute(PY_LINK_LIST=str(r_li),
+	r.append(pt.file_list_script().safe_substitute(PY_LINK_LIST=str(r_li),
 										PY_FILE_LIST=str(f_li),
 										PY_FILE_SIZE =str(s_li)))
 
@@ -344,150 +340,6 @@ def list_directory(self:SH, path):
 
 
 
-
-#############################################
-#               ZIP INITIALIZE              #
-#############################################
-
-from .zipfly_local import ZipFly
-
-class ZIP_Manager:
-	def __init__(self) -> None:
-		self.zip_temp_dir = tempfile.gettempdir() + '/zip_temp/'
-		self.zip_ids = Callable_dict()
-		self.zip_path_ids = Callable_dict()
-		self.zip_in_progress = Callable_dict()
-		self.zip_id_status = Callable_dict()
-
-		self.assigend_zid = Callable_dict()
-
-		self.cleanup()
-		atexit.register(self.cleanup)
-
-		self.init_dir()
-
-
-	def init_dir(self):
-		os.makedirs(self.zip_temp_dir, exist_ok=True)
-
-
-	def cleanup(self):
-		shutil.rmtree(self.zip_temp_dir, ignore_errors=True)
-
-	def get_id(self, path, size=None):
-		source_size = size if size else get_dir_size(path, must_read=True)
-		source_m_time = get_dir_m_time(path)
-
-		exist = 1
-
-		prev_zid, prev_size, prev_m_time = 0,0,0
-		if self.zip_path_ids(path):
-			prev_zid, prev_size, prev_m_time = self.zip_path_ids[path]
-
-		elif self.assigend_zid(path):
-			prev_zid, prev_size, prev_m_time = self.assigend_zid[path]
-
-		else:
-			exist=0
-
-
-		if exist and prev_m_time == source_m_time and prev_size == source_size:
-			return prev_zid
-
-
-		id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))+'_'+ str(time.time())
-		id += '0'*(25-len(id))
-
-
-		self.assigend_zid[path] = (id, source_size, source_m_time)
-		return id
-
-
-
-
-	def archive(self, path, zid, size=None):
-		"""
-		archive the folder
-
-		`path`: path to archive
-		`zid`: id of the folder
-		`size`: size of the folder (optional)
-		"""
-		def err(msg):
-			self.zip_in_progress.pop(zid, None)
-			self.assigend_zid.pop(path, None)
-			self.zip_id_status[zid] = "ERROR: " + msg
-			return False
-		if config.disabled_func["zip"]:
-			return err("ZIP FUNTION DISABLED")
-
-
-
-
-		# run zipfly
-		self.zip_in_progress[zid] = 0
-
-		fs = _get_tree_path_n_size(path, must_read=True, path_type="both")
-		source_size = sum(i[1] for i in fs)
-		fm = [i[0] for i in fs]
-
-		if len(fm)==0:
-			return err("FOLDER HAS NO FILES")
-
-		source_m_time = get_dir_m_time(path)
-
-
-		dir_name = os.path.basename(path)
-
-
-
-		zfile_name = os.path.join(self.zip_temp_dir, "{dir_name}({zid})".format(dir_name=dir_name, zid=zid) + ".zip")
-
-		self.init_dir()
-
-
-		paths = []
-		for i,j in fm:
-			paths.append({"fs": i, "n":j})
-
-		zfly = ZipFly(paths = paths, chunksize=0x80000)
-
-
-
-		archived_size = 0
-
-		self.zip_id_status[zid] = "ARCHIVING"
-
-		try:
-			with open(zfile_name, "wb") as zf:
-				for chunk, c_size in zfly.generator():
-					zf.write(chunk)
-					archived_size += c_size
-					if source_size==0:
-						source_size+=1 # prevent division by 0
-					self.zip_in_progress[zid] = (archived_size/source_size)*100
-		except Exception as e:
-			traceback.print_exc()
-			return err(e)
-		self.zip_in_progress.pop(zid, None)
-		self.assigend_zid.pop(path, None)
-		self.zip_id_status[zid] = "DONE"
-
-
-
-		self.zip_path_ids[path] = zid, source_size, source_m_time
-		self.zip_ids[zid] = zfile_name
-		# zip_ids are never cleared in runtime due to the fact if someones downloading a zip, the folder content changed, other person asked for zip, new zip created and this id got removed, the 1st user wont be able to resume
-
-
-		return zid
-
-	def archive_thread(self, path, zid, size=None):
-		return threading.Thread(target=self.archive, args=(path, zid, size))
-
-zip_manager = ZIP_Manager()
-
-#---------------------------x--------------------------------
 
 
 if not os.path.isdir(config.log_location):
@@ -683,28 +535,31 @@ def create_zip(self: SH, *args, **kwargs):
 	if config.disabled_func["zip"]:
 		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ERROR: ZIP FEATURE IS UNAVAILABLE !")
 
-	dir_size = get_dir_size(path, limit=6*1024*1024*1024)
+	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
-	if dir_size == -1:
-		msg = "Directory size is too large, please contact the host"
-		return self.return_txt(HTTPStatus.OK, msg)
+	# if dir_size == -1:
+	# 	msg = "Directory size is too large, please contact the host"
+	# 	return self.return_txt(HTTPStatus.OK, msg)
 
 	displaypath = self.get_displaypath(url_path)
 	filename = spathsplit[-2] + ".zip"
 
+	title = "Creating ZIP"
+
+	head = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+											PY_PUBLIC_URL=config.address(),
+											PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
 	try:
-		zid = zip_manager.get_id(path, dir_size)
-		title = "Creating ZIP"
-
-		head = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-												PY_PUBLIC_URL=config.address(),
-												PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+		zid = zip_manager.get_id(path)
 
 		tail = pt.zip_script().safe_substitute(PY_ZIP_ID = zid,
-		PY_ZIP_NAME = filename)
-		return self.return_txt(HTTPStatus.OK,
-		f"{head} {tail}")
+												PY_ZIP_NAME = filename)
+		return self.return_txt(HTTPStatus.OK, f"{head} {tail}")
+
+	except LimitExceed:
+		tail = "<h3>Directory size is too large, please contact the host</h3>"
+		return self.return_txt(HTTPStatus.SERVICE_UNAVAILABLE, f"{head} {tail}")
 	except Exception:
 		self.log_error(traceback.format_exc())
 		return self.return_txt(HTTPStatus.OK, "ERROR")
@@ -736,6 +591,9 @@ def get_zip(self: SH, *args, **kwargs):
 	id = query["zid"][0]
 
 	# IF NOT STARTED
+	if zip_manager.calculating(id):
+		return reply("CALCULATING")
+
 	if not zip_manager.zip_id_status(id):
 		t = zip_manager.archive_thread(path, id)
 		t.start()
@@ -894,18 +752,20 @@ def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 
 	# START
 	post.start()
+	form = post.form
 
-	verify_1 = post.get_part(verify_name='post-type', verify_msg=post_type, decode=T)
+	verify_1 = form.get_multi_field(verify_name='post-type', verify_msg=post_type, decode=T)
 
 
 	# GET UID
-	uid_verify = post.get_part(verify_name='post-uid', decode=T)
+	uid_verify = form.get_multi_field(verify_name='post-uid', decode=T)
 
-	if not uid_verify[0]:
+	uid = uid_verify[1]
+
+	if not uid:
 		raise PostError("Invalid request: No uid provided")
 
 
-	uid = uid_verify[1]
 
 
 	##################################
@@ -933,8 +793,11 @@ def upload(self: SH, *args, **kwargs):
 
 	post = DPD(self)
 
+
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'upload')
+
+	form = post.form
 
 	if not uid:
 		return None
@@ -945,7 +808,7 @@ def upload(self: SH, *args, **kwargs):
 
 
 	# PASSWORD SYSTEM
-	password = post.get_part(verify_name='password', decode=T)[1]
+	password = form.get_multi_field(verify_name='password', decode=T)[1]
 
 	self.log_debug(f'post password: {[password]} by client')
 	if password != config.PASSWORD: # readline returns password with \r\n at end
@@ -954,38 +817,33 @@ def upload(self: SH, *args, **kwargs):
 		return self.send_txt(HTTPStatus.UNAUTHORIZED, "Incorrect password")
 
 	while post.remainbytes > 0:
-		line = post.get()
-
-		fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line.decode())
+		fn = form.get_file_name() # reads the next line and returns the file name
 		if not fn:
 			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...")
 
 
 		path = self.translate_path(self.path)
-		rltv_path = posixpath.join(url_path, fn[0])
-
-		if len(fn[0])==0:
-			return self.send_txt(HTTPStatus.BAD_REQUEST, "Invalid file name")
+		rltv_path = posixpath.join(url_path, fn)
 
 		temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
 		config.temp_file.add(temp_fn)
 
 
-		fn = os.path.join(path, fn[0])
+		fn = os.path.join(path, fn)
 
 
 
-		line = post.get(F) # content type
-		line = post.get(F) # line gap
+		line = post.get() # content type
+		line = post.get() # line gap
 
 
 
 		# ORIGINAL FILE STARTS FROM HERE
 		try:
 			with open(temp_fn, 'wb') as out:
-				preline = post.get(F)
+				preline = post.get()
 				while post.remainbytes > 0:
-					line = post.get(F)
+					line = post.get()
 					if post.boundary in line:
 						preline = preline[0:-1]
 						if preline.endswith(b'\r'):
@@ -1042,6 +900,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'del-f')
+	form = post.form
 
 	if config.disabled_func["send2trash"]:
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
@@ -1049,7 +908,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 
 	# File link to move to recycle bin
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename)
 	xpath = self.translate_path(posixpath.join(url_path, filename))
@@ -1087,11 +946,12 @@ def del_permanently(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'del-p')
+	form = post.form
 
 
 
 	# File link to move to recycle bin
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 	path = self.get_rel_path(filename)
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
@@ -1132,13 +992,14 @@ def rename_content(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'rename')
+	form = post.form
 
 
 
 	# File link to move to recycle bin
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
-	new_name = post.get_part(verify_name='data', decode=T)[1].strip()
+	new_name = form.get_multi_field(verify_name='data', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename)
 
@@ -1174,13 +1035,14 @@ def get_info(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'info')
+	form = post.form
 
 
 
 
 
 	# File link to move to check info
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename) # the relative path of the file or folder
 
@@ -1283,8 +1145,9 @@ def new_folder(self: SH, *args, **kwargs):
 
 	# AUTHORIZE
 	uid = AUTHORIZE_POST(self, post, 'new_folder')
+	form = post.form
 
-	filename = post.get_part(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
 	path = self.get_rel_path(filename)
 
