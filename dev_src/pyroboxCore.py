@@ -150,7 +150,7 @@ class Config:
 		return './'
 
 	def address(self):
-		return "http://%s:%i" % (self.IP, self.port)
+		return f"http://{self.IP}:{self.port}"
 
 	def parse_default_args(self, port=0, directory="", bind=None):
 		if not port:

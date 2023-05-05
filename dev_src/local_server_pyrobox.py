@@ -28,11 +28,13 @@ from http import HTTPStatus
 import traceback
 import atexit
 
-from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH_base, DealPostData as DPD, run as run_server, tools, Callable_dict, reload_server, __version__
+from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH_base, DealPostData as DPD, run as run_server, tools, reload_server, __version__
 from arg_parser import main as arg_parser
 from fs_utils import get_titles, dir_navigator, get_dir_size, get_dir_m_time, get_stat, get_tree_count_n_size, _get_tree_path_n_size, fmbytes, humanbytes
 
 import page_templates as pt
+
+from _exceptions import LimitExceed
 
 __version__ = __version__
 true = T = True
@@ -63,6 +65,8 @@ config.disabled_func.update({
 			"new_folder": False,
 			"rename": False,
 })
+
+config.max_zip_size = 6*1024*1024*1024
 
 
 # FEATURES
@@ -346,143 +350,8 @@ def list_directory(self:SH, path):
 #               ZIP INITIALIZE              #
 #############################################
 
-from zipfly_local import ZipFly
-
-class ZIP_Manager:
-	def __init__(self) -> None:
-		self.zip_temp_dir = tempfile.gettempdir() + '/zip_temp/'
-		self.zip_ids = Callable_dict()
-		self.zip_path_ids = Callable_dict()
-		self.zip_in_progress = Callable_dict()
-		self.zip_id_status = Callable_dict()
-
-		self.assigend_zid = Callable_dict()
-
-		self.cleanup()
-		atexit.register(self.cleanup)
-
-		self.init_dir()
-
-
-	def init_dir(self):
-		os.makedirs(self.zip_temp_dir, exist_ok=True)
-
-
-	def cleanup(self):
-		shutil.rmtree(self.zip_temp_dir, ignore_errors=True)
-
-	def get_id(self, path, size=None):
-		source_size = size if size else get_dir_size(path, must_read=True)
-		source_m_time = get_dir_m_time(path)
-
-		exist = 1
-
-		prev_zid, prev_size, prev_m_time = 0,0,0
-		if self.zip_path_ids(path):
-			prev_zid, prev_size, prev_m_time = self.zip_path_ids[path]
-
-		elif self.assigend_zid(path):
-			prev_zid, prev_size, prev_m_time = self.assigend_zid[path]
-
-		else:
-			exist=0
-
-
-		if exist and prev_m_time == source_m_time and prev_size == source_size:
-			return prev_zid
-
-
-		id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))+'_'+ str(time.time())
-		id += '0'*(25-len(id))
-
-
-		self.assigend_zid[path] = (id, source_size, source_m_time)
-		return id
-
-
-
-
-	def archive(self, path, zid, size=None):
-		"""
-		archive the folder
-
-		`path`: path to archive
-		`zid`: id of the folder
-		`size`: size of the folder (optional)
-		"""
-		def err(msg):
-			self.zip_in_progress.pop(zid, None)
-			self.assigend_zid.pop(path, None)
-			self.zip_id_status[zid] = "ERROR: " + msg
-			return False
-		if config.disabled_func["zip"]:
-			return err("ZIP FUNTION DISABLED")
-
-
-
-
-		# run zipfly
-		self.zip_in_progress[zid] = 0
-
-		fs = _get_tree_path_n_size(path, must_read=True, path_type="both")
-		source_size = sum(i[1] for i in fs)
-		fm = [i[0] for i in fs]
-
-		if len(fm)==0:
-			return err("FOLDER HAS NO FILES")
-
-		source_m_time = get_dir_m_time(path)
-
-
-		dir_name = os.path.basename(path)
-
-
-
-		zfile_name = os.path.join(self.zip_temp_dir, "{dir_name}({zid})".format(dir_name=dir_name, zid=zid) + ".zip")
-
-		self.init_dir()
-
-
-		paths = []
-		for i,j in fm:
-			paths.append({"fs": i, "n":j})
-
-		zfly = ZipFly(paths = paths, chunksize=0x80000)
-
-
-
-		archived_size = 0
-
-		self.zip_id_status[zid] = "ARCHIVING"
-
-		try:
-			with open(zfile_name, "wb") as zf:
-				for chunk, c_size in zfly.generator():
-					zf.write(chunk)
-					archived_size += c_size
-					if source_size==0:
-						source_size+=1 # prevent division by 0
-					self.zip_in_progress[zid] = (archived_size/source_size)*100
-		except Exception as e:
-			traceback.print_exc()
-			return err(e)
-		self.zip_in_progress.pop(zid, None)
-		self.assigend_zid.pop(path, None)
-		self.zip_id_status[zid] = "DONE"
-
-
-
-		self.zip_path_ids[path] = zid, source_size, source_m_time
-		self.zip_ids[zid] = zfile_name
-		# zip_ids are never cleared in runtime due to the fact if someones downloading a zip, the folder content changed, other person asked for zip, new zip created and this id got removed, the 1st user wont be able to resume
-
-
-		return zid
-
-	def archive_thread(self, path, zid, size=None):
-		return threading.Thread(target=self.archive, args=(path, zid, size))
-
-zip_manager = ZIP_Manager()
+from zipfly_manager import ZIP_Manager
+zip_manager = ZIP_Manager(config, size_limit=config.max_zip_size)
 
 #---------------------------x--------------------------------
 
@@ -680,28 +549,31 @@ def create_zip(self: SH, *args, **kwargs):
 	if config.disabled_func["zip"]:
 		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ERROR: ZIP FEATURE IS UNAVAILABLE !")
 
-	dir_size = get_dir_size(path, limit=6*1024*1024*1024)
+	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
-	if dir_size == -1:
-		msg = "Directory size is too large, please contact the host"
-		return self.return_txt(HTTPStatus.OK, msg)
+	# if dir_size == -1:
+	# 	msg = "Directory size is too large, please contact the host"
+	# 	return self.return_txt(HTTPStatus.OK, msg)
 
 	displaypath = self.get_displaypath(url_path)
 	filename = spathsplit[-2] + ".zip"
 
+	title = "Creating ZIP"
+
+	head = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+											PY_PUBLIC_URL=config.address(),
+											PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
 	try:
-		zid = zip_manager.get_id(path, dir_size)
-		title = "Creating ZIP"
-
-		head = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-												PY_PUBLIC_URL=config.address(),
-												PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+		zid = zip_manager.get_id(path)
 
 		tail = pt.zip_script().safe_substitute(PY_ZIP_ID = zid,
-		PY_ZIP_NAME = filename)
-		return self.return_txt(HTTPStatus.OK,
-		f"{head} {tail}")
+												PY_ZIP_NAME = filename)
+		return self.return_txt(HTTPStatus.OK, f"{head} {tail}")
+
+	except LimitExceed:
+		tail = "<h3>Directory size is too large, please contact the host</h3>"
+		return self.return_txt(HTTPStatus.SERVICE_UNAVAILABLE, f"{head} {tail}")
 	except Exception:
 		self.log_error(traceback.format_exc())
 		return self.return_txt(HTTPStatus.OK, "ERROR")
@@ -733,6 +605,9 @@ def get_zip(self: SH, *args, **kwargs):
 	id = query["zid"][0]
 
 	# IF NOT STARTED
+	if zip_manager.calculating(id):
+		return reply("CALCULATING")
+
 	if not zip_manager.zip_id_status(id):
 		t = zip_manager.archive_thread(path, id)
 		t.start()
