@@ -401,7 +401,7 @@ def listsort(li):
 
 
 
-
+# TODO check against user_mgmt
 # download file from url using urllib
 def fetch_url(url, file = None):
 	try:
@@ -743,7 +743,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 
 
 
-
+# TODO check against user_mgmt
 def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 	"""Check if the user is authorized to post"""
 
@@ -776,7 +776,7 @@ def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 
 
 
-
+# TODO check against user_mgmt
 @SH.on_req('POST', hasQ="upload")
 def upload(self: SH, *args, **kwargs):
 	"""GET Uploaded files"""
