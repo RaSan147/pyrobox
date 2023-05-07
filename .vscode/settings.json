@@ -1,3 +1,8 @@
 {
-	"files.eol": "\n"
+	"files.eol": "\n",
+	"python.testing.pytestArgs": [
+		"dev_src/test_user_mgmt.py"
+	],
+	"python.testing.unittestEnabled": false,
+	"python.testing.pytestEnabled": true
 }
