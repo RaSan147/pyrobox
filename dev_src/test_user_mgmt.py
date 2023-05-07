@@ -42,6 +42,9 @@ def test_class_User_init(monkeypatch):
     assert demo_user.username == demo_user_dn
     assert demo_user.permission == UserPermission(7)
 
+    with pytest.raises(ValueError):
+        User(username="non_exsistant", permission=UserPermission(1))
+
 
 def test_class_User_lookup(monkeypatch):
     test_user_db: pickledb.PickleDB = pickledb.load(
@@ -70,6 +73,7 @@ def test_class_User_password(monkeypatch):
     demo_user.reset_pw(demo_user_old_pw, demo_user_new_pw)
     assert demo_user.check_creds(demo_user_new_pw)
     assert not demo_user.check_creds(demo_user_old_pw)
+    assert demo_user.reset_pw("false_password", demo_user_new_pw) == 1
 
 
 def test_class_User_getUser(monkeypatch):
@@ -85,6 +89,7 @@ def test_class_User_getUser(monkeypatch):
         assert True
     if not User.get_user("wrong"):
         assert True
+
 
 def test_class_User_permissions(monkeypatch):
     test_user_db: pickledb.PickleDB = pickledb.load(
@@ -107,3 +112,8 @@ def test_class_User_permissions(monkeypatch):
     user_bob = User("bob", UserPermission(0), "theP@ssword")
     assert user_bob.check_creds("theP@ssword")
     assert not user_bob.check_creds("NOTtheP@ssword")
+
+
+def test_enum_UserPermission():
+    for each in range(0, 7):
+        assert UserPermission(each)

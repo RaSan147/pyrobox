@@ -18,6 +18,7 @@ class UserPermission(Enum):
     Args:
         Enum (int): POSIX Octal Permission for User
     """
+
     NOPERMISSION = 0
     EXECUTE = 1
     WRITE = 2
@@ -29,8 +30,8 @@ class UserPermission(Enum):
 
 
 class User:
-    """Object for WebUI users
-    """
+    """Object for WebUI users"""
+
     def __init__(self, username: str, permission: UserPermission, password: str = None):
         """Generate Object for WebUI users
 
@@ -45,6 +46,7 @@ class User:
         Returns:
             User: Object for WebUI users
         """
+
         # Private function
         def update_pw(self, password: str):
             """Private method to update password, not usable from outside object
@@ -59,26 +61,20 @@ class User:
                 Int: Zero if OK
             """
             # passwords and hashed passwords are not ever assigned to the object
-            try:
-                salted_password = self.get_salt_pw(password)
-                logger.info(f"Updating password of user {self.username}")
-                user_db.set(self.username, salted_password)
-                return 0
-            except:
-                raise ValueError
+            salted_password = self.get_salt_pw(password)
+            logger.info(f"Updating password of user {self.username}")
+            user_db.set(self.username, salted_password)
+            return 0
 
-        try:
-            self.username = username
-            if user_db.exists(username):
-                self.permission = permission
-            elif password == None:
-                self.permission = permission
-            else:
+        self.username = username
+        if user_db.exists(username):
+            self.permission = permission
+        else:
+            if username and permission and password:
                 update_pw(self, password)
                 self.set_permissions(permission)
-        except ValueError as e:
-            logger.error(f"User creationg error: {e}")
-            return
+            else:
+                raise ValueError("No such username")
 
     common_salt = hashlib.md5(
         config.PASSWORD.encode()
@@ -117,4 +113,3 @@ class User:
     def check_creds(self, password: str) -> bool:
         salted_new_password = self.get_salt_pw(password)
         return compare_digest(user_db.get(self.username), salted_new_password)
-
