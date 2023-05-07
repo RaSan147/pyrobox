@@ -94,7 +94,7 @@ class User:
             return cls(username=username, permission=permission)
         else:
             logger.error(f"User {username} does not exist")
-            raise NameError
+            return False
 
     def set_permissions(self, permission: UserPermission):
         if type(permission) != UserPermission:
