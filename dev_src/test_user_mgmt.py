@@ -72,6 +72,19 @@ def test_class_User_password(monkeypatch):
     assert not demo_user.check_creds(demo_user_old_pw)
 
 
+def test_class_User_getUser(monkeypatch):
+    test_user_db: pickledb.PickleDB = pickledb.load(
+        os.path.join(config.MAIN_FILE_dir, "test_users.db"), True
+    )
+    monkeypatch.setattr("dev_src.user_mgmt.user_db", test_user_db)
+    demo_user_dn = "AliceTheAdmin"
+    demo_user = User.get_user(demo_user_dn)
+    assert type(User.get_user(username=demo_user_dn)) == User
+    with pytest.raises(NameError):
+        assert type(User.get_user("wrong"))
+    assert User.get_user(demo_user_dn).__dict__ == demo_user.__dict__
+
+
 def test_class_User_permissions(monkeypatch):
     test_user_db: pickledb.PickleDB = pickledb.load(
         os.path.join(config.MAIN_FILE_dir, "test_users.db"), True
@@ -89,11 +102,6 @@ def test_class_User_permissions(monkeypatch):
     demo_user.set_permissions(permission=4)  # invalid permission
     demo_user.set_permissions(permission=UserPermission(4))  # valid permission
     assert demo_user.permission == UserPermission(4)
-
-    assert type(User.get_user(username=demo_user_dn)) == User
-    with pytest.raises(NameError):
-        assert type(User.get_user("wrong"))
-    assert User.get_user(demo_user_dn).__dict__ == demo_user.__dict__
 
     user_bob = User("bob", UserPermission(0), "theP@ssword")
     assert user_bob.check_creds("theP@ssword")
