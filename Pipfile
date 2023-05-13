@@ -7,6 +7,7 @@ name = "pypi"
 pickledb = "*"
 pytest = "*"
 pytest-cov = "*"
+tox = "*"
 
 [dev-packages]
 

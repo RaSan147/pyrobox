@@ -1,11 +1,10 @@
-# User managment expirement
 import pickledb
 import hashlib
 import os
 from secrets import compare_digest
 from pyroboxCore import config, logger
 from enum import Enum
-from typing import Tuple, List
+from typing import Tuple, List, Literal, TypeVar
 
 # Loads user database. Database is plaintext but stores passwords as a hash salted by config.PASSWORD
 user_db: pickledb.PickleDB = pickledb.load(
@@ -27,8 +26,6 @@ class UserPermission(Enum):
     DELETE = 4
     UPLOAD = 5
     ZIP = 6
-
-    # [ ] view [ ] download [ ] zip download (since it uses great resources) [ ] upload [ ] delete [ ] modify [ ] banned (maybe?)
 
 
 class User:
@@ -55,7 +52,7 @@ class User:
         """
 
         # Private function
-        def update_pw(self, password: str):
+        def update_pw(self, password: str) -> Literal[0]:
             """Private method to update password, not usable from outside object
 
             Args:
@@ -84,6 +81,8 @@ class User:
             else:
                 raise ValueError("No such username")
 
+    Self = TypeVar("Self")
+    # self refernce for use in classmethods that can't strong type User because it's inside the method
     common_salt = hashlib.md5(config.PASSWORD.encode()).hexdigest()
     # get the MD5 has of the CLI password to use as a salt, makes a longer string and avoids holding secrets in memory
 
@@ -124,7 +123,15 @@ class User:
         return packed
 
     @classmethod
-    def get_user(cls, username: str):
+    def get_user(cls, username: str) -> Self | bool(False):
+        """Lookup User
+
+        Args:
+            username (str): username of User
+
+        Returns:
+            User | bool(False): Valid User object or False
+        """
         if user_db.exists(username) and user_db.exists(username + "__permissions"):
             permission = user_db.get(username + "__permissions")
             return cls(username=username, permission=permission)
@@ -146,7 +153,7 @@ class User:
             output.append(UserPermission(0))
         return tuple(output)
 
-    def permit(self, permission: UserPermission | Tuple[UserPermission]):
+    def permit(self, permission: UserPermission | Tuple[UserPermission]) -> Literal[0]:
         """Turn on permissions
 
         Args:
@@ -161,8 +168,9 @@ class User:
         user_db.set(
             self.username + "__permissions", self.pack_permission(standing_permission)
         )
+        return 0
 
-    def revoke(self, permission: UserPermission | Tuple[UserPermission]):
+    def revoke(self, permission: UserPermission | Tuple[UserPermission]) -> Literal[0]:
         """Turn off permissions
 
         Args:
@@ -179,6 +187,7 @@ class User:
         user_db.set(
             self.username + "__permissions", self.pack_permission(standing_permission)
         )
+        return 0
 
     def reset_pw(self, old_password: str, new_password: str) -> int:
         """Reset password
