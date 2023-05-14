@@ -4,20 +4,24 @@ import os, sys
 from typing import Tuple
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from dev_src.pyroboxCore import config
+# from dev_src.pyroboxCore import config
 import dev_src
 from dev_src.user_mgmt import User, UserPermission
 
-
 @pytest.fixture(scope="session", autouse=True)
 def cleanup():
+    from dev_src.user_mgmt import config
     # setup
     yield
     # teardown
-    os.remove(os.path.join(config.MAIN_FILE_dir, "test_users.db"))
-
+    if os.path.exists(os.path.join(config.MAIN_FILE_dir, "test_users.db")):
+        os.remove(os.path.join(config.MAIN_FILE_dir, "test_users.db"))
+    if os.path.exists(os.path.join(config.MAIN_FILE_dir, "users.db")):
+        os.remove(os.path.join(config.MAIN_FILE_dir, "users.db"))
+          
 
 def test_mock_db(monkeypatch):
+    from dev_src.user_mgmt import config
     test_user_db: pickledb.PickleDB = pickledb.load(
         os.path.join(config.MAIN_FILE_dir, "test_users.db"), True
     )
@@ -27,6 +31,7 @@ def test_mock_db(monkeypatch):
 
 
 def test_class_User_init(monkeypatch):
+    from dev_src.user_mgmt import config
     test_user_db: pickledb.PickleDB = pickledb.load(
         os.path.join(config.MAIN_FILE_dir, "test_users.db"), True
     )
@@ -50,6 +55,7 @@ def test_class_User_init(monkeypatch):
 
 
 def test_class_User_lookup(monkeypatch):
+    from dev_src.user_mgmt import config
     test_user_db: pickledb.PickleDB = pickledb.load(
         os.path.join(config.MAIN_FILE_dir, "test_users.db"), True
     )
@@ -64,6 +70,7 @@ def test_class_User_lookup(monkeypatch):
 
 
 def test_class_User_password(monkeypatch):
+    from dev_src.user_mgmt import config
     test_user_db: pickledb.PickleDB = pickledb.load(
         os.path.join(config.MAIN_FILE_dir, "test_users.db"), True
     )
@@ -81,6 +88,7 @@ def test_class_User_password(monkeypatch):
 
 
 def test_class_User_getUser(monkeypatch):
+    from dev_src.user_mgmt import config
     test_user_db: pickledb.PickleDB = pickledb.load(
         os.path.join(config.MAIN_FILE_dir, "test_users.db"), True
     )
@@ -96,6 +104,7 @@ def test_class_User_getUser(monkeypatch):
 
 
 def test_class_User_permissions(monkeypatch):
+    from dev_src.user_mgmt import config
     test_user_db: pickledb.PickleDB = pickledb.load(
         os.path.join(config.MAIN_FILE_dir, "test_users.db"), True
     )
@@ -135,6 +144,7 @@ def test_class_User_permissions(monkeypatch):
 
 
 def test_class_User_creds(monkeypatch):
+    from dev_src.user_mgmt import config
     test_user_db: pickledb.PickleDB = pickledb.load(
         os.path.join(config.MAIN_FILE_dir, "test_users.db"), True
     )
@@ -147,3 +157,14 @@ def test_class_User_creds(monkeypatch):
 def test_enum_UserPermission():
     for each in range(0, 6):
         assert UserPermission(each)
+
+def test_adler32():
+    test_value = "ab07e076-f1f6-11ed-a05b-0242ac120003"
+    test_hash = "2956200217"
+    from session_mgmt import adler32
+    assert type(adler32(test_value)) == str
+    assert adler32(test_value) == test_hash
+    assert int(adler32(test_value)) == int(test_hash)
+    from zlib import adler32 as zlib_adler32
+    assert adler32(test_value) == str(zlib_adler32(test_value.encode()))
+    assert int(adler32(test_value)) == int(zlib_adler32(test_value.encode()))

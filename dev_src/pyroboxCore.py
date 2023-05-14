@@ -28,7 +28,7 @@ from queue import Queue
 import logging
 import atexit
 import os
-
+from session_mgmt import MachineSession
 
 __version__ = "0.8.1"
 enc = "utf-8"
@@ -128,8 +128,10 @@ class Config:
 		""")
 
 		self.DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
+		self.LOCALSESSION = MachineSession(path = self.ftp_dir, main_dir= self.MAIN_FILE_dir) # TODO: Optional name parameter
 
 	def clear_temp(self):
+		# self.LOCALSESSION.destroy() # TODO: Fix to avoid circular reference
 		for i in self.temp_file:
 			try:
 				os.remove(i)

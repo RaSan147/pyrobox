@@ -7,10 +7,6 @@ from enum import Enum
 from typing import Tuple, List, Literal, TypeVar
 
 # Loads user database. Database is plaintext but stores passwords as a hash salted by config.PASSWORD
-user_db: pickledb.PickleDB = pickledb.load(
-    os.path.join(config.MAIN_FILE_dir, "users.db"), True
-)
-
 
 class UserPermission(Enum):
     """Enum for WebUI user permissions, inspired by Unix permission style
@@ -28,9 +24,9 @@ class UserPermission(Enum):
     ZIP = 6
 
 
+user_db = config.LOCALSESSION.user_db
 class User:
     """Object for WebUI users"""
-
     def __init__(
         self,
         username: str,
