@@ -5,6 +5,7 @@ import random
 import base64
 import re
 from http import HTTPStatus
+from http.cookies import SimpleCookie
 from functools import partial
 import contextlib
 import urllib.request
@@ -30,7 +31,7 @@ import atexit
 import os
 
 
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -133,7 +134,7 @@ class Config:
 		for i in self.temp_file:
 			try:
 				os.remove(i)
-			except:
+			except OSError:
 				pass
 
 	def get_os(self):
@@ -195,7 +196,10 @@ class Tools:
 			"udash": "_"
 		}
 
-	def term_width(self):
+	@staticmethod
+	def term_width():
+		""" Return CLI screen size (if not found, returns default value)
+		"""
 		return shutil.get_terminal_size()[0]
 
 	def text_box(self, *text, style="equal", sep=" "):
@@ -211,7 +215,11 @@ class Tools:
 			tt += i.center(term_col) + '\n'
 		return (f"\n\n{s*term_col}\n{tt}{s*term_col}\n\n")
 
-	def random_string(self, length=10):
+	@staticmethod
+	def random_string(length=10):
+		"""Generates a random string
+		length : length of string
+		"""
 		letters = string.ascii_lowercase
 		return ''.join(random.choice(letters) for i in range(length))
 
@@ -241,7 +249,7 @@ def reload_server():
 				))
 	try:
 		os.execl(sys.executable, sys.executable, file, *sys.argv[1:])
-	except:
+	except OSError:
 		traceback.print_exc()
 	sys.exit(0)
 
@@ -347,14 +355,14 @@ def parse_byte_range(byte_range):
 
 	m = BYTE_RANGE_RE.match(byte_range)
 	if not m:
-		raise ValueError('Invalid byte range %s' % byte_range)
+		raise ValueError(f'Invalid byte range {byte_range}')
 
 	# first, last = [x and int(x) for x in m.groups()] #
 
 	first, last = map((lambda x: int(x) if x else None), m.groups())
 
 	if last and last < first:
-		raise ValueError('Invalid byte range %s' % byte_range)
+		raise ValueError(f'Invalid byte range { byte_range}')
 	return first, last
 
 # ---------------------------x--------------------------------
@@ -459,6 +467,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		self.command = ''  # set in case of error on the first line
 		self.request_version = version = self.default_request_version
 		self.close_connection = True
+		self.header_flushed = False # true when headers are flushed by self.flush_headers()
+		self.response_code_sent = False # true when response code (>=200) is sent by self.send_response()
+
+
 		requestline = str(self.raw_requestline, 'iso-8859-1')
 		requestline = requestline.rstrip('\r\n')
 		self.requestline = requestline
@@ -543,6 +555,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		elif (conntype.lower() == 'keep-alive' and
 			  self.protocol_version >= "HTTP/1.1"):
 			self.close_connection = False
+		
+		# Load cookies from request
+		# Uses standard SimpleCookie
+		# doc: https://docs.python.org/3/library/http.cookies.html
+		self.cookie = SimpleCookie()
+		self.cookie.load(self.headers.get('Cookie', ""))
+		# print(tools.text_box("Cookie: ", self.cookie))
+		
 		# Examine the headers and look for an Expect directive
 		expect = self.headers.get('Expect', "")
 		if (expect.lower() == "100-continue" and
@@ -726,6 +746,12 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		version and the current date.
 
 		"""
+		if self.response_code_sent:
+			return
+		
+		if not code//100 ==1: # 1xx - Informational (allowes multiple responses)
+			self.response_code_sent = True
+
 		self.log_request(code)
 		self.send_response_only(code, message)
 		self.send_header('Server', self.version_string())
@@ -744,6 +770,15 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self._headers_buffer.append(("%s %d %s\r\n" %
 				(self.protocol_version, code, message)).encode(
 				'utf-8', 'strict'))
+				
+	def send_header_string(self, lines:str):
+		"""Send a header multiline string to the headers buffer."""
+		for i in lines.split("\r\n"):
+			if not i:
+				continue
+			tag, _, msg = i.partition(":")
+			self.send_header(tag.strip(), msg.strip())
+			
 
 	def send_header(self, keyword, value):
 		"""Send a MIME header to the headers buffer."""
@@ -766,9 +801,18 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.flush_headers()
 
 	def flush_headers(self):
+		"""Flush the headers buffer."""
+		if self.header_flushed:
+			try:
+				raise RuntimeError("Headers already flushed")
+			except RuntimeError:
+				traceback.print_exc()
+			return
 		if hasattr(self, '_headers_buffer'):
 			self.wfile.write(b"".join(self._headers_buffer))
 			self._headers_buffer = []
+
+		self.header_flushed = True
 
 	def log_request(self, code='-', size='-'):
 		"""Log an accepted request.
@@ -911,9 +955,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	extensions_map = mimetypes.types_map.copy()
 	extensions_map.update({
 		'': 'application/octet-stream',  # Default
-			'.py': 'text/plain',
-			'.c': 'text/plain',
-			'.h': 'text/plain',
+			'.py': 'text/x-python',
+			'.c': 'text/x-c',
+			'.h': 'text/x-c',
 			'.css': 'text/css',
 
 			'.gz': 'application/gzip',
@@ -948,20 +992,20 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def do_GET(self):
 		"""Serve a GET request."""
 		try:
-			f = self.send_head()
+			resp = self.send_head()
 		except Exception as e:
 			traceback.print_exc()
 			self.send_error(500, str(e))
 			return
 
-		if f:
+		if resp:
 			try:
-				self.copyfile(f, self.wfile)
+				self.copyfile(resp, self.wfile)
 			except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
 				self.log_info(tools.text_box(e.__class__.__name__,
 							  e, "\nby ", self.address_string()))
 			finally:
-				f.close()
+				resp.close()
 
 	def do_(self):
 		'''incase of errored request'''
@@ -1017,13 +1061,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'''
 		if url_regex and not re.search("^"+url_regex+'$', self.url_path):
 				return False
-		elif url and url != self.url_path:
+		if url and url != self.url_path:
 			return False
 
 		if isinstance(hasQ, str):
 			hasQ = (hasQ,)
 
-		if hasQ and self.query(*hasQ) == False:
+		if hasQ and self.query(*hasQ) is False:
 			return False
 		if QV:
 			for k, v in QV.items():
@@ -1039,15 +1083,16 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def do_HEAD(self):
 		"""Serve a HEAD request."""
+		resp = None
 		try:
-			f = self.send_head()
+			resp = self.send_head()
 		except Exception as e:
 			traceback.print_exc()
 			self.send_error(500, str(e))
 			return
-
-		if f:
-			f.close()
+		finally:
+			if resp:
+				resp.close()
 
 	def do_POST(self):
 		"""Serve a POST request."""
@@ -1063,21 +1108,21 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			for case, func in self.handlers['POST']:
 				if self.test_req(*case):
 					try:
-						f = func(self, url_path=url_path, query=query,
+						resp = func(self, url_path=url_path, query=query,
 								 fragment=fragment, path=path, spathsplit=spathsplit)
 					except PostError:
 						traceback.print_exc()
 						# break if error is raised and send BAD_REQUEST (at end of loop)
 						break
 
-					if f:
+					if resp:
 						try:
-							self.copyfile(f, self.wfile)
+							self.copyfile(resp, self.wfile)
 						except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
 							logger.info(tools.text_box(
 								e.__class__.__name__, e, "\nby ", [self.address_string()]))
 						finally:
-							f.close()
+							resp.close()
 					return
 
 			return self.send_error(HTTPStatus.BAD_REQUEST, "Invalid request.")
@@ -1093,7 +1138,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def redirect(self, location):
 		'''redirect to location'''
-		self.send_response(HTTPStatus.FOUND)
+		print("REDIRECT ", location)
+		self.send_response(302)
 		self.send_header("Location", location)
 		self.end_headers()
 
@@ -1106,23 +1152,23 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		else:
 			encoded = msg
 
-		f = io.BytesIO()
-		f.write(encoded)
-		f.seek(0)
+		box = io.BytesIO()
+		box.write(encoded)
+		box.seek(0)
 
 		self.send_response(code)
-		self.send_header("Content-type", content_type)
+		self.send_header("Content-Type", content_type)
 		self.send_header("Content-Length", str(len(encoded)))
 		self.end_headers()
-		return f
+		return box
 
 	def send_txt(self, code, msg, content_type="text/html; charset=utf-8"):
 		'''sends the head and file to client'''
-		f = self.return_txt(code, msg, content_type)
+		file = self.return_txt(code, msg, content_type)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
-		self.copyfile(f, self.wfile)
-		f.close()
+		self.copyfile(file, self.wfile)
+		file.close()
 
 	def send_text(self, code, msg, content_type="text/html; charset=utf-8"):
 		'''proxy to send_txt'''
@@ -1133,23 +1179,27 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		obj: json-able object or json.dumps() string"""
 		if not isinstance(obj, str):
 			obj = json.dumps(obj, indent=1)
-		f = self.return_txt(200, obj, content_type="application/json")
+		file = self.return_txt(200, obj, content_type="application/json")
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
-		self.copyfile(f, self.wfile)
-		f.close()
+		self.copyfile(file, self.wfile)
+		file.close()
 
-	def return_file(self, path, filename=None, download=False):
-		f = None
+	def return_file(self, path, filename=None, download=False, cache_control=""):
+		file = None
 		is_attachment = "attachment;" if (self.query("dl") or download) else ""
 
 		first, last = 0, None
 
 		try:
 			ctype = self.guess_type(path)
+			
+			# make sure texts are sent as utf-8
+			if ctype.startswith("text/"):
+				ctype += "; charset=utf-8"
 
-			f = open(path, 'rb')
-			fs = os.fstat(f.fileno())
+			file = open(path, 'rb')
+			fs = os.fstat(file.fileno())
 
 			file_len = fs[6]
 			# Use browser cache if possible
@@ -1177,7 +1227,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 						if last_modif <= ims:
 							self.send_response(HTTPStatus.NOT_MODIFIED)
 							self.end_headers()
-							f.close()
+							file.close()
 
 							return None
 
@@ -1194,27 +1244,30 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					return None
 
 				self.send_response(206)
-				self.send_header('Content-Type', ctype)
 				self.send_header('Accept-Ranges', 'bytes')
 
 				response_length = last - first + 1
 
 				self.send_header('Content-Range',
-								 'bytes %s-%s/%s' % (first, last, file_len))
+								 f'bytes {first}-{last}/{file_len}')
 				self.send_header('Content-Length', str(response_length))
 
 			else:
 				self.send_response(HTTPStatus.OK)
-				self.send_header("Content-Type", ctype)
+				
 				self.send_header("Content-Length", str(file_len))
+				
+			if cache_control:
+				self.send_header("Cache-Control", cache_control)
 
 			self.send_header("Last-Modified",
 							 self.date_time_string(fs.st_mtime))
+			self.send_header("Content-Type", ctype)
 			self.send_header("Content-Disposition", is_attachment+' filename="%s"' %
 							 (os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
-			return f
+			return file
 
 		except PermissionError:
 			self.send_error(HTTPStatus.FORBIDDEN, "Permission denied")
@@ -1230,16 +1283,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			# if f and not f.closed(): f.close()
 			raise
 
-	def send_file(self, path, filename=None, download=False):
+	def send_file(self, path, filename=None, download=False, cache_control=''):
 		'''sends the head and file to client'''
-		f = self.return_file(path, filename, download)
+		file = self.return_file(path, filename, download, cache_control)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		try:
-			self.copyfile(f, self.wfile)
+			self.copyfile(file, self.wfile)
 		finally:
-			f.close()
-
+			file.close()
+			
+	
 	def send_head(self):
 		"""Common code for GET and HEAD commands.
 
@@ -1344,13 +1398,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		to copy binary data as well.
 
 		"""
+		try:
+			# check if file readable
+			source.read(1)
+			source.seek(0)
+		except OSError as e:
+			traceback.print_exc()
+			raise e
 
 		if not self.range:
-			try:
-				source.read(1)
-			except:
-				traceback.print_exc()
-			source.seek(0)
 			shutil.copyfileobj(source, outputfile)
 
 		else:
