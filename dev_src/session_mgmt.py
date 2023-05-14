@@ -37,8 +37,9 @@ class MachineSession():
             NameError: Already a session serving that path, the other session should be used instead.
         """
         self.path = path
+        self.__main_dir__ = main_dir
         self.session_db: pickledb.PickleDB = pickledb.load(
-                os.path.join(main_dir, "users.db"), True
+                os.path.join(self.__main_dir__, "users.db"), True
             )
         prospective_id = adler32(str(platformuname()) + path)
 
@@ -46,7 +47,7 @@ class MachineSession():
             self.id = prospective_id
             self.name = name
             self.user_db: pickledb.PickleDB = pickledb.load(
-                os.path.join(main_dir, f"s_{self.id}.db"), True
+                os.path.join(self.__main_dir__, f"s_{self.id}.db"), True
             )
             self.session_db.set(self.id, self.name)
         else:
@@ -57,3 +58,4 @@ class MachineSession():
         """Remove from current session db
         """
         self.session_db.rem(self.id)
+        os.remove(os.path.join(self.__main_dir__, f"s_{self.id}.db"))

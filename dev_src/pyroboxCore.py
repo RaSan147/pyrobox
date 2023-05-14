@@ -99,8 +99,11 @@ class Config:
 		# TEMP FILE MAPPING
 		self.temp_file = set()
 
+		# SESSION OBJECT
+		self.LOCALSESSION = MachineSession(path = self.ftp_dir, main_dir= self.MAIN_FILE_dir) # TODO: Optional name parameter
+
 		# CLEAN TEMP FILES ON EXIT
-		atexit.register(self.clear_temp)
+		atexit.register(self.clear_temp, self.LOCALSESSION)
 
 		# ASSET MAPPING
 		self.file_list = {}
@@ -128,10 +131,9 @@ class Config:
 		""")
 
 		self.DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
-		self.LOCALSESSION = MachineSession(path = self.ftp_dir, main_dir= self.MAIN_FILE_dir) # TODO: Optional name parameter
 
-	def clear_temp(self):
-		# self.LOCALSESSION.destroy() # TODO: Fix to avoid circular reference
+	def clear_temp(self, session):
+		session.destroy()
 		for i in self.temp_file:
 			try:
 				os.remove(i)
