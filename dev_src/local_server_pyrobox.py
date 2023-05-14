@@ -1,4 +1,5 @@
-enc = "utf-8"
+
+
 
 # TODO
 # ----------------------------------------------------------------
@@ -37,6 +38,7 @@ from _zipfly_manager import ZIP_Manager
 __version__ = __version__
 true = T = True
 false = F = False
+enc = "utf-8"
 
 ###########################################
 # ADD COMMAND LINE ARGUMENTS
@@ -48,6 +50,7 @@ config.PASSWORD = cli_args.password
 logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args))))
 
 ###########################################
+# config.dev_mode = False
 pt.pt_config.dev_mode = config.dev_mode
 
 config.MAIN_FILE = os.path.abspath(__file__)
