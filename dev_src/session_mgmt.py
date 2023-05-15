@@ -2,7 +2,7 @@ from platform import uname as platformuname
 import os
 import pickledb
 # from pyroboxCore import logger    TODO: use logger without circular import 
-from typing import List
+from typing import List, Union
 
 
 def adler32(plain_text: str) -> str:
@@ -25,7 +25,7 @@ def adler32(plain_text: str) -> str:
 
 class MachineSession():
 
-    def __init__(self, path: str | os.PathLike, name: str | None = None, main_dir: str | os.PathLike = "."):
+    def __init__(self, path: Union [str , os.PathLike], name: Union [str , None] = None, main_dir: Union[str , os.PathLike] = "."):
         """Initialise a session for use in Config  
 
         Args:

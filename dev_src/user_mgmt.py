@@ -4,7 +4,7 @@ import os
 from secrets import compare_digest
 from pyroboxCore import config, logger
 from enum import Enum
-from typing import Tuple, List, Literal, TypeVar
+from typing import Tuple, List, Literal, TypeVar, Union
 
 # Loads user database. Database is plaintext but stores passwords as a hash salted by config.PASSWORD
 
@@ -30,7 +30,7 @@ class User:
     def __init__(
         self,
         username: str,
-        permission: UserPermission | Tuple[UserPermission],
+        permission: Union [UserPermission , Tuple[UserPermission]],
         password: str = None,
     ):
         """Generate Object for WebUI users
@@ -119,7 +119,7 @@ class User:
         return packed
 
     @classmethod
-    def get_user(cls, username: str) -> Self | bool(False):
+    def get_user(cls, username: str) -> Union[Self , Literal[False]]:
         """Lookup User
 
         Args:
@@ -149,7 +149,7 @@ class User:
             output.append(UserPermission(0))
         return tuple(output)
 
-    def permit(self, permission: UserPermission | Tuple[UserPermission]) -> Literal[0]:
+    def permit(self, permission: Union [UserPermission , Tuple[UserPermission]]) -> Literal[0]:
         """Turn on permissions
 
         Args:
@@ -166,7 +166,7 @@ class User:
         )
         return 0
 
-    def revoke(self, permission: UserPermission | Tuple[UserPermission]) -> Literal[0]:
+    def revoke(self, permission: Union [UserPermission , Tuple[UserPermission]]) -> Literal[0]:
         """Turn off permissions
 
         Args:
