@@ -39,17 +39,11 @@ class MachineSession():
         """
         self.path = path
         self.__main_dir__ = main_dir
-        prospective_id = adler32(str(platformuname()) + path)
-
-        if not os.path.exists(os.path.join(self.__main_dir__, f"s_{prospective_id}.db")):
-            self.id = prospective_id
-            self.name = name
-            self.user_db: pickledb.PickleDB = pickledb.load(
-                os.path.join(self.__main_dir__, f"s_{self.id}.db"), True
-            )
-        else:
-            # logger.warning("Path already in use with another session")
-            raise NameError("Path already in use")
+        self.id  = adler32(str(platformuname()) + path)
+        self.name = name
+        self.user_db: pickledb.PickleDB = pickledb.load(
+            os.path.join(self.__main_dir__, f"s_{self.id}.db"), True
+        )
 
     def destroy(self):
         os.remove(os.path.join(self.__main_dir__, f"s_{self.id}.db"))
