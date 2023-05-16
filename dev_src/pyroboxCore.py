@@ -103,7 +103,7 @@ class Config:
 		self.LOCALSESSION = MachineSession(path = self.ftp_dir, main_dir= self.MAIN_FILE_dir) # TODO: Optional name parameter
 
 		# CLEAN TEMP FILES ON EXIT
-		atexit.register(self.clear_temp, self.LOCALSESSION)
+		atexit.register(self.clear_temp)
 
 		# ASSET MAPPING
 		self.file_list = {}
@@ -132,8 +132,7 @@ class Config:
 
 		self.DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
 
-	def clear_temp(self, session):
-		session.destroy()
+	def clear_temp(self):
 		for i in self.temp_file:
 			try:
 				os.remove(i)

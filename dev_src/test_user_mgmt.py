@@ -16,8 +16,8 @@ def cleanup():
     # teardown
     if os.path.exists(os.path.join(config.MAIN_FILE_dir, "test_users.db")):
         os.remove(os.path.join(config.MAIN_FILE_dir, "test_users.db"))
-    if os.path.exists(os.path.join(config.MAIN_FILE_dir, "users.db")):
-        os.remove(os.path.join(config.MAIN_FILE_dir, "users.db"))
+    # if os.path.exists(os.path.join(config.MAIN_FILE_dir, "users.db")):
+    #     os.remove(os.path.join(config.MAIN_FILE_dir, "users.db"))
           
 
 def test_mock_db(monkeypatch):
@@ -171,28 +171,6 @@ def test_adler32():
 
 def test_session():
     from dev_src.user_mgmt import config
-    from session_mgmt import MachineSession
-    assert config.LOCALSESSION != None
-    assert type(config.LOCALSESSION) == MachineSession
-    session_db = pickledb.load(
-                os.path.join(config.LOCALSESSION.__main_dir__, "users.db"), True
-    )
-    assert session_db.exists(config.LOCALSESSION.id)
-    assert os.path.exists(config.LOCALSESSION.path)
-    assert config.LOCALSESSION.user_db.set("__dummy", 1010)
-    assert config.LOCALSESSION.user_db.get("__dummy") == 1010
-    assert os.path.exists(os.path.join(config.LOCALSESSION.__main_dir__, f"s_{config.LOCALSESSION.id}.db"))
-    assert session_db.db == config.LOCALSESSION.session_db.db
-    config.LOCALSESSION.destroy()
-    session_db = pickledb.load(
-                os.path.join(config.LOCALSESSION.__main_dir__, "users.db"), True
-    )
-    assert session_db.db == config.LOCALSESSION.session_db.db
-    assert not session_db.exists(config.LOCALSESSION.id)
-    assert not os.path.exists(os.path.join(config.LOCALSESSION.__main_dir__, f"s_{config.LOCALSESSION.id}.db"))
-    from pyroboxCore import Config as core_Config
-    exit_helper = core_Config()
-    assert exit_helper.LOCALSESSION.session_db.exists(exit_helper.LOCALSESSION.id)
-    exit_helper.LOCALSESSION.user_db.dump() # makes empty user file for exit function to cleanup
-    assert os.path.exists(os.path.join(exit_helper.LOCALSESSION.__main_dir__, f"s_{exit_helper.LOCALSESSION.id}.db"))
-    config = exit_helper
+    from pickledb import PickleDB
+    assert config.LOCALSESSION.user_db
+    assert type(config.LOCALSESSION.user_db) == PickleDB

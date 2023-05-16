@@ -5,6 +5,7 @@ import pickledb
 from typing import List, Union
 
 
+
 def adler32(plain_text: str) -> str:
     """Adler32 hash algorithm
 
@@ -38,24 +39,17 @@ class MachineSession():
         """
         self.path = path
         self.__main_dir__ = main_dir
-        self.session_db: pickledb.PickleDB = pickledb.load(
-                os.path.join(self.__main_dir__, "users.db"), True
-            )
         prospective_id = adler32(str(platformuname()) + path)
 
-        if self.session_db.exists(prospective_id) == False:
+        if not os.path.exists(os.path.join(self.__main_dir__, f"s_{prospective_id}.db")):
             self.id = prospective_id
             self.name = name
             self.user_db: pickledb.PickleDB = pickledb.load(
                 os.path.join(self.__main_dir__, f"s_{self.id}.db"), True
             )
-            self.session_db.set(self.id, self.name)
         else:
             # logger.warning("Path already in use with another session")
             raise NameError("Path already in use")
 
     def destroy(self):
-        """Remove from current session db
-        """
-        self.session_db.rem(self.id)
         os.remove(os.path.join(self.__main_dir__, f"s_{self.id}.db"))
