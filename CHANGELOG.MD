@@ -1,3 +1,20 @@
+# Version 0.8.1
+  ## Client-side Changes:
+  * Clicking on text files should show in UTF-8
+  ## Server-side Changes:
+  1. Added cookies
+  2. Introduced  cache_control in send_file()
+  3. Fixed multiple send_response() code issue
+  4. Added  send_header_string()
+  5. Text files now have `charset=utf-8` in header content-type
+  ## Fixes:
+  * text was not showing in UTF-8
+  ## TODO:
+  * make sidebar and user management
+  * drag and drop upload in entire page (show drop here popup like GITHUB)
+
+
+
 # Version 0.8.0
   ## Client-side Changes:
   * Zip page shows more info (Calculating notice)

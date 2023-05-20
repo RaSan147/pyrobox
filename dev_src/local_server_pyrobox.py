@@ -1,4 +1,5 @@
-enc = "utf-8"
+
+
 
 # TODO
 # ----------------------------------------------------------------
@@ -13,26 +14,18 @@ import sys
 import posixpath
 import shutil
 
-import time
 import datetime
 
 import importlib.util
-import re
 
 import urllib.parse
 import urllib.request
 
-import threading
-
 import subprocess
-import tempfile
-import random
-import string
 import json
 from http import HTTPStatus
 
 import traceback
-import atexit
 
 from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH_base, DealPostData as DPD, run as run_server, tools, reload_server, __version__
 
@@ -45,6 +38,7 @@ from _zipfly_manager import ZIP_Manager
 __version__ = __version__
 true = T = True
 false = F = False
+enc = "utf-8"
 
 ###########################################
 # ADD COMMAND LINE ARGUMENTS
@@ -56,6 +50,7 @@ config.PASSWORD = cli_args.password
 logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args))))
 
 ###########################################
+# config.dev_mode = False
 pt.pt_config.dev_mode = config.dev_mode
 
 config.MAIN_FILE = os.path.abspath(__file__)
