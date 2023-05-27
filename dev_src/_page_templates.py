@@ -1,5 +1,4 @@
-from string import Template as _Template # using this because js also use {$var} and {var} syntax and py .format is often unsafe
-
+from data_types import Template
 __all__ = [
 	"directory_explorer_header",
 	"global_script",
@@ -18,16 +17,6 @@ __all__ = [
 # PAGE TEMPLATES
 ##############################################################
 
-
-class Template(_Template):
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-
-	def __add__(self, other):
-		if isinstance(other, _Template):
-			return Template(self.template + other.template)
-		return Template(self.template + str(other))
-	
 
 enc = "utf-8"
 

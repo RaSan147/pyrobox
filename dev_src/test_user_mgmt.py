@@ -62,6 +62,7 @@ def test_class_User_lookup(monkeypatch):
     monkeypatch.setattr("dev_src.user_mgmt.user_db", test_user_db)
     demo_user_dn = "AliceTheAdmin"
     demo_user = User.get_user(demo_user_dn)
+    print(demo_user)
     assert type(demo_user) == User
     assert type(demo_user.permission) == int
     assert type(demo_user.get_permissions()) == tuple

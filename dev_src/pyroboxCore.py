@@ -29,7 +29,7 @@ from queue import Queue
 import logging
 import atexit
 import os
-from session_mgmt import MachineSession
+#from session_mgmt import MachineSession
 
 __version__ = "0.8.1"
 enc = "utf-8"
@@ -101,7 +101,7 @@ class Config:
 		self.temp_file = set()
 
 		# SESSION OBJECT
-		self.LOCALSESSION = MachineSession(path = self.ftp_dir, main_dir= self.MAIN_FILE_dir) # TODO: Optional name parameter
+		#self.LOCALSESSION = MachineSession(path = self.ftp_dir, main_dir= self.MAIN_FILE_dir) # TODO: Optional name parameter
 
 		# CLEAN TEMP FILES ON EXIT
 		atexit.register(self.clear_temp)
@@ -307,6 +307,11 @@ class Zfunc(object):
 
 	def new(self, caller, store_return=False):
 		self.__init__(caller=caller, store_return=store_return)
+
+	def destroy(self):
+		"""Clear the queue
+		however if running, caller function will still keep running till end"""
+		self.__init__(caller=null, store_return=False)
 
 
 """HTTP server classes.

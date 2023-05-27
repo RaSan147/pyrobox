@@ -1,6 +1,6 @@
-import pickledb
+# import pickledb
 import hashlib
-import os
+# import os
 from secrets import compare_digest
 from pyroboxCore import config, logger
 from enum import Enum
@@ -31,7 +31,7 @@ class User:
         self,
         username: str,
         permission: Union [UserPermission , Tuple[UserPermission]],
-        password: str = None,
+        password: str = '',
     ):
         """Generate Object for WebUI users
 
