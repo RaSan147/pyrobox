@@ -59,9 +59,10 @@ class PickleDB(object):
 		'''Creates a database object and loads the data from the location path.
 		If the file does not exist it will be created on the first update.
 		'''
-		self.CC = 0 # consider it as country code and every items are its people. they gets NID
+		self.db = {}
 		self.load(location, auto_dump)
 		self.dthread = None
+
 		if sig:
 			self.set_sigterm_handler()
 
@@ -92,11 +93,10 @@ class PickleDB(object):
 		signal.signal(signal.SIGTERM, sigterm_handler)
 		
 	def new(self):
-		self.CC = hash(time.time() + random() + time.thread_time())
 		self.db = {}
 
 	def load(self, location, auto_dump):
-		'''Loads, reloads or changes the path to the db file'''
+		'''Loads, reloads or Changes the path to the db file'''
 		location = os.path.expanduser(location)
 		self.loco = location
 		self.auto_dump = auto_dump
@@ -109,10 +109,7 @@ class PickleDB(object):
 	def _dump(self):
 		'''Dump to a temporary file, and then move to the actual location'''
 		with NamedTemporaryFile(mode='wb', delete=False) as f:
-			msgpack.dump({
-					"CC": self.CC,
-					"db": self.db
-				}, f)
+			msgpack.dump(self.db, f)
 		if os.stat(f.name).st_size != 0:
 			shutil.move(f.name, self.loco)
 
@@ -129,9 +126,9 @@ class PickleDB(object):
 	def _loaddb(self):
 		'''Load or reload the json info from the file'''
 		try:
-			db = msgpack.load(open(self.loco, 'rb'))
-			self.CC = db["CC"]
-			self.db = db["db"]
+			with open(self.loco, 'rb') as f:
+				db = msgpack.load(f)
+				self.db = db
 		except ValueError:
 			if os.stat(self.loco).st_size == 0:  # Error raised because file is empty
 				self.new()
@@ -147,7 +144,7 @@ class PickleDB(object):
 	def validate_key(self, key):
 		"""Make sure key is a string"""
 
-		if not isinstance(key, str):
+		if not isinstance(key, (str, bytes)):
 			raise self.key_string_error
 
 	def set(self, key, value):
@@ -352,23 +349,26 @@ class PickleDB(object):
 
 class PickleTable(object):
 	def __init__(self, filename, *args, **kwargs):
+		self.CC = 0 # consider it as country code and every items are its people. they gets NID
+		self.CC = hash(time.time() + random() + time.thread_time())
 		
 		self.busy = False
 		self.pk = PickleDB(filename, *args, **kwargs)
 		
+		
+		
 		self.height = self.get_height()
+		
+		self.ids = [h for h in range(self.height)]
 		
 	
 	def get_height(self):
-		h = 0
 		h = len(self.pk[self.column_names[0]]) if self.column_names else 0
-		
-		#print(self.pk.db)
+
 		return h
 		
 	def __str__(self):
-		
-		header = self.column_names
+		# header = self.column_names
 		x = tabulate([self.row(i) for i in range(min(self.height, 500))], headers="keys", tablefmt="orgtbl")
 		if self.height > 50:
 			x += "\n..."
@@ -401,11 +401,18 @@ class PickleTable(object):
 	def column_names(self):
 		return list(self.pk.db.keys())
 		
-	def add_column(self, name, exist_ok=False):
+	def add_column(self, name, exist_ok=False, AD=True):
+		"""
+		name: column name
+		exist_ok: ignore if column already exists. Else raise KeyError
+		AD: auto-dump
+		"""
 		tsize = self.height
 		if name in self.column_names:
 			if exist_ok :
 				tsize = self.height- len(self.pk.db[name])
+				if not tsize: # 0 cells to add
+					return
 			else:
 				raise KeyError("Column Name already exists")
 		else:
@@ -413,15 +420,20 @@ class PickleTable(object):
 		
 		self.pk.db[name].extend([None] * tsize)
 		
-		self.dump()
+		if AD:
+			self.auto_dump()
 		
-	def _del_column(self, name):
-		self.pk.db.pop(name)
+	
+	def del_colum(self, name, AD=True):
+		"""
+		 @ locked
+		# name: colum to delete
+		# AD: auto dump
+		"""
+		self.lock(self.pk.db.pop)(name)
 		
-	def del_colum(self, name):
-		self.lock(self._del_column)(name)
-		
-		self.dump()
+		if AD:
+			self.auto_dump()
 		
 	
 	def rows(self):
@@ -431,38 +443,57 @@ class PickleTable(object):
 			yield [self.pk.db[j][i] for j in headers]
 
 	def row(self, row):
-		'''Return a row in db'''
+		'''Return a row object `_PickleTRow` in db
+		# row: row index
+		'''
 		headers = self.column_names
-		return _PickleTRow(self, row, 0, {j: self.pk.db[j][row] for j in headers})
+		return _PickleTRow(self,
+			self.ids[row], 
+			self.CC,
+			{j: self.pk.db[j][row] for j in headers})
 		
-	def _set_cell(self, col, row, val):
-		"""doesn't auto save"""
+
+		
+	def set_cell(self, col, row, val, AD=True):
+		"""
+		# col: column name
+		# row: row index
+		# val: value of cell
+		# AD: auto dump
+		"""
 		self.pk.db[col][row] = val
 		
-	def set_cell(self, col, row, val):
-		"""runs auto save"""
-		self._set_cell(col, row, val)
-		self.auto_dump()
+		if AD:
+			self.auto_dump()
 		
-	def pop_row(self, index=-1):
-		for i in self.column_names:
-			self.pk.db.pop(index)
+	def pop_row(self, index=-1, AD=True):
+		self.ids.pop(index)
+		
+		for c in self.column_names:
+			self.pk.db[c].pop(index)
 			
 		self.height -=1
 		
-	def del_row(self, index):
-		self.lock(self.pop_row)(index)
-		
-		self.auto_dump()
-		
-		
-		
+		if AD:
+			self.auto_dump()
 	
+	def del_row(self, index, AD=True):
+		# Auto dumps (locked)
+		self.lock(self.pop_row)(index, AD=AD)
 		
+		
+		
+	def del_row_id(self, uid, AD=True):
+		"""
+		id: unique id of the row
+		AD: auto dump
+		"""
+		self.del_row(self.ids.index(uid), AD=AD)
+
 	
-	def _add_row(self, row:dict):	
-		#print(self.column_names)
-		#print(self.pk.db)
+	def _add_row(self, row:dict):
+		self.ids.append(self.ids[-1] + 1)
+			
 		for k in self.column_names:
 			self.pk.db[k].append(None)
 			
@@ -471,14 +502,21 @@ class PickleTable(object):
 		
 		
 		for k, v in row.items():
-			self.pk.db[k][self.height] = v
+			self.set_cell(k, self.height, v, AD=False)
 
 			
 		self.height += 1
 
 		
-	def add_row(self, row:dict):
-			self.lock(self._add_row)(row)
+	def add_row(self, row:dict, AD=True):
+		""" 
+		@ locked
+		# row: row must be a dict containing column names and values
+		"""		
+			
+		self.lock(self._add_row)(row)
+		
+		if AD:
 			self.auto_dump()
 			
 		
@@ -495,19 +533,29 @@ class PickleTable(object):
 		
 		
 class _PickleTRow(dict):
-	def __init__(self, source:PickleTable, index, rid, items):
+	def __init__(self, source:PickleTable, uid, CC, items):
 		self.source = source
-		self.index = index
-		self.rid = rid
+		self.id = uid
+		self.CC = CC
 		super().__init__(items)
 		
+	def verify_source(self):
+		return self.source.CC == self.CC
+	
+	def raise_source(self):
+		if not self.verify_source():
+			raise KeyError("Database has been updated drastically. Row index will mismatch!")
+
 	def __delitem__(self, name):
-		self.source[name][self.index] = None
-		self.source.auto_dump()
+		# No auto dump
+		self.raise_source()
+		
+		self.source._set_cell(name, self.source.ids.index(self.id), None)
 		
 		
 	def del_row(self):
-		self.source.del_row(self.index)
+		# Auto dumps
+		self.source.del_row_id(self.id)
 		
 		
 
@@ -530,8 +578,8 @@ if __name__ == "__main__":
 
 	
 	st = time.time()
-	
 	tb = PickleTable("test.mdb")
+	print(f"load time: {time.time()-st}s")
 	
 	print(tb.height)
 	
@@ -540,16 +588,19 @@ if __name__ == "__main__":
 	tb.add_column("Y", 1)
 	
 	print("adding")
-	for n in range(555555):
+	#for n in range(555555):
+		#tb._add_row({"x":n, "Y":00})
+		
 		#print(n)
-		tb._add_row({"x":n, "Y":00})
 	
 	tb.add_column("m", 1)
 
 	#tb.del_colum("x")
+	dt = time.time ()
 	tb.dump()
+	print(f"dump time: {time.time()-dt}s") 
 	
-	# print(tb)
+	#print(tb)
 	print("Total cells", tb.height * len(tb.column_names))
 	
 	et = time.time()
