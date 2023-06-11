@@ -222,7 +222,7 @@ class Popup_Msg {
 		popup_box.classList.add("popup-box")
 
 		close_btn = createElement("div");
-		close_btn.classList.add("popup-close-btn")
+		close_btn.className = "popup-btn disable_selection popup-close-btn"
 		close_btn.onclick = function() {
 			that.close()
 		}

@@ -73,7 +73,7 @@ class ContextMenu {
 
 		var new_tab = createElement("div")
 			new_tab.innerText = "↗️" + " New tab"
-			new_tab.classList.add("menu_options")
+			new_tab.className = "disable_selection popup-btn menu_options"
 			new_tab.onclick = function() {
 				window.open(file, '_blank');
 				popup_msg.close()
@@ -82,7 +82,7 @@ class ContextMenu {
 		if (type != "folder") {
 			var download = createElement("div")
 			download.innerText = "📥" + " Download"
-			download.classList.add("menu_options")
+			download.className = "disable_selection popup-btn menu_options"
 			download.onclick = function() {
 				tools.download(file, name);
 				popup_msg.close()
@@ -93,7 +93,7 @@ class ContextMenu {
 		if (type == "folder") {
 			var dl_zip = createElement("div")
 			dl_zip.innerText = "📦" + " Download as Zip"
-			dl_zip.classList.add("menu_options")
+			dl_zip.className = "disable_selection popup-btn menu_options"
 			dl_zip.onclick = function() {
 				popup_msg.close()
 				window.open(go_link('czip', file), '_blank');
@@ -104,7 +104,7 @@ class ContextMenu {
 
 		var copy = createElement("div")
 		copy.innerText = "📋" + " Copy link"
-		copy.classList.add("menu_options")
+		copy.className = "disable_selection popup-btn menu_options"
 		copy.onclick = async function(ev) {
 			popup_msg.close()
 
@@ -119,14 +119,14 @@ class ContextMenu {
 
 		var rename = createElement("div")
 		rename.innerText = "✏️" + " Rename"
-		rename.classList.add("menu_options")
+		rename.className = "disable_selection popup-btn menu_options"
 		rename.onclick = function() {
 			that.rename(file, name)
 		}
 		menu.appendChild(rename)
 		var del = createElement("div")
 		del.innerText = "🗑️" + " Delete"
-		del.classList.add("menu_options")
+		del.className = "disable_selection popup-btn menu_options"
 		var xxx = 'F'
 		if (type == "folder") {
 			xxx = 'D'
@@ -138,7 +138,7 @@ class ContextMenu {
 		menu.appendChild(del)
 		var del_P = createElement("div")
 		del_P.innerText = "🔥" + " Delete permanently"
-		del_P.classList.add("menu_options")
+		del_P.className = "disable_selection popup-btn menu_options"
 
 
 		del_P.onclick = () => {
@@ -149,7 +149,7 @@ class ContextMenu {
 		menu.appendChild(del_P)
 		var property = createElement("div")
 		property.innerText = "📅" + " Properties"
-		property.classList.add("menu_options")
+		property.className = "disable_selection popup-btn menu_options"
 		property.onclick = function() {
 			that.menu_click('info', file);
 		};

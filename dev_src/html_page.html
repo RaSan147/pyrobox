@@ -50,14 +50,6 @@ button {
 	margin: auto;
 }
 
-.dir_arrow {
-	position: relative;
-	top: -3px;
-	padding: 4px;
-	color: #e8e6e3;
-	font-size: 12px;
-}
-
 .disable_selection {
 	-webkit-touch-callout: none;
 	/* iOS Safari */
@@ -174,33 +166,6 @@ a {
 
 
 
-#dir-tree {
-	overflow-x: auto;
-	overflow-y: hidden;
-	white-space: nowrap;
-	word-wrap: break-word;
-	max-width: 98vw;
-	border: #075baf 2px solid;
-	border-radius: 5px;
-	background-color: #0d29379f;
-	padding: 0 5px;
-	height: 50px;
-}
-
-.dir_turns {
-	padding: 4px;
-	border-radius: 5px;
-	font-size: .6em;
-
-}
-
-.dir_turns:hover {
-	background-color: #90cdeb82;
-	color: #ffffff;
-}
-
-
-
 #drag-file-list {
 	width: 98%;
 	max-height: 300px;
@@ -289,6 +254,14 @@ a {
 
 /* POPUP CSS */
 
+:root {
+	--popup-bg: #161717;
+	--popup-color: #e9f4ff;
+	--popup-btn-bg: #313131;
+	--popup-btn-bg-active: #005ab2;
+	--popup-btn-border: 1px solid #006ad2;
+}
+
 .modal_bg {
 	display: inherit;
 	position: fixed;
@@ -321,9 +294,9 @@ a {
 	position: fixed;
 	top: 50%;
 	left: 50%;
-	color: #BBB;
+	color: var(--popup-color);
 	transition: all 400ms ease-in-out;
-	background: #222;
+	background: var(--popup-bg);
 	width: 95%;
 	max-width: 500px;
 	z-index: 23;
@@ -338,20 +311,29 @@ a {
 	overflow-wrap: anywhere;
 }
 
-.popup-close-btn {
+.popup-btn {
 	cursor: pointer;
+	background: var(--popup-btn-bg);
+	color: var(--popup-color);
+	border: var(--popup-btn-border);
+	border-radius: 6px; 
+}
+
+.popup-btn:hover, .popup-btn:active {
+	background: var(--popup-btn-bg-active);
+	
+}
+
+.popup-close-btn {
 	position: absolute;
 	right: 20px;
 	top: 20px;
 	width: 30px;
 	height: 30px;
-	background: #222;
-	color: #fff;
 	font-size: 25px;
 	font-weight: 600;
-	line-height: 30px;
+	line-height: 30px; 
 	text-align: center;
-	border-radius: 50%
 }
 
 .popup:not(.active) {
@@ -531,6 +513,277 @@ ul{
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.top_bar {
+    display: flex;
+    background-color: #111;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: max-content;
+    transition: top 0.3s;
+    font-size: 20px;
+    z-index: 9;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+
+	padding: 3px 0;
+	border-bottom: #006ad2 2px solid;
+	box-shadow: 0 0 10px #006ad2;
+}
+
+
+.top_bar.inactive {
+	display: none;
+	transition: none;
+}
+
+.top_bar #app_name_container {
+	padding: 10px 0;
+	float: left;
+	font-size: 20px;
+	font-family: sans-serif;
+}
+
+
+#dir-tree {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    word-wrap: break-word;
+    width: calc(100% - 110px);
+	font-size: large;
+    border: #075baf 2px solid;
+    border-radius: 5px;
+    background-color: #0d29379f;
+    padding: 0 5px;
+    height: 40px;
+    align-items: center;
+}
+
+
+.dir_arrow {
+	position: relative;
+	padding: 4px;
+	color: #e8e6e3;
+	font-size: 12px;
+}
+
+
+.dir_turns {
+	padding: 4px;
+	border-radius: 5px;
+}
+
+.dir_turns:hover {
+	background-color: #90cdeb82;
+	color: #ffffff;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+:root {
+	--sb-width: 300px;
+}
+.sidebar {
+	display: block;
+	opacity: 0.8;
+	height: 100%;
+	width: var(--sb-width);
+	position: fixed;
+	z-index: 5;
+	top: 0;
+	background-color: #111;
+	overflow-x: hidden;
+	overflow-y: scroll;
+	padding-top: 60px;
+	scrollbar-width: thin;
+	scrollbar-color: #2b2929 #9c9898;
+}
+
+#sidebar_bg {
+	display: none;
+	position: fixed;
+	z-index: 4;
+	padding-top: inherit;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+}
+
+#mySidebarL {
+	direction: rtl;
+}
+
+.sidebarR {
+	right: calc(var(--sb-width) * -1);;
+}
+
+
+.mySidebar-inactive {
+	transition: all 0.3s;
+}
+
+.mySidebar-active{
+	display: block;
+	opacity: 1;
+	transition: all 0.3s;
+}
+
+.mySidebar-active.sidebarR{
+	right: 0;
+}
+
+
+
+.sidebar-content {
+	direction: ltr;
+}
+
+
+.sidebar-end {
+	position: relative;
+	max-height: 80%;
+	min-height: 180px;
+	opacity: 0;
+}
+
+
+
+.sidebar a:hover {
+	color: #f1f1f1;
+	background-color: #444;
+}
+
+.sidebar .close-sidebar {
+	position: absolute;
+	top: 0;
+	right: 20px;
+	font-size: 40px;
+	width: 80%;
+	height: 28px;
+	border: none;
+	margin-top: -5px;
+	color: white;
+	cursor: pointer;
+}
+
+.sidebar .close-sidebar:hover {
+	background-color: inherit;
+}
+
+
+
+
+/* change value on media size */
+@media screen and (max-width: 450px) {
+	:root {
+		--sb-width: 80%;
+	}
+}
+
+@media screen and (max-width: 340px) {
+	:root {
+		--sb-width: 100vw;
+	}
+
+	.sidebar {
+		overflow: auto;
+	}
+}
+
+
+
+
+.open-sidebar-btn {
+	background-color: #2e2e2e;
+	font-size: 20px;
+	cursor: pointer;
+	color: #fff;
+	padding: 5px 10px;
+	border: none;
+	margin: 0 3px 0 3px;
+	border-radius: 7px;
+}
+
+.open-sidebar-btn:hover {
+	background-color: #444;
+}
+
+
+@media screen and (max-width: 620px) {
+	.nav-btn-text {
+		display: none;
+	}
+	#dir-tree {
+		width: calc(100% - 50px);
+	}
+}
+
+@media screen and (max-height: 450px) {
+	.sidebar a {
+		font-size: 18px;
+	}
+
+	.sidebar button {
+		font-size: 18px;
+	}
+}
+
+
+
+
+
+
+
+
+
 </style>
 
 <noscript>
@@ -552,12 +805,45 @@ ul{
 
 <div id="popup-container"></div>
 
-<h1 id="dir-tree">${PY_DIR_TREE_NO_JS}</h1>
-<hr>
+<div id='TopBar' class='top_bar'>
+
+	<span id="dir-tree">${PY_DIR_TREE_NO_JS}</span>
+	
+
+	<button class="open-sidebar-btn" onclick="sidebar_control.toggleNavR()" style='float: right;'><span>
+		<span class='nav-btn-text'>Menu</span> <span class="fa fa-thin fa-ellipsis-stroke-vertical">&vellip;</span></span>
+	</button>
+
+</div>
+
+<div id="sidebar_bg"></div> <!-- trigger to close Sidebar-->
+
+
+
+<div id="mySidebarR" class="sidebar sidebarR theme-tools">
+
+	<span style='right:0; text-align:right;margin-right: 20px;' class="close-sidebar disable_selection"
+
+		id="close-sidebarR" onclick = "sidebar_control.closeNavR()">&times;</span> <!-- × -->
+
+	<div>
+		<div id="note_button" class="accordion accordion-button" onclick="appConfig.show_author_note()">Author Note</div>
+		<div id="commands_button" class="accordion accordion-button" onclick="appConfig.show_help_note()">Sample message</div>
+	</div>
+	
+	
+	<div class='sidebar-end'></div>
+
+
+	
+</div>
 
 <script>
-const dir_tree = document.getElementById("dir-tree");
-dir_tree.scrollLeft = dir_tree.scrollWidth;
+
+{
+	const dir_tree = document.getElementById("dir-tree");
+	dir_tree.scrollLeft = dir_tree.scrollWidth;
+}
 </script>
 
 <hr>
