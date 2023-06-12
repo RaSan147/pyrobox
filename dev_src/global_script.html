@@ -326,27 +326,43 @@ class Toaster {
 	constructor() {
 		this.container = createElement("div")
 		this.container.classList.add("toast-box")
-		this.toaster = createElement("div")
-		this.toaster.classList.add("toast-body")
-
-		this.container.appendChild(this.toaster)
 		document.body.appendChild(this.container)
 
-		this.BUSY = 0;
+		this.default_bg = "#005165ed";
+
+		this.queue = [];
 	}
 
 
-	async toast(msg,time) {
+	async toast(msg, time, bgcolor='') {
 		// toaster is not safe as popup by design
 		var sleep = 3000;
 
-		this.BUSY = 1;
-		this.toaster.innerText = msg;
-		this.container.classList.add("visible")
+		while (this.queue.length > 2) {
+			await tools.sleep(100)
+		}
+		this.queue.push(1)
+
+		let toaste = createElement("div")
+		toaste.classList.add("toast-body")
+		
+		this.container.appendChild(toaste)
+
+		await tools.sleep(50) // wait for dom to update
+		
+		// SET BG COLOR
+		toaste.style.backgroundColor = bgcolor || this.default_bg;
+
+		toaste.innerText = msg;
+		toaste.classList.add("visible")
 		if(tools.is_defined(time)) sleep = time;
 		await tools.sleep(sleep)
-		this.container.classList.remove("visible")
-		this.BUSY = 0
+		toaste.classList.remove("visible")
+		await tools.sleep(500)
+		toaste.remove()
+
+		this.queue.pop()
+
 	}
 }
 
