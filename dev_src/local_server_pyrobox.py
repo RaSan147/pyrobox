@@ -319,7 +319,8 @@ def list_directory(self:SH, path):
 
 	if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
 
-		r.append(pt.upload_form().safe_substitute(PY_PUBLIC_URL=config.address()))
+		pass
+		# r.append(pt.upload_form().safe_substitute(PY_PUBLIC_URL=config.address()))
 
 	r.append(pt.file_list_script().safe_substitute(PY_LINK_LIST=str(r_li),
 										PY_FILE_LIST=str(f_li),

@@ -1,6 +1,6 @@
 <noscript>
 
-	<form ENCTYPE="multipart/form-data" method="post" action="?upload">
+	<form ENCTYPE="multipart/form-data" method="post" action="?upload" id="uploader-nojs">
 		<!-- using "?upload" action so that user can go back to the page -->
 		<center>
 			<h1><u>Upload file</u></h1>
@@ -44,7 +44,7 @@
 		<div class="upload-box">
 			<div id="drag-area" class="drag-area">
 				<div class="drag-icon">⬆️</div>
-				<header>Drag & Drop to Upload File</header>
+				<header>Drag &amp; Drop to Upload File</header>
 				<span>OR</span>
 				<button class="drag-browse">Browse File</button>
 				<input type="file" name="file" multiple hidden>
@@ -74,200 +74,6 @@
 
 
 <script>
-	//selecting all required elements
-	const uploader = byId("uploader"),
-	uploader_dropArea = document.querySelector("#drag-area"),
-	uploader_dragText = uploader_dropArea.querySelector("header"),
-	uploader_button = uploader_dropArea.querySelector("button"),
-	uploader_input = uploader_dropArea.querySelector("input");
-	let uploader_files; //this is a global variable and we'll use it inside multiple functions
-	let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
-	uploader_file_display = byId("drag-file-list");
-	
-	function uploader_exist(file) {
-		//check if file is already selected or not
-		for (let i = 0; i < selected_files.files.length; i++) {
-			if (selected_files.files[i].name == file.name) {
-				return i+1; // 0 is false, so we add 1 to make it true
-			}
-		}
-		return false;
-	}
-	
-	function addFiles(files) {
-		var exist = false;
-		for (let i = 0; i < files.length; i++) {
-			exist = uploader_exist(files[i])
-	
-			if (exist) { //if file already selected, remove that and replace with new one, because, when uploading last file will remain in host server, so we need to replace it with new one
-				selected_files.items.remove(exist-1);
-			}
-			selected_files.items.add(files[i]);
-		}
-		log("selected "+ selected_files.items.length+ " files");
-		uploader_showFiles();
-	}
-	
-	
-	uploader_button.onclick = (e)=>{
-		e.preventDefault();
-		uploader_input.click(); //if user click on the button then the input also clicked
-	}
-	
-	uploader_input.onchange = (e)=>{
-		// USING THE BROWSE BUTTON
-		let f = e.target.files; // this.files = [file1, file2,...];
-		addFiles(f);
-		// uploader_dropArea.classList.add("active");
-		// uploader_showFiles(); //calling function
-		// uploader_dragText.textContent = "Release to Upload File";
-	};
-	
-	
-	//If user Drag File Over DropArea
-	uploader_dropArea.ondragover = (event)=>{
-		event.preventDefault(); //preventing from default behaviour
-		uploader_dropArea.classList.add("active");
-		uploader_dragText.textContent = "Release to Upload File";
-	};
-	
-	//If user leave dragged File from DropArea
-	uploader_dropArea.ondragleave = ()=>{
-		uploader_dropArea.classList.remove("active");
-		uploader_dragText.textContent = "Drag & Drop to Upload File";
-	};
-	
-	//If user drop File on DropArea
-	uploader_dropArea.ondrop = (event)=>{
-		event.preventDefault(); //preventing from default behaviour
-		//getting user select file and [0] this means if user select multiple files then we'll select only the first one
-		addFiles(event.dataTransfer.files);
-		// uploader_showFiles(); //calling function
-	};
-	
-	function uploader_removeFileFromFileList(index) {
-		let dt = new DataTransfer()
-		// const input = byId('files')
-		// const { files } = input
-	
-		for (let i = 0; i < selected_files.files.length; i++) {
-			let file = selected_files.files[i]
-			if (index !== i)
-				dt.items.add(file) // here you exclude the file. thus removing it.
-		}
-	
-		selected_files = dt
-		// uploader_input.files = dt // Assign the updates list
-		uploader_showFiles()
-	}
-	
-	function uploader_showFiles() {
-		tools.del_child(uploader_file_display)
-		let uploader_heading = byId("has-selected-up")
-		if(selected_files.files.length){
-			uploader_heading.style.display = "block"
-		} else {
-			uploader_heading.style.display = "none"
-		}
-		for (let i = 0; i <selected_files.files.length; i++) {
-			uploader_showFile(selected_files.files[i], i);
-		}
-	}
-	
-	function fmbytes(B) {
-		'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
-		const KB = 1024,
-		MB = (KB ** 2),
-		GB = (KB ** 3),
-		TB = (KB ** 4)
-	
-		var unit="byte", val=B;
-	
-		if (B>1){
-			unit="bytes"
-			val = B}
-		if (B/KB>1){
-			val = (B/KB)
-			unit="KB"}
-		if (B/MB>1){
-			val = (B/MB)
-			unit="MB"}
-		if (B/GB>1){
-			val = (B/GB)
-			unit="GB"}
-		if (B/TB>1){
-			val = (B/TB)
-			unit="TB"}
-	
-		val = val.toFixed(2)
-	
-		return `${val} ${unit}`
-	}
-	
-	function uploader_showFile(file, index){
-		let filename = file.name;
-		let size = fmbytes(file.size);
-	
-		let item = createElement("div");
-		item.className = "upload-file-item";
-	
-		item.innerHTML = `
-				<span class="file-name">${filename}</span>
-				<span class="file-size">${size}</span>
-			<span class="file-remove" onclick="uploader_removeFileFromFileList(${index})">&times;</span>
-		`;
-	
-		uploader_file_display.appendChild(item);
-	
-	}
-	
-	
-	byId("uploader").onsubmit = (e) => {
-		e.preventDefault()
-	
-		uploader_input.files = selected_files.files // Assign the updates list
-	
-	
-		const formData = new FormData(e.target)
-	
-	
-		const status = byId("upload-status")
-		const progress = byId("upload-progress")
-	
-		var prog = 0;
-		var msg = "";
-	
-		// const filenames = formData.getAll('files').map(v => v.name).join(', ')
-		const request = new XMLHttpRequest()
-		request.open(e.target.method, e.target.action)
-		request.timeout = 3600000;
-		request.onreadystatechange = () => {
-			if (request.readyState === XMLHttpRequest.DONE) {
-				msg = `${request.status}: ${request.statusText}`
-				if (request.status === 401) msg = 'Incorrect password'
-				else if (request.status == 503) msg = 'Upload is disabled'
-				else if (request.status === 0) msg = 'Connection failed (Possible cause: Incorrect password or Upload disabled)'
-				else if (request.status === 204 || request.status === 200) msg = 'Success'
-				status.innerText = msg
-			}
-		}
-		request.upload.onprogress = e => {
-			prog = Math.floor(100*e.loaded/e.total)
-			if(e.loaded === e.total){
-				msg ='Saving...'
-			}else{
-				msg = `Uploading : ${prog}%`
-			}
-			status.innerText = msg
-			progress.value = prog
-	
-		}
-		status.innerText = `Uploading : 0%`
-		byId('upload-task').style.display = 'block'
-		request.send(formData)
-	}
 
-
-	
 
 </script>

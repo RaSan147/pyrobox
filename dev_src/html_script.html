@@ -164,12 +164,6 @@ class ContextMenu {
 }
 var context_menu = new ContextMenu()
 //context_menu.show_menus("next", "video")
-function Show_folder_maker() {
-	popup_msg.createPopup("Create Folder",
-		"Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='context_menu.create_folder()'>Create</div>"
-		);
-	popup_msg.togglePopup();
-}
 
 function show_response(url, add_reload_btn = true) {
 	var xhr = new XMLHttpRequest();
@@ -202,7 +196,35 @@ function insertAfter(newNode, existingNode) {
 	existingNode.parentNode.insertBefore(newNode, existingNode.nextSibling);
 }
 
+function fmbytes(B) {
+	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
+	const KB = 1024,
+	MB = (KB ** 2),
+	GB = (KB ** 3),
+	TB = (KB ** 4)
 
+	var unit="byte", val=B;
+
+	if (B>1){
+		unit="bytes"
+		val = B}
+	if (B/KB>1){
+		val = (B/KB)
+		unit="KB"}
+	if (B/MB>1){
+		val = (B/MB)
+		unit="MB"}
+	if (B/GB>1){
+		val = (B/GB)
+		unit="GB"}
+	if (B/TB>1){
+		val = (B/TB)
+		unit="TB"}
+
+	val = val.toFixed(2)
+
+	return `${val} ${unit}`
+}
 
 
 
@@ -314,6 +336,538 @@ var dir_container = byId("js-content_list")
 dir_container.appendChild(folder_li)
 dir_container.appendChild(file_li)
 
+
+class ProgressBars {
+	constructor() {
+		this.last_index = 0
+		this.bars = {}
+		/* Data Structure 
+		{index: {
+			type: "upload", or "zip"
+			form_id: 0, // UploadManager.uploaders[form_id]
+			persent: 0,
+			source_dir: "", // location from where the file is being uploaded
+			status_text: "", // status text
+			status_color: "", // status color for the text
+		}, ...} */
+		this.bar_elements = {}
+	}
+
+	new(type, id, source_dir) {
+		const that = this;
+		const index = this.last_index;
+		this.last_index += 1;
+
+		let bar = {
+			type: type,
+			form_id: id,
+			percent: 0,
+			source_dir: source_dir,
+			status_text: "",
+			status_color: "",
+		}
+		this.bars[index] = bar
+		this.bar_elements[index] = null // will be set later
+
+
+		let bar_element = createElement("div")
+		bar_element.className = "progress_bar"
+		bar_element.id = "progress_bar_" + index
+
+		let bar_text = createElement("div")
+		bar_text.className = "progress_bar_heading"
+		if(type=="upload"){
+			bar_text.innerText = "Uploading"
+		} else if(type=="zip"){
+			bar_text.innerText = "Zipping"
+		}
+		bar_element.appendChild(bar_text)
+
+		let bar_status = createElement("div")
+		bar_status.className = "progress_bar_status"
+		bar_status.innerText = "0%"
+		bar_element.appendChild(bar_status)
+
+		let bar_status_text = createElement("div")
+		bar_status_text.className = "progress_bar_status_text"
+		bar_status_text.innerText = "Waiting"
+		bar_element.appendChild(bar_status_text)
+
+		let bar_progress = createElement("progress")
+		bar_progress.className = "progress_bar_progress"
+		bar_progress.value = 0
+		bar_progress.max = 100
+		bar_element.appendChild(bar_progress)
+
+		let bar_cancel = createElement("div")
+		bar_cancel.className = "progress_bar_cancel"
+		bar_cancel.innerHTML = "&#10006;"
+		bar_cancel.onclick = function(){
+			if (type == "upload") {
+				upload_man.cancel(id)
+			} else if (type == "zip") {
+				zip_man.cancel(id)
+			}
+
+			that.remove(index)
+		}
+		bar_element.appendChild(bar_cancel)
+
+		bar_element.onclick = ()=>{
+			if(type=="upload") {
+				upload_man.show(id)
+			} else if(type=="zip") {
+				zip_man.show(id)
+			}
+		}
+
+
+		this.bar_elements[index] = bar_element
+
+		return index
+
+	}
+
+	update(index, datas={}) {
+		let bar = this.bars[index]
+		for (let key in datas) {
+			bar[key] = datas[key]
+		}
+		this.update_bar(index)
+	}
+
+	update_bar(index){
+		let bar = this.bars[index]
+		let bar_element = this.bar_elements[index]
+		let type = bar.type
+		
+		
+
+		let bar_text = bar_element.getElementsByClassName("progress_bar_heading")[0]
+		if(type=="upload"){
+			bar_text.innerText = "Uploading"
+		} else if(type=="zip"){
+			bar_text.innerText = "Zipping"
+		}
+
+		let bar_status = bar_element.getElementsByClassName("progress_bar_status")[0]
+		bar_status.className = "progress_bar_status"
+		bar_status.innerText = bar.percent + "%"
+
+		let bar_status_text = bar_element.getElementsByClassName("progress_bar_status_text")[0]
+		bar_status_text.innerText = bar.status_text || "Waiting"
+
+		let bar_progress = bar_element.getElementsByClassName("progress_bar_progress")[0]
+		bar_progress.value = bar.percent
+	}
+
+	show_list() {
+		let list = createElement("div")
+		list.className = "progress_bar_list"
+		for (let index in this.bars) {
+			let bar = this.bars[index]
+			let bar_element = this.bar_elements[index]
+			list.appendChild(bar_element)
+		}
+		
+		popup_msg.createPopup("Running Tasks", list)
+
+		popup_msg.open_popup()
+	}
+
+	remove(index) {
+		let bar_element = this.bar_elements[index]
+		bar_element.remove()
+		delete this.bar_elements[index]
+		delete this.bars[index]
+
+		toaster.show("Task removed")
+	}
+}
+
+var progress_bars = new ProgressBars()
+
+
+class UploadManager {
+	constructor() {
+		this.uploading = false
+		this.last_index = 0
+		this.uploaders = {}
+		/* Data Structure
+		{index: form_element, ...} 
+		*/
+	}
+
+	new() {
+		//selecting all required elements
+		const that = this;
+		const index = this.last_index;
+		this.last_index += 1;
+
+		let Form = createElement("form")
+		Form.id = "uploader-" + index
+		Form.className = "jsonly"
+		Form.method = "post"
+		Form.action = "?upload"
+		Form.enctype = "multipart/form-data"
+
+		let center = createElement("center")
+		// centering the form
+
+
+		let post_type = createElement("input")
+		post_type.type = "hidden";
+		post_type.name = "post-type";
+		post_type.value = "upload";
+		center.appendChild(post_type)
+
+		let post_uid = createElement("input")
+		post_uid.type = "hidden";
+		post_uid.name = "post-uid";
+		post_uid.value = "12345";
+		center.appendChild(post_uid)
+
+		let pass_header = createElement("span")
+		pass_header.className = "upload-pass";
+		pass_header.innerText = "Password:  ";
+		center.appendChild(pass_header)
+
+		let pass_input = createElement("input")
+		pass_input.type = "password";
+		pass_input.name = "password";
+		pass_input.placeholder = "Password";
+		pass_input.label = "Password";
+		pass_input.className = "upload-pass-box";
+		center.appendChild(pass_input)
+
+		
+		let up_files = createElement("input")
+		up_files.type = "file";
+		up_files.name = "file";
+		up_files.multiple = true
+		up_files.hidden = true;
+		up_files.onchange = (e)=>{
+			// USING THE BROWSE BUTTON
+			let f = e.target.files; // this.files = [file1, file2,...];
+			addFiles(f);
+		};
+		center.appendChild(up_files)
+
+
+		center.appendChild(createElement("br"))
+		center.appendChild(createElement("br"))
+
+		let uploader_box = createElement("div")
+		uploader_box.className = "upload-box";
+
+			let uploader_dragArea = createElement("div")
+			uploader_dragArea.className = "drag-area";
+			uploader_dragArea.id = "drag-area";
+
+			let up_icon = createElement("div")
+			up_icon.className = "drag-icon";
+			up_icon.innerText = "⬆️";
+			uploader_dragArea.appendChild(up_icon)
+
+			let up_text = createElement("header")
+			up_text.innerText = "Drag & Drop to Upload File";
+			uploader_dragArea.appendChild(up_text)
+
+			let or_text = createElement("span")
+			or_text.innerText = "OR"
+			uploader_dragArea.appendChild(or_text)
+
+			let up_button = createElement("button")
+			up_button.type = "button";
+			up_button.innerText = "Browse File";
+			up_button.className = "drag-browse";
+			up_button.onclick = (e)=>{
+				e.preventDefault();
+				up_files.click(); //if user click on the button then the input also clicked
+			}
+			uploader_dragArea.appendChild(up_button)
+
+			uploader_dragArea.ondragover = (event)=>{
+				event.preventDefault(); //preventing from default behaviour
+				uploader_dragArea.classList.add("active");
+				up_text.innerText = "Release to Upload File";
+			};
+			
+			//If user leave dragged File from DropArea
+			uploader_dragArea.ondragleave = ()=>{
+				uploader_dragArea.classList.remove("active");
+				up_text.innerText = "Drag & Drop to Upload File";
+			};
+			
+			//If user drop File on DropArea
+			uploader_dragArea.ondrop = (event)=>{
+				event.preventDefault(); //preventing from default behaviour
+				//getting user select file and [0] this means if user select multiple files then we'll select only the first one
+				addFiles(event.dataTransfer.files);
+				// uploader_showFiles(); //calling function
+			};
+
+		uploader_box.appendChild(uploader_dragArea)
+		center.appendChild(uploader_box)
+		
+		let uploader_file_display_title = createElement("h2")
+		uploader_file_display_title.innerText = "Selected Files"
+		uploader_file_display_title.className = "has-selected-files";
+		uploader_file_display_title.style.display = "none";
+		center.appendChild(uploader_file_display_title)
+
+		Form.appendChild(center)
+
+		let uploader_file_display = createElement("div")
+		uploader_file_display.className = "drag-file-list";
+		Form.appendChild(uploader_file_display)
+
+		Form.appendChild(createElement("br"))
+		let center2 = createElement("center")
+		let submit_button = createElement("button")
+		submit_button.type = "submit";
+		submit_button.innerText = "➾ Upload";
+		submit_button.className = "drag-browse";
+
+		center2.appendChild(submit_button)
+		Form.appendChild(center2)
+
+
+		Form.onsubmit = (e) => {
+			e.preventDefault()
+			popup_msg.close()
+		
+			up_files.files = selected_files.files // Assign the updates list
+		
+		
+			const formData = new FormData(e.target)
+		
+		
+			// const status = byId("upload-status")
+			// const progress = byId("upload-progress")
+			const prog_id = progress_bars.new('upload', index, window.location.href)
+		
+			var prog = 0, 
+			msg = "",
+			color = "green"
+
+		
+			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
+			const request = new XMLHttpRequest()
+			request.open(e.target.method, e.target.action)
+			request.timeout = 3600000;
+			request.onreadystatechange = () => {
+				if (request.readyState === XMLHttpRequest.DONE) {
+					msg = `${request.status}: ${request.statusText}`
+					if (request.status === 401){
+						msg = 'Incorrect password';
+						color = "red"
+					} else if (request.status == 503) {
+						msg = 'Upload is disabled'
+						color = "red"
+					} else if (request.status === 0) {
+						msg = 'Connection failed (Possible cause: Incorrect password or Upload disabled)'
+						color = "red"
+					} else if (request.status === 204 || request.status === 200) {
+						msg = 'Success'
+						color = "green"
+					}
+					
+					progress_bars.update(prog_id, {
+						"status_text": msg,
+						"status_color": color})
+				}
+			}
+			request.upload.onprogress = e => {
+				prog = Math.floor(100*e.loaded/e.total)
+				if(e.loaded === e.total){
+					msg ='Saving...'
+				}else{
+					msg = `Uploading`
+				}
+				
+				progress_bars.update(prog_id, {
+						"status_text": msg,
+						"status_color": "green",
+						"percent": prog})
+			}
+			request.send(formData)
+		}
+
+		this.uploaders[index] = Form;
+
+		let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
+
+		function uploader_exist(file) {
+			//check if file is already selected or not
+			for (let i = 0; i < selected_files.files.length; i++) {
+				if (selected_files.files[i].name == file.name) {
+					return i+1; // 0 is false, so we add 1 to make it true
+				}
+			}
+			return false;
+		}
+		
+		function addFiles(files) {
+			var exist = false;
+			for (let i = 0; i < files.length; i++) {
+				exist = uploader_exist(files[i])
+		
+				if (exist) { //if file already selected, remove that and replace with new one, because, when uploading last file will remain in host server, so we need to replace it with new one
+					toaster.toast("File already selected");
+					selected_files.items.remove(exist-1);
+				}
+				selected_files.items.add(files[i]);
+			}
+			log("selected "+ selected_files.items.length+ " files");
+			uploader_showFiles();
+		}
+		
+		
+		
+		
+		
+		//If user Drag File Over DropArea
+		
+		
+		function uploader_removeFileFromFileList(index) {
+			let dt = new DataTransfer()
+			// const input = byId('files')
+			// const { files } = input
+		
+			for (let i = 0; i < selected_files.files.length; i++) {
+				let file = selected_files.files[i]
+				if (index !== i)
+					dt.items.add(file) // here you exclude the file. thus removing it.
+			}
+		
+			selected_files = dt
+			// uploader_input.files = dt // Assign the updates list
+			uploader_showFiles()
+		}
+		
+		function uploader_showFiles() {
+			tools.del_child(uploader_file_display)
+			
+			if(selected_files.files.length){
+				uploader_file_display_title.style.display = "block"
+			} else {
+				uploader_file_display_title.style.display = "none"
+			}
+			for (let i = 0; i <selected_files.files.length; i++) {
+				uploader_showFile(selected_files.files[i], i);
+			}
+		}
+		
+		
+		function uploader_showFile(file, index){
+			let filename = file.name;
+			let size = fmbytes(file.size);
+		
+			let item = createElement("table");
+			item.className = "upload-file-item";
+			
+			let fname = createElement("td");
+			fname.className = "ufname";
+			fname.innerText = filename;
+			item.appendChild(fname);
+
+			let fsize = createElement("td");
+			fsize.className = "ufsize";
+			let fsize_text = createElement("span");
+			fsize_text.innerText = size;
+			fsize.appendChild(fsize_text);
+			item.appendChild(fsize);
+
+			let fremove = createElement("td");
+			fremove.className = "ufremove";
+			let fremove_icon = createElement("span");
+			fremove_icon.innerHTML = "&times;";
+			fremove_icon.onclick = function(){
+				uploader_removeFileFromFileList(index)
+			}
+			fremove.appendChild(fremove_icon);
+			item.appendChild(fremove);
+		
+			uploader_file_display.appendChild(item);
+		
+		}
+		
+
+
+		return Form;
+
+	
+	}
+
+	show(index){
+		form = this.uploaders[index];
+		popup_msg.createElement("Upload Files", form);
+		popup_msg.show();
+	}
+
+}
+
+const upload_man = new UploadManager();
+
+
+class FileManager {
+	constructor() {
+	}
+
+	show_more_menu(){
+		const that = this;
+		let menu = createElement("div")
+
+		let sort_by = createElement("div")
+		sort_by.innerText = "Sort By"
+		sort_by.className = "disable_selection popup-btn menu_options"
+		sort_by.onclick = function(){
+			that.Show_sort_by()
+		}
+		menu.appendChild(sort_by)
+
+		let new_folder = createElement("div")
+		new_folder.innerText = "New Folder"
+		new_folder.onclick = function(){
+			that.Show_folder_maker()
+		}
+		new_folder.className = "disable_selection popup-btn menu_options"
+		menu.appendChild(new_folder)
+
+		let upload = createElement("div")
+		upload.innerText = "Upload Files"
+		upload.onclick = function(){
+			that.Show_upload_files()
+		}
+
+		upload.className = "disable_selection popup-btn menu_options"
+		menu.appendChild(upload)
+
+		popup_msg.createPopup("Options", menu)
+
+		popup_msg.open_popup()
+	}
+
+
+	Show_folder_maker() {
+		popup_msg.createPopup("Create Folder",
+			"Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='context_menu.create_folder()'>Create</div>"
+			);
+		popup_msg.open_popup();
+	}
+
+	Show_upload_files() {
+		let form = upload_man.new()
+		popup_msg.createPopup("Upload Files", form);
+		popup_msg.open_popup();
+	}
+
+
+
+}
+
+const fm = new FileManager();
 
 
 </script>

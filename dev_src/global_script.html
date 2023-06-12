@@ -188,15 +188,21 @@ class Popup_Msg {
 		this.made_popup = false;
 		this.init()
 	}
+
 	init() {
 		this.onclose = null_func;
 		this.scroll_disabled = false;
+
+		tools.del_child(this.header);
+		tools.del_child(this.content);
 	}
+
 	create() {
 		var that = this;
 		let popup_id, popup_obj, popup_bg, close_btn, popup_box;
 
 		popup_id = config.total_popup;
+		config.total_popup += 1;
 
 
 
@@ -228,36 +234,42 @@ class Popup_Msg {
 		}
 		close_btn.innerHTML = "&times;";
 		popup_box.appendChild(close_btn)
+
 		this.header = createElement("h1")
 		this.header.id = "popup-header-" + popup_id;
 		popup_box.appendChild(this.header)
+
 		this.hr = createElement("popup-hr-" + popup_id);
 		this.hr.style.width = "95%"
 		popup_box.appendChild(this.hr)
+
 		this.content = createElement("div")
 		this.content.id = "popup-content-" + popup_id;
 		popup_box.appendChild(this.content)
 		this.popup_obj.appendChild(popup_box)
 
 		byId("popup-container").appendChild(this.popup_obj)
-		config.total_popup += 1;
 	}
+
 	close() {
 		this.onclose()
 		this.dismiss()
 		config.popup_msg_open = false;
 		this.init()
 	}
+
 	hide() {
 		this.popup_obj.classList.remove("active");
 		tools.toggle_scroll(1)
 	}
+
 	dismiss() {
 		this.hide()
 		tools.del_child(this.header);
 		tools.del_child(this.content);
 		this.made_popup = false;
 	}
+
 	async togglePopup(toggle_scroll = true) {
 		if (!this.made_popup) {
 			return
@@ -271,6 +283,7 @@ class Popup_Msg {
 			this.close()
 		}
 	}
+
 	async open_popup(allow_scroll = false) {
 		if (!this.made_popup) {
 			return
@@ -281,6 +294,11 @@ class Popup_Msg {
 			this.scroll_disabled = true;
 		}
 	}
+
+	async show(allow_scroll = false) {
+		this.open_popup(allow_scroll)
+	}
+
 	async createPopup(header = "", content = "", hr = true) {
 		this.init()
 		this.made_popup = true;
