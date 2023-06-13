@@ -856,6 +856,59 @@ ul{
 }
 
 
+.progress_bar {
+	width: 97%;
+	text-align: left;
+	
+	padding: 5px 10px;
+	
+	border-style: solid;
+  border-width: 2px 1px; /* 5px top and bottom, 20px on the sides */
+  border-radius: 4px;
+  box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
+}
+
+.progress_bar_heading {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	
+	border: 1px solid white;
+	border-radius: 3px;
+	padding: 1px;
+	
+}
+
+.progress_bar_heading_text {
+	font-size: 1em;
+}
+.progress_bar_status {
+	font-size: 1.2em;
+}
+
+.progress_bar_status_text {
+	font-size: 1em;
+}
+
+.progress_bar_progress {
+	height: 3px;
+	width: 98%;
+	border-radius: 2px;
+	margin: 5px;
+	color: var(--popup-btn-bg-active);
+}
+
+.progress_bar_cancel {
+	font-size: .9em;
+	color: rgb(196, 233, 255);
+	cursor: pointer;
+	padding: 2px 3px;
+	border-radius: 3px;
+	border: #00b7ff 1px solid;
+}
+
+
 
 
 
@@ -972,13 +1025,13 @@ ul{
 
 <div id="actions-btn" class="disable_selection" onclick="fm.show_more_menu()"><span class="fa fa-solid fa-plus"><b>+</b></span></div>
 <div id="progress-island" class="disable_selection" onclick="progress_bars.show_list()">
-	<span id="progress-uploads">Running Uploads </span>
-	<span id="progress-uploads-count">(0/0)</span>
+	<span id="progress-uploads">Running Uploads 
+	<span id="progress-uploads-count">(0/0)</span></span>
 
 	<br>
 
-	<span id="progress-zips">Running Zips </span>
-	<span id="progress-zips-count">(0/0)</span>
+	<span id="progress-zips">Running Zips 
+	<span id="progress-zips-count">(0/0)</span></span>
 </div>
 
 <script>

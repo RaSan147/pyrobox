@@ -1558,7 +1558,7 @@ class DealPostData:
 			raise PostError(
 				f"Content size limit exceeded: {self.content_length} > {max_size}")
 
-	def get(self, show=F, strip=F, Timeout=20, chunk_size=0):
+	def get(self, show=F, strip=F, Timeout=10, chunk_size=0):
 		"""
 		show: print line
 		strip: strip \r\n at end

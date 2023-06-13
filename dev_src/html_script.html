@@ -1,4 +1,3 @@
-
 <script>
 
 const r_li = ${PY_LINK_LIST};
@@ -134,7 +133,7 @@ class ContextMenu {
 		del.onclick = function() {
 			that.menu_click('del-f', file);
 		};
-		log(file, type)
+		
 		menu.appendChild(del)
 		var del_P = createElement("div")
 		del_P.innerText = "🔥" + " Delete permanently"
@@ -309,7 +308,7 @@ for (let i = 0; i < r_li.length; i++) {
 
 	link.oncontextmenu = function(ev) {
 		ev.preventDefault()
-		log(r_, 1);
+		
 		context_menu.show_menus(r_, name, type);
 		return false;
 	}
@@ -339,7 +338,7 @@ dir_container.appendChild(file_li)
 
 class ProgressBars {
 	constructor() {
-		this.last_index = 0
+		this.last_index = 1
 		this.bars = {}
 		/* Data Structure 
 		{index: {
@@ -354,7 +353,10 @@ class ProgressBars {
 		this.bar_elements = {}
 
 		this.island_bar = byId("progress-island")
+		this.island_up_text = byId("progress-uploads")
 		this.island_up_count = byId("progress-uploads-count")
+		
+		this.island_zip_text = byId("progress-zips")
 		this.island_zip_count = byId("progress-zips-count")
 	}
 
@@ -379,21 +381,33 @@ class ProgressBars {
 		bar_element.className = "progress_bar"
 		bar_element.id = "progress_bar_" + index
 
-		let bar_text = createElement("div")
-		bar_text.className = "progress_bar_heading"
+		let bar_head = createElement("div")
+		bar_head.className = "progress_bar_heading"
+		
+		let bar_head_text = createElement("div")
+		bar_head_text.className ="progress_bar_heading_text"
 		if(type=="upload"){
-			bar_text.innerText = "Uploading"
+			bar_head_text.innerText = "Uploading"
 		} else if(type=="zip"){
-			bar_text.innerText = "Zipping"
+			bar_head_text.innerText = "Zipping"
 		}
-		bar_element.appendChild(bar_text)
+		bar_head_text.style.float ="left"
+		bar_head.appendChild(bar_head_text)
 
 		let bar_status = createElement("div")
 		bar_status.className = "progress_bar_status"
 		bar_status.innerText = "0%"
-		bar_element.appendChild(bar_status)
+		bar_status.style.float = "right" 
+		bar_head.appendChild(bar_status)
+		bar_element.appendChild(bar_head)
+		
+		
+		let status_label = createElement("span")
+		status_label.style.font_size = ".6em"
+		status_label.innerText = "Status: "
+		bar_element.appendChild(status_label)
 
-		let bar_status_text = createElement("div")
+		let bar_status_text = createElement("span")
 		bar_status_text.className = "progress_bar_status_text"
 		bar_status_text.innerText = "Waiting"
 		bar_element.appendChild(bar_status_text)
@@ -404,12 +418,15 @@ class ProgressBars {
 		bar_progress.max = 100
 		bar_element.appendChild(bar_progress)
 
-		let bar_cancel = createElement("div")
+		bar_element.appendChild(createElement("br"))
+
+		let bar_cancel = createElement("span")
 		bar_cancel.className = "progress_bar_cancel"
-		bar_cancel.innerHTML = "&#10006;"
-		bar_cancel.onclick = function(){
+		bar_cancel.innerHTML = "&#9888; Delete Task"
+		bar_cancel.onclick = function(e){
+			e.stopPropagation() // stop the click event from propagating to the bar element
 			if (type == "upload") {
-				upload_man.cancel(id)
+				upload_man.remove(id)
 			} else if (type == "zip") {
 				zip_man.cancel(id)
 			}
@@ -453,8 +470,27 @@ class ProgressBars {
 				}
 			}
 		}
-		this.island_up_count.innerText = "(" + up_done_count + '/' + up_count + ')'
-		this.island_zip_count.innerText = "(" + zip_done_count + '/' + zip_count + ')'
+		
+		this.island_bar.style.display = "block"
+		if (!(up_count||zip_count)){
+			this.island_bar.style.display = "None"
+			return
+		}
+
+		
+		if (up_count){
+			this.island_up_text.style.display = "block"
+			this.island_up_count.innerText = "(" + up_done_count + '/' + up_count + ')'
+		} else {
+			this.island_up_text.style.display = "none"
+		}
+		
+		if (zip_count){
+			this.island_zip_text.style.display = "block"
+			this.island_zip_count.innerText = "(" + zip_done_count + '/' + zip_count + ')'
+		} else {
+			this.island_zip_text.style.display = "none"
+		} 
 	}
 
 
@@ -473,11 +509,11 @@ class ProgressBars {
 		
 		
 
-		let bar_text = bar_element.getElementsByClassName("progress_bar_heading")[0]
+		let bar_head_text = bar_element.getElementsByClassName("progress_bar_heading_text")[0]
 		if(type=="upload"){
-			bar_text.innerText = "Uploading"
+			bar_head_text.innerText = "Uploading"
 		} else if(type=="zip"){
-			bar_text.innerText = "Zipping"
+			bar_head_text.innerText = "Zipping"
 		}
 
 		let bar_status = bar_element.getElementsByClassName("progress_bar_status")[0]
@@ -486,7 +522,10 @@ class ProgressBars {
 
 		let bar_status_text = bar_element.getElementsByClassName("progress_bar_status_text")[0]
 		bar_status_text.innerText = bar.status_text || "Waiting"
-
+		bar_status_text.style.color = bar.status_color || "white"
+		
+		
+		
 		let bar_progress = bar_element.getElementsByClassName("progress_bar_progress")[0]
 		bar_progress.value = bar.percent
 		
@@ -508,23 +547,30 @@ class ProgressBars {
 	}
 
 	remove(index) {
-		let bar_element = this.bar_elements[index]
-		bar_element.remove()
-		delete this.bar_elements[index]
-		delete this.bars[index]
+		// check if the index exists
+		if (!(index in this.bars)) {
+			return // to avoid recursion
+		}
 
-		toaster.show("Task removed")
+		delete this.bars[index] // remove the id 1st
+		let bar_element = this.bar_elements[index]
+		bar_element.remove() // remove the element from the DOM
+		delete this.bar_elements[index] // remove the element from the list
+
+		toaster.toast("Task removed")
 	}
 }
 
 var progress_bars = new ProgressBars()
+progress_bars.update_island()
 
 
 class UploadManager {
 	constructor() {
-		this.uploading = false
-		this.last_index = 0
+		this.last_index = 1
 		this.uploaders = {}
+		this.requests = {}
+		this.status = {}
 		/* Data Structure
 		{index: form_element, ...} 
 		*/
@@ -659,14 +705,50 @@ class UploadManager {
 		let submit_button = createElement("button")
 		submit_button.type = "submit";
 		submit_button.innerText = "➾ Upload";
-		submit_button.className = "drag-browse";
+		submit_button.className = "drag-browse upload-button";
 
 		center2.appendChild(submit_button)
+		
+		center2.appendChild(createElement("br"))
+		center2.appendChild(createElement("br"))
+		
+		let upload_pop_status_label = createElement("span")
+		upload_pop_status_label.innerText = "Status: ";
+		let upload_pop_status = createElement("span")
+		upload_pop_status.className = "upload-pop-status";
+		upload_pop_status.innerText = "Waiting";
+		upload_pop_status_label.appendChild(upload_pop_status)
+		upload_pop_status_label.style.display = "none";
+		center2.appendChild(upload_pop_status_label)
+		
 		Form.appendChild(center2)
 
+		var prog_id = null;
+		var request = null;
+		Form["prog_id"] = null; // This is used to update the progress bar
 
 		Form.onsubmit = (e) => {
 			e.preventDefault()
+
+			if(that.status[index]){
+				that.cancel(index)
+				return
+			}
+
+			that.status[index] = true; // The user is uploading
+
+			request = request || new XMLHttpRequest()
+			that.requests[index] = request
+			that.uploaders[index] = Form; // Save the form for later use
+			// Unless the user is uploading, this won't be saved
+
+			if(selected_files.files.length == 0){
+				toaster.toast("No files selected")
+				return
+			}
+
+			submit_button.innerText = "⏹️ Cancel";
+
 			popup_msg.close()
 		
 			up_files.files = selected_files.files // Assign the updates list
@@ -674,11 +756,11 @@ class UploadManager {
 		
 			const formData = new FormData(e.target)
 		
-		
-			// const status = byId("upload-status")
-			// const progress = byId("upload-progress")
-			const prog_id = progress_bars.new('upload', index, window.location.href)
-		
+			prog_id = prog_id || progress_bars.new('upload', index, window.location.href) // Create a new progress bar if not already created
+			Form.prog_id = prog_id // Save the progress bar id for later use
+
+
+
 			var prog = 0, 
 			msg = "",
 			color = "green"
@@ -693,7 +775,7 @@ class UploadManager {
 
 		
 			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
-			const request = new XMLHttpRequest()
+
 			request.open(e.target.method, e.target.action)
 			request.timeout = 3600000;
 			request.onreadystatechange = () => {
@@ -712,6 +794,7 @@ class UploadManager {
 						msg = 'Success'
 						color = "green"
 						prog = 100
+						status = "done"
 					}
 					
 					progress_bars.update(prog_id, {
@@ -719,14 +802,21 @@ class UploadManager {
 						"status_color": color,
 						"status": status,
 						"percent": prog})
+						
+					submit_button.innerText = "➾ Re-upload";
+					if (!that.status[index]){
+						return// needs to check this.status[index] because the user might have cancelled the upload but its still called. On cancel already a toast is shown
+					}
 
-					if (status === "error") {
+					if (status === "error") { 
 						msg = "Upload Failed"
 					} else {
 						msg = "Upload Complete"
 					}
 					toaster.toast(msg, 3000, color)
-					alert(msg)
+
+					that.status[index] = false
+					
 				}
 			}
 			request.upload.onprogress = e => {
@@ -734,7 +824,7 @@ class UploadManager {
 				if(e.loaded === e.total){
 					msg ='Saving...'
 				}else{
-					msg = `Uploading`
+					msg = `Progress`
 				}
 				
 				progress_bars.update(prog_id, {
@@ -746,7 +836,6 @@ class UploadManager {
 			request.send(formData)
 		}
 
-		this.uploaders[index] = Form;
 
 		let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
 
@@ -852,10 +941,54 @@ class UploadManager {
 	
 	}
 
+	up_stat(form, stat=null) {
+		if(stat===null){
+			return form.getAttribute("uploading");
+		}
+		form.setAttribute("uploading", stat);
+	}
+
 	show(index){
 		let form = this.uploaders[index];
 		popup_msg.createPopup("Upload Files", form);
 		popup_msg.show();
+	}
+
+	cancel(index){
+		let request = this.requests[index];
+		let form = this.uploaders[index];
+		let prog_id = form.prog_id;
+
+		this.status[index] = false;
+		if(request){
+			request.abort();
+		}
+
+		if(form){
+			this.status[index] = false;
+			form.querySelector(".upload-button").innerText = "➾ Upload";
+		}
+		progress_bars.update(prog_id, {
+						"status_text": "Upload Canceled",
+						"status_color": "red",
+						"status": "error",
+						"percent": 0})
+
+		toaster.toast("Upload Canceled");
+
+		return true;
+	}
+
+	remove(index){
+		this.cancel(index);
+		let form = this.uploaders[index];
+		let prog_id = form.prog_id;
+		if (prog_id){
+			progress_bars.remove(prog_id);
+		}
+		this.uploaders[index].remove(); //remove the form from DOM
+		delete this.uploaders[index]; //remove the form from uploaders array
+		delete this.requests[index]; //remove the request from requests array
 	}
 
 }

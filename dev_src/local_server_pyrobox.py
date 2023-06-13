@@ -818,7 +818,7 @@ def upload(self: SH, *args, **kwargs):
 		path = self.translate_path(self.path)
 		rltv_path = posixpath.join(url_path, fn)
 
-		temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
+		temp_fn = os.path.join(path, ".LStemp-"+fn +'.tmp')
 		config.temp_file.add(temp_fn)
 
 
