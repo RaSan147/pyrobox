@@ -535,6 +535,13 @@ class ProgressBars {
 	show_list() {
 		let list = createElement("div")
 		list.className = "progress_bar_list"
+
+		let heading = createElement("h3")
+		heading.innerText = "Do not close this tab while tasks are running"
+		list.appendChild(heading)
+		list.appendChild(createElement("hr"))
+
+
 		for (let index in this.bars) {
 			let bar = this.bars[index]
 			let bar_element = this.bar_elements[index]
@@ -558,6 +565,7 @@ class ProgressBars {
 		delete this.bar_elements[index] // remove the element from the list
 
 		toaster.toast("Task removed")
+		this.update_island()
 	}
 }
 
@@ -732,6 +740,7 @@ class UploadManager {
 
 			if(that.status[index]){
 				that.cancel(index)
+				show_status("Upload cancelled")
 				return
 			}
 
@@ -796,6 +805,7 @@ class UploadManager {
 						prog = 100
 						status = "done"
 					}
+
 					
 					progress_bars.update(prog_id, {
 						"status_text": msg,
@@ -807,6 +817,7 @@ class UploadManager {
 					if (!that.status[index]){
 						return// needs to check this.status[index] because the user might have cancelled the upload but its still called. On cancel already a toast is shown
 					}
+					show_status(msg)
 
 					if (status === "error") { 
 						msg = "Upload Failed"
@@ -823,9 +834,12 @@ class UploadManager {
 				prog = Math.floor(100*e.loaded/e.total)
 				if(e.loaded === e.total){
 					msg ='Saving...'
+					show_status(msg)
 				}else{
 					msg = `Progress`
+					show_status(msg + " "+prog + "%")
 				}
+				
 				
 				progress_bars.update(prog_id, {
 						"status_text": msg,
@@ -838,6 +852,15 @@ class UploadManager {
 
 
 		let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
+		
+		function show_status(msg, hide=false){
+			if(hide){
+				upload_pop_status_label.style.display = "none"
+				return
+			}
+			upload_pop_status_label.style.display = "block"
+			upload_pop_status.innerText = msg
+		}
 
 		function uploader_exist(file) {
 			//check if file is already selected or not
@@ -954,33 +977,36 @@ class UploadManager {
 		popup_msg.show();
 	}
 
-	cancel(index){
+	cancel(index, remove=false){
 		let request = this.requests[index];
 		let form = this.uploaders[index];
 		let prog_id = form.prog_id;
-
-		this.status[index] = false;
-		if(request){
-			request.abort();
-		}
-
+		
 		if(form){
-			this.status[index] = false;
 			form.querySelector(".upload-button").innerText = "➾ Upload";
 		}
 		progress_bars.update(prog_id, {
-						"status_text": "Upload Canceled",
-						"status_color": "red",
-						"status": "error",
-						"percent": 0})
+			"status_text": "Upload Canceled",
+			"status_color": "red",
+			"status": "error",
+			"percent": 0})
+			
 
-		toaster.toast("Upload Canceled");
+		if(this.status[index]){
+			this.status[index] = false;
+			if(request){
+				request.abort();
+			}
+			if(!remove) toaster.toast("Upload Canceled");
 
-		return true;
+			return true;
+		}
+			
+		return false;
 	}
 
 	remove(index){
-		this.cancel(index);
+		this.cancel(index, true); //cancel the upload (true to make sure it doesn't show toast)
 		let form = this.uploaders[index];
 		let prog_id = form.prog_id;
 		if (prog_id){
