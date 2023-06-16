@@ -24,6 +24,8 @@ import urllib.request
 import subprocess
 import json
 from http import HTTPStatus
+from http.cookies import SimpleCookie
+
 
 import traceback
 
@@ -34,6 +36,13 @@ from _arg_parser import main as arg_parser
 import _page_templates as pt
 from _exceptions import LimitExceed
 from _zipfly_manager import ZIP_Manager
+
+
+
+from pyroDB import PickleTable, PickleDB
+import user_mgmt as u_mgmt
+
+
 
 __version__ = __version__
 true = T = True
@@ -47,7 +56,48 @@ arg_parser(config)
 cli_args = config.parser.parse_known_args()[0]
 config.PASSWORD = cli_args.password
 
-logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args))))
+logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args) if not (i.startswith("admin") or i=="password"))))
+
+
+class ServerConfig():
+	def __init__(self):
+		self.name = cli_args.name
+		self.uDB = None
+		self.init_account()
+		
+		self.GUESTS = (self.name and cli_args.guest_allowed) or True # unless account mode, everyone is guest
+		
+		# Max size a zip file will be made
+		self.max_zip_size = 6*1024*1024*1024
+		
+
+
+	def init_account(self):
+		if not self.name:
+			return
+		userDB_loc = os.path.join(config.MAIN_FILE_dir, "userDB", cli_args.name+ ".pdb")
+		userDB = PickleTable(userDB_loc)
+		self.uDB = userDB
+		
+		u_mgmt.user_db = userDB
+
+
+
+Sconfig = ServerConfig()
+
+
+class User():
+	def __init__(self):
+		self.NOPERMISSION = cli_args.view_only
+		self.READ_ONLY = cli_args.read_only
+		self.DOWNLOAD = not cli_args.no_download
+		self.MODIFY = not cli_args.no_modify
+		self.DELETE = not cli_args.no_delete
+		self.UPLOAD = not cli_args.no_upload
+		self.ZIP = not cli_args.no_zip
+
+
+
 
 ###########################################
 # config.dev_mode = False
@@ -68,8 +118,8 @@ config.disabled_func.update({
 })
 
 ########## ZIP MANAGER ################################
-config.max_zip_size = 6*1024*1024*1024
-zip_manager = ZIP_Manager(config, size_limit=config.max_zip_size)
+# max_zip_size = 6*1024*1024*1024
+zip_manager = ZIP_Manager(config, size_limit=Sconfig.max_zip_size)
 
 #######################################################
 
@@ -197,7 +247,7 @@ def list_directory_json(self:SH, path=None):
 
 
 
-def list_directory(self:SH, path):
+def list_directory(self:SH, path, user:User):
 	"""Helper to produce a directory listing (absent index.html).
 
 	Return value is either a file object, or None (indicating an
@@ -317,8 +367,8 @@ def list_directory(self:SH, path):
 
 	r.append(pt.file_list().safe_substitute())
 
-	if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
-
+	#if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
+	if user.UPLOAD and not (user.READ_ONLY or user.NOPERMISSION):
 		pass
 		# r.append(pt.upload_form().safe_substitute(PY_PUBLIC_URL=config.address()))
 
@@ -418,9 +468,31 @@ def fetch_url(url, file = None):
 
 class PostError(Exception):
 	pass
+	
 
 
+def handle_user_cookie(self: SH):
+	cookie = self.cookie
+	#print(cookie)
+	def get(k):
+		x = cookie.get(k)
+		if x is not None:
+			return x.value
+		return ""
+	username = get("uname")
+	uid = get("uid")
 
+	_User.get_user
+	return None
+
+
+def Authorize_user(self:SH):
+	# do cookie stuffs and get user
+
+	if Sconfig.GUESTS:
+		return User() # default gues user
+		
+	
 
 
 
@@ -431,12 +503,24 @@ def send_favicon(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="reload")
 def reload(self: SH, *args, **kwargs):
 	# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+
 	config.reload = True
 
 	reload_server()
 
 @SH.on_req('HEAD', hasQ="admin")
 def admin_page(self: SH, *args, **kwargs):
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
 	title = "ADMIN PAGE"
 	url_path = kwargs.get('url_path', '')
 	displaypath = self.get_displaypath(url_path)
@@ -451,6 +535,13 @@ def admin_page(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="update")
 def update(self: SH, *args, **kwargs):
 	"""Check for update and return the latest version"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
+		
 	data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
 	if data:
 		data  = data.decode("utf-8").strip()
@@ -462,6 +553,12 @@ def update(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="update_now")
 def update_now(self: SH, *args, **kwargs):
 	"""Run update"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+	
 	if config.disabled_func["update"]:
 		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
 	else:
@@ -475,6 +572,13 @@ def update_now(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="size")
 def get_size(self: SH, *args, **kwargs):
 	"""Return size of the file"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
+		
 	url_path = kwargs.get('url_path', '')
 
 	xpath = self.translate_path(url_path)
@@ -497,6 +601,13 @@ def get_size(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="size_n_count")
 def get_size_n_count(self: SH, *args, **kwargs):
 	"""Return size of the file"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
+		
 	url_path = kwargs.get('url_path', '')
 
 	xpath = self.translate_path(url_path)
@@ -521,6 +632,13 @@ def get_size_n_count(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="czip")
 def create_zip(self: SH, *args, **kwargs):
 	"""Create ZIP task and return ID"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
+		
 	path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
 	spathsplit = kwargs.get('spathsplit', '')
@@ -561,6 +679,13 @@ def create_zip(self: SH, *args, **kwargs):
 def get_zip(self: SH, *args, **kwargs):
 	"""Return ZIP file if available
 	Else return progress of the task"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
+		
 	path = kwargs.get('path', '')
 	spathsplit = kwargs.get('spathsplit', '')
 
@@ -617,11 +742,23 @@ def get_zip(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="json")
 def send_ls_json(self: SH, *args, **kwargs):
 	"""Send directory listing in JSON format"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+
 	return list_directory_json(self)
 
 @SH.on_req('HEAD', hasQ="vid")
 def send_video_page(self: SH, *args, **kwargs):
 	# SEND VIDEO PLAYER
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+
 	path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
 
@@ -664,6 +801,11 @@ def send_video_page(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', url_regex="/@assets/.*")
 def send_assets(self: SH, *args, **kwargs):
 	"""Send assets"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+
 	if not config.ASSETS:
 		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
 		return None
@@ -686,6 +828,12 @@ def send_assets(self: SH, *args, **kwargs):
 @SH.on_req('HEAD')
 def default_get(self: SH, filename=None, *args, **kwargs):
 	"""Serve a GET request."""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+	
 	path = kwargs.get('path', '')
 
 	if os.path.isdir(path):
@@ -706,7 +854,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 				path = index
 				break
 		else:
-			return list_directory(self, path)
+			return list_directory(self, path, user)
 
 	# check for trailing "/" which should return 404. See Issue17324
 	# The test for this was added in test_httpserver.py
@@ -722,7 +870,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 
 	# else:
 
-	if cli_args.view_only or cli_args.no_download:
+	if (not user.DOWNLOAD) or user.NOPERMISSION:
 		if not os.path.exists(path):
 			return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Download is disabled")
@@ -776,7 +924,13 @@ def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 @SH.on_req('POST', hasQ="upload")
 def upload(self: SH, *args, **kwargs):
 	"""GET Uploaded files"""
-	if cli_args.no_upload or cli_args.read_only or cli_args.view_only:
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
+	if (not user.UPLOAD) or user.READ_ONLY or user.NOPERMISSION:
 		return self.send_txt(HTTPStatus.SERVICE_UNAVAILABLE, "Upload not allowed")
 
 
@@ -849,7 +1003,7 @@ def upload(self: SH, *args, **kwargs):
 						preline = line
 
 
-			while cli_args.no_update and os.path.isfile(fn):
+			while (not user.MODIFY) and os.path.isfile(fn):
 				n = 1
 				name, ext = os.path.splitext(fn)
 				fn = f"{name}({n}){ext}"
@@ -881,8 +1035,13 @@ def upload(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-f")
 def del_2_recycle(self: SH, *args, **kwargs):
 	"""Move 2 recycle bin"""
-
-	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
+	if user.NOPERMISSION or user.READ_ONLY or (not user.DELETE):
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
 
 	path = kwargs.get('path')
@@ -928,7 +1087,13 @@ def del_2_recycle(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-p")
 def del_permanently(self: SH, *args, **kwargs):
 	"""DELETE files permanently"""
-	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
+	if user.NOPERMISSION or user.READ_ONLY or (not user.DELETE):
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
 
 	path = kwargs.get('path')
@@ -970,10 +1135,13 @@ def del_permanently(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="rename")
 def rename_content(self: SH, *args, **kwargs):
 	"""Rename files"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
 
-	print(cli_args.read_only , cli_args.view_only , cli_args.no_update)
-
-	if cli_args.read_only or cli_args.view_only or cli_args.no_update:
+	if user.NOPERMISSION or user.READ_ONLY or (not user.MODIFY):
 		return self.send_json({"head": "Failed", "body": "Renaming is disabled."})
 
 
@@ -1018,6 +1186,12 @@ def rename_content(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="info")
 def get_info(self: SH, *args, **kwargs):
 	"""Get files permanently"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+		
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1131,6 +1305,15 @@ background-color: #111;
 @SH.on_req('POST', hasQ="new_folder")
 def new_folder(self: SH, *args, **kwargs):
 	"""Create new folder"""
+	user = Authorize_user(self) 
+	
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(403, pt.login_page())
+		
+	if user.NOPERMISSION or user.READ_ONLY or (not user.MODIFY):
+		return self.send_json({"head": "Failed", "body": "Permission denied."})
+		
+		
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 

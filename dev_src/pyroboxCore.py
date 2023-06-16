@@ -72,6 +72,7 @@ class Config:
 		# if you want to see some important LOG in browser, may contain your important information
 		self.allow_web_log = True
 		self.write_log = False  # if you want to write log to file
+		self.log_extra = True
 
 		# ZIP FEATURES
 		self.default_zip = "zipfile"  # or "zipfile" to use python built in zip module
@@ -180,11 +181,20 @@ class Config:
 		parser.add_argument('--version', '-v', action='version',
 							version=__version__)
 
-		self.parser.add_argument('-h', '--help', action='help',
+		parser.add_argument('-h', '--help', action='help',
 								default='==SUPPRESS==',
 								help=('show this help message and exit'))
+								
+								
+		parser.add_argument('--no-extra-log', '-nxl',
+							action='store_true',
+							default=False,
+							help="Disable file path and [= + - #] based logs (default: %(default)s)") 
+	
 
 		args = parser.parse_known_args()[0]
+		
+		self.log_extra = not args.no_extra_log
 
 		return args
 
@@ -643,7 +653,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			_w = tools.term_width()
 			w = _w - len(str(self.req_hash)) - 2
 			w = w//2
-			logger.info('='*w + f' {self.req_hash} ' + '='*w + '\n' +
+			if config.log_extra:
+				logger.info('='*w + f' {self.req_hash} ' + '='*w + '\n' +
 						'\n'.join(
 								[f'{self.req_hash}|=>\t request\t: {self.command}',
 								 f'{self.req_hash}|=>\t url     \t: {url_path}',
@@ -659,7 +670,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			except Exception:
 				traceback.print_exc()
 
-			logger.info('-'*w + f' {self.req_hash} ' + '-'*w + '\n' +
+			if config.log_extra:
+				logger.info('-'*w + f' {self.req_hash} ' + '-'*w + '\n' +
 						'#'*_w
 						)
 			

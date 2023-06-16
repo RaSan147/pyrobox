@@ -9,7 +9,8 @@ __all__ = [
 	"zip_script",
 	"admin_page",
 	"error_page",
-	"theme_script"
+	"theme_script",
+	"login_page"
 ]
 
 
@@ -66,6 +67,9 @@ def error_page():
 
 def theme_script():
 	return get_template("html_theme_script.html")
+	
+def login_page():
+	return global_script() + get_template("html_login_page.html")
 
-directory_explorer_header()
+#directory_explorer_header()
 

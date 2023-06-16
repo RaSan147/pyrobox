@@ -22,9 +22,12 @@ class UserPermission(Enum):
     DELETE = 4
     UPLOAD = 5
     ZIP = 6
+    
+Uperm = UserPermission # lazy to type long words
 
 
-user_db = config.LOCALSESSION.user_db
+user_db = None
+
 class User:
     """Object for WebUI users"""
     def __init__(

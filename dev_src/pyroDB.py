@@ -907,9 +907,8 @@ def Lower_string(length): # define the function and pass the length as argument
 	result = ''.join((random.choice(string.ascii_lowercase) for x in range(length))) # run loop until the define length 
 	return result
 
-
-if __name__ != "__main__":
-	
+		
+if __name__ == "__main__":
 	st = time.time()
 	for i in range(10):
 		p = PickleDB("__test.pdb")
@@ -920,9 +919,7 @@ if __name__ != "__main__":
 	
 	et = time.time()
 	print(et - st)
-	print("avg:", (et-st)/10)
-		
-if __name__ == "__main__":
+	print("avg:", (et-st)/10) 
 
 	
 	st = time.time()
