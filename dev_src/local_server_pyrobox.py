@@ -1208,8 +1208,8 @@ def default_post(self: SH, *args, **kwargs):
 
 
 # proxy for old versions
-def run():
-	run_server(handler=SH)
+def run(*args, **kwargs):
+	run_server(handler=SH, *args, **kwargs)
 
 if __name__ == '__main__':
 	run()
