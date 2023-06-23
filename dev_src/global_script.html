@@ -299,8 +299,9 @@ class Popup_Msg {
 		this.open_popup(allow_scroll)
 	}
 
-	async createPopup(header = "", content = "", hr = true) {
+	async createPopup(header = "", content = "", hr = true, onclose = null_func) {
 		this.init()
+		this.onclose = onclose;
 		this.made_popup = true;
 		if (typeof header === 'string' || header instanceof String) {
 			this.header.innerHTML = header;

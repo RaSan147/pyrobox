@@ -482,7 +482,12 @@ def handle_user_cookie(self: SH):
 	username = get("uname")
 	uid = get("uid")
 
-	_User.get_user
+	user = u_mgmt.User.get_user(username)
+	if user:
+		if user.uid == uid:
+			return user
+		else:
+			return None
 	return None
 
 

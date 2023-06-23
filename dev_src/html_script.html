@@ -575,6 +575,7 @@ progress_bars.update_island()
 
 class UploadManager {
 	constructor() {
+		const that = this;
 		this.last_index = 1
 		this.uploaders = {}
 		this.requests = {}
@@ -582,6 +583,39 @@ class UploadManager {
 		/* Data Structure
 		{index: form_element, ...} 
 		*/
+
+		var form = null;
+		var file_list = byId("content_container")
+		this.drag_pop_open = false;
+
+		file_list.ondragover = (event)=>{
+			event.preventDefault(); //preventing from default behaviour
+			if(that.drag_pop_open){
+				return;
+			}
+			that.drag_pop_open = true;
+			
+			form = upload_man.new()
+			popup_msg.createPopup("Upload Files", form, onclose=()=>{
+				that.drag_pop_open = false;
+			})
+			popup_msg.open_popup();
+
+			log(69)
+		};
+			
+			//If user leave dragged File from DropArea
+		file_list.ondragleave = (event)=>{
+			event.preventDefault(); //preventing from default behaviour
+			// form.remove();
+			log(99)
+		};
+			
+			//If user drop File on DropArea
+		file_list.ondrop = ()=>{
+			event.preventDefault(); //preventing from default behaviour
+			log(88)
+		};
 	}
 
 	new() {
@@ -594,7 +628,7 @@ class UploadManager {
 		Form.id = "uploader-" + index
 		Form.className = "jsonly"
 		Form.method = "post"
-		Form.action = "?upload"
+		Form.action = tools.full_path("?upload") // the upload url, to use later from different pages
 		Form.enctype = "multipart/form-data"
 
 		let center = createElement("center")
@@ -689,6 +723,9 @@ class UploadManager {
 			uploader_dragArea.ondrop = (event)=>{
 				event.preventDefault(); //preventing from default behaviour
 				//getting user select file and [0] this means if user select multiple files then we'll select only the first one
+				uploader_dragArea.classList.remove("active");
+				up_text.innerText = "Drag & Drop to Upload File";
+
 				addFiles(event.dataTransfer.files);
 				// uploader_showFiles(); //calling function
 			};
@@ -878,7 +915,7 @@ class UploadManager {
 				exist = uploader_exist(files[i])
 		
 				if (exist) { //if file already selected, remove that and replace with new one, because, when uploading last file will remain in host server, so we need to replace it with new one
-					toaster.toast("File already selected");
+					toaster.toast("File already selected", 1500);
 					selected_files.items.remove(exist-1);
 				}
 				selected_files.items.add(files[i]);

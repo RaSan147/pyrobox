@@ -24,8 +24,11 @@ const public_url = "${PY_PUBLIC_URL}";
 
 body {
 	position: relative;
-	min-height: calc(100vh + 50px);
 	overflow-x: hidden;
+}
+
+#content_container {
+	min-height: 100vh;
 }
 
 html,
@@ -166,12 +169,14 @@ a {
 
 
 
-#drag-file-list {
+.drag-file-list {
 	width: 98%;
 	max-height: 300px;
 	overflow: auto;
-	padding: 20px 0;
-	align-items: center;
+	padding: 20px 3px;
+
+	border: #005ab2 2px solid;
+	border-radius: 5px;
 }
 
 .--upload-file-item {
@@ -1023,8 +1028,8 @@ ul{
 </div>
 
 
-<div id="actions-btn" class="disable_selection" onclick="fm.show_more_menu()"><span class="fa fa-solid fa-plus"><b>+</b></span></div>
-<div id="progress-island" class="disable_selection" onclick="progress_bars.show_list()">
+<div id="actions-btn" class="disable_selection jsonly" onclick="fm.show_more_menu()"><span class="fa fa-solid fa-plus"><b>+</b></span></div>
+<div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
 	<span id="progress-uploads">Running Uploads 
 	<span id="progress-uploads-count">(0/0)</span></span>
 
@@ -1043,3 +1048,6 @@ ul{
 </script>
 
 <hr>
+
+<div id="content_container">
+
