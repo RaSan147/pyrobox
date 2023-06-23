@@ -425,7 +425,7 @@ class PostError(Exception):
 
 @SH.on_req('HEAD', '/favicon.ico')
 def send_favicon(self: SH, *args, **kwargs):
-	self.redirect('https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
+	self.redirect('https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.ico')
 
 @SH.on_req('HEAD', hasQ="reload")
 def reload(self: SH, *args, **kwargs):
@@ -450,7 +450,7 @@ def admin_page(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="update")
 def update(self: SH, *args, **kwargs):
 	"""Check for update and return the latest version"""
-	data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+	data = fetch_url("https://raw.githack.com/RaSan147/pyrobox/main/VERSION")
 	if data:
 		data  = data.decode("utf-8").strip()
 		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
