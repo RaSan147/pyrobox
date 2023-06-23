@@ -503,7 +503,7 @@ def Authorize_user(self:SH):
 
 @SH.on_req('HEAD', '/favicon.ico')
 def send_favicon(self: SH, *args, **kwargs):
-	self.redirect('https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
+	self.redirect('https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.ico')
 
 @SH.on_req('HEAD', hasQ="reload")
 def reload(self: SH, *args, **kwargs):
@@ -547,7 +547,7 @@ def update(self: SH, *args, **kwargs):
 		
 		
 		
-	data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+	data = fetch_url("https://raw.githack.com/RaSan147/pyrobox/main/VERSION")
 	if data:
 		data  = data.decode("utf-8").strip()
 		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
@@ -1397,8 +1397,8 @@ def default_post(self: SH, *args, **kwargs):
 
 
 # proxy for old versions
-def run():
-	run_server(handler=SH)
+def run(*args, **kwargs):
+	run_server(handler=SH, *args, **kwargs)
 
 if __name__ == '__main__':
 	run()

@@ -2214,7 +2214,7 @@ tr:nth-child(even) {
 
 		elif query("update"):
 			"""Check for update and return the latest version"""
-			data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+			data = fetch_url("https://raw.githack.com/RaSan147/pyrobox/main/VERSION")
 			if data:
 				data  = data.decode("utf-8").strip()
 				ret = json.dumps({"update_available": data > __version__, "latest_version": data})
