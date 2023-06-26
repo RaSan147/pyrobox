@@ -1044,6 +1044,17 @@ ul{
 {
 	const dir_tree = document.getElementById("dir-tree");
 	dir_tree.scrollLeft = dir_tree.scrollWidth;
+	// convert scroll to horizontal
+	dir_tree.onwheel = function(event) {
+		event.preventDefault();
+		// scroll to left
+		dir_tree.scrollBy({
+			top: 0,
+			left: event.deltaY,
+			behavior: 'smooth'
+		})
+		event.deltaY < 0;
+	}
 }
 </script>
 

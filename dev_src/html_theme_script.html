@@ -395,7 +395,7 @@ document.addEventListener("DOMContentLoaded", (_e) => resizer());
 
 
 
-class ChatSidebarControl {
+class SidebarControl {
 	constructor() {
 		this.right_bar = byId("mySidebarR");
 		this.sidebar_bg = byId("sidebar_bg");
@@ -424,7 +424,7 @@ class ChatSidebarControl {
 		this.sidebar_bg.style.display = "block";
 		this.right_bar.classList.add("mySidebar-active");
 		this.right_bar.classList.remove("mySidebar-inactive");
-		byId("app_header").classList.toggle("top-titleR-active");
+		// byId("app_header").classList.toggle("top-titleR-active");
 	}
 
 	toggleNavR() {
@@ -458,7 +458,7 @@ class ChatSidebarControl {
 	}
 }
 
-var sidebar_control = new ChatSidebarControl()
+var sidebar_control = new SidebarControl()
 
 
 

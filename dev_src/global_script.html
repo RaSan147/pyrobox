@@ -20,12 +20,12 @@ String.prototype.toHtmlEntities = function() {
 
 
 function null_func() {
-	return true
+	return true;
 }
 
 function line_break() {
-	var br = createElement("br")
-	return br
+	var br = createElement("br");
+	return br;
 }
 
 function toggle_scroll() {
@@ -44,26 +44,56 @@ class Config {
 		this.popup_msg_open = false;
 		this.allow_Debugging = true
 		this.Debugging = false;
+		this.is_touch_device = 'ontouchstart' in document.documentElement;
+
+
+		this.previous_type = null;
+		this.themes = ["Tron"];
+
+
+
+		this.is_webkit = navigator.userAgent.indexOf('AppleWebKit') != -1;
+		this.is_edge = navigator.userAgent.indexOf('Edg') != -1;
+
 	}
 }
-var config = new Config()
+var config = new Config();
 
 
 class Tools {
 	// various tools for the page
+	refresh() {
+		// refreshes the page
+		window.location.reload();
+	}
 	sleep(ms) {
 		// sleeps for a given time in milliseconds
 		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 	onlyInt(str) {
 		if (this.is_defined(str.replace)) {
-			return parseInt(str.replace(/\D+/g, ""))
+			return parseInt(str.replace(/\D+/g, ""));
 		}
 		return 0;
 	}
+	c_time() {
+		// returns current time in milliseconds
+		return new Date().getTime();
+	}
+	datetime() {
+		// returns current date and time
+		return new Date(Date.now());
+	}
+	time_offset() {
+		// returns the time offset in milliseconds
+		// check https://stackoverflow.com/questions/60207534/new-date-gettimezoneoffset-returns-the-wrong-time-zone
+	
+	// for the reason of negative sign
+		return new Date().getTimezoneOffset() * 60 * 1000 * -1;
+	}
 	del_child(elm) {
 		if (typeof(elm) == "string") {
-			elm = byId(elm)
+			elm = byId(elm);
 		}
 		while (elm.firstChild) {
 			elm.removeChild(elm.lastChild);
@@ -73,7 +103,7 @@ class Tools {
 		return bool !== true;
 	}
 	exists(name) {
-		return (typeof window[name] !== 'undefined')
+		return (typeof window[name] !== 'undefined');
 	}
 	hasClass(element, className, partial = false) {
 		if (partial) {
@@ -99,7 +129,7 @@ class Tools {
 		config.Debugging = true;
 		var script = createElement('script');
 		script.src = "//cdn.jsdelivr.net/npm/eruda";
-		document.body.appendChild(script);
+		document.head.appendChild(script);
 		script.onload = function() {
 			eruda.init()
 		};
@@ -132,6 +162,13 @@ class Tools {
 			link.target = "_blank";
 		}
 		link.click();
+	}
+	
+	
+	fake_push(){
+		history.pushState({
+			url: window.location.href
+		}, document.title, ".")
 	}
 
 	full_path(rel_path){
@@ -172,10 +209,42 @@ class Tools {
 	fetch_json(url){
 		return fetch(url).then(r => r.json()).catch(e => {console.log(e); return null;})
 	}
+	
+	is_touch_device(){
+		return 'ontouchstart' in document.documentElement;
+	}
+	setCookie(cname, cvalue, exdays=365) {
+	  const d = new Date();
+	  d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+	  let expires = "expires="+d.toUTCString();
+	  document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+	}
+	
+	getCookie(cname) {
+		let name = cname + "=";
+		let decodedCookie = decodeURIComponent(document.cookie);
+		let ca = decodedCookie.split(';');
+		for(let i = 0; i <ca.length; i++) {
+		let c = ca[i];
+		while (c.charAt(0) == ' ') {
+			c = c.substring(1);
+		}
+		if (c.indexOf(name) == 0) {
+			return c.substring(name.length, c.length);
+		}
+		}
+		return "";
+	}
+	
+	clear_cookie() {
+		document.cookie.split(";").forEach(
+			function(c) { 
+				document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+			}
+		);
+	}
 }
-let tools = new Tools();
-
-
+var tools = new Tools();
 
 
 '#########################################'
@@ -184,17 +253,109 @@ tools.enable_debug() // TODO: Disable this in production
 
 class Popup_Msg {
 	constructor() {
-		this.create()
 		this.made_popup = false;
 		this.init()
+		this.create()
+		this.opened = 0;
+	}
+
+	clean() {
+		tools.del_child(this.header);
+		tools.del_child(this.content);
 	}
 
 	init() {
 		this.onclose = null_func;
 		this.scroll_disabled = false;
 
-		tools.del_child(this.header);
-		tools.del_child(this.content);
+		this.popup_container = byId("popup-container");
+		if (this.popup_container == null) {
+			log("Popup container not found")
+			log("Creating new popup container")
+			this.popup_container = createElement("div");
+			this.popup_container.id = "popup-container";
+			document.body.appendChild(this.popup_container);
+			const style = createElement("style");
+			style.innerHTML = `
+.modal_bg {
+display: inherit;
+position: fixed;
+z-index: 1;
+padding-top: inherit;
+left: 0;
+top: 0;
+width: 100vw;
+height: 100vh;
+overflow: auto;
+}
+
+
+.popup {
+position: fixed;
+z-index: 22;
+left: 50%;
+top: 50%;
+width: 100%;
+height: 100%;
+overflow: hidden;
+transition: all .5s ease-in-out;
+transform: translate(-50%, -50%) scale(1)
+}
+
+.popup-box {
+display: block;
+/*display: inline;*/
+/*text-align: center;*/
+position: fixed;
+top: 50%;
+left: 50%;
+color: #BBB;
+transition: all 400ms ease-in-out;
+background: #222;
+width: 95%;
+max-width: 500px;
+z-index: 23;
+padding: 20px;
+box-sizing: border-box;
+max-height: min(600px, 80%);
+height: max-content;
+min-height: 300px;
+overflow: auto;
+border-radius: 6px;
+text-align: center;
+overflow-wrap: anywhere;
+}
+
+.popup-close-btn {
+cursor: pointer;
+position: absolute;
+right: 20px;
+top: 20px;
+width: 30px;
+height: 30px;
+background: #222;
+color: #fff;
+font-size: 25px;
+font-weight: 600;
+line-height: 30px;
+text-align: center;
+border-radius: 50%
+}
+
+.popup:not(.active) {
+transform: translate(-50%, -50%) scale(0);
+opacity: 0;
+}
+
+
+.popup.active .popup-box {
+transform: translate(-50%, -50%) scale(1);
+opacity: 1;
+}
+
+`			
+			document.body.appendChild(style);
+		}
 	}
 
 	create() {
@@ -261,10 +422,12 @@ class Popup_Msg {
 	hide() {
 		this.popup_obj.classList.remove("active");
 		tools.toggle_scroll(1)
+		this.opened = 0
 	}
 
 	dismiss() {
-		this.hide()
+
+		history.back() //this.hide()
 		tools.del_child(this.header);
 		tools.del_child(this.content);
 		this.made_popup = false;
@@ -288,11 +451,17 @@ class Popup_Msg {
 		if (!this.made_popup) {
 			return
 		}
+		
+		this.opened = 1
 		this.popup_obj.classList.add("active");
+		config.popup_msg_open = this;
+		
 		if (!allow_scroll) {
 			tools.toggle_scroll(0);
 			this.scroll_disabled = true;
 		}
+		
+		tools.fake_push()
 	}
 
 	async show(allow_scroll = false) {
@@ -301,6 +470,7 @@ class Popup_Msg {
 
 	async createPopup(header = "", content = "", hr = true, onclose = null_func) {
 		this.init()
+		this.clean()
 		this.onclose = onclose;
 		this.made_popup = true;
 		if (typeof header === 'string' || header instanceof String) {
@@ -321,7 +491,7 @@ class Popup_Msg {
 
 	}
 }
-let popup_msg = new Popup_Msg();
+var popup_msg = new Popup_Msg();
 
 class Toaster {
 	constructor() {
@@ -367,7 +537,7 @@ class Toaster {
 	}
 }
 
-let toaster = new Toaster()
+var toaster = new Toaster()
 
 
 
@@ -375,25 +545,108 @@ function r_u_sure({y=null_func, n=null, head="Head", body="Body", y_msg="Yes",n_
 	popup_msg.close()
 	var box = createElement("div")
 	var msggg = createElement("p")
-	msggg.innerHTML = body //"This can't be undone!!!"
+	msggg.innerHTML = body; //"This can't be undone!!!"
 	box.appendChild(msggg)
-	var y_btn = createElement("div")
-	y_btn.innerText = y_msg//"Continue"
-	y_btn.className = "pagination center"
-	y_btn.onclick = y/*function() {
+	var y_btn = createElement("div");
+	y_btn.innerText = y_msg;//"Continue"
+	y_btn.className = "pagination center";
+	y_btn.onclick = y;/*function() {
 		that.menu_click('del-p', file);
 	};*/
-	var n_btn = createElement("div")
-	n_btn.innerText = n_msg//"Cancel"
-	n_btn.className = "pagination center"
+	var n_btn = createElement("div");
+	n_btn.innerText = n_msg;//"Cancel"
+	n_btn.className = "pagination center";
 	n_btn.onclick = () => {return (n==null) ? popup_msg.close() : n()};
-	box.appendChild(y_btn)
-	box.appendChild(line_break())
-	box.appendChild(n_btn)
-	popup_msg.createPopup(head, box) //"Are you sure?"
-	popup_msg.open_popup()
+	box.appendChild(y_btn);
+	box.appendChild(line_break());
+	box.appendChild(n_btn);
+	popup_msg.createPopup(head, box) ; //"Are you sure?"
+	popup_msg.open_popup();
+}
+
+function loading_popup() {
+	popup_msg.close()
+	var box = createElement("div")
+	box.innerHTML = `
+<svg width="200" height="200" viewBox="0 0 100 100">
+  <polyline class="line-cornered stroke-still" points="0,0 100,0 100,100" stroke-width="10" fill="none"></polyline>
+  <polyline class="line-cornered stroke-still" points="0,0 0,100 100,100" stroke-width="10" fill="none"></polyline>
+  <polyline class="line-cornered stroke-animation" points="0,0 100,0 100,100" stroke-width="10" fill="none"></polyline>
+  <polyline class="line-cornered stroke-animation" points="0,0 0,100 100,100" stroke-width="10" fill="none"></polyline>
+</svg>
+
+<div class="wrapper">
+<div class="circle"></div>
+<div class="circle"></div>
+<div class="circle"></div>
+<div class="shadow"></div>
+<div class="shadow"></div>
+<div class="shadow"></div>
+</div>
+
+
+
+<link rel="stylesheet" href="./style_loading.css">
+`
+	popup_msg.createPopup("Loading...", box) ; //"Are you sure?"
+	popup_msg.open_popup();
 }
 
 
 
 </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+
+	if (window.history && "pushState" in history) {
+		// because JSHint told me to
+		// handle forward/back buttons
+		window.onpopstate = async function (evt) {
+			"use strict";
+			evt.preventDefault();
+			// guard against popstate event on chrome init
+			//log(evt.state)
+			if(popup_msg.opened){
+				popup_msg.hide()
+				//fake_push()
+				return false
+			}
+			if(sidebar_control.is_open("R")){
+				sidebar_control._closeNavR()
+				//fake_push()
+				return false
+			}
+			
+			const x = evt
+			if (x.state) {
+				if (x.state.url==window.location.href){
+					return false
+				}
+			}
+			location.reload(true);
+		};
+	
+	}
+	
+	
+</script>
+
