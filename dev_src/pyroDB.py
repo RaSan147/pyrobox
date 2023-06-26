@@ -454,28 +454,32 @@ class PickleTable:
 		"""
 		return tuple(self._pk.db.keys())
 		
-	def add_column(self, name, exist_ok=False, AD=True):
+	def add_column(self, *names, exist_ok=False, AD=True):
 		"""
 		name: column name
 		exist_ok: ignore if column already exists. Else raise KeyError
 		AD: auto-dump
 		"""
-		self._pk.validate_key(key=name)
-
-		tsize = self.height
-		if name in self.column_names:
-			if exist_ok :
-				tsize = self.height - len(self._pk.db[name])
-				if not tsize: # 0 cells to add
-					return
+		def add(name):
+			self._pk.validate_key(key=name)
+	
+			tsize = self.height
+			if name in self.column_names:
+				if exist_ok :
+					tsize = self.height - len(self._pk.db[name])
+					if not tsize: # 0 cells to add
+						return
+				else:
+					raise KeyError("Column Name already exists")
 			else:
-				raise KeyError("Column Name already exists")
-		else:
-			self._pk.db[name] = []
-			self.gen_CC() # major change
-		
-		
-		self._pk.db[name].extend([None] * tsize)
+				self._pk.db[name] = []
+				self.gen_CC() # major change
+			
+			
+			self._pk.db[name].extend([None] * tsize)
+			
+		for name in names:
+			add(name)
 		
 		
 		if AD:
@@ -500,6 +504,11 @@ class PickleTable:
 	
 	
 	def row(self, row, _columns=()):
+		"""
+		returns a row dict by `row` index
+		_column: specify columns you need, blank if you need all
+		"""
+		
 		columns = _columns or self.column_names
 		return {j: self._pk.db[j][row] for j in columns}
 
@@ -539,7 +548,10 @@ class PickleTable:
 			
 	def search_iter(self, kw, column=None , row=None, full_match=False, return_obj=True):
 		"""
-		search a keyword in a cell/row/column/entire sheet and return the row object 
+		search a keyword in a cell/row/column/entire sheet and return the cell object in loop
+		
+		ie: for cell in db.search_iter("abc"):
+			print(cell.value)
 		"""
 		if return_obj:
 			ret = self.get_cell_obj
@@ -579,6 +591,15 @@ class PickleTable:
 				for r, i in enumerate(self.column(col)):
 					if check(kw, i):
 						yield ret(col=col, row=r)
+						
+						
+	def find_1st(self, kw, column=None , row=None, full_match=False, return_obj=True):
+		"""
+		search a keyword in a cell/row/column/entire sheet and return the 1st matched cell object 
+		"""
+		
+		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=return_obj):
+			return cell
 				
 				
 				
@@ -672,9 +693,12 @@ class PickleTable:
 		# row: row must be a dict or _PickleTRow containing column names and values
 		"""
 		if not self.ids:
-			self.ids.append(0)
+			row_id = 0
 		else:
-			self.ids.append(self.ids[-1] + 1)
+			row_id = self.ids[-1] + 1
+		self.ids.append(row_id)
+			
+		
 			
 		for k in self.column_names:
 			self._pk.db[k].append(row.get(k))
@@ -684,6 +708,8 @@ class PickleTable:
 		#	self.set_cell(k, self.height, v, AD=False)
 			
 		self.height += 1
+		
+		return self.row_obj_by_id(row_id)
 
 		
 	def add_row(self, row:Union[dict, _PickleTRow], ignore_extra=False, AD=True):
@@ -692,10 +718,12 @@ class PickleTable:
 		# row: row must be a dict containing column names and values
 		"""		
 			
-		self.lock(self._add_row)(row=row, ignore_extra=ignore_extra)
+		row_obj = self.lock(self._add_row)(row=row, ignore_extra=ignore_extra)
 		
 		if AD:
 			self.auto_dump()
+			
+		return row_obj
 			
 		
 	def verify_source(self, CC):
@@ -767,7 +795,7 @@ class _PickleTRow:
 	def __getitem__(self, name):
 		self.source.raise_source(self.CC)
 		
-		self.source.get_cell(name, self.source.ids.index(self.id))
+		return self.source.get_cell(name, self.source.ids.index(self.id))
 		
 	def get(self, name, default=None):
 		if name not in self.source.column_names:
@@ -793,6 +821,12 @@ class _PickleTRow:
 		
 		self.source.set_cell(name, self.source.ids.index(self.id), None)
 		
+	def index(self):
+		"""
+		returns the current index of the row
+		"""
+		return self.source.ids.index(self.id)
+
 	def update(self, new:Union[dict, "_PickleTRow"], ignore_extra=False, AD=True):
 		"""
 		Auto dumps 
@@ -837,13 +871,26 @@ class _PickleTColumn:
 		"""
 		# self.source.raise_source(self.CC)
 		
-		self.source.get_cell(col=self.name, row=row)
+		return self.source.get_cell(col=self.name, row=row)
 		
 	def get(self, row:int, default=None):
+		"""
+		get the cell value from the column by row index
+		"""
+		if not isinstance(row, int):
+			return default
 		if row > (self.source.height-1):
 			return default
 			
 		return self[row]
+		
+	def get_cell_obj(self, row:int, default=None):
+		if not isinstance(row, int):
+			return default
+		if row > (self.source.height-1):
+			return default
+			
+		return self.source.get_cell_obj(col=self.name, row=row)
 
 	def __setitem__(self, row:int, value):
 		"""
@@ -908,78 +955,78 @@ def Lower_string(length): # define the function and pass the length as argument
 	return result
 
 		
-if __name__ == "__main__":
-	st = time.time()
-	for i in range(10):
-		p = PickleDB("__test.pdb")
-		p.set("nn", ['spam', 'eggs']*1000)
-		
-		p = PickleDB("__test.pdb")
-	
-	
-	et = time.time()
-	print(et - st)
-	print("avg:", (et-st)/10) 
 
 	
-	st = time.time()
-	tb = PickleTable("test.pdb")
-	print(f"load time: {time.time()-st}s")
+def test():
+	st = time.perf_counter()
+	tb = PickleTable("__test.pdb")
+	tt = time.perf_counter()
+	print(f"load time: {tt-st}s")
 	
-	print(tb.height)
+	print("Existing table height:", tb.height)
 	
-	tb.add_column("x", 1)
-	tb.add_column("Ysz",1)
-	tb.add_column("Y", 1)
+	tb.add_column("x", exist_ok=1, AD=False) # no dumps
+	tb.add_column("Ysz", exist_ok=1, AD=False ) # no dumps
+	tb.add_column("Y", exist_ok=1, AD=False) # no dumps
 	
 	print("adding")
-	for n in range(int(5555)):
+	for n in range(int(10000)):
 		tb._add_row({"x":n, "Y":'🍎'})
 		
 		#print(n)
 	
-	tb.add_column("m", 1)
+	tb.add_column("m", exist_ok=1, AD=False)  # no dumps
 
 	#tb.del_colum("x")
-	dt = time.time ()
+	dt = time.perf_counter()
 	tb.dump()
-	print(f"dump time: {time.time()-dt}s") 
+	tt = time.perf_counter()
+	print(f"dump time: {tt-dt}s") 
 	
-	print(tb)
-	print("Total cells", tb.height * len(tb.column_names))
+	# print(tb)
+	#print("Total cells", tb.height * len(tb.column_names))
 	
-	et = time.time()
+	et = time.perf_counter()
 	print(f"Load and dump test in {et - st}s\n")
 	
 	print("="*50)
 	
 	print("\n Assign random string in first 1,000 rows test")
 	print("="*50)
-	st = time.time()
+	st = time.perf_counter()
 	
 	for row_ in tb.rows_obj(0, 1000):
 		row_.update({"m": Lower_string(10)}, AD=False)
 		
-	et = time.time()
+	et = time.perf_counter()
 		
 	print(f"Assigned test in {et - st}s")
-	print(tb)
-	dt = time.time ()
+	# print(tb)
+	dt = time.perf_counter()
 	tb.dump()
-	print(f"dump time: {time.time()-dt}s") 
+	tt = time.perf_counter()
+	print(f"dump time: {tt-dt}s") 
 	
 	print("="*50)
 	
 	print("\n\n Search test")
-	st = time.time()
+	st = time.perf_counter()
 	
 	for cell in tb.search_iter(kw="abc", column="m"):
 		print(cell)
 		
-	et = time.time()
+	et = time.perf_counter()
 		
 	print(f"Search 'abc' test in {et - st}s")
 	
 	
-	
+if __name__ == "__main__":
+	for i in range(5):
+		try:
+			os.remove("__test.pdb")
+		except:
+			pass
+		test()
+		os.remove("__test.pdb")
+		print("\n\n\n" + "# "*25 + "\n")
 	

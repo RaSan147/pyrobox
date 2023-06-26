@@ -6,11 +6,11 @@ from typing import Tuple
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # from dev_src.pyroboxCore import config
 import dev_src
-from dev_src.user_mgmt import User, UserPermission
+from user_mgmt import User, UserPermission
 
 @pytest.fixture(scope="session", autouse=True)
 def cleanup():
-    from dev_src.user_mgmt import config
+    from user_mgmt import config
     # setup
     yield
     # teardown
