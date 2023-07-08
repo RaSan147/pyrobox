@@ -7,6 +7,9 @@ const s_li = ${PY_FILE_SIZE};
 
 
 
+
+
+
 class ContextMenu {
 	constructor() {
 		this.old_name = null;
@@ -21,7 +24,7 @@ class ContextMenu {
 		if (data) {
 			popup_msg.createPopup(data["head"], data["body"]);
 			if (data["script"]) {
-				var script = document.createElement("script");
+				let script = document.createElement("script");
 				script.innerHTML = data["script"];
 				document.body.appendChild(script);
 			}
@@ -31,18 +34,18 @@ class ContextMenu {
 		popup_msg.open_popup()
 	}
 	menu_click(action, link, more_data = null) {
-		var that = this
+		let that = this
 		popup_msg.close()
 
-		var url = ".?"+action;
-		var xhr = new XMLHttpRequest();
+		let url = ".?"+action;
+		let xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
 		xhr.onreadystatechange = function() {
 			if (this.readyState === 4) {
 				that.on_result(this)
 			}
 		};
-		var formData = new FormData();
+		const formData = new FormData();
 		formData.append("post-type", action);
 		formData.append("post-uid", 123456); // TODO: add uid
 		formData.append("name", link);
@@ -50,7 +53,7 @@ class ContextMenu {
 		xhr.send(formData);
 	}
 	rename_data() {
-		var new_name = byId("rename").value;
+		let new_name = byId("rename").value;
 
 		this.menu_click("rename", this.old_name, new_name)
 		// popup_msg.createPopup("Done!", "New name: "+new_name)
@@ -67,10 +70,10 @@ class ContextMenu {
 		byId("rename").focus()
 	}
 	show_menus(file, name, type) {
-		var that = this;
-		var menu = createElement("div")
+		let that = this;
+		let menu = createElement("div")
 
-		var new_tab = createElement("div")
+		let new_tab = createElement("div")
 			new_tab.innerText = "↗️" + " New tab"
 			new_tab.className = "disable_selection popup-btn menu_options"
 			new_tab.onclick = function() {
@@ -79,18 +82,19 @@ class ContextMenu {
 			}
 			menu.appendChild(new_tab)
 		if (type != "folder") {
-			var download = createElement("div")
+			let download = createElement("div")
 			download.innerText = "📥" + " Download"
 			download.className = "disable_selection popup-btn menu_options"
 			download.onclick = function() {
 				tools.download(file, name);
 				popup_msg.close()
 			}
-			menu.appendChild(download)
-			var copy_url = ""
+			if(user.permissions.DOWNLOAD){
+				menu.appendChild(download)
+			}
 		}
 		if (type == "folder") {
-			var dl_zip = createElement("div")
+			let dl_zip = createElement("div")
 			dl_zip.innerText = "📦" + " Download as Zip"
 			dl_zip.className = "disable_selection popup-btn menu_options"
 			dl_zip.onclick = function() {
@@ -98,10 +102,12 @@ class ContextMenu {
 				window.open(go_link('czip', file), '_blank');
 				// czip = "Create Zip"
 			}
-			menu.appendChild(dl_zip)
+			if(user.permissions.ZIP){
+				menu.appendChild(dl_zip)
+			}
 		}
 
-		var copy = createElement("div")
+		let copy = createElement("div")
 		copy.innerText = "📋" + " Copy link"
 		copy.className = "disable_selection popup-btn menu_options"
 		copy.onclick = async function(ev) {
@@ -116,14 +122,18 @@ class ContextMenu {
 		}
 		menu.appendChild(copy)
 
-		var rename = createElement("div")
+		let rename = createElement("div")
 		rename.innerText = "✏️" + " Rename"
 		rename.className = "disable_selection popup-btn menu_options"
 		rename.onclick = function() {
 			that.rename(file, name)
 		}
-		menu.appendChild(rename)
-		var del = createElement("div")
+
+		if (user.permissions.RENAME) {
+			menu.appendChild(rename)
+		}
+		
+		let del = createElement("div")
 		del.innerText = "🗑️" + " Delete"
 		del.className = "disable_selection popup-btn menu_options"
 		var xxx = 'F'
@@ -134,8 +144,11 @@ class ContextMenu {
 			that.menu_click('del-f', file);
 		};
 		
-		menu.appendChild(del)
-		var del_P = createElement("div")
+		if (user.permissions.DELETE) {
+			menu.appendChild(del)
+		}
+
+		let del_P = createElement("div")
 		del_P.innerText = "🔥" + " Delete permanently"
 		del_P.className = "disable_selection popup-btn menu_options"
 
@@ -145,14 +158,22 @@ class ContextMenu {
 				that.menu_click('del-p', file);
 			}, head:"Are you sure?", body:"This can't be undone!!!", y_msg:"Continue", n_msg:"Cancel"})
 		}
-		menu.appendChild(del_P)
-		var property = createElement("div")
+
+		if (user.permissions.DELETE) {
+			menu.appendChild(del_P)
+		}
+
+		let property = createElement("div")
 		property.innerText = "📅" + " Properties"
 		property.className = "disable_selection popup-btn menu_options"
 		property.onclick = function() {
 			that.menu_click('info', file);
 		};
-		menu.appendChild(property)
+
+		if (user.permissions.READ) {
+			menu.appendChild(property)
+		}
+		
 		popup_msg.createPopup("Menu", menu)
 		popup_msg.open_popup()
 	}
@@ -165,7 +186,7 @@ var context_menu = new ContextMenu()
 //context_menu.show_menus("next", "video")
 
 function show_response(url, add_reload_btn = true) {
-	var xhr = new XMLHttpRequest();
+	let xhr = new XMLHttpRequest();
 	xhr.onreadystatechange = function() {
 		if (xhr.readyState == XMLHttpRequest.DONE) {
 			let msg = xhr.responseText;
@@ -185,11 +206,6 @@ function reload() {
 	show_response("/?reload");
 }
 
-function run_recyle(url) {
-	return function() {
-		show_response(url);
-	}
-}
 
 function insertAfter(newNode, existingNode) {
 	existingNode.parentNode.insertBefore(newNode, existingNode.nextSibling);
@@ -197,7 +213,7 @@ function insertAfter(newNode, existingNode) {
 
 function fmbytes(B) {
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
-	const KB = 1024,
+	let KB = 1024,
 	MB = (KB ** 2),
 	GB = (KB ** 3),
 	TB = (KB ** 4)
@@ -227,113 +243,125 @@ function fmbytes(B) {
 
 
 
-tools.del_child("linkss");
-const folder_li = createElement('div');
-const file_li = createElement("div")
-for (let i = 0; i < r_li.length; i++) {
-	// time to customize the links according to their formats
-	var folder = false
-	let type = null;
-	let r = r_li[i];
-	let r_ = r.slice(1);
-	let name = f_li[i];
 
-	let item = createElement('div');
-	item.classList.add("dir_item")
+function show_file_list() {
+	tools.del_child("linkss"); // clear the links since they are no js compatible
 
 
-	let link = createElement('a');// both icon and title, display:flex
-	link.href = r_;
-	link.title = name;
+	let folder_li = createElement('div');
+	let file_li = createElement("div")
+	r_li.forEach((r, i) => {
+		// time to customize the links according to their formats
+		var folder = false
+		let type = null;
+		// let r = r_li[i];
+		let r_ = r.slice(1);
+		let name = f_li[i];
 
-	link.classList.add('all_link');
-	link.classList.add("disable_selection")
-	let l_icon = createElement("span")
-	// this will go inside "link" 1st
-	l_icon.classList.add("link_icon")
-
-	let l_box = createElement("span")
-	// this will go inside "link" 2nd
-	l_box.classList.add("link_name")
-
-
-	if (r.startsWith('d')) {
-		// add DOWNLOAD FOLDER OPTION in it
-		// TODO: add download folder option by zipping it
-		// currently only shows folder size and its contents
-		type = "folder"
-		folder = true
-		l_icon.innerHTML = "📂".toHtmlEntities();
-		l_box.classList.add('link');
-	}
-	if (r.startsWith('v')) {
-		// if its a video, add play button at the end
-		// that will redirect to the video player
-		// clicking main link will download the video instead
-		type = 'video';
-		l_icon.innerHTML = '🎥'.toHtmlEntities();
-		link.href = go_link("vid", r_)
-		l_box.classList.add('vid');
-	}
-	if (r.startsWith('i')) {
-		type = 'image'
-		l_icon.innerHTML = '🌉'.toHtmlEntities();
-		l_box.classList.add('file');
-	}
-	if (r.startsWith('f')) {
-		type = 'file'
-		l_icon.innerHTML = '📄'.toHtmlEntities();
-		l_box.classList.add('file');
-	}
-	if (r.startsWith('h')) {
-		type = 'html'
-		l_icon.innerHTML = '🔗'.toHtmlEntities();
-		l_box.classList.add('html');
-	}
-
-	link.appendChild(l_icon)
-
-	l_box.innerText = " " + name;
-
-	if(s_li[i]){
-		l_box.appendChild(createElement("br"))
-
-		let s = createElement("span")
-		s.className= "link_size"
-		s.innerText = s_li[i]
-		l_box.appendChild(s)
-	}
-	link.appendChild(l_box)
+		let item = createElement('div');
+		item.classList.add("dir_item")
 
 
-	link.oncontextmenu = function(ev) {
-		ev.preventDefault()
-		
-		context_menu.show_menus(r_, name, type);
-		return false;
-	}
+		let link = createElement('a');// both icon and title, display:flex
+		link.href = r_;
+		link.title = name;
 
-	item.appendChild(link);
-	//item.appendChild(context);
-	// recycling option for the files and folder
-	// files and folders are handled differently
-	var xxx = "F"
-	if (r.startsWith('d')) {
-		xxx = "D";
-	}
+		link.classList.add('all_link');
+		link.classList.add("disable_selection")
+		let l_icon = createElement("span")
+		// this will go inside "link" 1st
+		l_icon.classList.add("link_icon")
+
+		let l_box = createElement("span")
+		// this will go inside "link" 2nd
+		l_box.classList.add("link_name")
 
 
-	var hrr = createElement("hr")
-	item.appendChild(hrr);
-	if (folder) {
-		folder_li.appendChild(item);
-	} else {
-		file_li.appendChild(item)
-	}
+		if (r.startsWith('d')) {
+			// add DOWNLOAD FOLDER OPTION in it
+			// TODO: add download folder option by zipping it
+			// currently only shows folder size and its contents
+			type = "folder"
+			folder = true
+			l_icon.innerHTML = "📂".toHtmlEntities();
+			l_box.classList.add('link');
+		}
+		if (r.startsWith('v')) {
+			// if its a video, add play button at the end
+			// that will redirect to the video player
+			// clicking main link will download the video instead
+			type = 'video';
+			l_icon.innerHTML = '🎥'.toHtmlEntities();
+			link.href = go_link("vid", r_)
+			l_box.classList.add('vid');
+		}
+		if (r.startsWith('i')) {
+			type = 'image'
+			l_icon.innerHTML = '🌉'.toHtmlEntities();
+			l_box.classList.add('file');
+		}
+		if (r.startsWith('f')) {
+			type = 'file'
+			l_icon.innerHTML = '📄'.toHtmlEntities();
+			l_box.classList.add('file');
+		}
+		if (r.startsWith('h')) {
+			type = 'html'
+			l_icon.innerHTML = '🔗'.toHtmlEntities();
+			l_box.classList.add('html');
+		}
+
+		link.appendChild(l_icon)
+
+		l_box.innerText = " " + name;
+
+		if(s_li[i]){
+			l_box.appendChild(createElement("br"))
+
+			let s = createElement("span")
+			s.className= "link_size"
+			s.innerText = s_li[i]
+			l_box.appendChild(s)
+		}
+		link.appendChild(l_box)
+
+
+		link.oncontextmenu = function(ev) {
+			ev.preventDefault()
+			
+			context_menu.show_menus(r_, name, type);
+			return false;
+		}
+
+		item.appendChild(link);
+		//item.appendChild(context);
+		// recycling option for the files and folder
+		// files and folders are handled differently
+		var xxx = "F"
+		if (r.startsWith('d')) {
+			xxx = "D";
+		}
+
+
+		let hrr = createElement("hr")
+		item.appendChild(hrr);
+		if (folder) {
+			folder_li.appendChild(item);
+		} else {
+			file_li.appendChild(item)
+		}
+	});
+
+
+	let dir_container = byId("js-content_list")
+	dir_container.appendChild(folder_li)
+	dir_container.appendChild(file_li)
 }
-var dir_container = byId("js-content_list")
-dir_container.appendChild(folder_li)
-dir_container.appendChild(file_li)
+
+show_file_list();
+
+
+
 
 
 class ProgressBars {
@@ -361,8 +389,8 @@ class ProgressBars {
 	}
 
 	new(type, id, source_dir) {
-		const that = this;
-		const index = this.last_index;
+		let that = this;
+		let index = this.last_index;
 		this.last_index += 1;
 
 		let bar = {
@@ -569,13 +597,13 @@ class ProgressBars {
 	}
 }
 
-var progress_bars = new ProgressBars()
+const progress_bars = new ProgressBars()
 progress_bars.update_island()
 
 
 class UploadManager {
 	constructor() {
-		const that = this;
+		let that = this;
 		this.last_index = 1
 		this.uploaders = {}
 		this.requests = {}
@@ -585,7 +613,7 @@ class UploadManager {
 		*/
 
 		var form = null;
-		var file_list = byId("content_container")
+		let file_list = byId("content_container")
 		this.drag_pop_open = false;
 
 		file_list.ondragover = (event)=>{
@@ -601,27 +629,24 @@ class UploadManager {
 			})
 			popup_msg.open_popup();
 
-			log(69)
 		};
 			
 			//If user leave dragged File from DropArea
 		file_list.ondragleave = (event)=>{
-			event.preventDefault(); //preventing from default behaviour
+			event.preventDefault(); //preventing from default behavior
 			// form.remove();
-			log(99)
 		};
 			
 			//If user drop File on DropArea
 		file_list.ondrop = ()=>{
 			event.preventDefault(); //preventing from default behaviour
-			log(88)
 		};
 	}
 
 	new() {
 		//selecting all required elements
-		const that = this;
-		const index = this.last_index;
+		let that = this;
+		let index = this.last_index;
 		this.last_index += 1;
 
 		let Form = createElement("form")
@@ -708,7 +733,7 @@ class UploadManager {
 			uploader_dragArea.appendChild(up_button)
 
 			uploader_dragArea.ondragover = (event)=>{
-				event.preventDefault(); //preventing from default behaviour
+				event.preventDefault(); //preventing from default behavior
 				uploader_dragArea.classList.add("active");
 				up_text.innerText = "Release to Upload File";
 			};
@@ -721,7 +746,7 @@ class UploadManager {
 			
 			//If user drop File on DropArea
 			uploader_dragArea.ondrop = (event)=>{
-				event.preventDefault(); //preventing from default behaviour
+				event.preventDefault(); //preventing from default behavior
 				//getting user select file and [0] this means if user select multiple files then we'll select only the first one
 				uploader_dragArea.classList.remove("active");
 				up_text.innerText = "Drag & Drop to Upload File";
@@ -733,17 +758,26 @@ class UploadManager {
 		uploader_box.appendChild(uploader_dragArea)
 		center.appendChild(uploader_box)
 		
-		let uploader_file_display_title = createElement("h2")
-		uploader_file_display_title.innerText = "Selected Files"
-		uploader_file_display_title.className = "has-selected-files";
-		uploader_file_display_title.style.display = "none";
-		center.appendChild(uploader_file_display_title)
 
 		Form.appendChild(center)
 
+		let uploader_file_container = createElement("div")
+		// uploader_file_container.style.display = "contents";
+		uploader_file_container.style.display = "none";
+
 		let uploader_file_display = createElement("div")
 		uploader_file_display.className = "drag-file-list";
-		Form.appendChild(uploader_file_display)
+
+		let uploader_file_display_title = createElement("h2")
+		uploader_file_display_title.innerText = "Selected Files"
+		uploader_file_display_title.className = "has-selected-files";
+		uploader_file_display_title.style.textAlign = "center";
+		uploader_file_container.appendChild(uploader_file_display_title)
+		uploader_file_container.appendChild(uploader_file_display)
+
+
+
+		Form.appendChild(uploader_file_container)
 
 		Form.appendChild(createElement("br"))
 		let center2 = createElement("center")
@@ -768,16 +802,23 @@ class UploadManager {
 		
 		Form.appendChild(center2)
 
-		var prog_id = null;
-		var request = null;
+		let prog_id = null;
+		let request = null;
 		Form["prog_id"] = null; // This is used to update the progress bar
 
 		Form.onsubmit = (e) => {
 			e.preventDefault()
 
+			console.log(that.status)
+
 			if(that.status[index]){
 				that.cancel(index)
 				show_status("Upload cancelled")
+				return
+			}
+
+			if(selected_files.files.length == 0){
+				toaster.toast("No files selected")
 				return
 			}
 
@@ -788,10 +829,6 @@ class UploadManager {
 			that.uploaders[index] = Form; // Save the form for later use
 			// Unless the user is uploading, this won't be saved
 
-			if(selected_files.files.length == 0){
-				toaster.toast("No files selected")
-				return
-			}
 
 			submit_button.innerText = "⏹️ Cancel";
 
@@ -901,25 +938,25 @@ class UploadManager {
 
 		function uploader_exist(file) {
 			//check if file is already selected or not
-			for (let i = 0; i < selected_files.files.length; i++) {
-				if (selected_files.files[i].name == file.name) {
+			selected_files.files.forEach((f, i) => {
+				if (f.name == file.name) {
 					return i+1; // 0 is false, so we add 1 to make it true
 				}
-			}
+			});
 			return false;
 		}
 		
 		function addFiles(files) {
 			var exist = false;
-			for (let i = 0; i < files.length; i++) {
-				exist = uploader_exist(files[i])
+			files.forEach((file) => {
+				exist = uploader_exist(file)
 		
 				if (exist) { //if file already selected, remove that and replace with new one, because, when uploading last file will remain in host server, so we need to replace it with new one
 					toaster.toast("File already selected", 1500);
 					selected_files.items.remove(exist-1);
 				}
-				selected_files.items.add(files[i]);
-			}
+				selected_files.items.add(file);
+			});
 			log("selected "+ selected_files.items.length+ " files");
 			uploader_showFiles();
 		}
@@ -936,11 +973,11 @@ class UploadManager {
 			// const input = byId('files')
 			// const { files } = input
 		
-			for (let i = 0; i < selected_files.files.length; i++) {
-				let file = selected_files.files[i]
-				if (index !== i)
+			selected_files.forEach((file,i) => {
+				if (index !== i) {
 					dt.items.add(file) // here you exclude the file. thus removing it.
-			}
+				}
+			})
 		
 			selected_files = dt
 			// uploader_input.files = dt // Assign the updates list
@@ -951,13 +988,14 @@ class UploadManager {
 			tools.del_child(uploader_file_display)
 			
 			if(selected_files.files.length){
-				uploader_file_display_title.style.display = "block"
+				uploader_file_container.style.display = "contents"
 			} else {
-				uploader_file_display_title.style.display = "none"
+				uploader_file_container.style.display = "none"
 			}
-			for (let i = 0; i <selected_files.files.length; i++) {
-				uploader_showFile(selected_files.files[i], i);
-			}
+
+			selected_files.files.forEach((file, index) => {
+				uploader_showFile(file, index);
+			});
 		}
 		
 		
@@ -1064,7 +1102,7 @@ class FileManager {
 	}
 
 	show_more_menu(){
-		const that = this;
+		let that = this;
 		let menu = createElement("div")
 
 		let sort_by = createElement("div")
@@ -1119,6 +1157,96 @@ const fm = new FileManager();
 
 
 </script>
+
+
+
+
+
+<script>
+
+
+class User {
+	constructor(){
+		this.user = tools.getCookie("user") || "Guest";
+		this.token = tools.getCookie("token") || "";
+		this.permissions_code = tools.getCookie("permissions") || 2**8-1;
+
+		this.permissions = {
+			// NOPERMISSIONS: false is not needed since its handled by the server
+			'READ': false,
+			'DOWNLOAD': false,
+			'MODIFY': false,
+			'DELETE': false,
+			'UPLOAD': false,
+			'ZIP': false
+		};
+		this.extract_permissions();
+	}
+
+	extract_permissions(){
+		// this function extracts the permissions from the permissions_code
+		let permissions = [
+			'READ',
+			'DOWNLOAD',
+			'MODIFY',
+			'DELETE',
+			'UPLOAD',
+			'ZIP'
+		]
+		permissions.forEach((permission, i) => {
+			this.permissions[permission] = this.permissions_code >> i & 1;
+		}, this);
+	}
+
+}
+
+const user = new User();
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -49,7 +49,7 @@ class User_handler:
 			"token",
 			"permission",
 			
-			exist_ok=1)
+			exist_ok=True)
 		
 		
 	def create_user(self, username, password):
@@ -212,7 +212,7 @@ class User:
 			row (_PickleTRow|dict): user data row
 			[username] (str): plaintext username
 			[permission] (int): compiled UserPermission set
-			[password ](str, hash): hashed passsword.
+			[password ](str, hash): hashed password.
 
 		Raises:
 			ValueError: User failed to create
@@ -245,7 +245,7 @@ class User:
 		
 
 	Self = TypeVar("Self")
-	# self refernce for use in classmethods that can't strong type User because it's inside the method
+	# self reference for use in classmethods that can't strong type User because it's inside the method
 	
 	@property
 	def username(self):
@@ -304,7 +304,12 @@ class User:
 			logger.info(f"User {self.username} password mismatch")
 			return False
 			
-		
+	def __setitem__(self, attr, value):
+		self.update(attr, value)
+
+	def __getitem__(self, attr):
+		return self.db[attr]
+
 	def update(self, attr, value):
 		self.db[attr] = value
 
@@ -315,7 +320,7 @@ class User:
 			packed (int): permission stored as an integer in the object and db
 
 		Returns:
-			List[int]: list of binary switches to be changed [rrversed to make correct order]
+			List[int]: list of binary switches to be changed [reversed to make correct order]
 		"""
 		return PermissionList([packed >> index & 1 for index in range(0, 6)])
 
@@ -407,6 +412,10 @@ def test():
 	
 	
 	u = user_handler.get_user("Admin")
+	if u is None:
+		print("User not found")
+		return
+	
 	print(u.db)
 	print(u.permission)
 	u.permit(permits.DOWNLOAD, permits.DELETE)

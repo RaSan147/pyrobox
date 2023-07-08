@@ -30,15 +30,29 @@ class config:
 pt_config = config()
 
 
-def get_template(path):
+
+def _get_template(path):
 	if pt_config.dev_mode:
 		with open(path, encoding=enc) as f:
-			return Template(f.read())
+			return f.read()
+		
+	return pt_config.file_list[path]
 
-	return Template(pt_config.file_list[path])
+def get_template(path):
+	return Template(_get_template(path))
+
 
 def directory_explorer_header():
-	return get_template("html_page.html")
+	return Template(get_template("html_page.html").safe_substitute(
+		PY_HTML_STYLE = style_css(),
+	))
+
+
+
+def style_css():
+	return _get_template("html_style.css")
+
+
 
 
 def global_script():
@@ -51,7 +65,7 @@ def file_list_script():
 	return get_template("html_script.html")
 
 def upload_form():
-	return get_template("html_upload.html")
+	return _get_template("html_upload.html")
 
 def video_script():
 	return global_script() + get_template("html_vid.html")

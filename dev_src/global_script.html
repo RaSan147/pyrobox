@@ -1,4 +1,6 @@
 <script>
+
+
 const log = console.log,
 	byId = document.getElementById.bind(document),
 	byClass = document.getElementsByClassName.bind(document),
@@ -10,6 +12,8 @@ const log = console.log,
 String.prototype.toHtmlEntities = function() {
 	return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
 };
+
+
 
 
 
@@ -32,9 +36,9 @@ function toggle_scroll() {
 	document.body.classList.toggle('overflowHidden');
 }
 
-function go_link(typee, locate) {
+function go_link(type_code, locate) {
 	// function to generate link for different types of actions
-	return locate + "?" + typee;
+	return locate + "?" + type_code;
 }
 // getting all the links in the directory
 
@@ -156,7 +160,7 @@ class Tools {
 		if(dataurl.indexOf("?") > -1){
 			Q = "&dl"
 		}
-		link.href = dataurl+Q;
+		link.href = dataurl + Q;
 		link.download = filename;
 		if(new_tab){
 			link.target = "_blank";
@@ -192,6 +196,8 @@ class Tools {
 			textArea.style.position = "fixed";
 			textArea.style.left = "-999999px";
 			textArea.style.top = "-999999px";
+			textArea.style.pointerEvents = "none";
+
 			document.body.appendChild(textArea);
 			textArea.focus();
 			textArea.select();
@@ -214,10 +220,10 @@ class Tools {
 		return 'ontouchstart' in document.documentElement;
 	}
 	setCookie(cname, cvalue, exdays=365) {
-	  const d = new Date();
-	  d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
-	  let expires = "expires="+d.toUTCString();
-	  document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+		const d = new Date();
+		d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+		let expires = "expires="+d.toUTCString();
+		document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
 	}
 	
 	getCookie(cname) {
@@ -237,8 +243,7 @@ class Tools {
 	}
 	
 	clear_cookie() {
-		document.cookie.split(";").forEach(
-			function(c) { 
+		document.cookie.split(";").forEach(c => { 
 				document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
 			}
 		);
@@ -256,7 +261,6 @@ class Popup_Msg {
 		this.made_popup = false;
 		this.init()
 		this.create()
-		this.opened = 0;
 	}
 
 	clean() {
@@ -358,6 +362,10 @@ opacity: 1;
 		}
 	}
 
+	is_active() {
+		return this.popup_obj.classList.contains("active")
+	}
+
 	create() {
 		var that = this;
 		let popup_id, popup_obj, popup_bg, close_btn, popup_box;
@@ -422,11 +430,14 @@ opacity: 1;
 	hide() {
 		this.popup_obj.classList.remove("active");
 		tools.toggle_scroll(1)
-		this.opened = 0
 	}
 
 	dismiss() {
+		if (!this.is_active()) {
+			return
+		}
 
+		HISTORY_ACTION = this.hide.bind(this)
 		history.back() //this.hide()
 		tools.del_child(this.header);
 		tools.del_child(this.content);
@@ -452,7 +463,6 @@ opacity: 1;
 			return
 		}
 		
-		this.opened = 1
 		this.popup_obj.classList.add("active");
 		config.popup_msg_open = this;
 		
@@ -514,23 +524,23 @@ class Toaster {
 		}
 		this.queue.push(1)
 
-		let toaste = createElement("div")
-		toaste.classList.add("toast-body")
+		let toastBody = createElement("div")
+		toastBody.classList.add("toast-body")
 		
-		this.container.appendChild(toaste)
+		this.container.appendChild(toastBody)
 
 		await tools.sleep(50) // wait for dom to update
 		
 		// SET BG COLOR
-		toaste.style.backgroundColor = bgcolor || this.default_bg;
+		toastBody.style.backgroundColor = bgcolor || this.default_bg;
 
-		toaste.innerText = msg;
-		toaste.classList.add("visible")
+		toastBody.innerText = msg;
+		toastBody.classList.add("visible")
 		if(tools.is_defined(time)) sleep = time;
 		await tools.sleep(sleep)
-		toaste.classList.remove("visible")
+		toastBody.classList.remove("visible")
 		await tools.sleep(500)
-		toaste.remove()
+		toastBody.remove()
 
 		this.queue.pop()
 
@@ -564,34 +574,6 @@ function r_u_sure({y=null_func, n=null, head="Head", body="Body", y_msg="Yes",n_
 	popup_msg.open_popup();
 }
 
-function loading_popup() {
-	popup_msg.close()
-	var box = createElement("div")
-	box.innerHTML = `
-<svg width="200" height="200" viewBox="0 0 100 100">
-  <polyline class="line-cornered stroke-still" points="0,0 100,0 100,100" stroke-width="10" fill="none"></polyline>
-  <polyline class="line-cornered stroke-still" points="0,0 0,100 100,100" stroke-width="10" fill="none"></polyline>
-  <polyline class="line-cornered stroke-animation" points="0,0 100,0 100,100" stroke-width="10" fill="none"></polyline>
-  <polyline class="line-cornered stroke-animation" points="0,0 0,100 100,100" stroke-width="10" fill="none"></polyline>
-</svg>
-
-<div class="wrapper">
-<div class="circle"></div>
-<div class="circle"></div>
-<div class="circle"></div>
-<div class="shadow"></div>
-<div class="shadow"></div>
-<div class="shadow"></div>
-</div>
-
-
-
-<link rel="stylesheet" href="./style_loading.css">
-`
-	popup_msg.createPopup("Loading...", box) ; //"Are you sure?"
-	popup_msg.open_popup();
-}
-
 
 
 </script>
@@ -617,6 +599,9 @@ function loading_popup() {
 
 <script>
 
+	var HISTORY_ACTION = null;
+
+
 	if (window.history && "pushState" in history) {
 		// because JSHint told me to
 		// handle forward/back buttons
@@ -625,28 +610,24 @@ function loading_popup() {
 			evt.preventDefault();
 			// guard against popstate event on chrome init
 			//log(evt.state)
-			if(popup_msg.opened){
-				popup_msg.hide()
-				//fake_push()
-				return false
+			function release () {
+				HISTORY_ACTION = null;
 			}
-			if(sidebar_control.is_open("R")){
-				sidebar_control._closeNavR()
-				//fake_push()
+
+			if(HISTORY_ACTION){
+				HISTORY_ACTION()
+				release()
 				return false
 			}
 			
 			const x = evt
-			if (x.state) {
-				if (x.state.url==window.location.href){
-					return false
-				}
+			if (x.state && x.state.url==window.location.href){
+				return false
 			}
 			location.reload(true);
 		};
 	
 	}
-	
-	
-</script>
 
+
+</script>

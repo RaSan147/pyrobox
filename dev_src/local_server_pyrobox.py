@@ -369,8 +369,8 @@ def list_directory(self:SH, path, user:User):
 
 	#if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
 	if user.UPLOAD and not (user.READ_ONLY or user.NOPERMISSION):
+		r.append(pt.upload_form())
 		pass
-		# r.append(pt.upload_form().safe_substitute(PY_PUBLIC_URL=config.address()))
 
 	r.append(pt.file_list_script().safe_substitute(PY_LINK_LIST=str(r_li),
 										PY_FILE_LIST=str(f_li),
@@ -495,7 +495,7 @@ def Authorize_user(self:SH):
 	# do cookie stuffs and get user
 
 	if Sconfig.GUESTS:
-		return User() # default gues user
+		return User() # default guest user
 		
 	
 
@@ -865,7 +865,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# The test for this was added in test_httpserver.py
 	# However, some OS platforms accept a trailingSlash as a filename
 	# See discussion on python-dev and Issue34711 regarding
-	# parseing and rejection of filenames with a trailing slash
+	# parsing and rejection of filenames with a trailing slash
 
 	if path.endswith("/"):
 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")

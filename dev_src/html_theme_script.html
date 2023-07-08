@@ -1,3 +1,66 @@
+<style>
+
+
+
+.accordion {
+	background-color: var(--button-background-color);
+	color: var(--theme-color-text);
+	cursor: pointer;
+	padding: 13px;
+	width: 85%;
+	border: none;
+	text-align: left;
+	outline: none;
+	font-size: 15px;
+	transition: all 0.4s;
+	border-radius: 3px;
+	margin: 0 auto 10px auto;
+	box-shadow: 0 2px 3px 1px #3d8be4;
+}
+
+.accordion-button {
+	text-align: center;
+	font-size: larger;
+	font-weight: bold;
+	padding: 13px 6px;
+}
+
+.accordion>.tron-switch {
+	margin-right: 5px;
+}
+
+.accordion-active,
+.accordion:hover {
+	background-color: var(--button-background-color-focused);
+	color: var(--theme-color-text2);
+	box-shadow: 0 2px 3px 1px #d8d8d8;
+}
+
+.accordion-panel {
+	padding: 0 10px 10px;
+	display: none;
+	background-color: inherit;
+	color: #fff;
+	overflow: hidden;
+	transition: all 0.8s;
+}
+
+.accordion-panel-heading {
+	line-height: 40px;
+}
+
+
+
+</style>
+
+
+
+
+
+
+
+
+
 <script>
 
 
@@ -40,7 +103,7 @@ class Theme_Controller {
 		let parent = byId(id);
 
 		function toggle_panel(disable) {
-			let Guncle = parent.parentElement.nextElementSibling;
+			let Guncle = parent.parentElement.nextElementSibling; // Guncle = Grand Uncle => next element of grand-parent
 			if (tools.is_in(id, panel2disable)) {
 				if (disable == true) {
 					Guncle.classList.add("disabled");
@@ -450,7 +513,10 @@ class SidebarControl {
 
 
 	closeNavR() {
-		history.back()
+		if (this.is_open("R")) {
+			HISTORY_ACTION = this._closeNavR.bind(this)
+			history.back();
+		}
 	}
 
 	closeNav() {
@@ -459,6 +525,48 @@ class SidebarControl {
 }
 
 var sidebar_control = new SidebarControl()
+
+
+
+
+class Accordion_ {
+	constructor() {
+		this.acc = byClass("accordion");
+
+		var that = this;
+		for (let i = 0; i < this.acc.length; i++) {
+			this.acc[i].addEventListener("click", function () {
+				var panel = this.nextElementSibling;
+				if (panel && panel.classList.contains("accordion-panel")) {
+					this.classList.toggle("accordion-active");
+					if (panel.style.display === "block") {
+						panel.style.display = "none";
+					} else {
+						panel.style.display = "block";
+					}
+				}
+			});
+		}
+	}
+}
+
+var accordion = new Accordion_();
+
+class SwitchBtn_ {
+	constructor() {
+		theme_controller.switch_init();
+	}
+
+	switch_mode(id) {
+		return theme_controller.switch_mode(id);
+	}
+
+	set_switch_mode(id, mode, not = false) {
+		return theme_controller.set_switch_mode(id, mode, not);
+	}
+}
+
+var switchBtn = new SwitchBtn_();
 
 
 
