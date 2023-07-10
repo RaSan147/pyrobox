@@ -1211,12 +1211,18 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		first, last = 0, None
 
+		C_encoding = None
+
 		try:
 			ctype = self.guess_type(path)
 			
 			# make sure texts are sent as utf-8
 			if ctype.startswith("text/"):
 				ctype += "; charset=utf-8"
+
+			# if file is gziped, send as gzip
+			if ctype == "application/gzip" and "gzip" in self.headers.get("Accept-Encoding", ""):
+				C_encoding = "gzip"
 
 			file = open(path, 'rb')
 			fs = os.fstat(file.fileno())
@@ -1269,7 +1275,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				response_length = last - first + 1
 
 				self.send_header('Content-Range',
-								 f'bytes {first}-{last}/{file_len}')
+								f'bytes {first}-{last}/{file_len}')
 				self.send_header('Content-Length', str(response_length))
 
 			else:
@@ -1281,10 +1287,14 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				self.send_header("Cache-Control", cache_control)
 
 			self.send_header("Last-Modified",
-							 self.date_time_string(fs.st_mtime))
+							self.date_time_string(fs.st_mtime))
 			self.send_header("Content-Type", ctype)
+
+			if C_encoding:
+				self.send_header("Content-Encoding", C_encoding)
+
 			self.send_header("Content-Disposition", is_attachment+' filename="%s"' %
-							 (os.path.basename(path) if filename is None else filename))
+							(os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
 			return file

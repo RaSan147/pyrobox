@@ -1401,4 +1401,4 @@ def run(*args, **kwargs):
 	run_server(handler=SH, *args, **kwargs)
 
 if __name__ == '__main__':
-	run()
+	run(port = 45454)
