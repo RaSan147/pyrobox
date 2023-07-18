@@ -1214,6 +1214,10 @@ class User {
 		permissions.forEach((permission, i) => {
 			this.permissions[permission] = this.permissions_code >> i & 1;
 		}, this);
+		// if none of permission is true, add nopermission to the permissions
+		if(!Object.values(this.permissions).includes(true)){
+			this.permissions['NOPERMISSIONS'] = true;
+		}
 	}
 
 }
