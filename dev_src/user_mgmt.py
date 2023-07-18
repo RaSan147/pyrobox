@@ -31,14 +31,14 @@ def compare_digest_hex(digest, hex):
 class User_handler:
 	def __init__(self):
 		self.user_db = PickleTable()
-		
+
 		self.cached = LimitedDict({}, max=500)
 
 		self.common_salt = "0123456789"
-		
+
 	def set_common_salt(self, sys_Pass):
 		self.common_salt = hashlib.md5(sys_Pass).hexdigest()
-		
+
 	def load_db(self, db_path=""):
 		self.user_db = PickleTable(db_path)
 		self.user_db.add_column("username",
@@ -48,10 +48,10 @@ class User_handler:
 			"id",
 			"token",
 			"permission",
-			
+
 			exist_ok=True)
-		
-		
+
+
 	def create_user(self, username, password):
 		p_hash = token = None
 		uid = hashlib.sha1((str(time.time()) + username).encode("utf-8")).hexdigest()
@@ -61,10 +61,10 @@ class User_handler:
 			"password": p_hash,
 			"created_at": datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
 			"last_active": datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
-			
+
 			"id": uid, #
 			"token": token,
-			
+
 			"permission": 0,
 		}
 
@@ -72,15 +72,15 @@ class User_handler:
 
 		user = User(row=row)
 		user.set_password(password)
-		
+
 		return user
-		
+
 	def _user(self, username=None, user=None):
 		if not user:
 			user = self.get_user(username)
-			
+
 		if not user:
-			raise LookupError("User not found") 
+			raise LookupError("User not found")
 		return user
 
 	def server_signup(self, username, password):
@@ -107,7 +107,7 @@ class User_handler:
 				"status": "error",
 				"message": "User not found"
 			}
-		
+
 		if not user.check_pass(password):
 			return {
 				"status": "error",
@@ -129,19 +129,19 @@ class User_handler:
 		user = self.cached.get(username)
 		if user:
 			return user
-			
+
 
 		user_cell = self.user_db.find_1st(kw=username, column="username", return_obj=True)
-		
+
 		if not user_cell:
 			return None
-			
+
 		user_row = user_cell.row_obj()
-		
+
 		user = User(row=user_row)
-		
+
 		self.cached[username] = user
-		
+
 		return user
 
 	def server_verify(self, username:str, token:str, return_user=False):
@@ -157,9 +157,9 @@ class User_handler:
 			return user
 		return True
 
- 		
+
 user_handler = User_handler()
-		
+
 
 
 class UserPermission(Enum):
@@ -176,13 +176,13 @@ class UserPermission(Enum):
 	DELETE = 4
 	UPLOAD = 5
 	ZIP = 6
-	
+
 permits = UserPermission # lazy to type long words
 
 class PermissionList(list):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
-		
+
 	def __getattr__(self, name:str):
 		name = name.upper()
 		options = dict(
@@ -195,7 +195,7 @@ class PermissionList(list):
 		)
 		if name in options:
 			return bool(self[options[name]])
-			
+
 		if name == "NOPERMISSION":
 			return not any(self)
 
@@ -239,36 +239,36 @@ class User:
 			logger.info(f"Updating password of user {self.username}")
 			user_db.set(self.username, salted_password)
 			return 0
-			
+
 		self.db = row
 
-		
+
 
 	Self = TypeVar("Self")
 	# self reference for use in classmethods that can't strong type User because it's inside the method
-	
+
 	@property
 	def username(self):
 		return self.db["username"]
-		
+
 	@property
 	def permission_pack(self):
 		return self.db["permission"]
-		
+
 	@property
 	def password(self):
 		return self.db["password"]
-		
+
 	@property
 	def token(self):
 		return self.db["token"]
-		
+
 	@property
 	def permission(self):
 		return self.unpack_permission(self.permission_pack)
-	
+
 	# get the sha1 hash of the CLI password to use as a salt, makes a longer string and avoids holding secrets in memory
-	
+
 	def salt_password(self, password):
 		return hashlib.sha256((user_handler.common_salt+password).encode('utf-8')).digest()
 
@@ -276,12 +276,12 @@ class User:
 		# salt, hash and store password
 		p_hash = self.salt_password(password)
 		token = hashlib.sha256(p_hash + str(time.time()).encode()).digest()
-		
+
 		# only store binary data
-		
+
 		self.update("password", p_hash)
 		self.update("token", token)
-		
+
 	def reset_pw(self, old_password: str, new_password: str) -> int:
 		"""Reset password
 
@@ -292,8 +292,8 @@ class User:
 		Returns:
 			int: True if old_password accepted, else False
 		"""
-		
-		
+
+
 		if self.check_pass(old_password):
 			logger.info(f"Updating password of user {self.username}")
 			salted_new_password = self.salt_password(new_password)
@@ -303,7 +303,7 @@ class User:
 		else:
 			logger.info(f"User {self.username} password mismatch")
 			return False
-			
+
 	def __setitem__(self, attr, value):
 		self.update(attr, value)
 
@@ -364,7 +364,7 @@ class User:
 			standing_permission[each.value] = 1
 
 		self._save_permission(standing_permission)
-		
+
 
 	def revoke(self, *permission: UserPermission) -> Literal[0]:
 		"""Turn off permissions
@@ -373,17 +373,17 @@ class User:
 			permission (UserPermission | Tuple[UserPermission]): Single UserPermission to disable, or tuple of several
 		"""
 		standing_permission = self.permission
-		
+
 		for each in permission:
 			standing_permission[each.value] = 0
-			
+
 		self._save_permission(standing_permission)
-		
+
 	def _save_permission(self, permission ):
 		self.update("permission", self.pack_permission(permission))
- 
 
-	
+
+
 
 	def check_pass(self, password: str) -> bool:
 		"""Check credentials
@@ -396,7 +396,7 @@ class User:
 		"""
 		salted_new_password = self.salt_password(password)
 		return compare_digest(self.password, salted_new_password)
-		
+
 	def check_token(self, token):
 		"""match cookie token (hex str) with db["token"] (digest binary)
 		"""
@@ -408,14 +408,14 @@ def test():
 	user_handler.load_db()
 	z = user_handler.server_signup(username="Admin", password="pass")
 	print(z)
-	
-	
-	
+
+
+
 	u = user_handler.get_user("Admin")
 	if u is None:
 		print("User not found")
 		return
-	
+
 	print(u.db)
 	print(u.permission)
 	u.permit(permits.DOWNLOAD, permits.DELETE)
@@ -423,8 +423,7 @@ def test():
 	print(u.permission.NOPERMISSION)
 	print(u.permission.DOWNLOAD)
 	print(u.get_permissions())
-	
+
 if __name__ == "__main__":
 	test()
-	
-	
+

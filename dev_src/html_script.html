@@ -927,6 +927,13 @@ class UploadManager {
 
 		let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
 		
+
+
+		/**
+		 * Displays a status message and optionally hides it.
+		 * @param {string} msg - The message to display.
+		 * @param {boolean} [hide=false] - Whether to hide the status message or not.
+		 */
 		function show_status(msg, hide=false){
 			if(hide){
 				upload_pop_status_label.style.display = "none"
@@ -936,48 +943,59 @@ class UploadManager {
 			upload_pop_status.innerText = msg
 		}
 
+		/**
+		 * Checks if a file is already selected or not.
+		 * @param {File} file - The file to check.
+		 * @returns {number} - Returns the index+1 of the file if it exists, otherwise returns 0.
+		 */
 		function uploader_exist(file) {
-			//check if file is already selected or not
-			selected_files.files.forEach((f, i) => {
+			for (let i = 0; i < selected_files.files.length; i++) {
+				const f = selected_files.files[i];
 				if (f.name == file.name) {
 					return i+1; // 0 is false, so we add 1 to make it true
 				}
-			});
-			return false;
+			};
+			return 0 // false;
 		}
 		
+
+		/**
+		 * Adds files to the selected files list and replaces any existing file with the same name.
+		 * @param {FileList} files - The list of files to add.
+		 */
 		function addFiles(files) {
 			var exist = false;
-			files.forEach((file) => {
+			
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
 				exist = uploader_exist(file)
 		
-				if (exist) { //if file already selected, remove that and replace with new one, because, when uploading last file will remain in host server, so we need to replace it with new one
+				if (exist) {
+					// if file already selected, 
+					// remove that and replace with 
+					// new one, because, when uploading 
+					// last file will remain in host server, 
+					// so we need to replace it with new one
 					toaster.toast("File already selected", 1500);
 					selected_files.items.remove(exist-1);
 				}
 				selected_files.items.add(file);
-			});
+			};
 			log("selected "+ selected_files.items.length+ " files");
 			uploader_showFiles();
 		}
-		
-		
-		
-		
-		
-		//If user Drag File Over DropArea
-		
 		
 		function uploader_removeFileFromFileList(index) {
 			let dt = new DataTransfer()
 			// const input = byId('files')
 			// const { files } = input
-		
-			selected_files.forEach((file,i) => {
+			
+			for (let i = 0; i < selected_files.files.length; i++) {
+				let file = selected_files.files[i]
 				if (index !== i) {
 					dt.items.add(file) // here you exclude the file. thus removing it.
 				}
-			})
+			}
 		
 			selected_files = dt
 			// uploader_input.files = dt // Assign the updates list
@@ -993,9 +1011,9 @@ class UploadManager {
 				uploader_file_container.style.display = "none"
 			}
 
-			selected_files.files.forEach((file, index) => {
-				uploader_showFile(file, index);
-			});
+			for (let i = 0; i <selected_files.files.length; i++) {
+				uploader_showFile(selected_files.files[i], i);
+			};
 		}
 		
 		

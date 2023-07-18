@@ -62,7 +62,7 @@ class PickleDB(object):
 		If the file does not exist it will be created on the first update.
 		'''
 		self.db = {}
-		
+
 		self.in_memory = False
 		self.location = ""
 		if location:
@@ -101,10 +101,10 @@ class PickleDB(object):
 				self.dthread.join()
 			sys.exit(0)
 		signal.signal(signal.SIGTERM, sigterm_handler)
-		
+
 	def new(self):
 		self.db = {}
-		
+
 	def _fix_location(self, location):
 		location = os.path.expanduser(location)
 		return location
@@ -112,7 +112,7 @@ class PickleDB(object):
 	def load(self, location, auto_dump):
 		'''Loads, reloads or Changes the path to the db file'''
 		self.in_memory = False
-		
+
 		self.location = self._fix_location(location)
 
 		self.auto_dump = auto_dump
@@ -121,7 +121,7 @@ class PickleDB(object):
 		else:
 			self.new()
 		return True
-		
+
 	def set_location(self, location):
 		self.location = location
 		self.in_memory = False
@@ -136,10 +136,10 @@ class PickleDB(object):
 
 	def dump(self):
 		'''Force dump memory db to file'''
-		
+
 		if self.in_memory:
-			return  
-			
+			return
+
 		self.dthread = Thread(target=self._dump)
 		self.dthread.start()
 		self.dthread.join()
@@ -368,7 +368,7 @@ class PickleDB(object):
 		self.db = {}
 		self._autodumpdb()
 		return True
-		
+
 
 # DUMMY CLASS FOR TYPING
 class PickleTable:
@@ -376,84 +376,84 @@ class PickleTable:
 
 class _PickleTCell:
 	pass
-		
+
 class _PickleTRow:
 	pass
-	
+
 class _PickleTColumn:
 	pass
-	
+
 
 
 
 class PickleTable:
 	def __init__(self, filename="", *args, **kwargs):
 		self.CC = 0 # consider it as country code and every items are its people. they gets NID
-		
+
 		self.gen_CC()
-		
-		
+
+
 		self.busy = False
 		self._pk = PickleDB(filename, *args, **kwargs)
-		
-		
-		
+
+
+
 		self.height = self.get_height()
-		
+
 		self.ids = [h for h in range(self.height)]
-		
+
 	def gen_CC(self):
 		self.CC = hash(time.time() + random.random() + time.thread_time())
-		
+
 		return self.CC
-	
+
 	def get_height(self):
 		h = len(self._pk[self.column_names[0]]) if self.column_names else 0
 
 		return h
-		
+
 	def __str__(self):
 		# header = self.column_names
 		x = tabulate([self.row(i) for i in range(min(self.height, 50))], headers="keys", tablefmt="orgtbl")
 		if self.height > 50:
 			x += "\n..."
-			
+
 		return x
-		
+
 	def set_location(self, location):
 		self._pk.set_location(location)
-		
-	
+
+
 	def lock(self, func):
 		def inner(*args, **kwargs):
-	
+
 			while self.busy:
 				time.sleep(.001)
-	
+
 			self.busy = True
-			
+
 			box = func(*args, **kwargs)
-			
+
 			self.busy = False
-			
+
 			return box
-			
+
 		return inner
-		
+
 	def column(self, name):
 		return self._pk.db[name]
-	
+
 	def columns(self):
 		'''Return a list of all columns in db'''
 		return self._pk.db
-	
+
 	@property
 	def column_names(self):
 		"""
 		return a tuple (unmodifiable) of column names
 		"""
 		return tuple(self._pk.db.keys())
-		
+
 	def add_column(self, *names, exist_ok=False, AD=True):
 		"""
 		name: column name
@@ -462,7 +462,7 @@ class PickleTable:
 		"""
 		def add(name):
 			self._pk.validate_key(key=name)
-	
+
 			tsize = self.height
 			if name in self.column_names:
 				if exist_ok :
@@ -474,18 +474,18 @@ class PickleTable:
 			else:
 				self._pk.db[name] = []
 				self.gen_CC() # major change
-			
-			
+
+
 			self._pk.db[name].extend([None] * tsize)
-			
+
 		for name in names:
 			add(name)
-		
-		
+
+
 		if AD:
 			self.auto_dump()
-		
-	
+
+
 	def del_column(self, name, AD=True):
 		"""
 		@ locked
@@ -495,20 +495,20 @@ class PickleTable:
 		self.lock(self._pk.db.pop)(name)
 		if not self._pk.db: # has no keys
 			self.height = 0
-			
+
 		# self.gen_CC()
-		
+
 		if AD:
 			self.auto_dump()
-		
-	
-	
+
+
+
 	def row(self, row, _columns=()):
 		"""
 		returns a row dict by `row` index
 		_column: specify columns you need, blank if you need all
 		"""
-		
+
 		columns = _columns or self.column_names
 		return {j: self._pk.db[j][row] for j in columns}
 
@@ -519,7 +519,7 @@ class PickleTable:
 		return _PickleTRow(source=self,
 			uid=self.ids[row],
 			CC=self.CC)
-			
+
 	def row_obj_by_id(self, row_id):
 		'''Return a row object `_PickleTRow` in db
 		# row: row index
@@ -527,13 +527,13 @@ class PickleTable:
 		return _PickleTRow(source=self,
 			uid=row_id,
 			CC=self.CC)
-			
+
 	def rows(self):
 		'''Return a list of all rows in db'''
 		columns = self.column_names
 		for r in range(self.height):
 			yield self.row(r, _columns=columns)
-			
+
 	def rows_obj(self, start:int=0, end:int=None, sep:int=1):
 		'''Return a list of all rows in db'''
 		if end is None:
@@ -544,12 +544,12 @@ class PickleTable:
 		columns = self.column_names
 		for r in range(start, end, sep):
 			yield self.row_obj(r, _columns=columns)
-			
-			
+
+
 	def search_iter(self, kw, column=None , row=None, full_match=False, return_obj=True):
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the cell object in loop
-		
+
 		ie: for cell in db.search_iter("abc"):
 			print(cell.value)
 		"""
@@ -557,55 +557,55 @@ class PickleTable:
 			ret = self.get_cell_obj
 		else:
 			ret = self.get_cell
-			
+
 		def check(item, is_in):
 			if full_match or not isinstance(is_in, Iterable):
 				return is_in == item
-				
+
 			return item in is_in
-			
+
 
 		if column and row:
 			cell = self.get_cell(column, row)
 			if check(kw, cell):
 				yield ret(col=column, row=row)
 			return None
-			
+
 		elif column:
 			for r, i in enumerate(self.column(column)):
 				if check(kw, i):
 					yield ret(col=column, row=r)
-				
+
 			return None
-					
+
 		elif row:
 			_row = self.row(row)
 			for c, i in _row.items():
 				if check(kw, i):
 					yield ret(col=c, row=row)
-					
-			return None 
-			
+
+			return None
+
 		else:
 			for col in self.column_names:
 				for r, i in enumerate(self.column(col)):
 					if check(kw, i):
 						yield ret(col=col, row=r)
-						
-						
+
+
 	def find_1st(self, kw, column=None , row=None, full_match=False, return_obj=True):
 		"""
-		search a keyword in a cell/row/column/entire sheet and return the 1st matched cell object 
+		search a keyword in a cell/row/column/entire sheet and return the 1st matched cell object
 		"""
-		
+
 		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=return_obj):
 			return cell
-				
-				
-				
-		
 
-		
+
+
+
+
+
 	def set_cell(self, col, row, val, AD=True):
 		"""
 		# col: column name
@@ -614,10 +614,10 @@ class PickleTable:
 		# AD: auto dump
 		"""
 		self._pk.db[col][row] = val
-		
+
 		if AD:
 			self.auto_dump()
-			
+
 	def set_cell_by_id(self, col, row_id, val, AD=True):
 		"""
 		# col: column name
@@ -625,30 +625,30 @@ class PickleTable:
 		# val: value of cell
 		# AD: auto dump
 		"""
-		return self.set_cell(col=col, row=self.ids.index(row_id), val=val, AD=AD) 
-			
+		return self.set_cell(col=col, row=self.ids.index(row_id), val=val, AD=AD)
+
 	def get_cell(self, col, row):
 		"""
 		get cell value
 		"""
 		return self._pk.db[col][row]
-		
+
 	def get_cell_by_id(self, col, row_id):
 		return self.get_cell(col, self.ids.index(row_id))
-		
+
 	def get_cell_obj(self, col, row:int=-1, row_id:int=-1):
 		"""
-		return cell object 
+		return cell object
 		# col: column name
 		# row: row index (use euther row or row_id)
 		# row_id: unique id of the row
 		"""
-		
+
 		if row>-1:
 			return _PickleTCell(self, column=col, row_id=self.ids[row], CC=self.CC)
 		if row_id>-1:
 			return _PickleTCell(self, column=col, row_id=self.ids[row], CC=self.CC)
-		
+
 		# in case row or row_id is invalid
 		raise IndexError("Invalid row")
 
@@ -664,22 +664,22 @@ class PickleTable:
 
 		for c in self.column_names:
 			self._pk.db[c].pop(index)
-		
+
 		self.ids.pop(index)
-			
+
 		self.height -=1
-		
+
 		if AD:
 			self.auto_dump()
-			
+
 		return box
-	
+
 	def del_row(self, row:int, AD=True):
 		# Auto dumps (locked)
 		self.lock(self.pop_row)(row, returns=False, AD=AD)
-		
-		
-		
+
+
+
 	def del_row_id(self, row_id:int, AD=True):
 		"""
 		row_id: unique id of the row
@@ -687,7 +687,7 @@ class PickleTable:
 		"""
 		self.del_row(self.ids.index(row_id), AD=AD)
 
-	
+
 	def _add_row(self, row:Union[dict, _PickleTRow], ignore_extra=False):
 		"""
 		# row: row must be a dict or _PickleTRow containing column names and values
@@ -697,59 +697,59 @@ class PickleTable:
 		else:
 			row_id = self.ids[-1] + 1
 		self.ids.append(row_id)
-			
-		
-			
+
+
+
 		for k in self.column_names:
 			self._pk.db[k].append(row.get(k))
 
-		
+
 		#for k, v in row.items():
 		#	self.set_cell(k, self.height, v, AD=False)
-			
+
 		self.height += 1
-		
+
 		return self.row_obj_by_id(row_id)
 
-		
+
 	def add_row(self, row:Union[dict, _PickleTRow], ignore_extra=False, AD=True):
-		""" 
+		"""
 		@ locked
-		# row: row must be a dict containing column names and values
-		"""		
-			
+		* row: row must be a dict containing column names and values
+		"""
+
 		row_obj = self.lock(self._add_row)(row=row, ignore_extra=ignore_extra)
-		
+
 		if AD:
 			self.auto_dump()
-			
+
 		return row_obj
-			
-		
+
+
 	def verify_source(self, CC):
 		return CC == self.CC
-	 
+
 	def raise_source(self, CC):
 		if not self.verify_source(CC):
-			raise KeyError("Database has been updated drastically. Row index will mismatch!") 
-		
-		
-						
+			raise KeyError("Database has been updated drastically. Row index will mismatch!")
+
+
+
 	def dump(self):
 		self._pk.dump()
-		
+
 	def auto_dump(self):
 		self._pk._autodumpdb()
-		
 
-		
+
+
 class _PickleTCell:
 	def __init__(self, source:PickleTable, column, row_id:int, CC):
 		self.source = source
 		self.id = row_id
 		self.column = column
 		self.CC = CC
-		
+
 	@property
 	def value(self):
 		self.source.raise_source(self.CC)
@@ -762,65 +762,65 @@ class _PickleTCell:
 			"column": self.column,
 			"row": self.row
 		})
-		
+
 	def __eq__(self, other):
 		if isinstance(other, self.__class__):
 			return self.value == other.value
-		
+
 		return self.value==other
-		
+
 	def set(self, value, AD=True):
 		self.source.raise_source(self.CC)
-		
+
 		self.source.set_cell_by_id(self.column, self.id, val=value, AD=AD)
-		
+
 	@property
 	def row(self):
 		self.source.raise_source(self.CC)
-		
+
 		return self.source.ids.index(self.id)
-	
+
 	def row_obj(self):
 		self.source.raise_source(self.CC)
-		
+
 		return self.source.row_obj_by_id(row_id=self.id)
-		
-		
+
+
 class _PickleTRow:
 	def __init__(self, source:PickleTable, uid, CC):
 		self.source = source
 		self.id = uid
 		self.CC = CC
-		
+
 	def __getitem__(self, name):
 		self.source.raise_source(self.CC)
-		
+
 		return self.source.get_cell(name, self.source.ids.index(self.id))
-		
+
 	def get(self, name, default=None):
 		if name not in self.source.column_names:
 			return default
-			
+
 		return self[name]
-		
+
 	def get_cell_obj(self, name, default=None):
 		if name not in self.source.column_names:
 			return default
-			
+
 		return self.source.get_cell_obj(col=name, row_id=self.id)
 
 	def __setitem__(self, name, value):
 		# Auto dumps
 		self.source.raise_source(self.CC)
-		
+
 		self.source.set_cell(name, self.source.ids.index(self.id), value)
 
 	def __delitem__(self, name):
 		# Auto dump
 		self.source.raise_source(self.CC)
-		
+
 		self.source.set_cell(name, self.source.ids.index(self.id), None)
-		
+
 	def index(self):
 		"""
 		returns the current index of the row
@@ -829,29 +829,29 @@ class _PickleTRow:
 
 	def update(self, new:Union[dict, "_PickleTRow"], ignore_extra=False, AD=True):
 		"""
-		Auto dumps 
+		Auto dumps
 		"""
-		
+
 		for k, v in new.items():
 			try:
 				self.source.set_cell(k, self.source.ids.index(self.id), v, AD=False)
 			except KeyError:
 				if not ignore_extra:
 					raise
-					
+
 		if AD:
 			self.source.auto_dump()
-		
+
 	def __str__(self):
 		return str({k:v for k, v in self.items()})
-		
+
 	def keys(self):
 		return self.source.column_names
-		
+
 	def items(self):
 		for k in self.keys():
 			yield (k, self[k])
-		
+
 	def del_row(self):
 		# Auto dumps
 		self.source.raise_source(self.CC)
@@ -864,15 +864,15 @@ class _PickleTColumn:
 		self.source = source
 		self.name = name
 		self.CC = CC
-		
+
 	def __getitem__(self, row:int):
 		"""
 		row: the index of row (not id)
 		"""
 		# self.source.raise_source(self.CC)
-		
+
 		return self.source.get_cell(col=self.name, row=row)
-		
+
 	def get(self, row:int, default=None):
 		"""
 		get the cell value from the column by row index
@@ -881,145 +881,143 @@ class _PickleTColumn:
 			return default
 		if row > (self.source.height-1):
 			return default
-			
+
 		return self[row]
-		
+
 	def get_cell_obj(self, row:int, default=None):
 		if not isinstance(row, int):
 			return default
 		if row > (self.source.height-1):
 			return default
-			
+
 		return self.source.get_cell_obj(col=self.name, row=row)
 
 	def __setitem__(self, row:int, value):
 		"""
 		@ Auto dumps
-		# row: row index (not id)
-		# value: accepts both raw value and _PickleTCell obj
+		* row: row index (not id)
+		* value: accepts both raw value and _PickleTCell obj
 		"""
-		
+
 		# self.source.raise_source(self.CC)
-		
+
 		if isinstance(value, _PickleTCell):
 			value = value.value
-		
+
 		self.source.set_cell(col=self.name, row=row, val=value)
 
 	def __delitem__(self, row:int):
 		"""
 		@ Auto dump
-		# row: index of row (not id)
+		* row: index of row (not id)
 		"""
-		# self.source.raise_source(self.CC)
-		
 		self.source.set_cell(self.name, row, None)
-		
-	
+
+
 	def append(self, *args, **kwargs):
 		raise NotImplementedError("You can't manually just add a cell in the column. You must add a new row for that")
-		
+
 	extend = append
-	
-	
-	
+
+
+
 	def __str__(self):
 		return str({k:v for k, v in self.items()})
-		
+
 	def keys(self):
 		return self.source.column_names
-		
+
 	def items(self):
 		for k in self.keys():
 			yield (k, self[k])
-		
+
 	def del_column(self):
 		"""
-		# Auto dumps
-		** This will also invalidate this object. Handle with care **
+		@ Auto dumps
+		# This will also invalidate this object. Handle with care
 		"""
 		self.source.raise_source(self.CC)
 
 		self.source.del_column(self.name)
 
-	
-		
-		
-		
-		
+
+
+
+
+
 
 import string
-def Lower_string(length): # define the function and pass the length as argument 
-    # Print the string in Lowercase  
-	result = ''.join((random.choice(string.ascii_lowercase) for x in range(length))) # run loop until the define length 
+def Lower_string(length): # define the function and pass the length as argument
+    # Print the string in Lowercase
+	result = ''.join((random.choice(string.ascii_lowercase) for x in range(length))) # run loop until the define length
 	return result
 
-		
 
-	
+
+
 def test():
 	st = time.perf_counter()
 	tb = PickleTable("__test.pdb")
 	tt = time.perf_counter()
 	print(f"load time: {tt-st}s")
-	
+
 	print("Existing table height:", tb.height)
-	
+
 	tb.add_column("x", exist_ok=1, AD=False) # no dumps
 	tb.add_column("Ysz", exist_ok=1, AD=False ) # no dumps
 	tb.add_column("Y", exist_ok=1, AD=False) # no dumps
-	
+
 	print("adding")
 	for n in range(int(10000)):
 		tb._add_row({"x":n, "Y":'🍎'})
-		
+
 		#print(n)
-	
+
 	tb.add_column("m", exist_ok=1, AD=False)  # no dumps
 
 	#tb.del_colum("x")
 	dt = time.perf_counter()
 	tb.dump()
 	tt = time.perf_counter()
-	print(f"dump time: {tt-dt}s") 
-	
+	print(f"dump time: {tt-dt}s")
+
 	# print(tb)
 	#print("Total cells", tb.height * len(tb.column_names))
-	
+
 	et = time.perf_counter()
 	print(f"Load and dump test in {et - st}s\n")
-	
+
 	print("="*50)
-	
+
 	print("\n Assign random string in first 1,000 rows test")
 	print("="*50)
 	st = time.perf_counter()
-	
+
 	for row_ in tb.rows_obj(0, 1000):
 		row_.update({"m": Lower_string(10)}, AD=False)
-		
+
 	et = time.perf_counter()
-		
+
 	print(f"Assigned test in {et - st}s")
 	# print(tb)
 	dt = time.perf_counter()
 	tb.dump()
 	tt = time.perf_counter()
-	print(f"dump time: {tt-dt}s") 
-	
+	print(f"dump time: {tt-dt}s")
+
 	print("="*50)
-	
+
 	print("\n\n Search test")
 	st = time.perf_counter()
-	
+
 	for cell in tb.search_iter(kw="abc", column="m"):
 		print(cell)
-		
+
 	et = time.perf_counter()
-		
+
 	print(f"Search 'abc' test in {et - st}s")
-	
-	
+
+
 if __name__ == "__main__":
 	for i in range(5):
 		try:
@@ -1029,4 +1027,3 @@ if __name__ == "__main__":
 		test()
 		os.remove("__test.pdb")
 		print("\n\n\n" + "# "*25 + "\n")
-	

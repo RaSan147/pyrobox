@@ -68,7 +68,7 @@ class ServerConfig():
 		self.GUESTS = (self.name and cli_args.guest_allowed) or True # unless account mode, everyone is guest
 		
 		# Max size a zip file will be made
-		self.max_zip_size = 6*1024*1024*1024
+		self.max_zip_size = 6*1024*1024*1024 # 6GB
 		
 
 
@@ -480,11 +480,11 @@ def handle_user_cookie(self: SH):
 			return x.value
 		return ""
 	username = get("uname")
-	uid = get("uid")
+	token = get("token")
 
-	user = u_mgmt.User.get_user(username)
+	user = u_mgmt.user_handler.get_user(username)
 	if user:
-		if user.uid == uid:
+		if user.token == token:
 			return user
 		else:
 			return None
@@ -1277,19 +1277,19 @@ def get_info(self: SH, *args, **kwargs):
 	body = """
 <style>
 table {
-font-family: arial, sans-serif;
-border-collapse: collapse;
-width: 100%;
+	font-family: arial, sans-serif;
+	border-collapse: collapse;
+	width: 100%;
 }
 
 td, th {
-border: 1px solid #00BFFF;
-text-align: left;
-padding: 8px;
+	border: 1px solid #00BFFF;
+	text-align: left;
+	padding: 8px;
 }
 
 tr:nth-child(even) {
-background-color: #111;
+	background-color: #111;
 }
 </style>
 

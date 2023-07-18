@@ -59,6 +59,7 @@ class Config:
 		self.ftp_dir = "."  # DEFAULT DIRECTORY TO LAUNCH SERVER
 
 		self.IP = None  # will be assigned by checking
+		self.protocol = "http"  # DEFAULT PROTOCOL TO LAUNCH SERVER
 
 		# DEFAULT PORT TO LAUNCH SERVER
 		self.port = 6969  # DEFAULT PORT TO LAUNCH SERVER
@@ -77,7 +78,7 @@ class Config:
 		# ZIP FEATURES
 		self.default_zip = "zipfile"  # or "zipfile" to use python built in zip module
 
-		# CHECK FOR MISSING REQUEIREMENTS
+		# CHECK FOR MISSING REQUIREMENTS
 		self.run_req_check = True
 
 		# FILE INFO
@@ -100,9 +101,6 @@ class Config:
 
 		# TEMP FILE MAPPING
 		self.temp_file = set()
-
-		# SESSION OBJECT
-		#self.LOCALSESSION = MachineSession(path = self.ftp_dir, main_dir= self.MAIN_FILE_dir) # TODO: Optional name parameter
 
 		# CLEAN TEMP FILES ON EXIT
 		atexit.register(self.clear_temp)
@@ -155,7 +153,7 @@ class Config:
 		return './'
 
 	def address(self):
-		return f"http://{self.IP}:{self.port}"
+		return f"{self.protocol}://{self.IP}:{self.port}"
 
 	def parse_default_args(self, port=0, directory="", bind=None):
 		if not port:
