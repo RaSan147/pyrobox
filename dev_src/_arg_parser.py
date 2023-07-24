@@ -44,6 +44,14 @@ def main(config):
 							default=False,
 							help="Only allowed to see file list, nothing else (default: %(default)s)")
 
+
+
+
+
+
+
+
+
 	config.parser.add_argument('--name', '-nm', 
 							default=None,
 							help='In case you want to create a server User accounts based. --password must be always same and --admin-id and --admin-pass is required. See web doc for more info.'

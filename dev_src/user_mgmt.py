@@ -28,137 +28,7 @@ def compare_digest_hex(digest, hex):
 	return compare_digest(hex.encode("ascii"), binascii.hexlify(digest))
 
 
-class User_handler:
-	def __init__(self):
-		self.user_db = PickleTable()
 
-		self.cached = LimitedDict({}, max=500)
-
-		self.common_salt = "0123456789"
-
-	def set_common_salt(self, sys_Pass):
-		self.common_salt = hashlib.md5(sys_Pass).hexdigest()
-
-	def load_db(self, db_path=""):
-		self.user_db = PickleTable(db_path)
-		self.user_db.add_column("username",
-			"password",
-			"created_at",
-			"last_active",
-			"id",
-			"token",
-			"permission",
-
-			exist_ok=True)
-
-
-	def create_user(self, username, password):
-		p_hash = token = None
-		uid = hashlib.sha1((str(time.time()) + username).encode("utf-8")).hexdigest()
-
-		u_data = {
-			"username": username,
-			"password": p_hash,
-			"created_at": datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
-			"last_active": datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
-
-			"id": uid, #
-			"token": token,
-
-			"permission": 0,
-		}
-
-		row = self.user_db.add_row(u_data)
-
-		user = User(row=row)
-		user.set_password(password)
-
-		return user
-
-	def _user(self, username=None, user=None):
-		if not user:
-			user = self.get_user(username)
-
-		if not user:
-			raise LookupError("User not found")
-		return user
-
-	def server_signup(self, username, password):
-		# check if username is already taken
-		if self.get_user(username, temp=True) is not None:
-			return {
-				"status": "error",
-				"message": "Username already taken"
-			}
-
-		# create user
-		user = self.create_user(username, password)
-		return {
-			"status": "success",
-			"message": "User created",
-			"user_name": user.username,
-			"token": user.token
-		}
-
-	def server_login(self, username, password):
-		user = self.get_user(username)
-		if user is None:
-			return {
-				"status": "error",
-				"message": "User not found"
-			}
-
-		if not user.check_pass(password):
-			return {
-				"status": "error",
-				"message": "Wrong password"
-			}
-
-		user.update("last_active", datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S"))
-		print("logged in", user)
-		# user.flags.clear() # clear flags
-
-		return {
-			"status": "success",
-			"message": "User logged in",
-			"user_name": username,
-			"user_id": user["id"]
-		}
-
-	def get_user(self, username, temp=False):
-		user = self.cached.get(username)
-		if user:
-			return user
-
-
-		user_cell = self.user_db.find_1st(kw=username, column="username", return_obj=True)
-
-		if not user_cell:
-			return None
-
-		user_row = user_cell.row_obj()
-
-		user = User(row=user_row)
-
-		self.cached[username] = user
-
-		return user
-
-	def server_verify(self, username:str, token:str, return_user=False):
-		user = self.get_user(username)
-		if not user:
-			return False
-		if user.check_token(token):
-			return False
-
-		user["last_active"] = datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-
-		if return_user:
-			return user
-		return True
-
-
-user_handler = User_handler()
 
 
 
@@ -170,14 +40,15 @@ class UserPermission(Enum):
 	"""
 
 	NOPERMISSION = 0
-	READ = 1
-	DOWNLOAD = 2
-	MODIFY = 3
-	DELETE = 4
-	UPLOAD = 5
-	ZIP = 6
+	VIEW = 1        # view file list
+	DOWNLOAD = 2    # download files
+	MODIFY = 3      # rename, overwrite, new folder
+	DELETE = 4      # delete files
+	UPLOAD = 5      # upload files
+	ZIP = 6         # download zip folder
 
 permits = UserPermission # lazy to type long words
+
 
 class PermissionList(list):
 	def __init__(self, *args, **kwargs):
@@ -186,12 +57,12 @@ class PermissionList(list):
 	def __getattr__(self, name:str):
 		name = name.upper()
 		options = dict(
-			READ = 0,
-			DOWNLOAD = 1,
-			MODIFY = 2,
-			DELETE = 3,
-			UPLOAD = 4,
-			ZIP = 5,
+			VIEW = 0,       # view file list
+			DOWNLOAD = 1,   # download files
+			MODIFY = 2,     # rename, overwrite, new folder
+			DELETE = 3,     # delete files
+			UPLOAD = 4,     # upload files
+			ZIP = 5,        # download zip folder
 		)
 		if name in options:
 			return bool(self[options[name]])
@@ -199,7 +70,6 @@ class PermissionList(list):
 		if name == "NOPERMISSION":
 			return not any(self)
 
-user_db = None
 
 class User:
 	"""Object for WebUI users"""
@@ -221,26 +91,10 @@ class User:
 			User: Object for WebUI users
 		"""
 
-		# Private function
-		def update_pw(self, password: str) -> Literal[0]:
-			"""Private method to update password, not usable from outside object
-
-			Args:
-				password (str): plaintext password to be salted and hashed
-
-			Raises:
-				ValueError: Password failed to be applied at database level
-
-			Returns:
-				Int: Zero if OK
-			"""
-			# passwords and hashed passwords are not ever assigned to the object
-			salted_password = self.get_salt_pw(password)
-			logger.info(f"Updating password of user {self.username}")
-			user_db.set(self.username, salted_password)
-			return 0
 
 		self.db = row
+		self.user_handler = user_handler # type: User_handler
+
 
 
 
@@ -266,11 +120,15 @@ class User:
 	@property
 	def permission(self):
 		return self.unpack_permission(self.permission_pack)
+	
+	
+	def is_admin(self):
+		return self in self.user_handler.admins
 
 	# get the sha1 hash of the CLI password to use as a salt, makes a longer string and avoids holding secrets in memory
 
 	def salt_password(self, password):
-		return hashlib.sha256((user_handler.common_salt+password).encode('utf-8')).digest()
+		return hashlib.sha256((self.user_handler.common_salt+password).encode('utf-8')).digest()
 
 	def set_password(self, password:str):
 		# salt, hash and store password
@@ -281,6 +139,8 @@ class User:
 
 		self.update("password", p_hash)
 		self.update("token", token)
+
+	
 
 	def reset_pw(self, old_password: str, new_password: str) -> int:
 		"""Reset password
@@ -352,34 +212,45 @@ class User:
 			output.append(UserPermission(0))
 		return tuple(output)
 
-	def permit(self, *permission:  UserPermission) -> Literal[0]:
+	def permit(self, *permission:  UserPermission):
 		"""Turn on permissions
 
 		Args:
 			permission (UserPermission | Tuple[UserPermission]): Single UserPermission to enable, or tuple of several
 		"""
-		standing_permission = self.permission
+		if UserPermission.NOPERMISSION in permission:
+			self.revoke_all()
+			return
 
+		new_permission = self.permission
 		for each in permission:
-			standing_permission[each.value] = 1
+			new_permission[each.value] = 1
 
-		self._save_permission(standing_permission)
+		self._save_permission(new_permission)
 
 
-	def revoke(self, *permission: UserPermission) -> Literal[0]:
+	def revoke(self, *permission: UserPermission):
 		"""Turn off permissions
 
 		Args:
 			permission (UserPermission | Tuple[UserPermission]): Single UserPermission to disable, or tuple of several
 		"""
-		standing_permission = self.permission
-
+		new_permission = self.permission
 		for each in permission:
-			standing_permission[each.value] = 0
+			new_permission[each.value] = 0
 
-		self._save_permission(standing_permission)
+		self._save_permission(new_permission)
 
-	def _save_permission(self, permission ):
+	def revoke_all(self):
+		"""Turn off all permissions
+		"""
+		permission = [0 for _ in range(len(self.permission))]
+		self._save_permission(permission)
+
+
+	def _save_permission(self, permission: list):
+		"""Save permission to database
+		"""
 		self.update("permission", self.pack_permission(permission))
 
 
@@ -401,6 +272,161 @@ class User:
 		"""match cookie token (hex str) with db["token"] (digest binary)
 		"""
 		return compare_digest_hex(digest=self.token, hex=token)
+	
+
+class User_handler:
+	def __init__(self):
+		self.user_db = PickleTable()
+
+		self.cached = LimitedDict({}, max=500)
+
+		self.common_salt = "0123456789"
+
+		self.admins = []
+
+	def set_common_salt(self, sys_Pass):
+		self.common_salt = hashlib.md5(sys_Pass).hexdigest()
+
+	def load_db(self, db_path=""):
+		self.user_db = PickleTable(db_path)
+		self.user_db.add_column("username",
+			"password",
+			"created_at",
+			"last_active",
+			"id",
+			"token",
+			"permission",
+
+			exist_ok=True)
+
+
+	def create_user(self, username, password, is_admin=False):
+		p_hash = token = None
+		uid = hashlib.sha1((str(time.time()) + username).encode("utf-8")).hexdigest()
+
+		u_data = {
+			"username": username,
+			"password": p_hash,
+			"created_at": round(datetime.datetime.now(datetime.timezone.utc).timestamp(),2),
+			"last_active": round(datetime.datetime.now(datetime.timezone.utc).timestamp(),2), # datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
+
+			"id": uid, #
+			"token": token,
+
+			"permission": 0,
+		}
+
+		row = self.user_db.add_row(u_data)
+
+		user = User(row=row)
+		user.set_password(password)
+		self.assign_handler(user)
+
+		if is_admin:
+			self.set_admin(user)
+
+		return user
+	
+	def assign_handler(self, user:User):
+		# assign user handler to user
+		# so that if multiple user handlers are created, the user can always find the correct parent
+		user.user_handler = self
+
+	def set_admin(self, user:User):
+		# add user to admin list
+		if user not in self.admins:
+			self.admins.append(user)
+	
+	def create_guest(self):
+		user = self.create_user("Guest", "Guest")
+
+	def _user(self, username=None, user=None):
+		if not user:
+			user = self.get_user(username)
+
+		if not user:
+			raise LookupError("User not found")
+		return user
+
+	def server_signup(self, username, password):
+		# check if username is already taken
+		if self.get_user(username, temp=True) is not None:
+			return {
+				"status": "error",
+				"message": "Username already taken"
+			}
+
+		# create user
+		user = self.create_user(username, password)
+		return {
+			"status": "success",
+			"message": "User created",
+			"user_name": user.username,
+			"token": user.token
+		}
+
+	def server_login(self, username, password):
+		user = self.get_user(username)
+		if user is None:
+			return {
+				"status": "error",
+				"message": "User not found"
+			}
+
+		if not user.check_pass(password):
+			return {
+				"status": "error",
+				"message": "Wrong password"
+			}
+
+		user.update("last_active", round(datetime.datetime.now(datetime.timezone.utc).timestamp(),2))
+		print("logged in", user)
+		# user.flags.clear() # clear flags
+
+		return {
+			"status": "success",
+			"message": "User logged in",
+			"user_name": username,
+			"user_id": user["id"]
+		}
+
+	def get_user(self, username, temp=False):
+		user = self.cached.get(username)
+		if user:
+			return user
+
+
+		user_cell = self.user_db.find_1st(kw=username, column="username", return_obj=True)
+
+		if not user_cell:
+			return None
+
+		user_row = user_cell.row_obj()
+
+		user = User(row=user_row)
+		self.assign_handler(user)
+
+		if not temp:
+			self.cached[username] = user
+
+		return user
+
+	def server_verify(self, username:str, token:str, return_user=False):
+		user = self.get_user(username)
+		if not user:
+			return False
+		if user.check_token(token):
+			return False
+
+		user["last_active"] = datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+
+		if return_user:
+			return user
+		return True
+
+
+user_handler = User_handler()
+
 
 
 
@@ -416,6 +442,8 @@ def test():
 		print("User not found")
 		return
 
+	print(u)
+	print(u.username)
 	print(u.db)
 	print(u.permission)
 	u.permit(permits.DOWNLOAD, permits.DELETE)

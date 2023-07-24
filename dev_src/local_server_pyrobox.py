@@ -7,7 +7,6 @@
 # * ADD SEARCH
 
 
-import html
 from string import Template
 import os
 import sys
@@ -16,7 +15,6 @@ import shutil
 
 import datetime
 
-import importlib.util
 
 import urllib.parse
 import urllib.request
@@ -31,11 +29,13 @@ import traceback
 
 from pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH_base, DealPostData as DPD, run as run_server, tools, reload_server, __version__
 
-from _fs_utils import get_titles, dir_navigator, get_dir_size, get_dir_m_time, get_stat, get_tree_count_n_size, _get_tree_path_n_size, fmbytes, humanbytes
+from _fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes
 from _arg_parser import main as arg_parser
 import _page_templates as pt
 from _exceptions import LimitExceed
 from _zipfly_manager import ZIP_Manager
+from _list_maker import list_directory, list_directory_json
+
 
 
 
@@ -96,6 +96,9 @@ class User():
 		self.UPLOAD = not cli_args.no_upload
 		self.ZIP = not cli_args.no_zip
 
+		self.username = "Guest"
+	
+
 
 
 
@@ -131,49 +134,46 @@ REQUEIREMENTS= ['send2trash', 'natsort']
 
 
 
-def check_installed(pkg):
-	return bool(importlib.util.find_spec(pkg))
 
 
+# def run_update():
+# 	dep_modified = False
 
-def run_update():
-	dep_modified = False
+# 	import sysconfig, pip
 
-	import sysconfig, pip
-
-	i = "pyrobox"
-	more_arg = ""
-	if pip.__version__ >= "6.0":
-		more_arg += " --disable-pip-version-check"
-	if pip.__version__ >= "20.0":
-		more_arg += " --no-python-version-warning"
-
-
-	py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
-	on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
-	command = "" if config.OS == "Windows" else on_linux
-	comm = f'{command} {sys.executable} -m pip install -U --user {more_arg} {i}'
-
-	try:
-		subprocess.call(comm, shell=True)
-	except Exception as e:
-		logger.error(traceback.format_exc())
-		return False
+# 	i = "pyrobox"
+# 	more_arg = ""
+# 	if pip.__version__ >= "6.0":
+# 		more_arg += " --disable-pip-version-check"
+# 	if pip.__version__ >= "20.0":
+# 		more_arg += " --no-python-version-warning"
 
 
-	#if i not in get_installed():
-	if not check_installed(i):
-		return False
+# 	py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
+# 	on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
+# 	command = "" if config.OS == "Windows" else on_linux
+# 	comm = f'{command} {sys.executable} -m pip install -U --user {more_arg} {i}'
 
-	ver = subprocess.check_output(['pyrobox', "-v"]).decode()
+# 	try:
+# 		subprocess.call(comm, shell=True)
+# 	except Exception as e:
+# 		logger.error(traceback.format_exc())
+# 		return False
 
-	if ver > __version__:
-		return True
+
+# 	#if i not in get_installed():
+# 	if not check_installed(i):
+# 		return False
+
+# 	ver = subprocess.check_output(['pyrobox', "-v"]).decode()
+
+# 	if ver > __version__:
+# 		return True
 
 
-	else:
-		print("Failed to load ", i)
-		return False
+# 	else:
+# 		print("Failed to load ", i)
+# 		return False
 
 
 
@@ -207,181 +207,6 @@ class SH(SH_base):
 
 
 
-#############################################
-#                FILE HANDLER               #
-#############################################
-
-
-
-def list_directory_json(self:SH, path=None):
-	"""Helper to produce a directory listing (JSON).
-	Return json file of available files and folders"""
-	if path == None:
-		path = self.translate_path(self.path)
-
-	try:
-		dir_list = scansort(os.scandir(path))
-	except OSError:
-		self.send_error(
-			HTTPStatus.NOT_FOUND,
-			"No permission to list directory")
-		return None
-	dir_dict = []
-
-
-	for file in dir_list:
-		name = file.name
-		displayname = linkname = name
-
-
-		if file.is_dir():
-			displayname = name + "/"
-			linkname = name + "/"
-		elif file.is_symlink():
-			displayname = name + "@"
-
-		dir_dict.append([urllib.parse.quote(linkname, errors='surrogatepass'),
-						html.escape(displayname, quote=False)])
-
-	return self.send_json(dir_dict)
-
-
-
-def list_directory(self:SH, path, user:User):
-	"""Helper to produce a directory listing (absent index.html).
-
-	Return value is either a file object, or None (indicating an
-	error).  In either case, the headers are sent, making the
-	interface the same as for send_head().
-
-	"""
-
-	try:
-		dir_list = scansort(os.scandir(path))
-	except OSError:
-		self.send_error(
-			HTTPStatus.NOT_FOUND,
-			"No permission to list directory")
-		return None
-	r = []
-
-	displaypath = self.get_displaypath(self.url_path)
-
-
-	title = get_titles(displaypath)
-
-
-	r.append(pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-													PY_PUBLIC_URL=config.address(),
-													PY_DIR_TREE_NO_JS=dir_navigator(displaypath)))
-
-	r_li= [] # type + file_link
-				# f  : File
-				# d  : Directory
-				# v  : Video
-				# h  : HTML
-	f_li = [] # file_names
-	s_li = [] # size list
-
-	r_folders = [] # no js
-	r_files = [] # no js
-
-
-	LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li><hr>'
-
-	r.append("""
-			<div id="content_list">
-				<ul id="linkss">
-					<!-- CONTENT LIST (NO JS) -->
-			""")
-
-
-	# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
-	for file in dir_list:
-		#fullname = os.path.join(path, name)
-		name = file.name
-		displayname = linkname = name
-		size=0
-		# Append / for directories or @ for symbolic links
-		_is_dir_ = True
-		if file.is_dir():
-			displayname = name + "/"
-			linkname = name + "/"
-		elif file.is_symlink():
-			displayname = name + "@"
-		else:
-			_is_dir_ =False
-			size = fmbytes(file.stat().st_size)
-			__, ext = posixpath.splitext(name)
-			if ext=='.html':
-				r_files.append(LIST_STRING % ("link", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-				r_li.append('h'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
-
-			elif self.guess_type(linkname).startswith('video/'):
-				r_files.append(LIST_STRING % ("vid", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-				r_li.append('v'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
-
-			elif self.guess_type(linkname).startswith('image/'):
-				r_files.append(LIST_STRING % ("file", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-				r_li.append('i'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
-
-			else:
-				r_files.append(LIST_STRING % ("file", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-				r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
-		if _is_dir_:
-			r_folders.append(LIST_STRING % ("", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-			r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
-			f_li.append(html.escape(displayname, quote=False))
-
-		s_li.append(size)
-
-
-
-	r.extend(r_folders)
-	r.extend(r_files)
-
-	r.append("""</ul>
-				</div>
-				<!-- END CONTENT LIST (NO JS) -->
-				<div id="js-content_list" class="jsonly"></div>
-			""")
-
-	r.append(pt.file_list().safe_substitute())
-
-	#if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
-	if user.UPLOAD and not (user.READ_ONLY or user.NOPERMISSION):
-		r.append(pt.upload_form())
-		pass
-
-	r.append(pt.file_list_script().safe_substitute(PY_LINK_LIST=str(r_li),
-										PY_FILE_LIST=str(f_li),
-										PY_FILE_SIZE =str(s_li)))
-
-
-	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-
-	return self.send_txt(HTTPStatus.OK, encoded)
-
-
 
 
 
@@ -400,28 +225,6 @@ if not config.disabled_func["send2trash"]:
 	except Exception:
 		config.disabled_func["send2trash"] = True
 		logger.warning("send2trash module not found, send2trash function disabled")
-
-if not config.disabled_func["natsort"]:
-	try:
-		import natsort
-	except Exception:
-		config.disabled_func["natsort"] = True
-		logger.warning("natsort module not found, natsort function disabled")
-
-def humansorted(li):
-	if not config.disabled_func["natsort"]:
-		return natsort.humansorted(li)
-
-	return sorted(li, key=lambda x: x.lower())
-
-def scansort(li):
-	if not config.disabled_func["natsort"]:
-		return natsort.humansorted(li, key=lambda x:x.name)
-
-	return sorted(li, key=lambda x: x.name.lower())
-
-def listsort(li):
-	return humansorted(li)
 
 
 
@@ -537,42 +340,42 @@ def admin_page(self: SH, *args, **kwargs):
 	tail = pt.admin_page().template
 	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
 
-@SH.on_req('HEAD', hasQ="update")
-def update(self: SH, *args, **kwargs):
-	"""Check for update and return the latest version"""
-	user = Authorize_user(self) 
+# @SH.on_req('HEAD', hasQ="update")
+# def update(self: SH, *args, **kwargs):
+# 	"""Check for update and return the latest version"""
+# 	user = Authorize_user(self) 
 	
-	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+# 	if not user: # guest or not will be handled in Authentication
+# 		return self.send_text(403, pt.login_page())
 		
 		
 		
-	data = fetch_url("https://raw.githack.com/RaSan147/pyrobox/main/VERSION")
-	if data:
-		data  = data.decode("utf-8").strip()
-		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
-		return self.return_txt(HTTPStatus.OK, ret)
-	else:
-		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+# 	data = fetch_url("https://raw.githack.com/RaSan147/pyrobox/main/VERSION")
+# 	if data:
+# 		data  = data.decode("utf-8").strip()
+# 		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
+# 		return self.return_txt(HTTPStatus.OK, ret)
+# 	else:
+# 		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
 
-@SH.on_req('HEAD', hasQ="update_now")
-def update_now(self: SH, *args, **kwargs):
-	"""Run update"""
-	user = Authorize_user(self) 
+# @SH.on_req('HEAD', hasQ="update_now")
+# def update_now(self: SH, *args, **kwargs):
+# 	"""Run update"""
+# 	user = Authorize_user(self) 
 	
-	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+# 	if not user: # guest or not will be handled in Authentication
+# 		return self.send_text(403, pt.login_page())
 		
 	
-	if config.disabled_func["update"]:
-		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
-	else:
-		data = run_update()
+# 	if config.disabled_func["update"]:
+# 		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
+# 	else:
+# 		data = run_update()
 
-		if data:
-			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
-		else:
-			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
+# 		if data:
+# 			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
+# 		else:
+# 			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
 
 @SH.on_req('HEAD', hasQ="size")
 def get_size(self: SH, *args, **kwargs):
