@@ -9,7 +9,7 @@
 
 from string import Template
 import os
-import sys
+#import sys
 import posixpath
 import shutil
 
@@ -19,7 +19,7 @@ import datetime
 import urllib.parse
 import urllib.request
 
-import subprocess
+#import subprocess
 import json
 from http import HTTPStatus
 from http.cookies import SimpleCookie
@@ -39,7 +39,7 @@ from _list_maker import list_directory, list_directory_json
 
 
 
-from pyroDB import PickleTable, PickleDB
+# from pyroDB import PickleTable, PickleDB
 import user_mgmt as u_mgmt
 
 
@@ -56,16 +56,19 @@ arg_parser(config)
 cli_args = config.parser.parse_known_args()[0]
 config.PASSWORD = cli_args.password
 
-logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args) if not (i.startswith("admin") or i=="password"))))
+logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args) if not (i.startswith("admin") or "password" in i))))
 
 
 class ServerConfig():
 	def __init__(self):
 		self.name = cli_args.name
-		self.uDB = None
-		self.init_account()
+		self.uDB = {}
+		
 		
 		self.GUESTS = (self.name and cli_args.guest_allowed) or True # unless account mode, everyone is guest
+		
+		self.init_permissions()
+		self.init_account()
 		
 		# Max size a zip file will be made
 		self.max_zip_size = 6*1024*1024*1024 # 6GB
@@ -73,31 +76,62 @@ class ServerConfig():
 
 
 	def init_account(self):
-		if not self.name:
-			return
-		userDB_loc = os.path.join(config.MAIN_FILE_dir, "userDB", cli_args.name+ ".pdb")
-		userDB = PickleTable(userDB_loc)
-		self.uDB = userDB
+		userDB_loc = "" # will  create in memory
+		if self.name:
+			userDB_loc = os.path.join(config.MAIN_FILE_dir, "userDB", self.name+ ".pdb")
 		
-		u_mgmt.user_db = userDB
+		self.user_handler = u_mgmt.User_handler(init_permissions= (self.member_perms, self.admin_perms))
+		self.user_handler.load_db(userDB_loc)
+		self.uDB = self.user_handler.user_db
+		
+		if self.GUESTS:
+			self.guest_id = self.user_handler.create_guest()
+			# print("Guest added ", self.guest_id)
 
+# This will contain server configurations, user database and limits.
 
+	def init_permissions(self):
+		def check(arg, perm):
+			if arg:
+				return perm
+				
+		permits = u_mgmt.permits
+						
+		self.member_perms = [
+			permits.VIEW,
+			check(not cli_args.no_upload, permits.UPLOAD),
+			check(not cli_args.no_zip, permits.ZIP),
+			check(not cli_args.no_modify, permits.MODIFY),
+			check(not cli_args.no_delete, permits.DELETE),
+			check(not cli_args.no_download, permits.DOWNLOAD),
+		]
+		
+		def remove(perm):
+			if perm in permits:
+				self.member_perms.remove(perm)
+		
+		if cli_args.view_only or cli_args.read_only:
+			remove(permits.UPLOAD)
+			remove(permits.MODIFY)
+			remove(permits.DELETE)
+			
+		if cli_args.view_only:
+			remove(permits.DOWNLOAD)
 
+		
+		#######
+		
+		self.admin_perms = [
+			permits.DELETE,
+			permits.DOWNLOAD,
+			permits.MODIFY,
+			permits.UPLOAD,
+			permits.VIEW,
+			permits.ZIP,
+		]
+			
 Sconfig = ServerConfig()
 
-
-class User():
-	def __init__(self):
-		self.NOPERMISSION = cli_args.view_only
-		self.READ_ONLY = cli_args.read_only
-		self.DOWNLOAD = not cli_args.no_download
-		self.MODIFY = not cli_args.no_modify
-		self.DELETE = not cli_args.no_delete
-		self.UPLOAD = not cli_args.no_upload
-		self.ZIP = not cli_args.no_zip
-
-		self.username = "Guest"
-	
 
 
 
@@ -285,7 +319,7 @@ def handle_user_cookie(self: SH):
 	username = get("uname")
 	token = get("token")
 
-	user = u_mgmt.user_handler.get_user(username)
+	user = Sconfig.user_handler.get_user(username)
 	if user:
 		if user.token == token:
 			return user
@@ -298,7 +332,7 @@ def Authorize_user(self:SH):
 	# do cookie stuffs and get user
 
 	if Sconfig.GUESTS:
-		return User() # default guest user
+		return Sconfig.guest_id # default guest user
 		
 	
 
@@ -636,7 +670,8 @@ def send_assets(self: SH, *args, **kwargs):
 @SH.on_req('HEAD')
 def default_get(self: SH, filename=None, *args, **kwargs):
 	"""Serve a GET request."""
-	user = Authorize_user(self) 
+	user = Authorize_user(self)
+	# print(user)
 	
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(403, pt.login_page())
@@ -850,7 +885,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 		
 		
 	if user.NOPERMISSION or user.READ_ONLY or (not user.DELETE):
-		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+		return self.send_json({"head": "Failed", "body": "You have no permission to delete."})
 
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')

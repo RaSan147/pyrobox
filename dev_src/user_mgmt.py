@@ -2,21 +2,21 @@
 import hashlib
 import time, datetime
 from secrets import compare_digest
-from pyroboxCore import config, logger
 from enum import Enum
-from typing import Tuple, List, Literal, TypeVar, Union
+from typing import Tuple, List, TypeVar, Union
 
-from data_types import LimitedDict
+
 
 import binascii
 
+from pyroboxCore import logger
 from pyroDB import PickleTable
+from data_types import LimitedDict
 
 # Loads user database. Database is plaintext but stores passwords as a hash salted by config.PASSWORD
 
 
 __all__ = [
-	"user_handler",
 	"User",
 	"UserPermission",
 	"permits"
@@ -24,8 +24,8 @@ __all__ = [
 
 
 
-def compare_digest_hex(digest, hex):
-	return compare_digest(hex.encode("ascii"), binascii.hexlify(digest))
+def compare_digest_hex(digest, hex_data):
+	return compare_digest(hex_data.encode("ascii"), binascii.hexlify(digest))
 
 
 
@@ -39,13 +39,13 @@ class UserPermission(Enum):
 		Enum (int): Permission code for user
 	"""
 
-	NOPERMISSION = 0
-	VIEW = 1        # view file list
-	DOWNLOAD = 2    # download files
-	MODIFY = 3      # rename, overwrite, new folder
-	DELETE = 4      # delete files
-	UPLOAD = 5      # upload files
-	ZIP = 6         # download zip folder
+	NOPERMISSION = -1
+	VIEW = 0        # view file list
+	DOWNLOAD = 1    # download files
+	MODIFY = 2      # rename, overwrite, new folder
+	DELETE = 3      # delete files
+	UPLOAD = 4      # upload files
+	ZIP = 5         # download zip folder
 
 permits = UserPermission # lazy to type long words
 
@@ -73,9 +73,7 @@ class PermissionList(list):
 
 class User:
 	"""Object for WebUI users"""
-	def __init__(
-		self, row={}
-	):
+	def __init__(self, row={}):
 		"""Generate Object for WebUI users
 
 		Args:
@@ -93,13 +91,17 @@ class User:
 
 
 		self.db = row
-		self.user_handler = user_handler # type: User_handler
+		self.user_handler = User_handler() # type: User_handler
 
 
 
 
 	Self = TypeVar("Self")
 	# self reference for use in classmethods that can't strong type User because it's inside the method
+	
+	def __getattr__(self, name):
+		if hasattr(UserPermission, name):
+			return self.check_permission(getattr(UserPermission, name))
 
 	@property
 	def username(self):
@@ -169,6 +171,12 @@ class User:
 
 	def __getitem__(self, attr):
 		return self.db[attr]
+		
+	def __bool__(self):
+		return bool(self.username)
+		
+	def __str__(self):
+		return str(self.db)
 
 	def update(self, attr, value):
 		self.db[attr] = value
@@ -211,6 +219,10 @@ class User:
 		if output.__len__() == 0:
 			output.append(UserPermission(0))
 		return tuple(output)
+		
+	def check_permission(self, perm):
+		return perm in self.get_permissions()
+			
 
 	def permit(self, *permission:  UserPermission):
 		"""Turn on permissions
@@ -218,14 +230,18 @@ class User:
 		Args:
 			permission (UserPermission | Tuple[UserPermission]): Single UserPermission to enable, or tuple of several
 		"""
+		if isinstance(permission, (list, tuple)) and len(permission) == 1:
+			permission = permission[0]
+
 		if UserPermission.NOPERMISSION in permission:
 			self.revoke_all()
 			return
 
 		new_permission = self.permission
 		for each in permission:
+			if not hasattr(each, 'value') and not each: continue # default permission may have none or empty at Initialization
 			new_permission[each.value] = 1
-
+			# -1 because 0 is no permission
 		self._save_permission(new_permission)
 
 
@@ -271,18 +287,22 @@ class User:
 	def check_token(self, token):
 		"""match cookie token (hex str) with db["token"] (digest binary)
 		"""
-		return compare_digest_hex(digest=self.token, hex=token)
+		return compare_digest_hex(digest=self.token, hex_data=token)
 	
 
 class User_handler:
-	def __init__(self):
-		self.user_db = PickleTable()
+	def __init__(self, init_permissions=((), ())):
+		self.user_db = {}
 
 		self.cached = LimitedDict({}, max=500)
 
 		self.common_salt = "0123456789"
 
-		self.admins = []
+		self.admins:List[User] = []
+		self.member_permission = {
+			"member": init_permissions[0],
+			"admin": init_permissions[1]
+		}
 
 	def set_common_salt(self, sys_Pass):
 		self.common_salt = hashlib.md5(sys_Pass).hexdigest()
@@ -319,9 +339,10 @@ class User_handler:
 		row = self.user_db.add_row(u_data)
 
 		user = User(row=row)
-		user.set_password(password)
 		self.assign_handler(user)
-
+		user.set_password(password)
+		
+		user.permit(self.member_permission["member"])
 		if is_admin:
 			self.set_admin(user)
 
@@ -336,9 +357,17 @@ class User_handler:
 		# add user to admin list
 		if user not in self.admins:
 			self.admins.append(user)
+		user.revoke_all()
+		user.permit(self.member_permission["admin"]) 
 	
 	def create_guest(self):
 		user = self.create_user("Guest", "Guest")
+		if "guest" in self.member_permission:
+			user.revoke_all()
+			user.permit(self.member_permission["guest"])
+			
+		return user
+		
 
 	def _user(self, username=None, user=None):
 		if not user:
@@ -380,7 +409,7 @@ class User_handler:
 			}
 
 		user.update("last_active", round(datetime.datetime.now(datetime.timezone.utc).timestamp(),2))
-		print("logged in", user)
+		# print("logged in", user)
 		# user.flags.clear() # clear flags
 
 		return {
@@ -425,12 +454,13 @@ class User_handler:
 		return True
 
 
-user_handler = User_handler()
+
 
 
 
 
 def test():
+	user_handler = User_handler()
 	user_handler.load_db()
 	z = user_handler.server_signup(username="Admin", password="pass")
 	print(z)
@@ -446,7 +476,7 @@ def test():
 	print(u.username)
 	print(u.db)
 	print(u.permission)
-	u.permit(permits.DOWNLOAD, permits.DELETE)
+	u.permit(permits.DOWNLOAD, permits.DELETE, permits.ZIP)
 	print(u.permission)
 	print(u.permission.NOPERMISSION)
 	print(u.permission.DOWNLOAD)

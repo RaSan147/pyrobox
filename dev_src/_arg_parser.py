@@ -64,7 +64,7 @@ def main(config):
 								
 	config.parser.add_argument('--admin-pass', '-ak', 
 							default=None,
-							help='In case you want to create a server User accounts based. -- and --admin-id is required'
+							help='In case you want to create a User accounts based *named server*, --name and --admin-id is required'
 								'[default: None]')
 								
 								
