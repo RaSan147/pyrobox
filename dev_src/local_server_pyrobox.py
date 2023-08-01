@@ -912,10 +912,12 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 	head = "Failed"
 	try:
+		if config.OS == 'Android':
+			raise InterruptedError
 		send2trash(xpath)
 		msg = "Successfully Moved To Recycle bin"+ post.refresh
 		head = "Success"
-	except TrashPermissionError:
+	except (TrashPermissionError, InterruptedError):
 		msg = "Recycling unavailable! Try deleting permanently..."
 	except Exception as e:
 		traceback.print_exc()

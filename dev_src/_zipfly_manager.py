@@ -193,7 +193,7 @@ class ZIP_Manager:
 		source_m_time = get_dir_m_time(path)
 		if size is None:
 			try:
-				fs = _get_tree_path_n_size(path, must_read=True, limit=self.size_limit)
+				fs = _get_tree_path_n_size(path, must_read=True, limit=self.size_limit, path_type="both")
 			except LimitExceed as e:
 				self.calculating.pop(path) # make sure to remove calculating flag (MAJOR BUG)
 				raise e
@@ -277,7 +277,6 @@ class ZIP_Manager:
 		zfile_name = os.path.join(self.zip_temp_dir, "{dir_name}({zid})".format(dir_name=dir_name, zid=zid) + ".zip")
 
 		self.init_dir()
-
 
 		paths = []
 		for i,j in fm:

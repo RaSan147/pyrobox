@@ -23,6 +23,7 @@ function ping(url) {
 			//document.getElementById("demo").innerHTML = xhttp.responseText;
 			// json of the response
 			var resp = safeJSONParse(xhttp.response, ["status", "message"], 5000);
+			
 
 			if (resp.status=="SUCCESS"){
 				check_prog = true;

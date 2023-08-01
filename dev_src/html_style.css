@@ -1,3 +1,30 @@
+::-webkit-scrollbar-track {
+	background: #222;
+}
+
+::-webkit-scrollbar {
+	width: 7px;
+	/*height: 7px;*/
+	opacity: 0.3;
+}
+
+::-webkit-scrollbar:hover {
+	opacity: 0.9;
+}
+
+::-webkit-scrollbar-thumb {
+	background: #333;
+	border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #666;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #aaa;
+}
+
 
 #content_list {
 	/* making sure this don't get visible if js enabled */
@@ -27,7 +54,6 @@ button {
 }
 
 * {
-	scrollbar-color: #0f0f0f #454a4d;
 	font-family: "Open Sans", sans-serif;
 }
 
@@ -125,35 +151,6 @@ a {
 
 
 
-::-webkit-scrollbar-track {
-	background: #222;
-}
-
-::-webkit-scrollbar {
-	width: 7px;
-	height: 7px;
-	opacity: 0.3;
-}
-
-::-webkit-scrollbar:hover {
-	opacity: 0.9;
-}
-
-::-webkit-scrollbar-thumb {
-	background: #333;
-	border-radius: 10px;
-}
-
-:hover::-webkit-scrollbar-thumb {
-	background: #666;
-}
-
-::-webkit-scrollbar-thumb:hover {
-	background: #aaa;
-}
-
-
-
 .drag-file-list {
 	width: 98%;
 	max-height: 300px;
@@ -164,15 +161,15 @@ a {
 	border-radius: 5px;
 }
 
-.--upload-file-item {
+.upload-file-item {
 display: block;
 border: 1px solid #ddd;
 margin-top: -1px; /* Prevent double borders */
-background-color: #f6f6f6;
+background-color: #8c8c8c5b;
 padding: 12px;
 text-decoration: none;
 font-size: 18px;
-color: black;
+color: white;
 position: relative;
 border-radius: 5px;
 
@@ -287,7 +284,7 @@ right: 0%;
 /* POPUP CSS */
 
 :root {
-	--popup-bg: #161717;
+	--popup-bg: #292929;
 	--popup-color: #e9f4ff;
 	--popup-btn-bg: #313131;
 	--popup-btn-bg-active: #005ab2;
@@ -417,17 +414,17 @@ right: 0%;
 
 
 .menu_options {
-	background: #333;
-	width: 95%;
+	background: #8c8c8c5b;
+	width: calc(100% - 10px);
 	padding: 5px;
-	margin: 5px;
+	margin: 5px 0;
 	text-align: left;
 	cursor: pointer;
 }
 
 .menu_options:hover,
 .menu_options:focus {
-	background: #337;
+	background: #3f3ffa8d;
 
 }
 
@@ -686,8 +683,6 @@ ul{
 	overflow-x: hidden;
 	overflow-y: scroll;
 	padding-top: 60px;
-	scrollbar-width: thin;
-	scrollbar-color: #2b2929 #9c9898;
 }
 
 #sidebar_bg {
