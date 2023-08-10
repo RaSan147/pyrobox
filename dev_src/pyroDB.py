@@ -87,6 +87,12 @@ class PickleDB(object):
 	def __delitem__(self, key):
 		'''Syntax sugar for rem()'''
 		return self.rem(key)
+	
+	def __bool__(self):
+		return bool(self.db)
+	
+	def __contains__(self, key):
+		return key in self.db
 
 
 	def __len__(self):
@@ -401,6 +407,9 @@ class PickleTable:
 		self.height = self.get_height()
 
 		self.ids = [h for h in range(self.height)]
+
+	def __bool__(self):
+		return bool(self.height)
 
 	def gen_CC(self):
 		self.CC = hash(time.time() + random.random() + time.thread_time())
