@@ -37,6 +37,7 @@
 import sys
 import os
 import signal
+import atexit
 import shutil
 from collections.abc import Iterable
 import time
@@ -72,6 +73,8 @@ class PickleDB(object):
 
 		self.dthread = None
 
+		self.m_time = 0
+
 		self.auto_dump = auto_dump
 		if sig:
 			self.set_sigterm_handler()
@@ -105,8 +108,21 @@ class PickleDB(object):
 		def sigterm_handler(*args, **kwargs):
 			if self.dthread is not None:
 				self.dthread.join()
-			sys.exit(0)
-		signal.signal(signal.SIGTERM, sigterm_handler)
+		try:
+			signal.signal(signal.SIGTERM, sigterm_handler)
+			# ValueError: signal only works in main thread of the main interpreter
+		except:
+			atexit.register(sigterm_handler)
+
+	def rescan(self):
+		'''Rescan the file for changes'''
+		if self.in_memory:
+			return
+		if os.path.exists(self.location):
+			m_time = os.stat(self.location).st_mtime
+			if m_time > self.m_time:
+				self._loaddb()
+				self.m_time = m_time
 
 	def new(self):
 		self.db = {}
@@ -139,6 +155,8 @@ class PickleDB(object):
 			msgpack.dump(self.db, f)
 		if os.stat(f.name).st_size != 0:
 			shutil.move(f.name, self.location)
+
+		self.m_time = os.stat(self.location).st_mtime
 
 	def dump(self):
 		'''Force dump memory db to file'''
@@ -181,6 +199,7 @@ class PickleDB(object):
 
 	def set(self, key, value):
 		'''Set the str value of a key'''
+		self.rescan()
 		self.validate_key(key)
 
 		self.db[key] = value
@@ -197,6 +216,7 @@ class PickleDB(object):
 		default: act as the default, same as dict.get
 		raiseErr: raise Error if key is not found, same as dict[unknown_key]'''
 		key = keys[0]
+		self.rescan()
 		self.validate_key(key)
 		obj = default
 
@@ -219,19 +239,23 @@ class PickleDB(object):
 
 	def keys(self):
 		'''Return a list of all keys in db'''
+		self.rescan()
 		return self.db.keys()
 
 	def items(self):
 		"""same as dict.items()"""
+		self.rescan()
 		for i,j in self.db.items():
 			yield i,j
 
 	def exists(self, key):
 		'''Return True if key exists in db, return False if not'''
+		self.rescan()
 		return key in self.db
 
 	def rem(self, key):
 		'''Delete a key'''
+		self.rescan()
 		if not key in self.db: # return False instead of an exception
 			return False
 		del self.db[key]
@@ -240,6 +264,7 @@ class PickleDB(object):
 
 	def append(self, key, more):
 		'''Add more to a key's value'''
+		self.rescan()
 		tmp = self.db[key]
 		self.db[key] = tmp + more
 		self._autodumpdb()
@@ -410,6 +435,41 @@ class PickleTable:
 
 	def __bool__(self):
 		return bool(self.height)
+	
+	def __len__(self):
+		return self.height
+	
+	def __getitem__(self, index):
+		self.rescan()
+		if isinstance(index, int):
+			return self.row_obj(index)
+		elif isinstance(index, slice):
+			return [self.row_obj(i) for i in range(*index.indices(self.height))]
+		else:
+			raise TypeError("indices must be integers or slices, not {}".format(type(index).__name__))
+
+	
+	def __iter__(self):
+		return self.rows_obj()
+	
+	def rescan(self):
+		self._pk.rescan()
+	
+	def extend(self, other: "PickleTable"):
+		if other is None:
+			return
+		
+		if not isinstance(other, type(self)):
+			raise TypeError("unsupported operand type(s) for +: 'PickleTable' and '{}'".format(type(other).__name__))
+
+		if sorted(self.column_names) != sorted(other.column_names):
+			raise ValueError("both tables must have same column names")
+
+		for row in other:
+			self._add_row(row)
+
+		self.auto_dump()
+
 
 	def gen_CC(self):
 		self.CC = hash(time.time() + random.random() + time.thread_time())
@@ -417,12 +477,14 @@ class PickleTable:
 		return self.CC
 
 	def get_height(self):
+		self.rescan()
 		h = len(self._pk[self.column_names[0]]) if self.column_names else 0
 
 		return h
 
 	def __str__(self):
 		# header = self.column_names
+		self.rescan()
 		x = tabulate([self.row(i) for i in range(min(self.height, 50))], headers="keys", tablefmt="orgtbl")
 		if self.height > 50:
 			x += "\n..."
@@ -450,10 +512,15 @@ class PickleTable:
 		return inner
 
 	def column(self, name):
+		self.rescan()
 		return self._pk.db[name]
+	
+	def column_obj(self, name):
+		return _PickleTColumn(self, name, self.CC)
 
 	def columns(self):
 		'''Return a list of all columns in db'''
+		self.rescan()
 		return self._pk.db
 
 	@property
@@ -461,6 +528,7 @@ class PickleTable:
 		"""
 		return a tuple (unmodifiable) of column names
 		"""
+		self.rescan()
 		return tuple(self._pk.db.keys())
 
 	def add_column(self, *names, exist_ok=False, AD=True):
@@ -469,6 +537,7 @@ class PickleTable:
 		exist_ok: ignore if column already exists. Else raise KeyError
 		AD: auto-dump
 		"""
+		self.rescan()
 		def add(name):
 			self._pk.validate_key(key=name)
 
@@ -501,6 +570,7 @@ class PickleTable:
 		# name: colum to delete
 		# AD: auto dump
 		"""
+		self.rescan()
 		self.lock(self._pk.db.pop)(name)
 		if not self._pk.db: # has no keys
 			self.height = 0
@@ -517,11 +587,12 @@ class PickleTable:
 		returns a row dict by `row` index
 		_column: specify columns you need, blank if you need all
 		"""
+		self.rescan()
 
 		columns = _columns or self.column_names
 		return {j: self._pk.db[j][row] for j in columns}
 
-	def row_obj(self, row, _columns=()):
+	def row_obj(self, row):
 		'''Return a row object `_PickleTRow` in db
 		# row: row index
 		'''
@@ -537,11 +608,17 @@ class PickleTable:
 			uid=row_id,
 			CC=self.CC)
 
-	def rows(self):
+	def rows(self, start:int=0, end:int=None, sep:int=1):
 		'''Return a list of all rows in db'''
-		columns = self.column_names
-		for r in range(self.height):
-			yield self.row(r, _columns=columns)
+		self.rescan()
+
+		if end is None:
+			end = self.height
+		if end<0:
+			end = self.height + end
+
+		for r in range(start, end, sep):
+			yield self.row(r)
 
 	def rows_obj(self, start:int=0, end:int=None, sep:int=1):
 		'''Return a list of all rows in db'''
@@ -550,9 +627,8 @@ class PickleTable:
 		if end<0:
 			end = self.height + end
 
-		columns = self.column_names
 		for r in range(start, end, sep):
-			yield self.row_obj(r, _columns=columns)
+			yield self.row_obj(r)
 
 
 	def search_iter(self, kw, column=None , row=None, full_match=False, return_obj=True):
@@ -562,6 +638,8 @@ class PickleTable:
 		ie: for cell in db.search_iter("abc"):
 			print(cell.value)
 		"""
+		self.rescan()
+
 		if return_obj:
 			ret = self.get_cell_obj
 		else:
@@ -622,6 +700,8 @@ class PickleTable:
 		# val: value of cell
 		# AD: auto dump
 		"""
+		self.rescan()
+
 		self._pk.db[col][row] = val
 
 		if AD:
@@ -640,6 +720,8 @@ class PickleTable:
 		"""
 		get cell value
 		"""
+		self.rescan()
+
 		return self._pk.db[col][row]
 
 	def get_cell_by_id(self, col, row_id):
@@ -667,6 +749,8 @@ class PickleTable:
 		index: index of the row (not id), if not given, last row of the table is popped
 		returns: whether return the popped row. (how pop should work)
 		"""
+		self.rescan()
+
 		box = None
 		if returns:
 			box = self.row(index)
@@ -697,10 +781,12 @@ class PickleTable:
 		self.del_row(self.ids.index(row_id), AD=AD)
 
 
-	def _add_row(self, row:Union[dict, _PickleTRow], ignore_extra=False):
+	def _add_row(self, row:Union[dict, _PickleTRow], ignore_extra=False) -> _PickleTRow:
 		"""
 		# row: row must be a dict or _PickleTRow containing column names and values
 		"""
+		self.rescan()
+
 		if not self.ids:
 			row_id = 0
 		else:
@@ -721,10 +807,10 @@ class PickleTable:
 		return self.row_obj_by_id(row_id)
 
 
-	def add_row(self, row:Union[dict, _PickleTRow], ignore_extra=False, AD=True):
+	def add_row(self, row:Union[dict, _PickleTRow], ignore_extra=False, AD=True) -> _PickleTRow:
 		"""
 		@ locked
-		* row: row must be a dict containing column names and values
+		* row: row must be a dict|TableRow containing column names and values
 		"""
 
 		row_obj = self.lock(self._add_row)(row=row, ignore_extra=ignore_extra)
@@ -805,6 +891,9 @@ class _PickleTRow:
 		self.source.raise_source(self.CC)
 
 		return self.source.get_cell(name, self.source.ids.index(self.id))
+	
+	def to_dict(self):
+		return {k: self[k] for k in self.source.column_names}
 
 	def get(self, name, default=None):
 		if name not in self.source.column_names:
@@ -977,7 +1066,7 @@ def test():
 	tb.add_column("Y", exist_ok=1, AD=False) # no dumps
 
 	print("adding")
-	for n in range(int(10000)):
+	for n in range(int(100)):
 		tb._add_row({"x":n, "Y":'🍎'})
 
 		#print(n)
@@ -1002,8 +1091,8 @@ def test():
 	print("="*50)
 	st = time.perf_counter()
 
-	for row_ in tb.rows_obj(0, 1000):
-		row_.update({"m": Lower_string(10)}, AD=False)
+	for row_ in tb.rows_obj(0, 100):
+		row_.update({"m": Lower_string(100)}, AD=False)
 
 	et = time.perf_counter()
 
@@ -1025,6 +1114,9 @@ def test():
 	et = time.perf_counter()
 
 	print(f"Search 'abc' test in {et - st}s")
+
+	for row in tb:
+		print(row)
 
 
 if __name__ == "__main__":

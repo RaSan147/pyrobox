@@ -150,6 +150,8 @@ class Config:
 		return out
 
 	def get_default_dir(self):
+		if self.get_os()== 'Android':
+			return '/storage/emulated/0/'
 		return './'
 
 	def address(self):
