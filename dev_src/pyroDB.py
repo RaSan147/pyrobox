@@ -44,6 +44,8 @@ import time
 import random
 from tempfile import NamedTemporaryFile
 from threading import Thread
+import csv
+import json
 
 from typing import Union
 
@@ -819,6 +821,19 @@ class PickleTable:
 			self.auto_dump()
 
 		return row_obj
+	
+	def add_row_as_list(self, row:list, ignore_extra=False, AD=True) -> _PickleTRow:
+		"""
+		@ locked
+		* row: row must be a list containing values
+		"""
+
+		row_obj = self.lock(self._add_row)(row={k:v for k, v in zip(self.column_names, row)}, ignore_extra=ignore_extra)
+
+		if AD:
+			self.auto_dump()
+
+		return row_obj
 
 
 	def verify_source(self, CC):
@@ -835,6 +850,14 @@ class PickleTable:
 
 	def auto_dump(self):
 		self._pk._autodumpdb()
+
+	def to_csv(self, filename):
+		with open(filename, "w", newline='') as f:
+			writer = csv.writer(f)
+			writer.writerow(self.column_names) # header
+			for row in self.rows():
+				writer.writerow([row[k] for k in self.column_names])
+
 
 
 
@@ -1117,6 +1140,8 @@ def test():
 
 	for row in tb:
 		print(row)
+
+	tb.to_csv("test.csv")
 
 
 if __name__ == "__main__":
