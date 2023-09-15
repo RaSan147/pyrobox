@@ -165,7 +165,7 @@ class Theme_Controller {
 		link.type = "text/css";
 		link.media = 'print';
 		// link.href = "https://cdn.jsdelivr.net/gh/hung1001/font-awesome-pro-v6@44659d9/css/all.min.css";
-		link.href = "https://cdn.jsdelivr.net/gh/RaSan147/fabkp@2f5670e/css/all.min.css";
+		link.href = "//cdn.jsdelivr.net/gh/RaSan147/fabkp@2f5670e/css/all.min.css";
 		link.onload = function () {
 			log("fa loaded")
 			that.fa_ok = true;
@@ -187,7 +187,7 @@ var theme_controller = new Theme_Controller();
 
 theme_controller.getViewportSize();
 theme_controller.load_fa()
-	
+
 
 
 
@@ -361,7 +361,7 @@ var local_data_manager = new Local_Data_Manager();
 class Top_Bar {
 	constructor() {
 		this.dont_move = false;
-		this.prevScrollpos = window.pageYOffset;
+		this.prevScrollpos = window.scrollY;
 		this.top_bar = byId("TopBar");
 	}
 
@@ -394,21 +394,17 @@ var top_bar = new Top_Bar();
 top_bar.show();
 
 
-
 window.onscroll = function () {
-
-
-	// if(pages.current_page=="chat") return false;
-	var currentScrollPos = window.pageYOffset;
+	var currentScrollPos = window.scrollY;
 
 	if (top_bar.dont_move) {
 		return false;
 	}
 
-	if (top_bar.prevScrollpos > currentScrollPos+3) {
+	if (top_bar.prevScrollpos > currentScrollPos + 15) {
 		top_bar.show();
 	}
-	if (top_bar.prevScrollpos < currentScrollPos-3) {
+	if (top_bar.prevScrollpos < currentScrollPos - 15) {
 		top_bar.hide();
 	}
 	top_bar.prevScrollpos = currentScrollPos;
@@ -420,22 +416,22 @@ window.addEventListener('touchstart', (e) => {
 	clientX = e.touches[0].clientX;
 	clientY = e.touches[0].clientY;
   }, false);
-  
+
 window.addEventListener('touchend', (e) => {
 	let deltaX;
 	let deltaY;
 
-	
+
 	// if(appConfig.page_type=="chat") return false;
-  
+
 	// Compute the change in X and Y coordinates.
 	// The first touch point in the changedTouches
 	// list is the touch point that was just removed from the surface.
 	deltaX = e.changedTouches[0].clientX - clientX;
 	deltaY = e.changedTouches[0].clientY - clientY;
-  
+
 	// Process the data…
-	if (deltaY > 50) {
+	if (deltaY > 15) {
 		top_bar.show();
 	}
   }, false);
@@ -462,7 +458,14 @@ class SidebarControl {
 	constructor() {
 		this.right_bar = byId("mySidebarR");
 		this.sidebar_bg = byId("sidebar_bg");
-		
+
+		if (this.sidebar_bg == null) {
+			this.sidebar_bg = document.createElement("div");
+			this.sidebar_bg.id = "sidebar_bg";
+			document.body.appendChild(this.sidebar_bg);
+		}
+
+
 		this.sidebar_bg.onclick = function () {
 			sidebar_control.closeNav();
 		};
@@ -479,7 +482,7 @@ class SidebarControl {
 			true
 		);
 	}
-	
+
 	openNavR() {
 		tools.fake_push()
 
@@ -487,6 +490,7 @@ class SidebarControl {
 		this.sidebar_bg.style.display = "block";
 		this.right_bar.classList.add("mySidebar-active");
 		this.right_bar.classList.remove("mySidebar-inactive");
+		HISTORY_ACTION.push(this._closeNavR.bind(this))
 		// byId("app_header").classList.toggle("top-titleR-active");
 	}
 
@@ -495,10 +499,10 @@ class SidebarControl {
 			this.closeNavR();
 			return;
 		}
-		
+
 		this.openNavR()
 	}
-	
+
 	_closeNavR(){
 		this.right_bar.classList.remove("mySidebar-active");
 		this.right_bar.classList.add("mySidebar-inactive");
@@ -514,7 +518,6 @@ class SidebarControl {
 
 	closeNavR() {
 		if (this.is_open("R")) {
-			HISTORY_ACTION = this._closeNavR.bind(this)
 			history.back();
 		}
 	}

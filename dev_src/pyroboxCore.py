@@ -553,7 +553,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		# Examine the headers and look for a Connection directive.
 		try:
 			self.headers = http.client.parse_headers(self.rfile,
-													 _class=self.MessageClass)
+													_class=self.MessageClass)
 		except http.client.LineTooLong as err:
 			self.send_error(
 				HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
