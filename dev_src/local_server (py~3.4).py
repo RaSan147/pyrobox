@@ -2210,7 +2210,7 @@ tr:nth-child(even) {
 														PY_DIR_TREE_NO_JS=self.dir_navigator(displaypath))
 
 			tail = _admin_page().template
-			return self.return_txt(HTTPStatus.OK,  head+tail)
+			return self.return_txt(head+tail)
 
 		elif query("update"):
 			"""Check for update and return the latest version"""
@@ -2218,20 +2218,20 @@ tr:nth-child(even) {
 			if data:
 				data  = data.decode("utf-8").strip()
 				ret = json.dumps({"update_available": data > __version__, "latest_version": data})
-				return self.return_txt(HTTPStatus.OK, ret)
+				return self.return_txt(ret)
 			else:
-				return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+				return self.return_txt("Failed to fetch latest version", HTTPStatus.INTERNAL_SERVER_ERROR)
 
 		elif query("update_now"):
 			"""Run update"""
 			if config.disabled_func["update"]:
-				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
+				return self.return_txt(json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
 			else:
 				data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/local_server.py", config.MAIN_FILE)
 				if data:
-					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
+					return self.return_txt(json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
 				else:
-					return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
+					return self.return_txt(json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
 
 
 
@@ -2239,7 +2239,7 @@ tr:nth-child(even) {
 			"""Return size of the file"""
 			stat = get_stat(path)
 			if not stat:
-				return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+				return self.return_txtjson.dumps({"status": 0})
 			if os.path.isfile(path):
 				size = stat.st_size
 			else:
@@ -2247,7 +2247,7 @@ tr:nth-child(even) {
 
 			humanbyte = humanbytes(size)
 			fmbyte = fmbytes(size)
-			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+			return self.return_txt(json.dumps({"status": 1,
 															  "byte": size,
 															  "humanbyte": humanbyte,
 															  "fmbyte": fmbyte}))
@@ -2256,13 +2256,13 @@ tr:nth-child(even) {
 		elif query("czip"):
 			"""Create ZIP task and return ID"""
 			if config.disabled_func["zip"]:
-				self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ZIP FEATURE IS UNAVAILABLE !")
+				self.return_txt("ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR)
 
 			dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
 			if dir_size == -1:
 				msg = "Directory size is too large, please contact the host"
-				return self.return_txt(HTTPStatus.OK, msg)
+				return self.return_txt(msg)
 
 			displaypath = self.get_displaypath(url_path)
 			filename = spathsplit[-2] + ".zip"
@@ -2278,18 +2278,17 @@ tr:nth-child(even) {
 
 				tail = _zip_script().safe_substitute(PY_ZIP_ID = zid,
 				PY_ZIP_NAME = filename)
-				return self.return_txt(HTTPStatus.OK,
-				head+tail)
+				return self.return_txt(head+tail)
 			except Exception:
 				self.log_error(traceback.format_exc())
-				return self.return_txt(HTTPStatus.OK, "ERROR")
+				return self.return_txt("ERROR")
 
 		elif query("zip"):
 			msg = False
 			if not os.path.isdir(path):
 				msg = "Zip function is not available, please Contact the host"
 				self.log_error(msg)
-				return self.return_txt(HTTPStatus.OK, msg)
+				return self.return_txt(msg)
 
 
 			filename = spathsplit[-2] + ".zip"
@@ -2301,7 +2300,7 @@ tr:nth-child(even) {
 				t = zip_manager.archive_thread(path, id)
 				t.start()
 
-				return self.return_txt(HTTPStatus.OK, "SUCCESS")
+				return self.return_txt("SUCCESS")
 
 
 			if zip_manager.zip_id_status[id] == "DONE":
@@ -2312,15 +2311,15 @@ tr:nth-child(even) {
 
 
 				if query("progress"):
-					return self.return_txt(HTTPStatus.OK, "DONE") #if query("progress") or no query
+					return self.return_txt("DONE") #if query("progress") or no query
 
 			# IF IN PROGRESS
 			if zip_manager.zip_id_status[id] == "ARCHIVING":
 				progress = zip_manager.zip_in_progress[id]
-				return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
+				return self.return_txt("%.2f" % progress)
 
 			if zip_manager.zip_id_status[id].startswith("ERROR"):
-				return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
+				return self.return_txt(zip_manager.zip_id_status[id])
 
 
 
@@ -2363,7 +2362,7 @@ tr:nth-child(even) {
 				r.append('\n<hr>\n</body>\n</html>\n')
 
 				encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-				return self.return_txt(HTTPStatus.OK, encoded)
+				return self.return_txt(encoded)
 
 		f = None
 		if os.path.isdir(path):

@@ -378,12 +378,16 @@ class Top_Bar {
 		this.profile_pic.src = url;
 	}
 	show() {
+		if (! this.top_bar) return false;
+
 		this.top_bar.style.top = "0";
 		document.body.style.top = "50px";
 		// this.top_bar.classList.remove("inactive");
 	}
 
 	hide() {
+		if (! this.top_bar) return false;
+		
 		this.top_bar.style.top = "-50px";
 		document.body.style.top = "0";
 	}

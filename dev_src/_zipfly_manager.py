@@ -279,7 +279,13 @@ class ZIP_Manager:
 		self.init_dir()
 
 		paths = []
-		for i,j in fm:
+		for xx in fm:
+			try:
+				i, j = xx
+			except:
+				print(xx)
+				traceback.print_exc()
+				continue
 			paths.append({"fs": i, "n":j})
 
 		zfly = ZipFly(paths = paths, chunksize=0x80000)

@@ -47,6 +47,10 @@ from threading import Thread
 import csv
 import json
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARN)
+
 from typing import Union
 
 from tabulate import tabulate
@@ -152,7 +156,10 @@ class PickleDB(object):
 
 	def _dump(self):
 		'''Dump to a temporary file, and then move to the actual location'''
-		print ("dumping ")
+		if self.in_memory:
+			return
+
+		logger.info("--dumping--")
 		with NamedTemporaryFile(mode='wb', delete=False) as f:
 			msgpack.dump(self.db, f)
 		if os.stat(f.name).st_size != 0:
@@ -462,10 +469,10 @@ class PickleTable:
 			return
 		
 		if not isinstance(other, type(self)):
-			raise TypeError("unsupported operand type(s) for +: 'PickleTable' and '{}'".format(type(other).__name__))
+			raise TypeError("Unsupported operand type(s) for +: 'PickleTable' and '{}'".format(type(other).__name__))
 
 		if sorted(self.column_names) != sorted(other.column_names):
-			raise ValueError("both tables must have same column names")
+			raise ValueError("Both tables must have same column names")
 
 		for row in other:
 			self._add_row(row)
@@ -593,6 +600,13 @@ class PickleTable:
 
 		columns = _columns or self.column_names
 		return {j: self._pk.db[j][row] for j in columns}
+	
+	def row_by_id(self, row_id, _columns=()):
+		"""
+		returns a row dict by `row_id`
+		_column: specify columns you need, blank if you need all
+		"""
+		return self.row(self.ids.index(row_id), _columns=_columns)
 
 	def row_obj(self, row):
 		'''Return a row object `_PickleTRow` in db
@@ -619,8 +633,10 @@ class PickleTable:
 		if end<0:
 			end = self.height + end
 
-		for r in range(start, end, sep):
-			yield self.row(r)
+		ids = self.ids[start:end:sep]
+
+		for id in ids:
+			yield self.row_by_id(id)
 
 	def rows_obj(self, start:int=0, end:int=None, sep:int=1):
 		'''Return a list of all rows in db'''
@@ -629,8 +645,11 @@ class PickleTable:
 		if end<0:
 			end = self.height + end
 
-		for r in range(start, end, sep):
-			yield self.row_obj(r)
+		
+		ids = self.ids[start:end:sep]
+
+		for id in ids:
+			yield self.row_obj_by_id(id)
 
 
 	def search_iter(self, kw, column=None , row=None, full_match=False, return_obj=True):
@@ -682,7 +701,7 @@ class PickleTable:
 						yield ret(col=col, row=r)
 
 
-	def find_1st(self, kw, column=None , row=None, full_match=False, return_obj=True):
+	def find_1st(self, kw, column=None , row=None, full_match=False, return_obj=True) -> Union[_PickleTCell, None]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the 1st matched cell object
 		"""

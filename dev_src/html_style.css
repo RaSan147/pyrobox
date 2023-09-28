@@ -1,3 +1,4 @@
+<style>
 ::-webkit-scrollbar-track {
 	background: #222;
 }
@@ -959,3 +960,4 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 	padding: 3px;
 }
 
+</style>

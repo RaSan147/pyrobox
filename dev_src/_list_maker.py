@@ -221,5 +221,5 @@ def list_directory(self:SH_base, path, user:User):
 
 	encoded = '\n'.join(r).encode("utf-8", 'surrogateescape')
 
-	return self.send_txt(HTTPStatus.OK, encoded)
+	return self.send_txt(encoded)
 

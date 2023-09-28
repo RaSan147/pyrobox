@@ -83,7 +83,10 @@ def theme_script():
 	return get_template("html_theme_script.html")
 	
 def login_page():
-	return global_script() + get_template("html_login_page.html")
+	return global_script() + get_template("html_login.html")
+
+def signup_page():
+	return global_script() + get_template("html_signup.html")
 
 #directory_explorer_header()
 

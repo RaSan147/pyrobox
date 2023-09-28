@@ -348,7 +348,7 @@ def reload(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 
 	config.reload = True
@@ -360,7 +360,7 @@ def admin_page(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 		
 	title = "ADMIN PAGE"
@@ -372,7 +372,7 @@ def admin_page(self: SH, *args, **kwargs):
 												PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
 	tail = pt.admin_page().template
-	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
+	return self.return_txt(f"{head}{tail}")
 
 # @SH.on_req('HEAD', hasQ="update")
 # def update(self: SH, *args, **kwargs):
@@ -380,7 +380,7 @@ def admin_page(self: SH, *args, **kwargs):
 # 	user = Authorize_user(self) 
 	
 # 	if not user: # guest or not will be handled in Authentication
-# 		return self.send_text(403, pt.login_page())
+# 		return self.send_text(pt.login_page(), 403)
 		
 		
 		
@@ -398,7 +398,7 @@ def admin_page(self: SH, *args, **kwargs):
 # 	user = Authorize_user(self) 
 	
 # 	if not user: # guest or not will be handled in Authentication
-# 		return self.send_text(403, pt.login_page())
+# 		return self.send_text(pt.login_page(), 403)
 		
 	
 # 	if config.disabled_func["update"]:
@@ -417,7 +417,7 @@ def get_size(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 		
 		
@@ -427,7 +427,7 @@ def get_size(self: SH, *args, **kwargs):
 
 	stat = get_stat(xpath)
 	if not stat:
-		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+		return self.return_txt(json.dumps({"status": 0}))
 	if os.path.isfile(xpath):
 		size = stat.st_size
 	else:
@@ -435,7 +435,7 @@ def get_size(self: SH, *args, **kwargs):
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
-	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+	return self.return_txt(json.dumps({"status": 1,
 														"byte": size,
 														"humanbyte": humanbyte,
 														"fmbyte": fmbyte}))
@@ -446,7 +446,7 @@ def get_size_n_count(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 		
 		
@@ -456,7 +456,7 @@ def get_size_n_count(self: SH, *args, **kwargs):
 
 	stat = get_stat(xpath)
 	if not stat:
-		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+		return self.return_txt(json.dumps({"status": 0}))
 	if os.path.isfile(xpath):
 		count, size = 1, stat.st_size
 	else:
@@ -464,7 +464,7 @@ def get_size_n_count(self: SH, *args, **kwargs):
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
-	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+	return self.return_txt(json.dumps({"status": 1,
 														"byte": size,
 														"humanbyte": humanbyte,
 														"fmbyte": fmbyte,
@@ -477,7 +477,7 @@ def create_zip(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 		
 		
@@ -486,7 +486,7 @@ def create_zip(self: SH, *args, **kwargs):
 	spathsplit = kwargs.get('spathsplit', '')
 
 	if config.disabled_func["zip"]:
-		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ERROR: ZIP FEATURE IS UNAVAILABLE !")
+		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR)
 
 	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
@@ -508,14 +508,14 @@ def create_zip(self: SH, *args, **kwargs):
 
 		tail = pt.zip_script().safe_substitute(PY_ZIP_ID = zid,
 												PY_ZIP_NAME = filename)
-		return self.return_txt(HTTPStatus.OK, f"{head} {tail}")
+		return self.return_txt(f"{head} {tail}")
 
 	except LimitExceed:
 		tail = "<h3>Directory size is too large, please contact the host</h3>"
-		return self.return_txt(HTTPStatus.SERVICE_UNAVAILABLE, f"{head} {tail}")
+		return self.return_txt(f"{head} {tail}", HTTPStatus.SERVICE_UNAVAILABLE)
 	except Exception:
 		self.log_error(traceback.format_exc())
-		return self.return_txt(HTTPStatus.OK, "ERROR")
+		return self.return_txt("ERROR")
 
 @SH.on_req('HEAD', hasQ="zip")
 def get_zip(self: SH, *args, **kwargs):
@@ -524,7 +524,7 @@ def get_zip(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 		
 		
@@ -574,11 +574,11 @@ def get_zip(self: SH, *args, **kwargs):
 	# IF IN PROGRESS
 	if zip_manager.zip_id_status[id] == "ARCHIVING":
 		progress = zip_manager.zip_in_progress[id]
-		# return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
+		# return self.return_txt("%.2f" % progress)
 		return reply("PROGRESS", "%.2f" % progress)
 
 	if zip_manager.zip_id_status[id].startswith("ERROR"):
-		# return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
+		# return self.return_txt(zip_manager.zip_id_status[id])
 		return reply("ERROR", zip_manager.zip_id_status[id])
 
 @SH.on_req('HEAD', hasQ="json")
@@ -587,7 +587,7 @@ def send_ls_json(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 
 	return list_directory_json(self)
@@ -598,7 +598,7 @@ def send_video_page(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 
 	path = kwargs.get('path', '')
@@ -636,7 +636,7 @@ def send_video_page(self: SH, *args, **kwargs):
 
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-	return self.return_txt(HTTPStatus.OK, encoded)
+	return self.return_txt(encoded)
 
 
 
@@ -646,7 +646,7 @@ def send_assets(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 
 	if not config.ASSETS:
 		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
@@ -665,6 +665,21 @@ def send_assets(self: SH, *args, **kwargs):
 
 	return self.return_file(path)
 
+@SH.on_req('HEAD', url="/@static", hasQ="style")
+def send_style(self: SH, *args, **kwargs):
+	"""Send style sheet"""
+	return self.return_txt(pt.style_css())
+
+@SH.on_req('HEAD', url="/@static", hasQ="login")
+def login_page(self: SH, *args, **kwargs):
+	"""Send login page"""
+	return self.send_text(pt.login_page())
+
+@SH.on_req('HEAD', url="/@static", hasQ="signup")
+def signup_page(self: SH, *args, **kwargs):
+	"""Send signup page"""
+	return self.send_text(pt.signup_page())
+
 
 
 @SH.on_req('HEAD')
@@ -674,7 +689,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# print(user)
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.redirect("/@static?login")
 		
 	
 	path = kwargs.get('path', '')
@@ -770,11 +785,11 @@ def upload(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 		
 	if (not user.UPLOAD) or user.READ_ONLY or user.NOPERMISSION:
-		return self.send_txt(HTTPStatus.SERVICE_UNAVAILABLE, "Upload not allowed")
+		return self.send_txt("Upload not allowed", HTTPStatus.SERVICE_UNAVAILABLE)
 
 
 	path = kwargs.get('path')
@@ -804,7 +819,7 @@ def upload(self: SH, *args, **kwargs):
 	if password != config.PASSWORD: # readline returns password with \r\n at end
 		self.log_info(f"Incorrect password by {uid}")
 
-		return self.send_txt(HTTPStatus.UNAUTHORIZED, "Incorrect password")
+		return self.send_txt("Incorrect password", HTTPStatus.UNAUTHORIZED)
 
 	while post.remainbytes > 0:
 		fn = form.get_file_name() # reads the next line and returns the file name
@@ -857,7 +872,7 @@ def upload(self: SH, *args, **kwargs):
 
 		except (IOError, OSError):
 			traceback.print_exc()
-			return self.send_txt(HTTPStatus.SERVICE_UNAVAILABLE, "Can't create file to write, do you have permission to write?")
+			return self.send_txt("Can't create file to write, do you have permission to write?", HTTPStatus.SERVICE_UNAVAILABLE)
 
 		finally:
 			try:
@@ -869,7 +884,7 @@ def upload(self: SH, *args, **kwargs):
 
 
 
-	return self.return_txt(HTTPStatus.OK, "File(s) uploaded")
+	return self.return_txt("File(s) uploaded")
 
 
 
@@ -881,7 +896,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 		
 	if user.NOPERMISSION or user.READ_ONLY or (not user.DELETE):
@@ -935,7 +950,7 @@ def del_permanently(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 		
 	if user.NOPERMISSION or user.READ_ONLY or (not user.DELETE):
@@ -983,7 +998,7 @@ def rename_content(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 
 	if user.NOPERMISSION or user.READ_ONLY or (not user.MODIFY):
@@ -1034,7 +1049,7 @@ def get_info(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 		
 	path = kwargs.get('path')
@@ -1153,7 +1168,7 @@ def new_folder(self: SH, *args, **kwargs):
 	user = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(403, pt.login_page())
+		return self.send_text(pt.login_page(), 403)
 		
 	if user.NOPERMISSION or user.READ_ONLY or (not user.MODIFY):
 		return self.send_json({"head": "Failed", "body": "Permission denied."})

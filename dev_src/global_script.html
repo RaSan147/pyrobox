@@ -1,3 +1,4 @@
+<body></body>
 <script>
 
 
@@ -437,11 +438,13 @@ class Popup_Msg {
 		this.scroll_disabled = false;
 
 		this.popup_container = byId("popup-container");
-		if (this.popup_container == null) {
+		if (this.popup_container == null || !this.popup_container) {
 			log("Popup container not found");
 			log("Creating new popup container");
 			this.popup_container = createElement("div");
 			this.popup_container.id = "popup-container";
+			console.log(this.popup_container);
+			console.log(document);
 			document.body.appendChild(this.popup_container);
 			const style = createElement("style");
 			style.innerHTML = `

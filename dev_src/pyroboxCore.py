@@ -553,7 +553,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		# Examine the headers and look for a Connection directive.
 		try:
 			self.headers = http.client.parse_headers(self.rfile,
-													_class=self.MessageClass)
+													 _class=self.MessageClass)
 		except http.client.LineTooLong as err:
 			self.send_error(
 				HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
@@ -1164,10 +1164,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.send_header("Location", location)
 		self.end_headers()
 
-	def return_txt(self, code, msg, content_type="text/html; charset=utf-8"):
+	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8"):
 		'''returns only the head to client
 		and returns a file object to be used by copyfile'''
 		self.log_debug(f'[RETURNED] {code} to client')
+		if isinstance(msg, Template):
+			msg = msg.safe_substitute(
+				code=code,
+				message=HTTPStatus(code).phrase,
+				explain=HTTPStatus(code).description,
+				version=__version__
+			)
 		if not isinstance(msg, bytes):
 			encoded = msg.encode('utf-8', 'surrogateescape')
 		else:
@@ -1183,24 +1190,24 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.end_headers()
 		return box
 
-	def send_txt(self, code, msg, content_type="text/html; charset=utf-8"):
+	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8"):
 		'''sends the head and file to client'''
-		file = self.return_txt(code, msg, content_type)
+		file = self.return_txt(msg, code, content_type)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
 		file.close()
 
-	def send_text(self, code, msg, content_type="text/html; charset=utf-8"):
+	def send_text(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8"):
 		'''proxy to send_txt'''
-		self.send_txt(code, msg, content_type)
+		self.send_txt(msg, code, content_type)
 
-	def send_json(self, obj):
+	def send_json(self, obj:Union[object, str, bytes], code=200):
 		"""send object as json
 		obj: json-able object or json.dumps() string"""
 		if not isinstance(obj, str):
 			obj = json.dumps(obj, indent=1)
-		file = self.return_txt(200, obj, content_type="application/json")
+		file = self.return_txt(obj, code, content_type="application/json")
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
@@ -1558,6 +1565,7 @@ class DealPostData:
 
 		self.form = FormData(req, self, fake=True)
 
+
 	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
 
 	def is_multipart(self):
@@ -1694,13 +1702,14 @@ class FormData:
 		self.content_length = dpd.content_length
 		self.content_type = dpd.content_type
 
+		self.is_multipart = self.dpd.is_multipart()
 		if self.fake:
 			return
-		self.is_multipart = self.dpd.is_multipart()
 		self.boundary = dpd.boundary
 		if self.is_multipart:
 			# pass first boundary line (because after every field, there is a boundary line)
 			self.pass_bound()
+
 
 	def pass_bound(self):
 		"""
@@ -1768,13 +1777,14 @@ class FormData:
 		* if `empty string`, field name must be empty too
 		"""
 		line = self.dpd.get()
+
 		got_field_name = self.get_field_name(line)
 
 		if field_name is not None and got_field_name != field_name:
 			raise PostError(
 				f"Invalid request: Expected {field_name} but got {got_field_name}")
 
-		return line
+		return got_field_name
 
 	def get_multi_field(self, verify_name: Union[None, bytes, str] = None, verify_msg: Union[None, bytes, str] = None, decode=F):
 		'''read a form field
@@ -1796,6 +1806,9 @@ class FormData:
 		field_name = self.match_field_name(verify_name)  # LINE 1 (field name)
 		# if not verified, raise PostError
 
+		if not field_name:
+			return None, None
+
 		self.dpd.skip()  # LINE 2 (blank line)
 
 		line = b''
@@ -1804,6 +1817,9 @@ class FormData:
 			if (not _line) or (self.boundary in _line):  # boundary
 				break
 			line += _line
+		
+		if not line:
+			return None, None
 
 		line = line.rpartition(b"\r\n")[0]  # remove \r\n at end
 		if decode:
@@ -1862,6 +1878,7 @@ class FormData:
 		"""
 
 		self.dpd.check_size_limit(max_size)
+		
 
 		data = self.dpd.get().decode()
 		for part in data.split("&"):
@@ -1880,6 +1897,8 @@ class FormData:
 
 		while True:
 			field_name, value = self.get_multi_field(decode=True)
+			if not field_name:
+				break
 			yield field_name, value
 
 	def get_parts(self, max_size=-1):
