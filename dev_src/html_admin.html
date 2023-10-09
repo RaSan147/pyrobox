@@ -10,8 +10,18 @@
 
 <div>
 	<p class="update_text" id="update_text">Checking for Update...</p>
-	<div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div>
+	<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
 	<br><br>
+</div>
+
+<div>
+	<table class="users_list">
+		<tr>
+			<th>Username</th>
+			<th>Permissions</th>
+			<th>Actions</th>
+		</tr>
+	</table>
 </div>
 
 
@@ -30,55 +40,120 @@ function request_reload() {
 }
 
 
+class Updater{
+	async check_update() {
+		fetch('/?update')
+		.then(response => {
+			console.log(response);
+			return response.json()
+		}).then(data => {
+			if (data.update_available) {
+				byId("update_text").innerText = "Update Available! 🎉 Latest Version: " + data.latest_version ;
+				byId("update_text").style.backgroundColor = "#00cc0033";
 
-async function check_update() {
-	fetch('/?update')
-	.then(response => {
-		console.log(response);
-		return response.json()
-	}).then(data => {
-		if (data.update_available) {
-			byId("update_text").innerText = "Update Available! 🎉 Latest Version: " + data.latest_version ;
-			byId("update_text").style.backgroundColor = "#00cc0033";
+				byId("run_update").style.display = "block";
+			} else {
+				byId("update_text").innerText = "No Update Available";
+				byId("update_text").style.backgroundColor = "#bbb";
+			}
+		})
+		.catch(async err => {
+			await tools.sleep(0);
+			byId("update_text").innerText = "Update Error: " + "Invalid Response";
+			byId("update_text").style.backgroundColor = "#CC000033";
+		});
+	}
 
-			byId("run_update").style.display = "block";
-		} else {
-			byId("update_text").innerText = "No Update Available";
-			byId("update_text").style.backgroundColor = "#bbb";
-		}
-	})
-	.catch(async err => {
-		await tools.sleep(0);
-		byId("update_text").innerText = "Update Error: " + "Invalid Response";
-		byId("update_text").style.backgroundColor = "#CC000033";
-	});
+	// run_update() {
+	// 	byId("update_text").innerText = "Updating...";
+	// 	fetch('/?update_now')
+	// 	.then(response => response.json())
+	// 	.then(data => {
+	// 		if (data.status) {
+	// 			byId("update_text").innerHTML = data.message;
+	// 			byId("update_text").style.backgroundColor = "green";
+
+	// 		} else {
+	// 			byId("update_text").innerHTML = data.message;
+	// 			byId("update_text").style.backgroundColor = "#bbb";
+	// 		}
+	// 	})
+	// 	.catch(err => {
+	// 		byId("update_text").innerText = "Update Error: " + "Invalid Response";
+	// 		byId("update_text").style.backgroundColor = "#CC000033";
+	// 	})
+
+
+	// 	byId("run_update").style.display = "none";
+	// }
+
 }
 
-function run_update() {
-	byId("update_text").innerText = "Updating...";
-	fetch('/?update_now')
-	.then(response => response.json())
-	.then(data => {
-		if (data.status) {
-			byId("update_text").innerHTML = data.message;
-			byId("update_text").style.backgroundColor = "green";
-
-		} else {
-			byId("update_text").innerHTML = data.message;
-			byId("update_text").style.backgroundColor = "#bbb";
-		}
-	})
-	.catch(err => {
-		byId("update_text").innerText = "Update Error: " + "Invalid Response";
-		byId("update_text").style.backgroundColor = "#CC000033";
-	})
+var updater = new Updater();
+updater.check_update();
 
 
-	byId("run_update").style.display = "none";
+
+
+
+
+
+
+class Users{
+	constructor() {
+		this.users = [];
+		this.get_users();
+	}
+
+	async get_users() {
+		fetch('/?get_users')
+		.then(response => {
+			console.log(response);
+			return response.json()
+		}).then(data => {
+			this.users = data.users;
+			this.update_users_list();
+		})
+		.catch(async err => {
+			await tools.sleep(0);
+			byId("update_text").innerText = "Update Error: " + "Invalid Response";
+			byId("update_text").style.backgroundColor = "#CC000033";
+		});
+	}
 }
-
-check_update();
 </script>
 
 
 <p>pyroBox UI v4 - I ❤️ emoji!</p>
+
+
+<style>
+
+.users_list {
+	width: 95%;
+	margin: 0 auto;
+	border: #fff 1px solid;
+	border-spacing: 0;
+}
+
+.users_list tr:nth-child(even) {
+	background-color: #eeeeee33;
+}
+
+.users_list tr:nth-child(odd) {
+	background-color: #ffffff33;
+}
+
+.users_list th, .users_list td{
+	border: #fff 1px solid;
+	padding: 5px;
+}
+
+
+.users_list th {
+	background-color: #0f003833;
+	padding: 20px;
+}
+</style>
+
+</body>

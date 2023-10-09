@@ -58,23 +58,23 @@ def style_css():
 def global_script():
 	return get_template("global_script.html") + theme_script()
 
-def file_list():
-	return global_script() + get_template("html_file_list.html")
-
-def file_list_script():
+def assets_script():
 	return get_template("html_script.html")
+
+def file_list():
+	return global_script() + assets_script() + get_template("html_file_list.html")
 
 def upload_form():
 	return _get_template("html_upload.html")
 
 def video_script():
-	return global_script() + get_template("html_vid.html")
+	return global_script() + assets_script() + get_template("html_vid.html")
 
 def zip_script():
-	return global_script() + get_template("html_zip_page.html")
+	return global_script() + assets_script() + get_template("html_zip_page.html")
 
 def admin_page():
-	return global_script() + get_template("html_admin.html")
+	return global_script() + assets_script() + get_template("html_admin.html")
 
 def error_page():
 	return directory_explorer_header() + get_template("html_error.html")

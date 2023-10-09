@@ -2,8 +2,131 @@
 </div>
 <hr>
 
+<script>
 
-<!-- <div class='pagination' onclick="Show_folder_maker()">Create Folder</div><br>
 
-<br>
-<hr><br> -->
+const r_li = ${PY_LINK_LIST};
+const f_li = ${PY_FILE_LIST};
+const s_li = ${PY_FILE_SIZE};
+
+
+
+	
+function show_file_list() {
+	tools.del_child("linkss"); // clear the links since they are no js compatible
+
+
+	let folder_li = createElement('div');
+	let file_li = createElement("div")
+	r_li.forEach((r, i) => {
+		// time to customize the links according to their formats
+		var folder = false
+		let type = null;
+		// let r = r_li[i];
+		let r_ = r.slice(1);
+		let name = f_li[i];
+
+		let item = createElement('div');
+		item.classList.add("dir_item")
+
+
+		let link = createElement('a');// both icon and title, display:flex
+		link.href = r_;
+		link.title = name;
+
+		link.classList.add('all_link');
+		link.classList.add("disable_selection")
+		let l_icon = createElement("span")
+		// this will go inside "link" 1st
+		l_icon.classList.add("link_icon")
+
+		let l_box = createElement("span")
+		// this will go inside "link" 2nd
+		l_box.classList.add("link_name")
+
+
+		if (r.startsWith('d')) {
+			// add DOWNLOAD FOLDER OPTION in it
+			// TODO: add download folder option by zipping it
+			// currently only shows folder size and its contents
+			type = "folder"
+			folder = true
+			l_icon.innerHTML = "📂".toHtmlEntities();
+			l_box.classList.add('link');
+		}
+		if (r.startsWith('v')) {
+			// if its a video, add play button at the end
+			// that will redirect to the video player
+			// clicking main link will download the video instead
+			type = 'video';
+			l_icon.innerHTML = '🎥'.toHtmlEntities();
+			link.href = go_link("vid", r_)
+			l_box.classList.add('vid');
+		}
+		if (r.startsWith('i')) {
+			type = 'image'
+			l_icon.innerHTML = '🌉'.toHtmlEntities();
+			l_box.classList.add('file');
+		}
+		if (r.startsWith('f')) {
+			type = 'file'
+			l_icon.innerHTML = '📄'.toHtmlEntities();
+			l_box.classList.add('file');
+		}
+		if (r.startsWith('h')) {
+			type = 'html'
+			l_icon.innerHTML = '🔗'.toHtmlEntities();
+			l_box.classList.add('html');
+		}
+
+		link.appendChild(l_icon)
+
+		l_box.innerText = " " + name;
+
+		if(s_li[i]){
+			l_box.appendChild(createElement("br"))
+
+			let s = createElement("span")
+			s.className= "link_size"
+			s.innerText = s_li[i]
+			l_box.appendChild(s)
+		}
+		link.appendChild(l_box)
+
+
+		link.oncontextmenu = function(ev) {
+			ev.preventDefault()
+			
+			context_menu.show_menus(r_, name, type);
+			return false;
+		}
+
+		item.appendChild(link);
+		//item.appendChild(context);
+		// recycling option for the files and folder
+		// files and folders are handled differently
+		var xxx = "F"
+		if (r.startsWith('d')) {
+			xxx = "D";
+		}
+
+
+		let hrr = createElement("hr")
+		item.appendChild(hrr);
+		if (folder) {
+			folder_li.appendChild(item);
+		} else {
+			file_li.appendChild(item)
+		}
+	});
+
+
+	let dir_container = byId("js-content_list")
+	dir_container.appendChild(folder_li)
+	dir_container.appendChild(file_li)
+}
+
+show_file_list();
+
+
+</script>

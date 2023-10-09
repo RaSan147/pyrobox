@@ -10,7 +10,7 @@ from typing import Tuple, List, TypeVar, Union
 import binascii
 
 from pyroboxCore import logger
-from pyroDB import PickleTable
+from pyroDB import PickleTable, _PickleTRow
 from data_types import LimitedDict
 
 # Loads user database. Database is plaintext but stores passwords as a hash salted by config.PASSWORD
@@ -73,7 +73,7 @@ class PermissionList(list):
 
 class User:
 	"""Object for WebUI users"""
-	def __init__(self, row={}):
+	def __init__(self, row:_PickleTRow={}):
 		"""Generate Object for WebUI users
 
 		Args:
@@ -221,6 +221,8 @@ class User:
 		return tuple(output)
 		
 	def check_permission(self, perm):
+		if isinstance(perm, str):
+			return all([self.check_permission(each) for each in perm])
 		return perm in self.get_permissions()
 			
 

@@ -170,47 +170,6 @@ REQUEIREMENTS= ['send2trash', 'natsort']
 
 
 
-# def run_update():
-# 	dep_modified = False
-
-# 	import sysconfig, pip
-
-# 	i = "pyrobox"
-# 	more_arg = ""
-# 	if pip.__version__ >= "6.0":
-# 		more_arg += " --disable-pip-version-check"
-# 	if pip.__version__ >= "20.0":
-# 		more_arg += " --no-python-version-warning"
-
-
-# 	py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
-# 	on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
-# 	command = "" if config.OS == "Windows" else on_linux
-# 	comm = f'{command} {sys.executable} -m pip install -U --user {more_arg} {i}'
-
-# 	try:
-# 		subprocess.call(comm, shell=True)
-# 	except Exception as e:
-# 		logger.error(traceback.format_exc())
-# 		return False
-
-
-# 	#if i not in get_installed():
-# 	if not check_installed(i):
-# 		return False
-
-# 	ver = subprocess.check_output(['pyrobox', "-v"]).decode()
-
-# 	if ver > __version__:
-# 		return True
-
-
-# 	else:
-# 		print("Failed to load ", i)
-# 		return False
-
-
-
 #############################################
 #            PATCH SERVER CLASS            #
 #############################################
@@ -374,42 +333,24 @@ def admin_page(self: SH, *args, **kwargs):
 	tail = pt.admin_page().template
 	return self.return_txt(f"{head}{tail}")
 
-# @SH.on_req('HEAD', hasQ="update")
-# def update(self: SH, *args, **kwargs):
-# 	"""Check for update and return the latest version"""
-# 	user = Authorize_user(self) 
+@SH.on_req('HEAD', hasQ="update")
+def update(self: SH, *args, **kwargs):
+	"""Check for update and return the latest version"""
+	user = Authorize_user(self) 
 	
-# 	if not user: # guest or not will be handled in Authentication
-# 		return self.send_text(pt.login_page(), 403)
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), 403)
 		
 		
 		
-# 	data = fetch_url("https://raw.githack.com/RaSan147/pyrobox/main/VERSION")
-# 	if data:
-# 		data  = data.decode("utf-8").strip()
-# 		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
-# 		return self.return_txt(HTTPStatus.OK, ret)
-# 	else:
-# 		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+	data = fetch_url("https://raw.githack.com/RaSan147/pyrobox/main/VERSION")
+	if data:
+		data  = data.decode("utf-8").strip()
+		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
+		return self.return_txt(ret, HTTPStatus.OK)
+	else:
+		return self.return_txt("Failed to fetch latest version", HTTPStatus.INTERNAL_SERVER_ERROR)
 
-# @SH.on_req('HEAD', hasQ="update_now")
-# def update_now(self: SH, *args, **kwargs):
-# 	"""Run update"""
-# 	user = Authorize_user(self) 
-	
-# 	if not user: # guest or not will be handled in Authentication
-# 		return self.send_text(pt.login_page(), 403)
-		
-	
-# 	if config.disabled_func["update"]:
-# 		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
-# 	else:
-# 		data = run_update()
-
-# 		if data:
-# 			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
-# 		else:
-# 			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
 
 @SH.on_req('HEAD', hasQ="size")
 def get_size(self: SH, *args, **kwargs):
@@ -485,7 +426,7 @@ def create_zip(self: SH, *args, **kwargs):
 	url_path = kwargs.get('url_path', '')
 	spathsplit = kwargs.get('spathsplit', '')
 
-	if config.disabled_func["zip"]:
+	if config.disabled_func["zip"] or user.check_permission("zip") == False:
 		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR)
 
 	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)
@@ -621,17 +562,17 @@ def send_video_page(self: SH, *args, **kwargs):
 													PY_PUBLIC_URL=config.address(),
 													PY_DIR_TREE_NO_JS= dir_navigator(displaypath)))
 
-	ctype = self.guess_type(path)
+	content_type = self.guess_type(path)
 	warning = ""
 
-	if ctype not in ['video/mp4', 'video/ogg', 'video/webm']:
+	if content_type not in ['video/mp4', 'video/ogg', 'video/webm']:
 		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
 
 
 	r.append(pt.video_script().safe_substitute(PY_VID_SOURCE=vid_source,
 												PY_FILE_NAME = displaypath.split("/")[-1],
-												PY_CTYPE=ctype,
-												PY_UNSUPPORT_WARNING=warning))
+												PY_CONTENT_TYPE=content_type,
+												PY_UNSUPPORTED_WARNING=warning))
 
 
 
@@ -640,42 +581,42 @@ def send_video_page(self: SH, *args, **kwargs):
 
 
 
-@SH.on_req('HEAD', url_regex="/@assets/.*")
-def send_assets(self: SH, *args, **kwargs):
-	"""Send assets"""
-	user = Authorize_user(self) 
+# @SH.on_req('HEAD', url_regex="/@assets/.*")
+# def send_assets(self: SH, *args, **kwargs):
+# 	"""Send assets"""
+# 	user = Authorize_user(self) 
 	
-	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+# 	if not user: # guest or not will be handled in Authentication
+# 		return self.send_text(pt.login_page(), 403)
 
-	if not config.ASSETS:
-		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
-		return None
+# 	if not config.ASSETS:
+# 		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
+# 		return None
 
 
-	path = kwargs.get('path', '')
-	spathsplit = kwargs.get('spathsplit', '')
+# 	path = kwargs.get('path', '')
+# 	spathsplit = kwargs.get('spathsplit', '')
 
-	path = config.ASSETS_dir + "/".join(spathsplit[2:])
-	#	print("USING ASSETS", path)
+# 	path = config.ASSETS_dir + "/".join(spathsplit[2:])
+# 	#	print("USING ASSETS", path)
 
-	if not os.path.isfile(path):
-		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-		return None
+# 	if not os.path.isfile(path):
+# 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+# 		return None
 
-	return self.return_file(path)
+# 	return self.return_file(path)
 
-@SH.on_req('HEAD', url="/@static", hasQ="style")
+@SH.on_req('HEAD', hasQ="style")
 def send_style(self: SH, *args, **kwargs):
 	"""Send style sheet"""
 	return self.return_txt(pt.style_css())
 
-@SH.on_req('HEAD', url="/@static", hasQ="login")
+@SH.on_req('HEAD', hasQ="login")
 def login_page(self: SH, *args, **kwargs):
 	"""Send login page"""
 	return self.send_text(pt.login_page())
 
-@SH.on_req('HEAD', url="/@static", hasQ="signup")
+@SH.on_req('HEAD', hasQ="signup")
 def signup_page(self: SH, *args, **kwargs):
 	"""Send signup page"""
 	return self.send_text(pt.signup_page())
@@ -689,7 +630,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# print(user)
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.redirect("/@static?login")
+		return self.redirect("?login")
 		
 	
 	path = kwargs.get('path', '')
@@ -932,7 +873,9 @@ def del_2_recycle(self: SH, *args, **kwargs):
 		send2trash(xpath)
 		msg = "Successfully Moved To Recycle bin"+ post.refresh
 		head = "Success"
-	except (TrashPermissionError, InterruptedError):
+	except TrashPermissionError:
+		msg = "Recycling unavailable! Try deleting permanently..."
+	except InterruptedError:
 		msg = "Recycling unavailable! Try deleting permanently..."
 	except Exception as e:
 		traceback.print_exc()

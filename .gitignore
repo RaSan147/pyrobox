@@ -4,7 +4,8 @@
 **/.vscode
 *.bak
 *.pdb
-
+*.bkp
+**/Pipfile*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -207,16 +207,15 @@ def list_directory(self:SH_base, path, user:User):
 				<div id="js-content_list" class="jsonly"></div>
 			""")
 
-	r.append(pt.file_list().safe_substitute())
+	r.append(pt.file_list().safe_substitute(PY_LINK_LIST=str(r_li),
+										PY_FILE_LIST=str(f_li),
+										PY_FILE_SIZE =str(s_li)))
 
 	#if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
 	if user.UPLOAD and not user.READ_ONLY:
 		r.append(pt.upload_form())
 		pass
 
-	r.append(pt.file_list_script().safe_substitute(PY_LINK_LIST=str(r_li),
-										PY_FILE_LIST=str(f_li),
-										PY_FILE_SIZE =str(s_li)))
 
 
 	encoded = '\n'.join(r).encode("utf-8", 'surrogateescape')

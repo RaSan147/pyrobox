@@ -3,12 +3,12 @@
 
 <p><b>Watching:</b> ${PY_FILE_NAME}</p>
 
-<h2>${PY_UNSUPPORT_WARNING}</h2>
+<h2>${PY_UNSUPPORTED_WARNING}</h2>
 
 <div id="container">
 	<video controls crossorigin playsinline data-poster="https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg" id="player">
 
-		<source src="${PY_VID_SOURCE}" type="${PY_CTYPE}" />
+		<source src="${PY_VID_SOURCE}" type="${PY_CONTENT_TYPE}" />
 	</video>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
@@ -17,13 +17,6 @@
 
 
 
-<!--
-<link rel="stylesheet" href="/@assets/video.css" />
-<script src="/@assets/plyr.min.js"></script>
-<script src="/@assets/player.js"></script>
-
-
--->
 
 <script>
 
