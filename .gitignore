@@ -1,7 +1,7 @@
 **/.private
 **/log.txt
 **/test.*
-
+**/.vscode
 *.bak
 *.pdb
 
