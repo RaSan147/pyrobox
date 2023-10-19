@@ -22,7 +22,8 @@ function ping(url) {
 			// Typical action to be performed when the document is ready:
 			//document.getElementById("demo").innerHTML = xhttp.responseText;
 			// json of the response
-			var resp = JSON.parse(xhttp.response);
+			var resp = safeJSONParse(xhttp.response, ["status", "message"], 5000);
+			
 
 			if (resp.status=="SUCCESS"){
 				check_prog = true;

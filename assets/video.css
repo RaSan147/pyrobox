@@ -38,7 +38,8 @@ body {
 audio,
 img,
 video {
-	max-width: 100%;
+	max-width: 95vh;
+	max-height: 90vh;
 	vertical-align: middle
 }
 

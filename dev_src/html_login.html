@@ -1,0 +1,213 @@
+<!DOCTYPE HTML>
+<!-- test1 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+
+<meta  property="og:title" content="VoiceAI Asuna: Login" />
+
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/voiceAI-skins@9a22a42/SEO/asuna%20cover.png" />
+
+
+
+
+
+<meta id="seoDescription" name="description" content="Demo webpage for VoiceAI Asuna server.">
+
+
+<link href='https://fonts.googleapis.com/css?family=Open Sans' rel='stylesheet'>
+
+
+<title>Login</title>
+
+
+
+<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
+
+
+<link rel="stylesheet" href="?style">
+</head>
+
+<body>
+
+
+
+<div>
+	<div id="login-page">
+		<div id="login-header">
+			<h1>Login</h1>
+		</div>
+		<div id="login-form">
+			<form action="?do_login" method="post" ENCTYPE="multipart/form-data" id="login">
+				<input name="post-type" value="login" hidden>
+				<table>
+					<tr>
+					<th><label for="username">Username</label></th>
+					<td><input type="text" name="username" class="txt_box" id="username" placeholder="Username" maxlength="64" minlength="1"></td>
+					</tr>
+					<tr>
+					<th><label for="password">Password</label></th>
+					<td><input type="password" name="password" class="txt_box" id="password" placeholder="Password" maxlength="512"></td>
+					</tr>
+				</table>
+				<div id="login-submit">
+					<input id="submit_btn" type="submit" value="login">
+				</div>
+			</form>
+		</div>
+
+		<p class="status" id="status"></p>
+
+	</div>
+</div>
+
+<br>
+<div>Don't Have account? <a href="?signup" style="font-size: medium;">SIGNUP</a></div>
+
+
+<style>
+body {
+	padding: 20px;
+}
+
+.status {
+	color: rgb(48, 48, 48);
+	display: none;
+	font-size: 1.5em;
+	padding: 5px;
+	margin: 5px;
+	border: solid 2px;
+	border-radius: 4px;
+}
+
+
+#login-page {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+
+#login-form {
+	width: 100%;
+	max-width: 400px;
+}
+
+.txt_box {
+	width: 100%;
+	height: 25px;
+	font-size: 1em;
+}
+
+#submit_btn {
+	width: 200px;
+	height: 50px;
+	font-size: 1.5em;
+}
+
+table {
+	border-color: #00000000;
+	border-spacing: 4px;
+	width: 95%;
+	text-align: left;
+}
+</style>
+
+
+
+<script>
+
+user.get_local_data(false);
+tools.enable_debug()
+//user.verify_login();
+
+function update_note(note='', color="gray"){
+	
+	const status = byId('status')
+	status.style.display = 'none';
+	if(note != ''){
+		status.style.display = 'block';
+	}
+	status.style.color = color;
+	status.innerText = note;
+}
+
+
+
+function test_fields(){
+	const note = (msg) => {update_note(msg, "red")}
+	
+	const _uname = byId("username").value
+	const _pass = byId("password").value
+	const usernameRegex = /^[a-zA-Z0-9_]+$/g;
+	
+
+	if(_uname.length<1){
+		note("Username must have at least 1 character!")
+		return 0;
+	}
+	if (_uname.length>64){
+		note("Username must be less than 64 character long") 
+		return 0;
+	}
+	if (_pass.length>256){
+		note("Password can't be longer than 256 characters")
+		return 0;
+	}
+	if (!usernameRegex.test(_uname)){
+		note("Username can only have A-Z, a-z, 0-9, _")
+		return 0;
+	}
+	note()
+	return 1;
+}
+
+
+byId("login").onsubmit = (e) => {
+	e.preventDefault()
+	
+	const formData = new FormData(e.target)
+
+	if (!test_fields()){
+		return 0
+	}
+	var msg = "";
+	var color = "red"
+
+	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
+	const request = new XMLHttpRequest()
+	request.open(e.target.method, e.target.action)
+	request.timeout = 60*1000;
+	request.onreadystatechange = () => {
+		if (request.readyState === XMLHttpRequest.DONE) {
+			msg = `${request.status}: ${request.statusText}`
+			if (request.status === 0) msg = 'Connection failed'
+			if (request.status === 204 || request.status === 200){
+				var response = JSON.parse(request.responseText);
+				if (response.status == "success"){
+					msg = "Signed up. REDIRECTING...";
+					color = "green"
+					user.user_name = response.user_name;
+					user.user_id = response.user_id;
+					user.set_local_data();
+					
+					window.location.href = "/";
+				}
+				else{
+					msg = response.message;
+					color = "yellow";
+				}
+				
+			}
+			if (request.status === 401) msg = 'Incorrect password'
+
+			update_note(msg, color)
+		}
+	}
+	
+	
+	request.send(formData)
+}
+</script>

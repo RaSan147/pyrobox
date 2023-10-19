@@ -29,7 +29,7 @@ from queue import Queue
 import logging
 import atexit
 import os
-
+#from session_mgmt import MachineSession
 
 __version__ = "0.8.1"
 enc = "utf-8"
@@ -59,6 +59,7 @@ class Config:
 		self.ftp_dir = "."  # DEFAULT DIRECTORY TO LAUNCH SERVER
 
 		self.IP = None  # will be assigned by checking
+		self.protocol = "http"  # DEFAULT PROTOCOL TO LAUNCH SERVER
 
 		# DEFAULT PORT TO LAUNCH SERVER
 		self.port = 6969  # DEFAULT PORT TO LAUNCH SERVER
@@ -72,11 +73,12 @@ class Config:
 		# if you want to see some important LOG in browser, may contain your important information
 		self.allow_web_log = True
 		self.write_log = False  # if you want to write log to file
+		self.log_extra = True
 
 		# ZIP FEATURES
 		self.default_zip = "zipfile"  # or "zipfile" to use python built in zip module
 
-		# CHECK FOR MISSING REQUEIREMENTS
+		# CHECK FOR MISSING REQUIREMENTS
 		self.run_req_check = True
 
 		# FILE INFO
@@ -148,10 +150,12 @@ class Config:
 		return out
 
 	def get_default_dir(self):
+		if self.get_os()== 'Android':
+			return '/storage/emulated/0/'
 		return './'
 
 	def address(self):
-		return f"http://{self.IP}:{self.port}"
+		return f"{self.protocol}://{self.IP}:{self.port}"
 
 	def parse_default_args(self, port=0, directory="", bind=None):
 		if not port:
@@ -177,11 +181,20 @@ class Config:
 		parser.add_argument('--version', '-v', action='version',
 							version=__version__)
 
-		self.parser.add_argument('-h', '--help', action='help',
+		parser.add_argument('-h', '--help', action='help',
 								default='==SUPPRESS==',
 								help=('show this help message and exit'))
 
+
+		parser.add_argument('--no-extra-log', '-nxl',
+							action='store_true',
+							default=False,
+							help="Disable file path and [= + - #] based logs (default: %(default)s)")
+
+
 		args = parser.parse_known_args()[0]
+
+		self.log_extra = not args.no_extra_log
 
 		return args
 
@@ -226,6 +239,7 @@ class Tools:
 
 tools = Tools()
 config = Config()
+
 
 
 class Callable_dict(dict):
@@ -304,6 +318,11 @@ class Zfunc(object):
 
 	def new(self, caller, store_return=False):
 		self.__init__(caller=caller, store_return=store_return)
+
+	def destroy(self):
+		"""Clear the queue
+		however if running, caller function will still keep running till end"""
+		self.__init__(caller=null, store_return=False)
 
 
 """HTTP server classes.
@@ -555,14 +574,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		elif (conntype.lower() == 'keep-alive' and
 			  self.protocol_version >= "HTTP/1.1"):
 			self.close_connection = False
-		
+
 		# Load cookies from request
 		# Uses standard SimpleCookie
 		# doc: https://docs.python.org/3/library/http.cookies.html
 		self.cookie = SimpleCookie()
 		self.cookie.load(self.headers.get('Cookie', ""))
 		# print(tools.text_box("Cookie: ", self.cookie))
-		
+
 		# Examine the headers and look for an Expect directive
 		expect = self.headers.get('Expect', "")
 		if (expect.lower() == "100-continue" and
@@ -635,7 +654,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			_w = tools.term_width()
 			w = _w - len(str(self.req_hash)) - 2
 			w = w//2
-			logger.info('='*w + f' {self.req_hash} ' + '='*w + '\n' +
+			if config.log_extra:
+				logger.info('='*w + f' {self.req_hash} ' + '='*w + '\n' +
 						'\n'.join(
 								[f'{self.req_hash}|=>\t request\t: {self.command}',
 								 f'{self.req_hash}|=>\t url     \t: {url_path}',
@@ -651,10 +671,11 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			except Exception:
 				traceback.print_exc()
 
-			logger.info('-'*w + f' {self.req_hash} ' + '-'*w + '\n' +
+			if config.log_extra:
+				logger.info('-'*w + f' {self.req_hash} ' + '-'*w + '\n' +
 						'#'*_w
 						)
-			
+
 			# actually send the response if not already done.
 			self.wfile.flush()
 
@@ -748,7 +769,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		"""
 		if self.response_code_sent:
 			return
-		
+
 		if not code//100 ==1: # 1xx - Informational (allowes multiple responses)
 			self.response_code_sent = True
 
@@ -770,7 +791,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self._headers_buffer.append(("%s %d %s\r\n" %
 				(self.protocol_version, code, message)).encode(
 				'utf-8', 'strict'))
-				
+
 	def send_header_string(self, lines:str):
 		"""Send a header multiline string to the headers buffer."""
 		for i in lines.split("\r\n"):
@@ -778,7 +799,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				continue
 			tag, _, msg = i.partition(":")
 			self.send_header(tag.strip(), msg.strip())
-			
+
 
 	def send_header(self, keyword, value):
 		"""Send a MIME header to the headers buffer."""
@@ -1143,10 +1164,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.send_header("Location", location)
 		self.end_headers()
 
-	def return_txt(self, code, msg, content_type="text/html; charset=utf-8"):
+	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8"):
 		'''returns only the head to client
 		and returns a file object to be used by copyfile'''
 		self.log_debug(f'[RETURNED] {code} to client')
+		if isinstance(msg, Template):
+			msg = msg.safe_substitute(
+				code=code,
+				message=HTTPStatus(code).phrase,
+				explain=HTTPStatus(code).description,
+				version=__version__
+			)
 		if not isinstance(msg, bytes):
 			encoded = msg.encode('utf-8', 'surrogateescape')
 		else:
@@ -1162,24 +1190,40 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.end_headers()
 		return box
 
-	def send_txt(self, code, msg, content_type="text/html; charset=utf-8"):
+	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8"):
 		'''sends the head and file to client'''
-		file = self.return_txt(code, msg, content_type)
+		file = self.return_txt(msg, code, content_type)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
 		file.close()
 
-	def send_text(self, code, msg, content_type="text/html; charset=utf-8"):
+	def send_text(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8"):
 		'''proxy to send_txt'''
-		self.send_txt(code, msg, content_type)
+		self.send_txt(msg, code, content_type)
 
-	def send_json(self, obj):
+	def return_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8"):
+		'''proxy to send_txt'''
+		return self.return_txt(msg, code, content_type)
+
+	def send_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8"):
+		'''proxy to send_txt'''
+		return self.send_txt(msg, code, content_type)
+
+	def return_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8"):
+		'''proxy to send_txt'''
+		return self.return_txt(msg, code, content_type)
+
+	def send_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8"):
+		'''proxy to send_txt'''
+		return self.send_txt(msg, code, content_type)
+
+	def send_json(self, obj:Union[object, str, bytes], code=200):
 		"""send object as json
 		obj: json-able object or json.dumps() string"""
 		if not isinstance(obj, str):
 			obj = json.dumps(obj, indent=1)
-		file = self.return_txt(200, obj, content_type="application/json")
+		file = self.return_txt(obj, code, content_type="application/json")
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
@@ -1191,12 +1235,18 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		first, last = 0, None
 
+		C_encoding = None
+
 		try:
 			ctype = self.guess_type(path)
-			
+
 			# make sure texts are sent as utf-8
 			if ctype.startswith("text/"):
 				ctype += "; charset=utf-8"
+
+			# if file is gziped, send as gzip
+			if ctype == "application/gzip" and "gzip" in self.headers.get("Accept-Encoding", ""):
+				C_encoding = "gzip"
 
 			file = open(path, 'rb')
 			fs = os.fstat(file.fileno())
@@ -1249,22 +1299,26 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				response_length = last - first + 1
 
 				self.send_header('Content-Range',
-								 f'bytes {first}-{last}/{file_len}')
+								f'bytes {first}-{last}/{file_len}')
 				self.send_header('Content-Length', str(response_length))
 
 			else:
 				self.send_response(HTTPStatus.OK)
-				
+
 				self.send_header("Content-Length", str(file_len))
-				
+
 			if cache_control:
 				self.send_header("Cache-Control", cache_control)
 
 			self.send_header("Last-Modified",
-							 self.date_time_string(fs.st_mtime))
+							self.date_time_string(fs.st_mtime))
 			self.send_header("Content-Type", ctype)
+
+			if C_encoding:
+				self.send_header("Content-Encoding", C_encoding)
+
 			self.send_header("Content-Disposition", is_attachment+' filename="%s"' %
-							 (os.path.basename(path) if filename is None else filename))
+							(os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
 			return file
@@ -1292,8 +1346,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.copyfile(file, self.wfile)
 		finally:
 			file.close()
-			
-	
+
+
 	def send_head(self):
 		"""Common code for GET and HEAD commands.
 
@@ -1527,6 +1581,7 @@ class DealPostData:
 
 		self.form = FormData(req, self, fake=True)
 
+
 	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
 
 	def is_multipart(self):
@@ -1550,7 +1605,7 @@ class DealPostData:
 			raise PostError(
 				f"Content size limit exceeded: {self.content_length} > {max_size}")
 
-	def get(self, show=F, strip=F, Timeout=20, chunk_size=0):
+	def get(self, show=F, strip=F, Timeout=10, chunk_size=0):
 		"""
 		show: print line
 		strip: strip \r\n at end
@@ -1663,13 +1718,14 @@ class FormData:
 		self.content_length = dpd.content_length
 		self.content_type = dpd.content_type
 
+		self.is_multipart = self.dpd.is_multipart()
 		if self.fake:
 			return
-		self.is_multipart = self.dpd.is_multipart()
 		self.boundary = dpd.boundary
 		if self.is_multipart:
 			# pass first boundary line (because after every field, there is a boundary line)
 			self.pass_bound()
+
 
 	def pass_bound(self):
 		"""
@@ -1737,13 +1793,14 @@ class FormData:
 		* if `empty string`, field name must be empty too
 		"""
 		line = self.dpd.get()
+
 		got_field_name = self.get_field_name(line)
 
 		if field_name is not None and got_field_name != field_name:
 			raise PostError(
 				f"Invalid request: Expected {field_name} but got {got_field_name}")
 
-		return line
+		return got_field_name
 
 	def get_multi_field(self, verify_name: Union[None, bytes, str] = None, verify_msg: Union[None, bytes, str] = None, decode=F):
 		'''read a form field
@@ -1765,6 +1822,9 @@ class FormData:
 		field_name = self.match_field_name(verify_name)  # LINE 1 (field name)
 		# if not verified, raise PostError
 
+		if not field_name:
+			return None, None
+
 		self.dpd.skip()  # LINE 2 (blank line)
 
 		line = b''
@@ -1773,6 +1833,9 @@ class FormData:
 			if (not _line) or (self.boundary in _line):  # boundary
 				break
 			line += _line
+
+		if not line:
+			return None, None
 
 		line = line.rpartition(b"\r\n")[0]  # remove \r\n at end
 		if decode:
@@ -1832,6 +1895,7 @@ class FormData:
 
 		self.dpd.check_size_limit(max_size)
 
+
 		data = self.dpd.get().decode()
 		for part in data.split("&"):
 			name, value = part.split("=")
@@ -1849,6 +1913,8 @@ class FormData:
 
 		while True:
 			field_name, value = self.get_multi_field(decode=True)
+			if not field_name:
+				break
 			yield field_name, value
 
 	def get_parts(self, max_size=-1):

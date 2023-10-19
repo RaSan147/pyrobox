@@ -1,9 +1,9 @@
 import os, shutil
 
 # clear dist folder
-shutil.rmtree("dist", ignore_errors=True)
+# shutil.rmtree("dist", ignore_errors=True)
 
-os.system("python -m build")
+# os.system("python -m build")
 
 with open('VERSION', 'r') as f:
 	version = f.read().strip()
@@ -13,4 +13,4 @@ os.system(f"pip install ./dist/pyrobox-{version}.tar.gz")
 # os.system("pyrobox 45454")
 
 # post to pypi
-os.system("twine upload dist/*")
+# os.system("twine upload dist/*")

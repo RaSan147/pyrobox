@@ -1,5 +1,4 @@
-from string import Template as _Template # using this because js also use {$var} and {var} syntax and py .format is often unsafe
-
+from data_types import Template
 __all__ = [
 	"directory_explorer_header",
 	"global_script",
@@ -10,6 +9,8 @@ __all__ = [
 	"zip_script",
 	"admin_page",
 	"error_page",
+	"theme_script",
+	"login_page"
 ]
 
 
@@ -18,16 +19,6 @@ __all__ = [
 # PAGE TEMPLATES
 ##############################################################
 
-
-class Template(_Template):
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-
-	def __add__(self, other):
-		if isinstance(other, _Template):
-			return Template(self.template + other.template)
-		return Template(self.template + str(other))
-	
 
 enc = "utf-8"
 
@@ -39,40 +30,63 @@ class config:
 pt_config = config()
 
 
-def get_template(path):
+
+def _get_template(path):
 	if pt_config.dev_mode:
 		with open(path, encoding=enc) as f:
-			return Template(f.read())
+			return f.read()
+		
+	return pt_config.file_list[path]
 
-	return Template(pt_config.file_list[path])
+def get_template(path):
+	return Template(_get_template(path))
+
 
 def directory_explorer_header():
 	return get_template("html_page.html")
 
 
-def global_script():
-	return get_template("global_script.html")
 
-def file_list():
-	return global_script() + get_template("html_file_list.html")
+def style_css():
+	return _get_template("html_style.css")
+
+
+
+
+
+
+def global_script():
+	return get_template("global_script.js")
+
+def assets_script():
+	return get_template("html_script.js")
 
 def file_list_script():
-	return get_template("html_script.html")
+	return get_template("html_file_list.js")
 
 def upload_form():
-	return get_template("html_upload.html")
+	return _get_template("html_upload.html")
 
 def video_script():
-	return global_script() + get_template("html_vid.html")
+	return get_template("html_vid.html")
 
 def zip_script():
-	return global_script() + get_template("html_zip_page.html")
+	return get_template("html_zip_page.html")
 
 def admin_page():
-	return global_script() + get_template("html_admin.html")
+	return get_template("html_admin.html")
 
 def error_page():
 	return directory_explorer_header() + get_template("html_error.html")
 
-directory_explorer_header()
+def theme_script():
+	return get_template("html_theme_script.js")
+	
+def login_page():
+	return get_template("html_login.html")
+
+def signup_page():
+	return get_template("html_signup.html")
+
+#directory_explorer_header()
 

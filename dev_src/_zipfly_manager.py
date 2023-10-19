@@ -193,7 +193,7 @@ class ZIP_Manager:
 		source_m_time = get_dir_m_time(path)
 		if size is None:
 			try:
-				fs = _get_tree_path_n_size(path, must_read=True, limit=self.size_limit)
+				fs = _get_tree_path_n_size(path, must_read=True, limit=self.size_limit, path_type="both")
 			except LimitExceed as e:
 				self.calculating.pop(path) # make sure to remove calculating flag (MAJOR BUG)
 				raise e
@@ -278,9 +278,14 @@ class ZIP_Manager:
 
 		self.init_dir()
 
-
 		paths = []
-		for i,j in fm:
+		for xx in fm:
+			try:
+				i, j = xx
+			except:
+				print(xx)
+				traceback.print_exc()
+				continue
 			paths.append({"fs": i, "n":j})
 
 		zfly = ZipFly(paths = paths, chunksize=0x80000)
