@@ -277,7 +277,7 @@ class User:
 			return
 
 		new_permission = self.permission
-		print("new_permission", permission)
+
 		for each in permission:
 			if not hasattr(each, 'value') and not each: continue # default permission may have none or empty at Initialization
 			new_permission[each.value] = 1
@@ -435,7 +435,7 @@ class User_handler:
 			"status": "success",
 			"message": "User created",
 			"user_name": user.username,
-			"token": user.token
+			"token": binascii.hexlify(user.token).decode("ascii"),
 		}
 
 	def server_login(self, username, password):
