@@ -4,11 +4,12 @@ import importlib.util
 from http import HTTPStatus
 import urllib.parse
 import html
+from typing import Union 
 
 
 
 from pyroboxCore import config, logger
-from pyrobox_ServerHost import ServerHost as SH
+from pyrobox_ServerHost import ServerHost as SH, SimpleCookie
 
 from user_mgmt import User
 import _page_templates as pt
@@ -100,7 +101,7 @@ def list_directory_json(self:SH, path=None):
 	return self.send_json(dir_dict)
 
 
-def list_directory_html(self:SH, path, user:User):
+def list_directory_html(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=None):
 	"""
 	Helper to produce a directory listing (absent index.html).
 
@@ -179,13 +180,14 @@ def list_directory_html(self:SH, path, user:User):
 	if user.UPLOAD and not user.READ_ONLY:
 		UPLOAD_FORM = " -->\n" + pt.upload_form() + "\n<!-- " # hack to hide the Template code
 
-	return self.html_main_page(user, PY_NO_JS_FILE_LIST=NO_JS_LINKS, PY_UPLOAD_FORM=UPLOAD_FORM)
+	return self.html_main_page(user, PY_NO_JS_FILE_LIST=NO_JS_LINKS, PY_UPLOAD_FORM=UPLOAD_FORM,
+			cookie=cookie)
 
 
 
 
 
-def list_directory(self:SH, path, user:User):
+def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=None):
 	"""
 	Helper to produce a directory listing (absent index.html).
 
@@ -201,17 +203,12 @@ def list_directory(self:SH, path, user:User):
 			HTTPStatus.NOT_FOUND,
 			"No permission to list directory")
 		return None
-	r = []
 
 	displaypath = self.get_displaypath(self.url_path)
 
 
 	title = get_titles(displaypath)
 
-
-	r.append(pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-													PY_PUBLIC_URL=config.address(),
-													PY_DIR_TREE_NO_JS=dir_navigator(displaypath)))
 
 	r_li= [] # type + file_link
 				# f  : File
@@ -220,18 +217,6 @@ def list_directory(self:SH, path, user:User):
 				# h  : HTML
 	f_li = [] # file_names
 	s_li = [] # size list
-
-	r_folders = [] # no js
-	r_files = [] # no js
-
-
-	LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li><hr>'
-
-	r.append("""
-			<div id="content_list">
-				<ul id="linkss">
-					<!-- CONTENT LIST (NO JS) -->
-			""")
 
 
 	# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
@@ -252,72 +237,33 @@ def list_directory(self:SH, path, user:User):
 			size = fmbytes(file.stat().st_size)
 			__, ext = posixpath.splitext(name)
 			if ext=='.html':
-				r_files.append(LIST_STRING % ("link", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
 				r_li.append('h'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
 
 			elif self.guess_type(linkname).startswith('video/'):
-				r_files.append(LIST_STRING % ("vid", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
 				r_li.append('v'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
 
 			elif self.guess_type(linkname).startswith('image/'):
-				r_files.append(LIST_STRING % ("file", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
 				r_li.append('i'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
 
 			else:
-				r_files.append(LIST_STRING % ("file", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
 				r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
 				f_li.append(html.escape(displayname, quote=False))
 		if _is_dir_:
-			r_folders.append(LIST_STRING % ("", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
 			r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
 			f_li.append(html.escape(displayname, quote=False))
 
 		s_li.append(size)
 
+	result = {
+		"status": "success",
+		"file_list": f_li,
+		"size_list": s_li,
+		"type_list": r_li,
+		"title": title,
+	}
 
-
-	NO_JS_LINKS = "\n".join(r_folders +	r_files)
-
-	NO_JS_LINKS = " -->\n" + NO_JS_LINKS + "\n<!-- " # hack to hide the Template code
-
-
-
-	r.append("""</ul>
-				</div>
-				<!-- END CONTENT LIST (NO JS) -->
-				<div id="js-content_list" class="jsonly"></div>
-			""")
-
-	r.append(pt.file_list_script().safe_substitute(PY_LINK_LIST=str(r_li),
-										PY_FILE_LIST=str(f_li),
-										PY_FILE_SIZE =str(s_li)))
-
-	#if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
-	if user.UPLOAD and not user.READ_ONLY:
-		r.append(pt.upload_form())
-		pass
-
-
-
-	encoded = '\n'.join(r).encode("utf-8", 'surrogateescape')
-
-	return self.send_txt(encoded)
+	return result
 
