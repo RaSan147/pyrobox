@@ -1,21 +1,64 @@
-const r_li = [] // ${PY_LINK_LIST};
-const f_li = [] // ${PY_FILE_LIST};
-const s_li = [] // ${PY_FILE_SIZE};
+var r_li = [] // ${PY_LINK_LIST};
+var f_li = [] // ${PY_FILE_LIST};
+var s_li = [] // ${PY_FILE_SIZE};
 
 
 
-class Page{
+class FM_Page{
 	constructor(){
-		this.type = "file_list"
+		this.type = "dir"
+
+		this.my_part = document.getElementById("fm_page")
+		
 	}
 
 	on_action_button(){
 		// show add folder, sort, etc
 		fm.show_more_menu()
 	}
+
+	async initialize(){
+		page.clear()
+		page.set_title("File Manager")
+
+		var folder_data = await fetch(tools.add_query_here("folder_data"))
+								.then(response => response.json())
+								.catch(error => {
+									console.error('There has been a problem with your fetch operation:', error); // TODO: Show error in page
+								});
+
+		if (!folder_data.status || folder_data.status == "error"){
+			console.error("Error getting folder data") // TODO: Show error in page
+			return
+		}
+
+		r_li = folder_data.type_list
+		f_li = folder_data.file_list
+		s_li = folder_data.size_list
+
+		var title = folder_data.title
+
+		page.set_title(title)
+
+		
+		show_file_list();
+	}
+
+	hide(){
+		this.my_part.style.display = "none";
+	}
+
+	show(){
+		this.my_part.style.display = "block";
+	}
+
+	clear(){
+		tools.del_child("linkss");
+	}
+
 }
 
-const page = new Page();
+const fm_page = new FM_Page();
 
 
 class UploadManager {
@@ -55,7 +98,7 @@ class UploadManager {
 		};
 			
 			//If user drop File on DropArea
-		file_list.ondrop = ()=>{
+		file_list.ondrop = (event)=>{
 			event.preventDefault(); //preventing from default behavior
 		};
 	}
@@ -709,4 +752,3 @@ function show_file_list() {
 	dir_container.appendChild(file_li)
 }
 
-show_file_list();

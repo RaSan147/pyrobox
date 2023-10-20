@@ -485,13 +485,10 @@ progress_bars.update_island()
 
 
 
-
-
-
 class User {
 	constructor(){
-		this.user = tools.getCookie("user") || "Guest";
-		this.token = tools.getCookie("token") || "";
+		this.user = tools.getCookie("user");
+		this.token = tools.getCookie("token");
 		this.permissions_code = tools.getCookie("permissions") || 0;
 
 		this.permissions = {
@@ -518,11 +515,12 @@ class User {
 			'ZIP',
 			'ADMIN',
 		]
+		this.permissions = {}
 		permissions.forEach((permission, i) => {
 			this.permissions[permission] = this.permissions_code >> i & 1;
 		}, this);
 		// if none of permission is true, add nopermission to the permissions
-		if(!Object.values(this.permissions).includes(true)){
+		if(!Object.values(this.permissions).some(x => !!x)){
 			this.permissions['NOPERMISSION'] = true;
 		} else {
 			this.permissions['NOPERMISSION'] = false;

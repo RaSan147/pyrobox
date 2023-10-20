@@ -14,6 +14,12 @@
 const public_url = "${PY_PUBLIC_URL}";
 </script>
 
+<style>
+	#content_container {
+		display: none; /* hide content until page is loaded */
+	}
+</style>
+
 
 <noscript>
 	<style>
@@ -79,52 +85,98 @@ const public_url = "${PY_PUBLIC_URL}";
 	<span id="progress-zips-count">(0/0)</span></span>
 </div>
 
-<script>
-
-{
-	const dir_tree = document.getElementById("dir-tree");
-	dir_tree.scrollLeft = dir_tree.scrollWidth;
-	// convert scroll to horizontal
-	dir_tree.onwheel = function(event) {
-		event.preventDefault();
-		// scroll to left
-		dir_tree.scrollBy({
-			top: 0,
-			left: event.deltaY,
-			behavior: 'smooth'
-		})
-		event.deltaY < 0;
-	}
-}
-</script>
-
 <hr>
 
 <div id="content_container">
 
 	<!-- Contains all the files -->
 
-	
-	<div id="content_list">
-		<ul id="linkss">
-			<!-- CONTENT LIST (NO JS) -->
+	<div id="fm_page">
+		<div id="content_list">
 
-			<!-- ${PY_NO_JS_FILE_LIST} -->
-		</ul>
+			<ul id="linkss">
+				<!-- CONTENT LIST (NO JS) -->
+
+				<!-- ${PY_NO_JS_FILE_LIST} -->
+			</ul>
+		</div>
 
 		<div id="js-content_list" class="jsonly">
 			<!-- CONTENT LIST (JS) -->
 		</div>
 	</div>
 
+	<div id="video_page" class="jsonly">
+		<p><b>Watching:</b> <span id="player_title"></span></p>
+
+		<h2 id="player_warning"></h2>
+
+		<div id="container">
+			<video controls crossorigin playsinline data-poster="https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg" id="player">
+
+				<source id="player_source" />
+			</video>
+		</div>
+
+		<a id="video_dl_url"  download class='pagination'>Download</a>
+
+	</div>
+
+	<div id="admin_page" class="jsonly">
+		
+		<h1 style="text-align: center;">Admin Page</h1>
+		<hr>
+
+
+
+
+		<!-- check if update available -->
+
+		<div>
+			<p class="update_text" id="update_text">Checking for Update...</p>
+			<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
+			<br><br>
+		</div>
+
+		<div>
+			<table class="users_list">
+				<tr>
+					<th>Username</th>
+					<th>Permissions</th>
+					<th>Actions</th>
+				</tr>
+			</table>
+		</div>
+
+
+
+		<div class='pagination jsonly' onclick="request_reload()">RELOAD SERVER 🧹</div>
+		<noscript><a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br></noscript>
+		<hr>
+
+		<div class='pagination jsonly' onclick="request_shutdown()">Shut down 🔻</div>
+
+	</div>
 </div>
 
 <!-- ${PY_UPLOAD_FORM} -->
 
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
 
 <script src="?global_script"></script>
-<script src="?asset_script"></script>
+<script src="?asset_script"></script> 
+
 <script src="?file_list_script"></script>
 <script src="?theme_script"></script>
+<script src="?video_page_script"></script>
+<script src="?admin_page_script"></script>
 
+<script src="?page_handler_script"></script>
+
+
+<!-- ASSET_SCRIPT will load at the end with all the classes defined -->
+
+
+
+<link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />

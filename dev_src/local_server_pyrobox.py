@@ -173,21 +173,60 @@ def handle_user_cookie(self: SH):
 		return ""
 	username = get("uname")
 	token = get("token")
+	
+	if not (username and token):
+		return None
 
 	user = Sconfig.user_handler.get_user(username)
 	if user:
-		if user.token == token:
+		if user.check_token(token):
 			return user
 		else:
 			return None
 	return None
 
+def add_user_cookie(user):
+	# add cookie with 1 year expire
+	cookie = SimpleCookie()
+	def x(k, v):
+		nonlocal cookie
+		cookie[k] = v
+		cookie[k]["expires"] = 365*86400
+		cookie[k]["path"] = "/"
+
+	x("user", user.username)
+	x("token", user.token)
+	x("permissions", user.permission_pack)
+	return cookie
+	
+def clear_user_cookie():
+	cookie = SimpleCookie()
+	keys = ("user", "token", "permissions")
+	for k in keys:
+		cookie[k] = ""
+		cookie[k]["expires"] = -1
+		cookie[k]["path"] = "/"
+
+	return cookie
 
 def Authorize_user(self:SH):
 	# do cookie stuffs and get user
+	user = handle_user_cookie(self)
+	
 
-	if Sconfig.GUESTS:
-		return Sconfig.guest_id # default guest user
+	if not user and Sconfig.GUESTS:
+		user = Sconfig.guest_id # default guest user
+		
+	if not user:
+		return None, clear_user_cookie()
+		
+	cookie = add_user_cookie(user)
+	
+	
+	return user, cookie
+	
+		
+		
 		
 
 
@@ -195,41 +234,45 @@ def Authorize_user(self:SH):
 @SH.on_req('HEAD', hasQ="type")
 def get_page_type(self: SH, *args, **kwargs):
 	"""Return type of the page"""
+	user, cookie = Authorize_user(self) 
+	
 
 	
 	path = kwargs.get('path', '')
 	
 	if self.query("admin"):
-		return self.return_txt("admin")
+		return self.return_txt("admin", cookie=cookie)
 	
 	if self.query("login"):
-		return self.return_txt("login")
+		return self.return_txt("login", cookie=cookie)
 	
 	if self.query("signup"):
-		return self.return_txt("signup")
+		return self.return_txt("signup", cookie=cookie)
 	
 	if self.query("vid"):
-		return self.return_txt("vid")
+		return self.return_txt("vid", cookie=cookie)
 	
 	if self.query("czip"):
-		return self.return_txt("zip")
+		return self.return_txt("zip", cookie=cookie)
 	
 	if path == "/favicon.ico":
-		return self.return_txt("favicon")
+		return self.return_txt("favicon", cookie=cookie)
 	
 
 	if os.path.isdir(path):
 		for index in "index.html", "index.htm":
 			index = os.path.join(path, index)
 			if os.path.exists(index):
-				return self.return_txt("html")
-			
-		return self.return_txt("dir")
+				return self.return_txt("html", cookie=cookie)
+		
+		if self.query("json"):
+			return self.return_txt("dir_json", cookie=cookie)
+		return self.return_txt("dir", cookie=cookie)
 	
 	if os.path.isfile(path):
-		return self.return_txt("file")
+		return self.return_txt("file", cookie=cookie)
 	
-	return self.return_txt("unknown")
+	return self.return_txt("unknown", cookie=cookie)
 
 
 
@@ -241,13 +284,13 @@ def send_favicon(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="reload")
 def reload(self: SH, *args, **kwargs):
 	# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user:
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 	
 	if not user.is_admin():
-		return self.send_text("You are not authorized to perform this action", 403)
+		return self.send_error("You are not authorized to perform this action", 403, cookie=cookie)
 		
 
 	CoreConfig.reload = True
@@ -258,26 +301,26 @@ def reload(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="shutdown")
 def shutdown(self: SH, *args, **kwargs):
 	# SHUTS DOWN THE SERVER. VULNERABLE
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user:
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 	
 	if not user.is_admin():
-		return self.send_text("You are not authorized to perform this action", 403)
+		return self.send_error("You are not authorized to perform this action", 403, cookie=cookie)
 	
-	self.send_text("Shut down initiated")
+	self.send_text("Shut down initiated", cookie=cookie)
 	self.server.shutdown()
 
 @SH.on_req('HEAD', hasQ="admin")
 def admin_page(self: SH, *args, **kwargs):
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 	
 	if not user.is_admin():
-		return self.send_text("You are not authorized to perform this action", 403)
+		return self.send_error("You are not authorized to perform this action", 403, cookie=cookie)
 		
 		
 	title = "ADMIN PAGE"
@@ -289,12 +332,12 @@ def admin_page(self: SH, *args, **kwargs):
 												PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
 	tail = pt.admin_page().template
-	return self.return_txt(f"{head}{tail}")
+	return self.return_txt(f"{head}{tail}", cookie=cookie)
 
 @SH.on_req('HEAD', hasQ="update")
 def update(self: SH, *args, **kwargs):
 	"""Check for update and return the latest version"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), 403)
@@ -305,18 +348,18 @@ def update(self: SH, *args, **kwargs):
 	if data:
 		data  = data.decode("utf-8").strip()
 		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
-		return self.return_txt(ret, HTTPStatus.OK)
+		return self.return_txt(ret, HTTPStatus.OK, cookie=cookie)
 	else:
-		return self.return_txt("Failed to fetch latest version", HTTPStatus.INTERNAL_SERVER_ERROR)
+		return self.return_txt("Failed to fetch latest version", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
 
 @SH.on_req('HEAD', hasQ="size")
 def get_size(self: SH, *args, **kwargs):
 	"""Return size of the file"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 		
 		
 		
@@ -326,7 +369,7 @@ def get_size(self: SH, *args, **kwargs):
 
 	stat = get_stat(xpath)
 	if not stat:
-		return self.return_txt(json.dumps({"status": 0}))
+		return self.send_json({"status": 0}, cookie=cookie)
 	if os.path.isfile(xpath):
 		size = stat.st_size
 	else:
@@ -334,18 +377,18 @@ def get_size(self: SH, *args, **kwargs):
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
-	return self.return_txt(json.dumps({"status": 1,
+	return self.send_json({"status": 1,
 														"byte": size,
 														"humanbyte": humanbyte,
-														"fmbyte": fmbyte}))
+														"fmbyte": fmbyte}, cookie=cookie)
 
 @SH.on_req('HEAD', hasQ="size_n_count")
 def get_size_n_count(self: SH, *args, **kwargs):
 	"""Return size of the file"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 		
 		
 		
@@ -355,7 +398,7 @@ def get_size_n_count(self: SH, *args, **kwargs):
 
 	stat = get_stat(xpath)
 	if not stat:
-		return self.return_txt(json.dumps({"status": 0}))
+		return self.send_json({"status": 0}, cookie=cookie)
 	if os.path.isfile(xpath):
 		count, size = 1, stat.st_size
 	else:
@@ -363,20 +406,20 @@ def get_size_n_count(self: SH, *args, **kwargs):
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
-	return self.return_txt(json.dumps({"status": 1,
+	return self.send_json({"status": 1,
 														"byte": size,
 														"humanbyte": humanbyte,
 														"fmbyte": fmbyte,
-														"count": count}))
+														"count": count}, cookie=cookie)
 
 
 @SH.on_req('HEAD', hasQ="czip")
 def create_zip(self: SH, *args, **kwargs):
 	"""Create ZIP task and return ID"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 		
 		
 		
@@ -385,7 +428,7 @@ def create_zip(self: SH, *args, **kwargs):
 	spathsplit = kwargs.get('spathsplit', '')
 
 	if CoreConfig.disabled_func["zip"] or user.check_permission("zip") == False:
-		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR)
+		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
 	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
@@ -407,23 +450,23 @@ def create_zip(self: SH, *args, **kwargs):
 
 		tail = pt.zip_script().safe_substitute(PY_ZIP_ID = zid,
 												PY_ZIP_NAME = filename)
-		return self.return_txt(f"{head} {tail}")
+		return self.return_txt(f"{head} {tail}", cookie=cookie)
 
 	except LimitExceed:
 		tail = "<h3>Directory size is too large, please contact the host</h3>"
-		return self.return_txt(f"{head} {tail}", HTTPStatus.SERVICE_UNAVAILABLE)
+		return self.return_txt(f"{head} {tail}", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 	except Exception:
 		self.log_error(traceback.format_exc())
-		return self.return_txt("ERROR")
+		return self.return_txt("ERROR", cookie=cookie)
 
 @SH.on_req('HEAD', hasQ="zip")
 def get_zip(self: SH, *args, **kwargs):
 	"""Return ZIP file if available
 	Else return progress of the task"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 		
 		
 		
@@ -437,7 +480,7 @@ def get_zip(self: SH, *args, **kwargs):
 		return self.send_json({
 			"status": status,
 			"message": msg
-		})
+		}, cookie=cookie)
 
 	if not os.path.isdir(path):
 		msg = "Folder not found. Failed to create zip"
@@ -464,7 +507,7 @@ def get_zip(self: SH, *args, **kwargs):
 		if query("download"):
 			path = zip_manager.zip_ids[id]
 
-			return self.return_file(path, filename, True)
+			return self.return_file(path, filename, True, cookie=cookie)
 
 
 		if query("progress"):
@@ -483,29 +526,75 @@ def get_zip(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="json")
 def send_ls_json(self: SH, *args, **kwargs):
 	"""Send directory listing in JSON format"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 		
 
 	return list_directory_json(self)
 
+
+
+
+@SH.on_req('HEAD', hasQ=("vid", "vid-data"))
+def send_video_data(self: SH, *args, **kwargs):
+	# SEND VIDEO DATA
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
+	
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+
+	
+	vid_source = url_path
+
+	content_type = self.guess_type(path)
+
+	if not content_type.startswith('video/'):
+		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
+		return None
+	
+	
+	displaypath = self.get_displaypath(url_path)
+
+	title = get_titles(displaypath, file=True)
+
+	
+	warning = ""
+
+	if content_type not in ['video/mp4', 'video/ogg', 'video/webm']:
+		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
+
+	return self.send_json({
+		"status": "success",
+		"warning": warning,
+		"video": vid_source,
+		"title": displaypath.split("/")[-1],
+		"content_type": content_type,
+	}, cookie=cookie)
+
+
+
 @SH.on_req('HEAD', hasQ="vid")
 def send_video_page(self: SH, *args, **kwargs):
 	# SEND VIDEO PLAYER
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 		
 
 	path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
 
 	vid_source = url_path
-	if not self.guess_type(path).startswith('video/'):
-		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE")
+	content_type = self.guess_type(path)
+
+	if not content_type.startswith('video/'):
+		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
 		return None
 
 	r = []
@@ -520,22 +609,11 @@ def send_video_page(self: SH, *args, **kwargs):
 													PY_PUBLIC_URL=CoreConfig.address(),
 													PY_DIR_TREE_NO_JS= dir_navigator(displaypath)))
 
-	content_type = self.guess_type(path)
-	warning = ""
-
-	if content_type not in ['video/mp4', 'video/ogg', 'video/webm']:
-		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
-
-
-	r.append(pt.video_script().safe_substitute(PY_VID_SOURCE=vid_source,
-												PY_FILE_NAME = displaypath.split("/")[-1],
-												PY_CONTENT_TYPE=content_type,
-												PY_UNSUPPORTED_WARNING=warning))
-
-
-
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-	return self.return_txt(encoded)
+	return self.return_txt(encoded, cookie=cookie)
+
+
+
 
 
 
@@ -584,10 +662,28 @@ def send_theme_script(self: SH, *args, **kwargs):
 	"""Send theme script"""
 	return self.send_script(pt.theme_script())
 
+@SH.on_req('HEAD', hasQ="page_handler_script")
+def send_page_handler_script(self: SH, *args, **kwargs):
+	"""Send page handler script"""
+	return self.send_script(pt.page_handler_script())
+
+@SH.on_req('HEAD', hasQ="video_page_script")
+def send_video_script(self: SH, *args, **kwargs):
+	"""Send video script"""
+	return self.send_script(pt.video_page_script())
+
+@SH.on_req('HEAD', hasQ="admin_page_script")
+def send_admin_script(self: SH, *args, **kwargs):
+	"""Send admin script"""
+	return self.send_script(pt.admin_page_script())
+
 @SH.on_req('HEAD', hasQ="file_list_script")
 def send_file_list_script(self: SH, *args, **kwargs):
 	"""Send file list script"""
 	return self.send_script(pt.file_list_script())
+
+
+
 
 @SH.on_req('HEAD', hasQ="login")
 def login_page(self: SH, *args, **kwargs):
@@ -602,20 +698,53 @@ def signup_page(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="get_users")
 def get_users(self: SH, *args, **kwargs):
 	"""Send list of users"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user:
 		return self.send_text(pt.login_page(), 403)
+		
+	if not user.is_admin():
+		return self.send_error("You are not authorized to perform this action", 403, cookie=cookie)
+		
 	
-	return self.send_json(Sconfig.get_users())
+	
+	return self.send_json(Sconfig.get_users(), cookie=cookie)
 
 
+
+
+
+
+
+
+
+@SH.on_req('HEAD', hasQ="folder_data")
+def get_folder_data(self: SH, *args, **kwargs):
+	"""Send folder data"""
+	user, cookie = Authorize_user(self) 
+	
+	if not user:
+		return self.send_text(pt.login_page(), 403)
+		
+	path = kwargs.get('path', '')
+	
+	if not user.VIEW:
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You don't have permission to view this folder", cookie=cookie)
+	
+	if not os.path.isdir(path):
+		return self.send_json({"status": 0,
+								"warning": "Folder not found"}, cookie=cookie)
+	
+	data = list_directory(self, path, user, cookie=cookie)
+	
+	if data:
+		return self.send_json(data, cookie=cookie)
 
 
 @SH.on_req('HEAD')
 def default_get(self: SH, filename=None, *args, **kwargs):
 	"""Serve a GET request."""
-	user = Authorize_user(self)
+	user, cookie = Authorize_user(self)
 
 	print("/"*50)
 	print(user.permission)
@@ -645,7 +774,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 				path = index
 				break
 		else:
-			return list_directory_html(self, path, user)
+			return list_directory_html(self, path, user, cookie=cookie)
 
 	# check for trailing "/" which should return 404. See Issue17324
 	# The test for this was added in test_httpserver.py
@@ -662,10 +791,11 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# else:
 
 	if (not user.DOWNLOAD) or user.NOPERMISSION:
-		if not os.path.exists(path):
-			return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Download is disabled")
-	return self.return_file(path, filename)
+		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Download is disabled", cookie=cookie)
+		
+	if not os.path.exists(path):
+		return self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie=cookie)
+	return self.return_file(path, filename, cookie=cookie)
 
 
 
@@ -715,14 +845,14 @@ def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 @SH.on_req('POST', hasQ="upload")
 def upload(self: SH, *args, **kwargs):
 	"""GET Uploaded files"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), 403)
 		
 		
 	if user.NOPERMISSION or (not user.UPLOAD):
-		return self.send_txt("Upload not allowed", HTTPStatus.SERVICE_UNAVAILABLE)
+		return self.send_txt("Upload not allowed", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 
 	path = kwargs.get('path')
@@ -752,12 +882,12 @@ def upload(self: SH, *args, **kwargs):
 	if password != CoreConfig.PASSWORD: # readline returns password with \r\n at end
 		self.log_info(f"Incorrect password by {uid}")
 
-		return self.send_txt("Incorrect password", HTTPStatus.UNAUTHORIZED)
+		return self.send_txt("Incorrect password", HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	while post.remainbytes > 0:
 		fn = form.get_file_name() # reads the next line and returns the file name
 		if not fn:
-			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...")
+			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...", cookie=cookie)
 
 
 		path = self.translate_path(self.path)
@@ -805,7 +935,7 @@ def upload(self: SH, *args, **kwargs):
 
 		except (IOError, OSError):
 			traceback.print_exc()
-			return self.send_txt("Can't create file to write, do you have permission to write?", HTTPStatus.SERVICE_UNAVAILABLE)
+			return self.send_txt("Can't create file to write, do you have permission to write?", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 		finally:
 			try:
@@ -817,7 +947,7 @@ def upload(self: SH, *args, **kwargs):
 
 
 
-	return self.return_txt("File(s) uploaded")
+	return self.return_txt("File(s) uploaded", cookie=cookie)
 
 
 
@@ -826,14 +956,14 @@ def upload(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-f")
 def del_2_recycle(self: SH, *args, **kwargs):
 	"""Move 2 recycle bin"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 		
 		
 	if user.NOPERMISSION or (not user.DELETE):
-		return self.send_json({"head": "Failed", "body": "You have no permission to delete."})
+		return self.send_json({"head": "Failed", "body": "You have no permission to delete."}, cookie=cookie)
 
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
@@ -846,7 +976,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	form = post.form
 
 	if CoreConfig.disabled_func["send2trash"]:
-		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."}, cookie=cookie)
 
 
 
@@ -873,7 +1003,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 		traceback.print_exc()
 		msg = "<b>" + path + "</b> " + e.__class__.__name__
 
-	return self.send_json({"head": head, "body": msg})
+	return self.send_json({"head": head, "body": msg}, cookie=cookie)
 
 
 
@@ -882,14 +1012,14 @@ def del_2_recycle(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-p")
 def del_permanently(self: SH, *args, **kwargs):
 	"""DELETE files permanently"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), 403)
 		
 		
 	if user.NOPERMISSION or (not user.DELETE):
-		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."}, cookie=cookie)
 
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
@@ -916,12 +1046,12 @@ def del_permanently(self: SH, *args, **kwargs):
 		if os.path.isfile(xpath): os.remove(xpath)
 		else: shutil.rmtree(xpath)
 
-		return self.send_json({"head": "Success", "body": "PERMANENTLY DELETED  " + path + post.refresh})
+		return self.send_json({"head": "Success", "body": "PERMANENTLY DELETED  " + path + post.refresh}, cookie=cookie)
 
 
 	except Exception as e:
 		traceback.print_exc()
-		return self.send_json({"head": "Failed", "body": "<b>" + path + "<b>" + e.__class__.__name__})
+		return self.send_json({"head": "Failed", "body": "<b>" + path + "<b>" + e.__class__.__name__}, cookie=cookie)
 
 
 
@@ -930,14 +1060,14 @@ def del_permanently(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="rename")
 def rename_content(self: SH, *args, **kwargs):
 	"""Rename files"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 		
 
 	if user.NOPERMISSION or (not user.MODIFY):
-		return self.send_json({"head": "Failed", "body": "Renaming is disabled."})
+		return self.send_json({"head": "Failed", "body": "Renaming is disabled."}, cookie=cookie)
 
 
 	path = kwargs.get('path')
@@ -970,9 +1100,9 @@ def rename_content(self: SH, *args, **kwargs):
 
 	try:
 		os.rename(xpath, new_path)
-		return self.send_json({"head": "Renamed Successfully", "body":  post.refresh})
+		return self.send_json({"head": "Renamed Successfully", "body":  post.refresh}, cookie=cookie)
 	except Exception as e:
-		return self.send_json({"head": "Failed", "body": "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) })
+		return self.send_json({"head": "Failed", "body": "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) }, cookie=cookie)
 
 
 
@@ -981,14 +1111,14 @@ def rename_content(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="info")
 def get_info(self: SH, *args, **kwargs):
 	"""Get files permanently"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), 403)
+		return self.send_text(pt.login_page(), 403, cookie=cookie)
 		
 	
 	if user.NOPERMISSION:
-		return self.send_json({"head": "Failed", "body": "You have no permission to view."})
+		return self.send_json({"head": "Failed", "body": "You have no permission to view."}, cookie=cookie)
 
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
@@ -1017,11 +1147,11 @@ def get_info(self: SH, *args, **kwargs):
 	self.log_warning(f'Info Checked "{xpath}" by: {[uid]}')
 
 	if not os.path.exists(xpath):
-		return self.send_json({"head":"Failed", "body":"File/Folder Not Found"})
+		return self.send_json({"head":"Failed", "body":"File/Folder Not Found"}, cookie=cookie)
 
 	file_stat = get_stat(xpath)
 	if not file_stat:
-		return self.send_json({"head":"Failed", "body":"Permission Denied"})
+		return self.send_json({"head":"Failed", "body":"Permission Denied"}, cookie=cookie)
 
 	data = []
 	data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
@@ -1096,20 +1226,19 @@ tr:nth-child(even) {
 		body += "<tr><td>{key}</td><td>{val}</td></tr>".format(key=key, val=val)
 	body += "</table>"
 
-	return self.send_json({"head":"Properties", "body":body, "script":script})
-
+	return self.send_json({"head":"Properties", "body":body, "script":script}, cookie=cookie)
 
 
 @SH.on_req('POST', hasQ="new_folder")
 def new_folder(self: SH, *args, **kwargs):
 	"""Create new folder"""
-	user = Authorize_user(self) 
+	user, cookie = Authorize_user(self) 
 	
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), 403)
 		
 	if user.NOPERMISSION or (not user.MODIFY):
-		return self.send_json({"head": "Failed", "body": "Permission denied."})
+		return self.send_json({"head": "Failed", "body": "Permission denied."}, cookie=cookie)
 		
 		
 	path = kwargs.get('path')
@@ -1127,7 +1256,7 @@ def new_folder(self: SH, *args, **kwargs):
 
 	xpath = filename
 	if xpath.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in xpath or '\\..\\' in xpath or xpath.endswith(('/..', '\\..')):
-		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + path})
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + path}, cookie=cookie)
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
 
@@ -1136,15 +1265,15 @@ def new_folder(self: SH, *args, **kwargs):
 
 	try:
 		if os.path.exists(xpath):
-			return self.send_json({"head": "Failed", "body": "Folder Already Exists:  " + path})
+			return self.send_json({"head": "Failed", "body": "Folder Already Exists:  " + path}, cookie=cookie)
 		if os.path.isfile(xpath):
-			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + path})
+			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + path}, cookie=cookie)
 		os.makedirs(xpath)
-		return self.send_json({"head": "Success", "body": "New Folder Created:  " + path +post.refresh})
+		return self.send_json({"head": "Success", "body": "New Folder Created:  " + path +post.refresh}, cookie=cookie)
 
 	except Exception as e:
 		self.log_error(traceback.format_exc())
-		return self.send_json({"head": "Failed", "body": f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b>"})
+		return self.send_json({"head": "Failed", "body": f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b>"}, cookie=cookie)
 
 
 
