@@ -191,6 +191,18 @@ class Tools {
 		}
 	}
 
+	/**
+	 * Adds a script element to the document body with the specified URL.
+	 * @param {string} url - The URL of the script to add.
+	 * @returns {HTMLScriptElement} The newly created script element.
+	 */
+	add_script(url){
+		var script = createElement('script');
+		script.src = url;
+		document.body.appendChild(script);
+
+		return script;
+	}
 
 	/**
 	 * Enables debugging mode by adding the eruda script to the document head.
@@ -205,9 +217,7 @@ class Tools {
 			return
 		}
 		config.Debugging = true;
-		var script = createElement('script');
-		script.src = "//cdn.jsdelivr.net/npm/eruda";
-		document.head.appendChild(script);
+		var script = this.add_script("//cdn.jsdelivr.net/npm/eruda");
 		script.onload = function() {
 			eruda.init()
 		};
@@ -287,6 +297,35 @@ class Tools {
 		fake_a.href = rel_path;
 		return fake_a.href;
 	}
+
+
+
+	
+	/**
+	 * Adds a query parameter to the given URL.
+	 *
+	 * @param {string} url - The URL to add the query parameter to.
+	 * @param {string} query - The name of the query parameter to add.
+	 * @param {string} [value=''] - The value of the query parameter to add.
+	 * @returns {string} The updated URL with the added query parameter.
+	 */
+	add_query(url, query, value=''){
+		const url_obj = new URL(url);
+		url_obj.searchParams.set(query, value);
+
+		return url_obj.href;
+	}
+
+	/**
+	 * Adds a query parameter to the current URL and returns the modified URL.
+	 * @param {string} query - The query parameter to add.
+	 * @param {string} [value=''] - The value of the query parameter. Defaults to an empty string.
+	 * @returns {string} The modified URL with the added query parameter.
+	 */
+	add_query_here(query, value=''){
+		return this.add_query(window.location.href, query, value);
+	}
+
 
 
 	/**
