@@ -1,11 +1,12 @@
 import os
+from typing import Union
 
 from _fs_utils import get_titles, dir_navigator
 from pyroDB import PickleTable
 import user_mgmt as u_mgmt
 from user_mgmt import User
 
-from pyroboxCore import config as CoreConfig, SimpleHTTPRequestHandler as SH_base
+from pyroboxCore import config as CoreConfig, SimpleHTTPRequestHandler as SH_base, SimpleCookie
 
 
 from string import Template
@@ -178,7 +179,7 @@ class ServerHost(SH_base):
 		super().__init__(*args, **kwargs)
 
 
-	def html_main_page(self, user:User, *args, **kwargs):
+	def html_main_page(self, user:User, *args, cookie:Union[SimpleCookie, str]=None,  **kwargs):
 		"""
 		Return HTML page for the directory listing
 		"""
@@ -197,10 +198,10 @@ class ServerHost(SH_base):
 			PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
 			*args, **kwargs)
 		
-		return self.send_text(_format)
+		return self.send_text(_format,  cookie=cookie)
 
 
-	def send_error(self, code, message=None, explain=None):
+	def send_error(self, code, message=None, explain=None, cookie:Union[SimpleCookie, str]=None):
 		print("ERROR", code, message, explain)
 
 		displaypath = self.get_displaypath(self.url_path)
@@ -212,4 +213,4 @@ class ServerHost(SH_base):
 			PY_PUBLIC_URL=CoreConfig.address(),
 			PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
-		return super().send_error(code, message, explain, Template(_format))
+		return super().send_error(code, message, explain, Template(_format), cookie=cookie)

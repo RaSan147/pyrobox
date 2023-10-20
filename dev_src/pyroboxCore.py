@@ -693,7 +693,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		while not self.close_connection:
 			self.handle_one_request()
 
-	def send_error(self, code, message=None, explain=None, error_message_format: Template = None):
+	def send_error(self, code, message=None, explain=None, error_message_format: Template = None, cookie:Union[SimpleCookie, str]=None):
 		"""Send and log an error reply.
 
 		Arguments are
@@ -733,6 +733,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			explain = longmsg
 		self.log_error("code", code, "message", message)
 		self.send_response(code, message)
+		
+		self._send_cookie(cookie=cookie)
+		
 		self.send_header('Connection', 'close')
 
 		# Message body is omitted for cases described in:
@@ -799,6 +802,17 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				continue
 			tag, _, msg = i.partition(":")
 			self.send_header(tag.strip(), msg.strip())
+			
+		
+	def _send_cookie(self, cookie:Union[SimpleCookie, str]=None):
+		"""Must send cookie after self.send_response(XXX)"""
+		if cookie is not None:
+			if isinstance(cookie, SimpleCookie):
+				cookie = cookie.output()
+				
+			self.send_header_string(cookie)
+			
+		
 
 
 	def send_header(self, keyword, value):
@@ -1163,8 +1177,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.send_response(302)
 		self.send_header("Location", location)
 		self.end_headers()
+	
+		
 
-	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8"):
+	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''returns only the head to client
 		and returns a file object to be used by copyfile'''
 		self.log_debug(f'[RETURNED] {code} to client')
@@ -1185,51 +1201,56 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		box.seek(0)
 
 		self.send_response(code)
+		
+		self._send_cookie(cookie)
+		
+		
+		
 		self.send_header("Content-Type", content_type)
 		self.send_header("Content-Length", str(len(encoded)))
 		self.end_headers()
 		return box
 
-	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8"):
+	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
-		file = self.return_txt(msg, code, content_type)
+		file = self.return_txt(msg, code, content_type, cookie)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
 		file.close()
 
-	def send_text(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8"):
+	def send_text(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''proxy to send_txt'''
-		self.send_txt(msg, code, content_type)
+		self.send_txt(msg, code, content_type, cookie)
 
-	def return_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8"):
+	def return_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''proxy to send_txt'''
-		return self.return_txt(msg, code, content_type)
+		return self.return_txt(msg, code, content_type, cookie)
 
 	def send_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8"):
 		'''proxy to send_txt'''
 		return self.send_txt(msg, code, content_type)
 
-	def return_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8"):
+	def return_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''proxy to send_txt'''
-		return self.return_txt(msg, code, content_type)
+		return self.return_txt(msg, code, content_type, cookie)
 
 	def send_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8"):
 		'''proxy to send_txt'''
 		return self.send_txt(msg, code, content_type)
 
-	def send_json(self, obj:Union[object, str, bytes], code=200):
+	def send_json(self, obj:Union[object, str, bytes], code=200, cookie:Union[SimpleCookie, str]=None):
 		"""send object as json
 		obj: json-able object or json.dumps() string"""
 		if not isinstance(obj, str):
 			obj = json.dumps(obj, indent=1)
-		file = self.return_txt(obj, code, content_type="application/json")
+		file = self.return_txt(obj, code, content_type="application/json", cookie=cookie)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
 		file.close()
 
-	def return_file(self, path, filename=None, download=False, cache_control=""):
+	def return_file(self, path, filename=None, download=False, cache_control="", cookie:Union[SimpleCookie, str]=None):
 		file = None
 		is_attachment = "attachment;" if (self.query("dl") or download) else ""
 
@@ -1290,10 +1311,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					last = file_len - 1
 
 				if first >= file_len:  # PAUSE AND RESUME SUPPORT
-					self.send_error(416, 'Requested Range Not Satisfiable')
+					self.send_error(416, 'Requested Range Not Satisfiable', cookie=cookie)
 					return None
 
 				self.send_response(206)
+				self._send_cookie(cookie=cookie)
+				
 				self.send_header('Accept-Ranges', 'bytes')
 
 				response_length = last - first + 1
@@ -1304,6 +1327,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			else:
 				self.send_response(HTTPStatus.OK)
+				self._send_cookie(cookie)
 
 				self.send_header("Content-Length", str(file_len))
 
@@ -1324,11 +1348,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return file
 
 		except PermissionError:
-			self.send_error(HTTPStatus.FORBIDDEN, "Permission denied")
+			self.send_error(HTTPStatus.FORBIDDEN, "Permission denied", cookie)
 			return None
 
 		except OSError:
-			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+			self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie)
 			return None
 
 		except Exception:
@@ -1337,9 +1361,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			# if f and not f.closed(): f.close()
 			raise
 
-	def send_file(self, path, filename=None, download=False, cache_control=''):
+	def send_file(self, path, filename=None, download=False, cache_control='', cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
-		file = self.return_file(path, filename, download, cache_control)
+		file = self.return_file(path, filename, download, cache_control, cookie=cookie)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		try:
