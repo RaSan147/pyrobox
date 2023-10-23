@@ -43,7 +43,7 @@ const public_url = "${PY_PUBLIC_URL}";
 <div id='TopBar' class='top_bar'>
 
 	<span id="dir-tree">${PY_DIR_TREE_NO_JS}</span>
-	
+
 
 	<button class="open-sidebar-btn" onclick="sidebar_control.toggleNavR()" style='float: right;'><span>
 		<span class='nav-btn-text'>Menu</span> <span class="fa fa-thin fa-ellipsis-stroke-vertical">&vellip;</span></span>
@@ -65,23 +65,23 @@ const public_url = "${PY_PUBLIC_URL}";
 		<div id="note_button" class="accordion accordion-button" onclick="appConfig.show_author_note()">User Panel</div>
 		<div id="commands_button" class="accordion accordion-button" onclick="appConfig.show_help_note()">Preference</div>
 	</div>
-	
-	
+
+
 	<div class='sidebar-end'></div>
 
 
-	
+
 </div>
 
 
 <div id="actions-btn" class="disable_selection jsonly" onclick="page.on_action_button()"><span class="fa fa-solid fa-plus"><b>+</b></span></div>
 <div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
-	<span id="progress-uploads">Running Uploads 
+	<span id="progress-uploads">Running Uploads
 	<span id="progress-uploads-count">(0/0)</span></span>
 
 	<br>
 
-	<span id="progress-zips">Running Zips 
+	<span id="progress-zips">Running Zips
 	<span id="progress-zips-count">(0/0)</span></span>
 </div>
 
@@ -91,7 +91,7 @@ const public_url = "${PY_PUBLIC_URL}";
 
 	<!-- Contains all the files -->
 
-	<div id="fm_page">
+	<div id="fm_page" class="page">
 		<div id="content_list">
 
 			<ul id="linkss">
@@ -106,13 +106,13 @@ const public_url = "${PY_PUBLIC_URL}";
 		</div>
 	</div>
 
-	<div id="video_page" class="jsonly">
+	<div id="video-page" class="page">
 		<p><b>Watching:</b> <span id="player_title"></span></p>
 
-		<h2 id="player_warning"></h2>
+		<h2 id="player-warning"></h2>
 
 		<div id="container">
-			<video controls crossorigin playsinline data-poster="https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg" id="player">
+			<video controls crossorigin playsinline id="player">
 
 				<source id="player_source" />
 			</video>
@@ -122,40 +122,44 @@ const public_url = "${PY_PUBLIC_URL}";
 
 	</div>
 
-	<div id="admin_page" class="jsonly">
-		
+	<div id="admin_page" class="page">
+
 		<h1 style="text-align: center;">Admin Page</h1>
 		<hr>
 
 
+		<div class="jsonly">
+
+			<!-- check if update available -->
+
+			<div>
+				<p class="update_text" id="update_text">Checking for Update...</p>
+				<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
+				<br><br>
+			</div>
+
+			<div>
+				<table class="users_list">
+					<tr>
+						<th>Username</th>
+						<th>Permissions</th>
+						<th>Actions</th>
+					</tr>
+				</table>
+			</div>
 
 
-		<!-- check if update available -->
 
-		<div>
-			<p class="update_text" id="update_text">Checking for Update...</p>
-			<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
-			<br><br>
+			<div class='pagination jsonly' onclick="admin_tools.request_reload()">RELOAD SERVER 🧹</div>
+			<noscript><a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br></noscript>
+			<hr>
+
+			<div class='pagination jsonly' onclick="admin_tools.request_shutdown()">Shut down 🔻</div>
 		</div>
 
-		<div>
-			<table class="users_list">
-				<tr>
-					<th>Username</th>
-					<th>Permissions</th>
-					<th>Actions</th>
-				</tr>
-			</table>
-		</div>
-
-
-
-		<div class='pagination jsonly' onclick="request_reload()">RELOAD SERVER 🧹</div>
-		<noscript><a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br></noscript>
-		<hr>
-
-		<div class='pagination jsonly' onclick="request_shutdown()">Shut down 🔻</div>
-
+		<noscript>
+			<h2>This page requires JS enabled</h2>
+		</noscript>
 	</div>
 </div>
 
@@ -165,7 +169,7 @@ const public_url = "${PY_PUBLIC_URL}";
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
 
 <script src="?global_script"></script>
-<script src="?asset_script"></script> 
+<script src="?asset_script"></script>
 
 <script src="?file_list_script"></script>
 <script src="?theme_script"></script>

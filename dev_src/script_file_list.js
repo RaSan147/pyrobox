@@ -9,7 +9,7 @@ class FM_Page{
 		this.type = "dir"
 
 		this.my_part = document.getElementById("fm_page")
-		
+
 	}
 
 	on_action_button(){
@@ -40,16 +40,16 @@ class FM_Page{
 
 		page.set_title(title)
 
-		
+
 		show_file_list();
 	}
 
 	hide(){
-		this.my_part.style.display = "none";
+		this.my_part.classList.remove("active");
 	}
 
 	show(){
-		this.my_part.style.display = "block";
+		this.my_part.classList.add("active");
 	}
 
 	clear(){
@@ -69,7 +69,7 @@ class UploadManager {
 		this.requests = {}
 		this.status = {}
 		/* Data Structure
-		{index: form_element, ...} 
+		{index: form_element, ...}
 		*/
 
 		var form = null;
@@ -82,7 +82,7 @@ class UploadManager {
 				return;
 			}
 			that.drag_pop_open = true;
-			
+
 			form = upload_man.new()
 			popup_msg.createPopup("Upload Files", form, true, onclose=()=>{
 				that.drag_pop_open = false;
@@ -90,13 +90,13 @@ class UploadManager {
 			popup_msg.open_popup();
 
 		};
-			
+
 			//If user leave dragged File from DropArea
 		file_list.ondragleave = (event)=>{
 			event.preventDefault(); //preventing from default behavior
 			// form.remove();
 		};
-			
+
 			//If user drop File on DropArea
 		file_list.ondrop = (event)=>{
 			event.preventDefault(); //preventing from default behavior
@@ -145,7 +145,7 @@ class UploadManager {
 		pass_input.className = "upload-pass-box";
 		center.appendChild(pass_input)
 
-		
+
 		let up_files = createElement("input")
 		up_files.type = "file";
 		up_files.name = "file";
@@ -197,13 +197,13 @@ class UploadManager {
 				uploader_dragArea.classList.add("active");
 				up_text.innerText = "Release to Upload File";
 			};
-			
+
 			//If user leave dragged File from DropArea
 			uploader_dragArea.ondragleave = ()=>{
 				uploader_dragArea.classList.remove("active");
 				up_text.innerText = "Drag & Drop to Upload File";
 			};
-			
+
 			//If user drop File on DropArea
 			uploader_dragArea.ondrop = (event)=>{
 				event.preventDefault(); //preventing from default behavior
@@ -217,7 +217,7 @@ class UploadManager {
 
 		uploader_box.appendChild(uploader_dragArea)
 		center.appendChild(uploader_box)
-		
+
 
 		Form.appendChild(center)
 
@@ -247,10 +247,10 @@ class UploadManager {
 		submit_button.className = "drag-browse upload-button";
 
 		center2.appendChild(submit_button)
-		
+
 		center2.appendChild(createElement("br"))
 		center2.appendChild(createElement("br"))
-		
+
 		let upload_pop_status_label = createElement("span")
 		upload_pop_status_label.innerText = "Status: ";
 		let upload_pop_status = createElement("span")
@@ -259,7 +259,7 @@ class UploadManager {
 		upload_pop_status_label.appendChild(upload_pop_status)
 		upload_pop_status_label.style.display = "none";
 		center2.appendChild(upload_pop_status_label)
-		
+
 		Form.appendChild(center2)
 
 		let prog_id = null;
@@ -293,30 +293,30 @@ class UploadManager {
 			submit_button.innerText = "⏹️ Cancel";
 
 			popup_msg.close()
-		
+
 			up_files.files = selected_files.files // Assign the updates list
-		
-		
+
+
 			const formData = new FormData(e.target)
-		
+
 			prog_id = prog_id || progress_bars.new('upload', index, window.location.href) // Create a new progress bar if not already created
 			Form.prog_id = prog_id // Save the progress bar id for later use
 
 
 
-			var prog = 0, 
+			var prog = 0,
 			msg = "",
 			color = "green"
 			status = "waiting"
 
-			
+
 			progress_bars.update(prog_id, {
 						"status_text": "Waiting",
 						"status_color": color,
 						"status": "waiting",
 						"percent": 0})
 
-		
+
 			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
 
 			request.open(e.target.method, e.target.action)
@@ -340,20 +340,20 @@ class UploadManager {
 						status = "done"
 					}
 
-					
+
 					progress_bars.update(prog_id, {
 						"status_text": msg,
 						"status_color": color,
 						"status": status,
 						"percent": prog})
-						
+
 					submit_button.innerText = "➾ Re-upload";
 					if (!that.status[index]){
 						return// needs to check this.status[index] because the user might have cancelled the upload but its still called. On cancel already a toast is shown
 					}
 					show_status(msg)
 
-					if (status === "error") { 
+					if (status === "error") {
 						msg = "Upload Failed"
 					} else {
 						msg = "Upload Complete"
@@ -361,7 +361,7 @@ class UploadManager {
 					toaster.toast(msg, 3000, color)
 
 					that.status[index] = false
-					
+
 				}
 			}
 			request.upload.onprogress = e => {
@@ -373,8 +373,8 @@ class UploadManager {
 					msg = `Progress`
 					show_status(msg + " "+prog + "%")
 				}
-				
-				
+
+
 				progress_bars.update(prog_id, {
 						"status_text": msg,
 						"status_color": "green",
@@ -386,7 +386,7 @@ class UploadManager {
 
 
 		let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
-		
+
 
 
 		/**
@@ -417,7 +417,7 @@ class UploadManager {
 			};
 			return 0 // false;
 		}
-		
+
 
 		/**
 		 * Adds files to the selected files list and replaces any existing file with the same name.
@@ -425,16 +425,16 @@ class UploadManager {
 		 */
 		function addFiles(files) {
 			var exist = false;
-			
+
 			for (let i = 0; i < files.length; i++) {
 				const file = files[i];
 				exist = uploader_exist(file)
-		
+
 				if (exist) {
-					// if file already selected, 
-					// remove that and replace with 
-					// new one, because, when uploading 
-					// last file will remain in host server, 
+					// if file already selected,
+					// remove that and replace with
+					// new one, because, when uploading
+					// last file will remain in host server,
 					// so we need to replace it with new one
 					toaster.toast("File already selected", 1500);
 					selected_files.items.remove(exist-1);
@@ -444,27 +444,27 @@ class UploadManager {
 			log("selected "+ selected_files.items.length+ " files");
 			uploader_showFiles();
 		}
-		
+
 		function uploader_removeFileFromFileList(index) {
 			let dt = new DataTransfer()
 			// const input = byId('files')
 			// const { files } = input
-			
+
 			for (let i = 0; i < selected_files.files.length; i++) {
 				let file = selected_files.files[i]
 				if (index !== i) {
 					dt.items.add(file) // here you exclude the file. thus removing it.
 				}
 			}
-		
+
 			selected_files = dt
 			// uploader_input.files = dt // Assign the updates list
 			uploader_showFiles()
 		}
-		
+
 		function uploader_showFiles() {
 			tools.del_child(uploader_file_display)
-			
+
 			if(selected_files.files.length){
 				uploader_file_container.style.display = "contents"
 			} else {
@@ -475,15 +475,15 @@ class UploadManager {
 				uploader_showFile(selected_files.files[i], i);
 			};
 		}
-		
-		
+
+
 		function uploader_showFile(file, index){
 			let filename = file.name;
 			let size = fmbytes(file.size);
-		
+
 			let item = createElement("table");
 			item.className = "upload-file-item";
-			
+
 			let fname = createElement("td");
 			fname.className = "ufname";
 			fname.innerText = filename;
@@ -505,16 +505,16 @@ class UploadManager {
 			}
 			fremove.appendChild(fremove_icon);
 			item.appendChild(fremove);
-		
+
 			uploader_file_display.appendChild(item);
-		
+
 		}
-		
+
 
 
 		return Form;
 
-	
+
 	}
 
 	up_stat(form, stat=null) {
@@ -534,7 +534,7 @@ class UploadManager {
 		let request = this.requests[index];
 		let form = this.uploaders[index];
 		let prog_id = form.prog_id;
-		
+
 		if(form){
 			form.querySelector(".upload-button").innerText = "➾ Upload";
 		}
@@ -543,7 +543,7 @@ class UploadManager {
 			"status_color": "red",
 			"status": "error",
 			"percent": 0})
-			
+
 
 		if(this.status[index]){
 			this.status[index] = false;
@@ -554,7 +554,7 @@ class UploadManager {
 
 			return true;
 		}
-			
+
 		return false;
 	}
 
@@ -637,7 +637,7 @@ class FileManager {
 const fm = new FileManager();
 
 
-	
+
 function show_file_list() {
 	tools.del_child("linkss"); // clear the links since they are no js compatible
 
@@ -722,7 +722,7 @@ function show_file_list() {
 
 		link.oncontextmenu = function(ev) {
 			ev.preventDefault()
-			
+
 			context_menu.show_menus(r_, name, type);
 			return false;
 		}

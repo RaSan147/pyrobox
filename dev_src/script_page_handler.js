@@ -4,9 +4,9 @@ class Page{
 		this.container = byId('content_container')
 		this.type = null;
 		this.handler = null;
-		
+
 		this.dir_tree = document.getElementById("dir-tree")
-		
+
 		this.dir_tree.scrollLeft = this.dir_tree.scrollWidth;
 		// convert scroll to horizontal
 		this.dir_tree.onwheel = function(event) {
@@ -19,14 +19,14 @@ class Page{
 			})
 			event.deltaY < 0;
 		}
-		
+
 		this.initialize()
 	}
-	
+
 	get_type(){
 		const url = tools.add_query_here('type', '');
 		return fetch(url)
-					.then(data => {return data.text()}) 
+					.then(data => {return data.text()})
 	}
 
 	hide_all(){
@@ -38,24 +38,41 @@ class Page{
 	clear(){
 		this.handler.clear()
 	}
-	
+
 	async initialize(){
+		// for(let t=3; t>0; t--){
+		// 	console.log("Loading page in " + t)
+		// 	await tools.sleep (1000)
+		// }
 		this.container.style.display = "none"
 		this.hide_all()
 		this.update_displaypath()
 
 		this.type = await this.get_type()
 		var type = this.type
-		
+
+		var old_handler = this.handler
+
+		this.handler = null
+
 
 		if (type == 'dir') {
 			this.handler = fm_page;
 		} else if (type == 'vid') {
 			this.handler = video_page;
+		} else if (type == "admin") {
+			this.handler = admin_page;
 		}
 
-		this.handler.initialize()
-		this.handler.show()
+		if (this.handler){
+			this.handler.initialize()
+			this.handler.show()
+		} else {
+			popup_msg.createPopup("This type of page is not ready yet")
+			popup_msg.show()
+
+			this.handler = old_handler;
+		}
 
 
 		this.container.style.display = "block"

@@ -1,4 +1,3 @@
-
 class Admin_page {
 	constructor(){
 		this.my_part = byId("admin_page")
@@ -9,11 +8,13 @@ class Admin_page {
 	}
 
 	show(){
-		byId("admin_page").style.display = "block";
+		this.my_part.classList.add("active");
+		updater.check_update();
+		admin_tools.get_users();
 	}
 
 	hide(){
-		byId("admin_page").style.display = "none";
+		this.my_part.classList.remove("active");
 	}
 
 	on_action_button() {
@@ -29,7 +30,7 @@ class Admin_page {
 	}
 }
 
-const admin_page = new Admin_page()
+var admin_page = new Admin_page()
 
 
 class Updater{
@@ -81,13 +82,12 @@ class Updater{
 }
 
 var updater = new Updater();
-updater.check_update();
+
 
 
 class Admin_tools {
 	constructor(){
 		this.user_list = [];
-		this.get_users();
 	}
 
 	async get_users() {
@@ -111,14 +111,14 @@ class Admin_tools {
 
 		for (i = 0; i < this.user_list.length; i++) {
 			var row = table.insertRow(-1);
-			row.innerHTML = "<td>" + this.user_list[i] + "</td><td><div class='pagination' onclick='admin_tools.update_user_perm(" + i + 
-				")'>Permissions</div></td></td><td><div class='pagination' onclick='admin_tools.delete_user(" + i + 
+			row.innerHTML = "<td>" + this.user_list[i] + "</td><td><div class='pagination' onclick='admin_tools.update_user_perm(" + i +
+				")'>Permissions</div></td></td><td><div class='pagination' onclick='admin_tools.delete_user(" + i +
 					")'>Delete</div></td>";
 		}
 	}
 
 	show_perms(index) {
-		
+
 	}
 
 	update_user_perm(index) {
@@ -159,10 +159,10 @@ class Admin_tools {
 			.then(data => {
 				popup_msg.createPopup(data)
 			})
-	
+
 		}});
 	}
-	
+
 	request_shutdown() {
 		r_u_sure({y:()=>{
 			fetch('/?shutdown')
@@ -170,7 +170,7 @@ class Admin_tools {
 			.then(data => {
 				popup_msg.createPopup(data)
 			})
-	
+
 		}});
 	}
 }
