@@ -2,7 +2,7 @@ class Video_Page {
 	constructor() {
 		this.type = "vid"
 
-		this.my_part = document.getElementById("video_page")
+		this.my_part = document.getElementById("video-page")
 
 		this.controls = [
 			'play-large', // The large play button in the center
@@ -22,27 +22,30 @@ class Video_Page {
 			//'download', // Show a download button with a link to either the current source or a custom URL you specify in your options
 			'fullscreen' // Toggle fullscreen
 		];
-		
+
 		//CUSTOMIZE MORE USING THIS:
 		// https://stackoverflow.com/a/61577582/11071949
 
-		this.player = new Plyr('#player', {
-			controls: this.controls
-		});
 		this.player_source = document.getElementById("player_source")
 		this.player_title = byId("player_title")
-		this.player_warning = byId("player_warning")
-		this.video_dl_url = byId("video_dl_url")
+			this.player_warning = byId("player-warning")
+			this.video_dl_url = byId("video_dl_url")
 
-		this.init_player()
 
+		this.player = null;
+
+		if (tools.is_defined(Plyr)){
+			this.player = new Plyr('#player', {
+				controls: this.controls
+			});
+		}
 	}
 
 	async initialize() {
 		var url = tools.add_query_here("vid-data")
 
 		var data = await fetch(url)
-					.then(data => {return data.json()}) 
+					.then(data => {return data.json()})
 					.catch(err => {console.error(err)})
 
 		var video = data.video
@@ -57,27 +60,35 @@ class Video_Page {
 
 		page.set_title(title)
 
-		this.player.source = {
-			type: 'video',
-			title: 'Example title',
-			sources: [
-			  {
-				src: video,
-				type: content_type,
-			  },
-			],
-		};
+		if (this.player){
+			this.player.source = {
+				type: 'video',
+				title: 'Example title',
+				sources: [
+					{
+						src: video,
+						type: content_type,
+					},
+				],
+				poster: 'https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg' // to keep preview hidden
+			};
+
+			this.init_online_player() // Add double click to skip
+		} else {
+			this.player_source.src = video;
+			this.player_source.type = content_type;
+		}
 
 
 
 	}
 
 	hide() {
-		this.my_part.style.display = "none"
+		this.my_part.classList.remove("active");
 	}
 
 	show() {
-		this.my_part.style.display = "block"
+		this.my_part.classList.add("active");
 	}
 
 	clear() {
@@ -88,7 +99,7 @@ class Video_Page {
 		this.video_dl_url.href = ""
 	}
 
-	init_player() {
+	init_online_player() {
 		var player = this.player;
 		player.eventListeners.forEach(function(eventListener) {
 			if (eventListener.type === 'dblclick') {
@@ -162,7 +173,7 @@ class Video_Page {
 				if (player.currentTime < 10) {
 					change = player.currentTime
 				}
-		
+
 				log(change)
 				counter.last_side = "L"
 				if (panic && last_click != "L") {
@@ -206,4 +217,4 @@ class Video_Page {
 	}
 }
 
-const video_page = new Video_Page()
+var video_page = new Video_Page()

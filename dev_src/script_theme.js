@@ -99,7 +99,9 @@ class Theme_Controller {
 		link.type = "text/css";
 		link.media = 'print';
 		// link.href = "https://cdn.jsdelivr.net/gh/hung1001/font-awesome-pro-v6@44659d9/css/all.min.css";
-		link.href = "//cdn.jsdelivr.net/gh/RaSan147/fabkp@2f5670e/css/all.min.css";
+
+		const cache_buster = Math.random() // bcz it needs to fetch webFont files which may not be cached and cause Tofu font issue
+		link.href = "//cdn.jsdelivr.net/gh/RaSan147/fabkp@2f5670e/css/all.min.css" + "?no_cache=" + cache_buster;
 		link.onload = function () {
 			log("fa loaded")
 			that.fa_ok = true;
@@ -321,7 +323,7 @@ class Top_Bar {
 
 	hide() {
 		if (! this.top_bar) return false;
-		
+
 		this.top_bar.style.top = "-50px";
 		document.body.style.top = "0";
 	}
@@ -339,7 +341,7 @@ window.onscroll = function () {
 		return false;
 	}
 
-	if (top_bar.prevScrollpos > currentScrollPos + 15) {
+	if (top_bar.prevScrollpos > currentScrollPos + 5) {
 		top_bar.show();
 	}
 	if (top_bar.prevScrollpos < currentScrollPos - 15) {
