@@ -38,7 +38,7 @@ def get_stat(path):
 		return os.stat(path)
 	except Exception:
 		return False
-	
+
 
 def check_access(path):
 	"""
@@ -48,7 +48,7 @@ def check_access(path):
 	"""
 	if not os.path.exists(path):
 		return False
-	
+
 	if os.path.isfile(path):
 		try:
 			with open(path, "rb") as f:
@@ -88,7 +88,7 @@ def walk_dir(path, yield_dir=False):
 				continue
 			if is_dir:
 				Q.put(entry.path)
-			
+
 			if yield_dir or not is_dir:
 				yield entry
 
@@ -176,7 +176,7 @@ def get_file_count(path):
 def _get_tree_size(path, limit=None, must_read=False):
 	"""
 	returns the size of a directory and its subdirectories.
-	
+
 	path: path to the directory
 	limit (int): if not None, raises LimitExceed if the size is greater than limit
 	must_read (bool): if True, reads the first byte of each file to check if it's accessible
@@ -260,7 +260,7 @@ def _get_tree_count_n_size(path):
 	"""
 	total = 0
 	count = 0
-	
+
 	for entry in walk_dir(path):
 		try:
 			total += entry.stat(follow_symlinks=False).st_size
@@ -399,7 +399,7 @@ def loc(path, _os_name='Linux'):  # fc=0602 v
 
 	if _os_name == 'Windows':
 		return path.replace('/', '\\')
-		
+
 	#else:
 	return path.replace('\\', '/')
 
@@ -407,7 +407,7 @@ def loc(path, _os_name='Linux'):  # fc=0602 v
 
 def writer(fname, mode, data, direc="", encoding='utf-8'):  # fc=0608 v
 	"""Writing on a file
-	
+
 	why this monster?
 	> to avoid race condition, folder not found etc
 
@@ -436,7 +436,7 @@ def writer(fname, mode, data, direc="", encoding='utf-8'):  # fc=0608 v
 		# these characters are forbidden to use in file or folder Names
 		raise ValueError("Invalid file or folder name")
 	direc = loc(direc, 'Linux')
-	
+
 	# directory and file names are auto stripped by OS
 	# or else shitty problems occurs
 
@@ -445,16 +445,16 @@ def writer(fname, mode, data, direc="", encoding='utf-8'):  # fc=0608 v
 		direc+="/"
 
 	fname = fname.strip()
-	
+
 
 	location = loc(direc + fname)
-	
+
 	"""
 	if any(i in location for i in ('\\|:*"><?')):
 		location = Datasys.trans_str(location, {'\\|:*><?': '-', '"': "'"})
 	"""
-	
-	
+
+
 	# creates the directory, then write the file
 	try:
 		os.makedirs(direc, exist_ok=True)
@@ -465,7 +465,7 @@ def writer(fname, mode, data, direc="", encoding='utf-8'):  # fc=0608 v
 			_temp3 = 0
 			for _temp3 in range(len(_temp2)):
 				_temp += _temp2[_temp3] + '/'
-				if not os.path.isdir(_temp): 
+				if not os.path.isdir(_temp):
 					break
 			raise PermissionError(f"Failed to make directory on {_temp}") from e
 		raise e
@@ -473,4 +473,3 @@ def writer(fname, mode, data, direc="", encoding='utf-8'):  # fc=0608 v
 
 	write(location)
 
-	

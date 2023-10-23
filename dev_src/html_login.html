@@ -124,7 +124,7 @@ tools.enable_debug()
 //user.verify_login();
 
 function update_note(note='', color="gray"){
-	
+
 	const status = byId('status')
 	status.style.display = 'none';
 	if(note != ''){
@@ -138,18 +138,18 @@ function update_note(note='', color="gray"){
 
 function test_fields(){
 	const note = (msg) => {update_note(msg, "red")}
-	
+
 	const _uname = byId("username").value
 	const _pass = byId("password").value
 	const usernameRegex = /^[a-zA-Z0-9_]+$/g;
-	
+
 
 	if(_uname.length<1){
 		note("Username must have at least 1 character!")
 		return 0;
 	}
 	if (_uname.length>64){
-		note("Username must be less than 64 character long") 
+		note("Username must be less than 64 character long")
 		return 0;
 	}
 	if (_pass.length>256){
@@ -167,7 +167,7 @@ function test_fields(){
 
 byId("login").onsubmit = (e) => {
 	e.preventDefault()
-	
+
 	const formData = new FormData(e.target)
 
 	if (!test_fields()){
@@ -192,22 +192,22 @@ byId("login").onsubmit = (e) => {
 					user.user_name = response.user_name;
 					user.user_id = response.user_id;
 					user.set_local_data();
-					
+
 					window.location.href = "/";
 				}
 				else{
 					msg = response.message;
 					color = "yellow";
 				}
-				
+
 			}
 			if (request.status === 401) msg = 'Incorrect password'
 
 			update_note(msg, color)
 		}
 	}
-	
-	
+
+
 	request.send(formData)
 }
 </script>

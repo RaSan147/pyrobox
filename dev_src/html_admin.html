@@ -130,14 +130,14 @@ class Admin_tools {
 
 		for (i = 0; i < this.user_list.length; i++) {
 			var row = table.insertRow(-1);
-			row.innerHTML = "<td>" + this.user_list[i] + "</td><td><div class='pagination' onclick='admin_tools.update_user_perm(" + i + 
-				")'>Permissions</div></td></td><td><div class='pagination' onclick='admin_tools.delete_user(" + i + 
+			row.innerHTML = "<td>" + this.user_list[i] + "</td><td><div class='pagination' onclick='admin_tools.update_user_perm(" + i +
+				")'>Permissions</div></td></td><td><div class='pagination' onclick='admin_tools.delete_user(" + i +
 					")'>Delete</div></td>";
 		}
 	}
 
 	show_perms(index) {
-		
+
 	}
 
 	update_user_perm(index) {

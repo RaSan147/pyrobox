@@ -10,7 +10,7 @@ session = urllib3.PoolManager()
 # ping an address for a certain amount of time
 def ping(address, duration):
 	count  = 0
-	
+
 	success = 0
 	fail = 0
 	start = time.time()

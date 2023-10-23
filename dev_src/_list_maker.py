@@ -4,7 +4,7 @@ import importlib.util
 from http import HTTPStatus
 import urllib.parse
 import html
-from typing import Union 
+from typing import Union
 
 
 
@@ -112,7 +112,7 @@ def list_directory_html(self:SH, path, user:User, cookie:Union[SimpleCookie, str
 	"""
 	if user.NOPERMISSION or user.VIEW == False:
 		return self.send_text("You don't have permission to see file list", 403)
-	
+
 
 	try:
 		dir_list = scansort(os.scandir(path))
@@ -121,17 +121,17 @@ def list_directory_html(self:SH, path, user:User, cookie:Union[SimpleCookie, str
 			HTTPStatus.NOT_FOUND,
 			"No permission to list directory")
 		return None
-	
-	
+
+
 	r_folders = [] # no js
 	r_files = [] # no js
-	
-	
+
+
 	LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li><hr>'
-	
+
 	for file in dir_list:
 		name = file.name
-		
+
 		displayname = linkname = name
 		size=0
 		# Append / for directories or @ for symbolic links
@@ -149,7 +149,7 @@ def list_directory_html(self:SH, path, user:User, cookie:Union[SimpleCookie, str
 				r_files.append(LIST_STRING % ("link", urllib.parse.quote(linkname,
 									errors='surrogatepass'),
 									html.escape(displayname, quote=False)))
-				
+
 			elif self.guess_type(linkname).startswith('video/'):
 				r_files.append(LIST_STRING % ("vid", urllib.parse.quote(linkname,
 									errors='surrogatepass'),

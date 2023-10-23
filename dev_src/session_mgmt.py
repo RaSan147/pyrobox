@@ -1,7 +1,7 @@
 from platform import uname as platformuname
 import os
 import pickledb
-# from pyroboxCore import logger    TODO: use logger without circular import 
+# from pyroboxCore import logger    TODO: use logger without circular import
 from typing import List, Union
 from zlib import adler32 as _adler32
 
@@ -16,7 +16,7 @@ def adler32(plain_text) -> str:
     Returns:
         str: Numerical hash as a string
     """
-    
+
     return str(_adler32(str(plain_text).encode()))
 
 
@@ -24,7 +24,7 @@ def adler32(plain_text) -> str:
 class MachineSession():
 
     def __init__(self, path: Union [str , os.PathLike], name: Union [str , None] = None, main_dir: Union[str , os.PathLike] = "."):
-        """Initialise a session for use in Config  
+        """Initialise a session for use in Config
 
         Args:
             path (str | os.PathLike): path where the files are served from
@@ -35,7 +35,7 @@ class MachineSession():
             NameError: Already a session serving that path, the other session should be used instead.
         """
         self.path = path
-        
+
         try:
             os.makedirs(os.path.join(main_dir, "session_db") , exist_ok=True)
         except PermissionError:
@@ -51,7 +51,7 @@ class MachineSession():
 
     def destroy(self):
         os.remove(self.db_path)
-        
+
     delete = destroy
-    	
+
 

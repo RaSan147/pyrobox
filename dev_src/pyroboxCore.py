@@ -733,9 +733,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			explain = longmsg
 		self.log_error("code", code, "message", message)
 		self.send_response(code, message)
-		
+
 		self._send_cookie(cookie=cookie)
-		
+
 		self.send_header('Connection', 'close')
 
 		# Message body is omitted for cases described in:
@@ -802,17 +802,17 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				continue
 			tag, _, msg = i.partition(":")
 			self.send_header(tag.strip(), msg.strip())
-			
-		
+
+
 	def _send_cookie(self, cookie:Union[SimpleCookie, str]=None):
 		"""Must send cookie after self.send_response(XXX)"""
 		if cookie is not None:
 			if isinstance(cookie, SimpleCookie):
 				cookie = cookie.output()
-				
+
 			self.send_header_string(cookie)
-			
-		
+
+
 
 
 	def send_header(self, keyword, value):
@@ -1177,8 +1177,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.send_response(302)
 		self.send_header("Location", location)
 		self.end_headers()
-	
-		
+
+
 
 	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''returns only the head to client
@@ -1201,11 +1201,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		box.seek(0)
 
 		self.send_response(code)
-		
+
 		self._send_cookie(cookie)
-		
-		
-		
+
+
+
 		self.send_header("Content-Type", content_type)
 		self.send_header("Content-Length", str(len(encoded)))
 		self.end_headers()
@@ -1316,7 +1316,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 				self.send_response(206)
 				self._send_cookie(cookie=cookie)
-				
+
 				self.send_header('Accept-Ranges', 'bytes')
 
 				response_length = last - first + 1

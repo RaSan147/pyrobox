@@ -27,12 +27,12 @@ class UserDB(GETdict):
 		self.path = path
 		self.users = {}
 		self.load_or_make()
-		
+
 		self.dthread = None # the var for the thread that handles the save process
-		
+
 		self.must_save()
 
-		
+
 	def load_or_make(self):
 		try:
 			self.load()
@@ -52,21 +52,21 @@ class UserDB(GETdict):
 		"""Makes the user_db.json file
 		"""
 		self.dump()
-		
-		
+
+
 	def _dump(self):
 		'''Dump to a temporary file, and then move to the actual location'''
 		data = json.dumps(self)
 		F_sys.writer(self.path, "w", data)
-		
+
 	def dump(self):
 		'''Force dump memory db to file'''
 		self.dthread = Thread(target=self._dump)
 		self.dthread.start()
 		self.dthread.join()
 		return True
-		
-		
+
+
 	def must_save(self):
 		"""This will make sure the last save request was perfectly handled even at the verge of death
 		"""
@@ -77,13 +77,13 @@ class UserDB(GETdict):
 		atexit.register(handle_exit)
 		signal.signal(signal.SIGTERM, handle_exit)
 		signal.signal(signal.SIGINT, handle_exit)
-		
+
 	def destroy(self):
 		if os.path.isfile(self.path):
 			os.remove(self.path)
-			
+
 	delete = destroy
-		
+
 
 if __name__ == "__main__":
 	users = UserDB("./te-st/new.db")
@@ -122,7 +122,7 @@ class User(GETdict):
 		# self.skins = {}
 		self.loaded_skin = None
 		self.skins = {}
-	
+
 
 		# if the data asked for is already there
 		data = F_sys.reader(self.file_path, on_missing=None)
@@ -137,7 +137,7 @@ class User(GETdict):
 		except Exception as e:
 			traceback.print_exc()
 			raise Exception("User data corrupted") from e
-				
+
 	# def __eq__(self, __o: object) -> bool:
 	# 	if (bool(__o) or bool(self.username)) is False:
 	# 		# is user is none
@@ -147,8 +147,8 @@ class User(GETdict):
 	def __setitem__(self, key, value):
 		super().__setitem__(key, value)
 		self.save()
-		
-	
+
+
 	def __setattr__(self, key, value):
 		if self(key):
 			self.__setitem__(key, value)
@@ -158,7 +158,7 @@ class User(GETdict):
 
 	# def __getattribute__(self, __name: str):
 	# 	return super().__getattribute__(__name)
-	
+
 
 	def save(self):
 		"""Saves updated dict in users folder
@@ -178,7 +178,7 @@ class User(GETdict):
 			return json.loads(data)
 
 		return None
-	
+
 	demo_chat = {
 		"id": 0,
 		"msg": "hello Asuna",
@@ -186,7 +186,7 @@ class User(GETdict):
 		"user": "USER",
 		"parsed_msg": "hello <:ai_name>",
 		"rTo": -1,
-		"intent": "", 
+		"intent": "",
 		# intent of user message can't be determined immediately
 		# so it will be determined later, on bot's reply
 	}
@@ -211,7 +211,7 @@ class User(GETdict):
 
 
 		chat = self.demo_chat.copy()
-		
+
 		if user:
 			user= "USER"
 			# actual time on user side
@@ -237,7 +237,7 @@ class User(GETdict):
 		F_sys.writer(pointer+'.json', 'w', J, self.user_path)
 
 		return id
-	
+
 
 	def get_user_dt(self):
 		return TIME_sys.ts2dt(self.user_client_time, self.user_client_time_offset)
@@ -383,12 +383,12 @@ class UserHandler:
 			if not temp:
 				self.users[username] = user
 				self.get_skin_link(user=user)
-			
+
 			return user
 		except:
 			traceback.print_exc()
 			return None
-		
+
 
 	def server_verify(self, username, id, return_user=False):
 		user = self.get_user(username)
@@ -414,7 +414,7 @@ class UserHandler:
 		return x
 
 	def get_skin_link(self, username="", uid="", user=None ,retry=0):
-		
+
 		user = user if user else self.collection(username, uid)
 		if not user:
 			print("USER NOT FOUND")
@@ -452,22 +452,22 @@ class UserHandler:
 
 				self.get_skin_link(username, uid, 1)
 		return 0
-		
+
 	def use_next_skin(self, username, uid):
 		user = self.collection(username, uid)
 		if not user:
 			print("USER NOT FOUND")
 			return None
-		
+
 		self.get_skin_link(username, uid) # init
 		total_skins = len(user.skins)
 		print("....current skin", user.bot_skin)
 		print("....total skin ", total_skins)
 		user.bot_skin = (user.bot_skin + 1)%(total_skins)
 		print("sent skin", user.bot_skin)
-		
+
 		_skin = str(user.bot_skin)
-		
+
 		return _skin
 
 	def room_bg(self, username="", uid="", command="", custom="", user:User=None):

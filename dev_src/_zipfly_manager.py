@@ -120,7 +120,7 @@ class ZipFly:
 
 	def get_size(self):
 		return self._buffer_size
-	
+
 
 
 
@@ -184,12 +184,12 @@ class ZIP_Manager:
 		if self.calculating(path):
 			return self.calculating[path]
 
-		
+
 		id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))+'_'+ str(time.time())
 		id += '0'*(25-len(id))
 
 		self.calculating[path] = id
-		
+
 		source_m_time = get_dir_m_time(path)
 		if size is None:
 			try:

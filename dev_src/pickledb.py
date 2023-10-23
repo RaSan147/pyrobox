@@ -85,7 +85,7 @@ class PickleDB(object):
 				self.dthread.join()
 			sys.exit(0)
 		signal.signal(signal.SIGTERM, sigterm_handler)
-		
+
 	def new(self):
 		self.CC = hash(time.time() + random() + time.thread_time())
 		self.db = {}
@@ -340,63 +340,63 @@ class PickleDB(object):
 		self.db = {}
 		self._autodumpdb()
 		return True
-		
+
 
 
 from tabulate import tabulate
-		
+
 
 class PickleTable(object):
 	def __init__(self, filename, *args, **kwargs):
-		
+
 		self.busy = False
 		self.pk = PickleDB(filename, *args, **kwargs)
-		
+
 		self.height = self.get_height()
-		
-	
+
+
 	def get_height(self):
 		h = 0
 		h = len(self.pk[self.column_names[0]]) if self.column_names else 0
-		
+
 		#print(self.pk.db)
 		return h
-		
+
 	def __str__(self):
-		
+
 		header = self.column_names
 		x = tabulate([self.row(i) for i in range(min(self.height, 500))], headers="keys", tablefmt="orgtbl")
 		if self.height > 50:
 			x += "\n..."
-			
+
 		return x
-		
-	
+
+
 	def lock(self, func):
 		def inner(*args, **kwargs):
-	
+
 			while self.busy:
 				time.sleep(.001)
-	
+
 			self.busy = True
-			
+
 			func(*args, **kwargs)
-			
+
 			self.busy = False
-			
+
 		return inner
-		
+
 	def column(self, name):
 		return self.pk.db[name]
-	
+
 	def columns(self):
 		'''Return a list of all columns in db'''
 		return self.pk.db
-	
+
 	@property
 	def column_names(self):
 		return list(self.pk.db.keys())
-		
+
 	def add_column(self, name, exist_ok=False):
 		tsize = self.height
 		if name in self.column_names:
@@ -406,20 +406,20 @@ class PickleTable(object):
 				raise KeyError("Column Name already exists")
 		else:
 			self.pk.db[name] = []
-		
+
 		self.pk.db[name].extend([None] * tsize)
-		
+
 		self.dump()
-		
+
 	def _del_column(self, name):
 		self.pk.db.pop(name)
-		
+
 	def del_colum(self, name):
 		self.lock(self._del_column)(name)
-		
+
 		self.dump()
-		
-	
+
+
 	def rows(self):
 		'''Return a list of all rows in db'''
 		headers = self.column_names
@@ -430,124 +430,123 @@ class PickleTable(object):
 		'''Return a row in db'''
 		headers = self.column_names
 		return _PickleTRow(self, row, 0, {j: self.pk.db[j][row] for j in headers})
-		
+
 	def _set_cell(self, col, row, val):
 		"""doesn't auto save"""
 		self.pk.db[col][row] = val
-		
+
 	def set_cell(self, col, row, val):
 		"""runs auto save"""
 		self._set_cell(col, row, val)
 		self.auto_dump()
-		
+
 	def pop_row(self, index=-1):
 		for i in self.column_names:
 			self.pk.db.pop(index)
-			
+
 		self.height -=1
-		
+
 	def del_row(self, index):
 		self.lock(self.pop_row)(index)
-		
+
 		self.auto_dump()
-		
-		
-		
-	
-		
-	
-	def _add_row(self, row:dict):	
+
+
+
+
+
+
+	def _add_row(self, row:dict):
 		#print(self.column_names)
 		#print(self.pk.db)
 		for k in self.column_names:
 			self.pk.db[k].append(None)
-			
-		
-			
-		
-		
+
+
+
+
+
 		for k, v in row.items():
 			self.pk.db[k][self.height] = v
 
-			
+
 		self.height += 1
 
-		
+
 	def add_row(self, row:dict):
 			self.lock(self._add_row)(row)
 			self.auto_dump()
-			
-		
-		
-			
-		
-		
-						
+
+
+
+
+
+
+
 	def dump(self):
 		self.pk.dump()
-		
+
 	def auto_dump(self):
 		self.pk._autodumpdb()
-		
-		
+
+
 class _PickleTRow(dict):
 	def __init__(self, source:PickleTable, index, rid, items):
 		self.source = source
 		self.index = index
 		self.rid = rid
 		super().__init__(items)
-		
+
 	def __delitem__(self, name):
 		self.source[name][self.index] = None
 		self.source.auto_dump()
-		
-		
+
+
 	def del_row(self):
 		self.source.del_row(self.index)
-		
-		
 
-if __name__ != "__main__": 
+
+
+if __name__ != "__main__":
 	import time, os
-	
+
 	st = time.time()
 	for i in range(10):
 		p = PickleDB("__test.pdb")
 		p.set("nn", ['spam', 'eggs']*1000)
-		
+
 		p = PickleDB("__test.pdb")
-	
-	
+
+
 	et = time.time()
 	print(et - st)
 	print("avg:", (et-st)/10)
-		
+
 if __name__ == "__main__":
 
-	
+
 	st = time.time()
 
 	tb = PickleTable("test.pdb")
-	
+
 	print(tb.height)
-	
+
 	tb.add_column("x", 1)
 	tb.add_column("Ysz",1)
 	tb.add_column("Y", 1)
-	
+
 	print("adding")
 	for n in range(555555):
 		#print(n)
 		tb._add_row({"x":n, "Y":00})
-	
+
 	tb.add_column("m", 1)
 
 	#tb.del_colum("x")
 	tb.dump()
-	
+
 	# print(tb)
 	print("Total cells", tb.height * len(tb.column_names))
-	
+
 	et = time.time()
 	print(et - st)
-	

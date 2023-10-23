@@ -23,18 +23,18 @@ class ServerConfig():
 		self.uDB = PickleTable()
 		self.configDB = PickleTable()
 		self.cli_args = cli_args
-		
-		
+
+
 		self.GUESTS = (self.name and self.cli_args.guest_allowed) or True # unless account mode, everyone is guest
 
 		self.admin_perms = []
 		self.member_perms = []
 		self.guest_perms = []
-		
+
 		self.init_config()
 		self.init_permissions(cli_args=cli_args)
 		self.init_account()
-		
+
 		# Max size a zip file will be made
 		self.max_zip_size = 6*1024*1024*1024 # 6GB
 
@@ -46,7 +46,7 @@ class ServerConfig():
 			self.configDB = PickleTable(config_loc)
 
 		self.configDB.add_column("name", "value", exist_ok=True)
-		
+
 
 
 	def init_account(self):
@@ -55,11 +55,11 @@ class ServerConfig():
 			userDB_loc = os.path.join(CoreConfig.MAIN_FILE_dir, "userDB", self.name+ ".pdb")
 
 			os.makedirs(os.path.dirname(userDB_loc), exist_ok=True)
-		
+
 		self.user_handler = u_mgmt.User_handler(init_permissions= {"member": self.member_perms, "admin": self.admin_perms, "guest": self.guest_perms})
 		self.user_handler.load_db(userDB_loc)
 		self.uDB = self.user_handler.user_db
-		
+
 		if self.GUESTS:
 			self.guest_id = self.user_handler.create_guest()
 			# print("Guest added ", self.guest_id)
@@ -71,7 +71,7 @@ class ServerConfig():
 		def check(arg, perm):
 			if arg:
 				return perm
-				
+
 		permits = u_mgmt.permits
 
 		DefaultPerms = self.configDB.find_1st("DefaultPerm", 'name')
@@ -93,25 +93,25 @@ class ServerConfig():
 				check(not cli_args.no_delete, permits.DELETE),
 				check(not cli_args.no_download, permits.DOWNLOAD),
 			]
-		
+
 			def remove_from_members(perm):
 				if perm in permits:
 					self.member_perms.remove(perm)
-			
+
 			if cli_args.view_only or cli_args.read_only:
 				remove_from_members(permits.UPLOAD)
 				remove_from_members(permits.MODIFY)
 				remove_from_members(permits.DELETE)
-				
+
 			if cli_args.view_only:
 				remove_from_members(permits.DOWNLOAD)
 
-		
+
 		#######
 
 		if self.DefaultPerms["value"].get("admin", None):
 			self.admin_perms = User.unpack_permission_to_list(self.DefaultPerms["value"]["admin"])
-		else:		
+		else:
 			self.admin_perms = [
 				permits.DELETE,
 				permits.DOWNLOAD,
@@ -154,11 +154,11 @@ class ServerConfig():
 		self.DefaultPerms["value"]["admin"] = User.pack_permission_from_list(self.admin_perms)
 		self.DefaultPerms["value"]["guest"] = User.pack_permission_from_list(self.guest_perms)
 
-			
+
 
 	def get_users(self):
 		return self.uDB.get_column("username")
-	
+
 
 
 
@@ -183,11 +183,11 @@ class ServerHost(SH_base):
 		"""
 		Return HTML page for the directory listing
 		"""
-		
+
 		if user.NOPERMISSION or user.VIEW == False:
 			return self.send_text("You don't have permission to see file list", 403)
-		
-		
+
+
 		displaypath = self.get_displaypath(self.url_path)
 
 		title = get_titles(displaypath)
@@ -197,7 +197,7 @@ class ServerHost(SH_base):
 			PY_PUBLIC_URL=CoreConfig.address(),
 			PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
 			*args, **kwargs)
-		
+
 		return self.send_text(_format,  cookie=cookie)
 
 

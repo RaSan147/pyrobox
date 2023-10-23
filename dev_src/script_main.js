@@ -124,7 +124,7 @@ class ContextMenu {
 		if (user.permissions.RENAME) {
 			menu.appendChild(rename)
 		}
-		
+
 		let del = createElement("div")
 		del.innerText = "🗑️" + " Delete"
 		del.className = "disable_selection popup-btn menu_options"
@@ -135,7 +135,7 @@ class ContextMenu {
 		del.onclick = function() {
 			that.menu_click('del-f', file);
 		};
-		
+
 		if (user.permissions.DELETE) {
 			menu.appendChild(del)
 		}
@@ -165,7 +165,7 @@ class ContextMenu {
 		if (user.permissions.READ) {
 			menu.appendChild(property)
 		}
-		
+
 		popup_msg.createPopup("Menu", menu)
 		popup_msg.open_popup()
 	}
@@ -240,7 +240,7 @@ class ProgressBars {
 	constructor() {
 		this.last_index = 1
 		this.bars = {}
-		/* Data Structure 
+		/* Data Structure
 		{index: {
 			type: "upload", or "zip"
 			status: "waiting" | "running" | "done" | "error"
@@ -255,7 +255,7 @@ class ProgressBars {
 		this.island_bar = byId("progress-island")
 		this.island_up_text = byId("progress-uploads")
 		this.island_up_count = byId("progress-uploads-count")
-		
+
 		this.island_zip_text = byId("progress-zips")
 		this.island_zip_count = byId("progress-zips-count")
 	}
@@ -283,7 +283,7 @@ class ProgressBars {
 
 		let bar_head = createElement("div")
 		bar_head.className = "progress_bar_heading"
-		
+
 		let bar_head_text = createElement("div")
 		bar_head_text.className ="progress_bar_heading_text"
 		if(type=="upload"){
@@ -297,11 +297,11 @@ class ProgressBars {
 		let bar_status = createElement("div")
 		bar_status.className = "progress_bar_status"
 		bar_status.innerText = "0%"
-		bar_status.style.float = "right" 
+		bar_status.style.float = "right"
 		bar_head.appendChild(bar_status)
 		bar_element.appendChild(bar_head)
-		
-		
+
+
 		let status_label = createElement("span")
 		status_label.style.font_size = ".6em"
 		status_label.innerText = "Status: "
@@ -350,7 +350,7 @@ class ProgressBars {
 
 	}
 
-	
+
 	update_island() {
 		let up_count = 0
 		let up_done_count = 0
@@ -370,27 +370,27 @@ class ProgressBars {
 				}
 			}
 		}
-		
+
 		this.island_bar.style.display = "block"
 		if (!(up_count||zip_count)){
 			this.island_bar.style.display = "None"
 			return
 		}
 
-		
+
 		if (up_count){
 			this.island_up_text.style.display = "block"
 			this.island_up_count.innerText = "(" + up_done_count + '/' + up_count + ')'
 		} else {
 			this.island_up_text.style.display = "none"
 		}
-		
+
 		if (zip_count){
 			this.island_zip_text.style.display = "block"
 			this.island_zip_count.innerText = "(" + zip_done_count + '/' + zip_count + ')'
 		} else {
 			this.island_zip_text.style.display = "none"
-		} 
+		}
 	}
 
 
@@ -406,8 +406,8 @@ class ProgressBars {
 		let bar = this.bars[index]
 		let bar_element = this.bar_elements[index]
 		let type = bar.type
-		
-		
+
+
 
 		let bar_head_text = bar_element.getElementsByClassName("progress_bar_heading_text")[0]
 		if(type=="upload"){
@@ -423,12 +423,12 @@ class ProgressBars {
 		let bar_status_text = bar_element.getElementsByClassName("progress_bar_status_text")[0]
 		bar_status_text.innerText = bar.status_text || "Waiting"
 		bar_status_text.style.color = bar.status_color || "white"
-		
-		
-		
+
+
+
 		let bar_progress = bar_element.getElementsByClassName("progress_bar_progress")[0]
 		bar_progress.value = bar.percent
-		
+
 		this.update_island()
 	}
 
@@ -447,7 +447,7 @@ class ProgressBars {
 			let bar_element = this.bar_elements[index]
 			list.appendChild(bar_element)
 		}
-		
+
 		popup_msg.createPopup("Running Tasks", list)
 
 		popup_msg.open_popup()

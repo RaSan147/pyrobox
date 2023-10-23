@@ -39,7 +39,7 @@ def _get_template(path):
 	if pt_config.dev_mode:
 		with open(path, encoding=enc) as f:
 			return f.read()
-		
+
 	return pt_config.file_list[path]
 
 def get_template(path):
@@ -97,7 +97,7 @@ def error_page():
 
 def theme_script():
 	return get_template("script_theme.js")
-	
+
 def login_page():
 	return get_template("html_login.html")
 

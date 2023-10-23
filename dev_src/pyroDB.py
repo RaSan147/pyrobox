@@ -550,7 +550,7 @@ class PickleTable:
 		'''Return a copy list of all values in column'''
 		self.rescan()
 		return self._pk.db[name].copy()
-	
+
 	def get_column(self, name) -> list:
 		'''Return the list pointer to the column (unsafe)'''
 		return self._pk.db[name]

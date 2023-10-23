@@ -102,7 +102,7 @@ class User:
 
 	Self = TypeVar("Self")
 	# self reference for use in classmethods that can't strong type User because it's inside the method
-	
+
 	def __getattr__(self, name):
 		if hasattr(UserPermission, name):
 			return self.check_permission(getattr(UserPermission, name))
@@ -126,8 +126,8 @@ class User:
 	@property
 	def permission(self):
 		return self.unpack_permission(self.permission_pack)
-	
-	
+
+
 	def is_admin(self):
 		return self.ADMIN
 
@@ -146,7 +146,7 @@ class User:
 		self.update("password", p_hash)
 		self.update("token", token)
 
-	
+
 
 	def reset_pw(self, old_password: str, new_password: str) -> int:
 		"""Reset password
@@ -175,10 +175,10 @@ class User:
 
 	def __getitem__(self, attr):
 		return self.db[attr]
-		
+
 	def __bool__(self):
 		return bool(self.username)
-		
+
 	def __str__(self):
 		return str(self.db)
 
@@ -211,7 +211,7 @@ class User:
 		for index, each in enumerate(unpacked):
 			packed |= each << index
 		return packed
-	
+
 	@staticmethod
 	def pack_permission_from_list(unpacked: List[UserPermission]) -> int:
 		"""Packs permissions from an ordered list of UserPermission to an integer for storage in memory/object
@@ -227,7 +227,7 @@ class User:
 		for each in unpacked:
 			packed |= 1 << each.value
 		return packed
-	
+
 	@staticmethod
 	def unpack_permission_to_list(packed: int) -> List[UserPermission]:
 		"""Unpacks permission as int -> list of UserPermission like [UserPermission.VIEW, UserPermission.DOWNLOAD, UserPermission.ZIP]
@@ -253,12 +253,12 @@ class User:
 		if output.__len__() == 0:
 			output.append(UserPermission(-1)) # no permission
 		return tuple(output)
-		
+
 	def check_permission(self, perm):
 		if isinstance(perm, list):
 			return all([self.check_permission(each) for each in perm])
 		return perm in self.get_permissions()
-			
+
 
 	def permit(self, *permission:  Union[UserPermission,List[UserPermission],Tuple[UserPermission]]):
 		"""Turn on permissions
@@ -293,7 +293,7 @@ class User:
 		"""
 		if len(permission) == 1 and isinstance(permission[0], (list, tuple)):
 			permission = permission[0]
-			
+
 		new_permission = self.permission
 		for each in permission:
 			new_permission[each.value] = 0
@@ -331,7 +331,7 @@ class User:
 		"""match cookie token (hex str) with db["token"] (digest binary)
 		"""
 		return compare_digest_hex(digest=self.token, hex_data=token)
-	
+
 
 class User_handler:
 	def __init__(self, init_permissions={}):
@@ -384,13 +384,13 @@ class User_handler:
 		user = User(row=row)
 		self.assign_handler(user)
 		user.set_password(password)
-		
+
 		user.permit(self.member_permission.get("member", []) )
 		if is_admin:
 			self.set_admin(user)
 
 		return user
-	
+
 	def assign_handler(self, user:User):
 		# assign user handler to user
 		# so that if multiple user handlers are created, the user can always find the correct parent
@@ -403,15 +403,15 @@ class User_handler:
 		user.revoke_all()
 		user.permit(self.member_permission.get("admin", []))
 		user.permit(permits.ADMIN)
-	
+
 	def create_guest(self):
 		user = self.create_user("Guest", "Guest")
 		if "guest" in self.member_permission:
 			user.revoke_all()
 			user.permit(self.member_permission["guest"])
-			
+
 		return user
-		
+
 
 	def _user(self, username=None, user=None):
 		if not user:

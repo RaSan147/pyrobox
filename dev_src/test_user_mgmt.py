@@ -18,7 +18,7 @@ def cleanup():
         os.remove(os.path.join(config.MAIN_FILE_dir, "test_users.db"))
     # if os.path.exists(os.path.join(config.MAIN_FILE_dir, "users.db")):
     #     os.remove(os.path.join(config.MAIN_FILE_dir, "users.db"))
-          
+
 
 def test_mock_db(monkeypatch):
     from dev_src.user_mgmt import config

@@ -35,7 +35,7 @@ class GETdict(Callable_dict):
 		if self(__name):
 			return self.__getitem__(__name)
 		return super().__getattribute__(__name)
-	
+
 
 	# def __getitem__(self, __key):
 	# 	return super().__getitem__(__key)
@@ -91,15 +91,15 @@ class Zfunc(object):
 	__all__ = ["new", "update"]
 	def __init__(self, caller, store_return=False):
 		super().__init__()
-		
+
 		self.queue = Queue()
 		# stores [args, kwargs], ...
 		self.store_return = store_return
 		self.returner = Queue()
 		# queue to store return value if store_return enabled
-	
+
 		self.BUSY = False
-		
+
 		self.caller = caller
 
 	def next(self):
@@ -120,15 +120,15 @@ class Zfunc(object):
 			# will make the loop continue running
 			return True
 
-		
+
 	def update(self, *args, **kwargs):
 		""" Uses xprint and parse string"""
-		
+
 		self.queue.put((args, kwargs))
 		while self.next() is True:
 			# use while instead of recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion.... error
 			pass
-		
+
 
 
 	def new(self, caller, store_return=False):

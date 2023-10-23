@@ -83,7 +83,7 @@
 	let uploader_files; //this is a global variable and we'll use it inside multiple functions
 	let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
 	uploader_file_display = byId("drag-file-list");
-	
+
 	function uploader_exist(file) {
 		//check if file is already selected or not
 		for (let i = 0; i < selected_files.files.length; i++) {
@@ -93,12 +93,12 @@
 		}
 		return false;
 	}
-	
+
 	function addFiles(files) {
 		var exist = false;
 		for (let i = 0; i < files.length; i++) {
 			exist = uploader_exist(files[i])
-	
+
 			if (exist) { //if file already selected, remove that and replace with new one, because, when uploading last file will remain in host server, so we need to replace it with new one
 				selected_files.items.remove(exist-1);
 			}
@@ -107,13 +107,13 @@
 		log("selected "+ selected_files.items.length+ " files");
 		uploader_showFiles();
 	}
-	
-	
+
+
 	uploader_button.onclick = (e)=>{
 		e.preventDefault();
 		uploader_input.click(); //if user click on the button then the input also clicked
 	}
-	
+
 	uploader_input.onchange = (e)=>{
 		// USING THE BROWSE BUTTON
 		let f = e.target.files; // this.files = [file1, file2,...];
@@ -122,21 +122,21 @@
 		// uploader_showFiles(); //calling function
 		// uploader_dragText.textContent = "Release to Upload File";
 	};
-	
-	
+
+
 	//If user Drag File Over DropArea
 	uploader_dropArea.ondragover = (event)=>{
 		event.preventDefault(); //preventing from default behaviour
 		uploader_dropArea.classList.add("active");
 		uploader_dragText.textContent = "Release to Upload File";
 	};
-	
+
 	//If user leave dragged File from DropArea
 	uploader_dropArea.ondragleave = ()=>{
 		uploader_dropArea.classList.remove("active");
 		uploader_dragText.textContent = "Drag & Drop to Upload File";
 	};
-	
+
 	//If user drop File on DropArea
 	uploader_dropArea.ondrop = (event)=>{
 		event.preventDefault(); //preventing from default behaviour
@@ -144,23 +144,23 @@
 		addFiles(event.dataTransfer.files);
 		// uploader_showFiles(); //calling function
 	};
-	
+
 	function uploader_removeFileFromFileList(index) {
 		let dt = new DataTransfer()
 		// const input = byId('files')
 		// const { files } = input
-	
+
 		for (let i = 0; i < selected_files.files.length; i++) {
 			let file = selected_files.files[i]
 			if (index !== i)
 				dt.items.add(file) // here you exclude the file. thus removing it.
 		}
-	
+
 		selected_files = dt
 		// uploader_input.files = dt // Assign the updates list
 		uploader_showFiles()
 	}
-	
+
 	function uploader_showFiles() {
 		tools.del_child(uploader_file_display)
 		let uploader_heading = byId("has-selected-up")
@@ -173,16 +173,16 @@
 			uploader_showFile(selected_files.files[i], i);
 		}
 	}
-	
+
 	function fmbytes(B) {
 		'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
 		const KB = 1024,
 		MB = (KB ** 2),
 		GB = (KB ** 3),
 		TB = (KB ** 4)
-	
+
 		var unit="byte", val=B;
-	
+
 		if (B>1){
 			unit="bytes"
 			val = B}
@@ -198,45 +198,45 @@
 		if (B/TB>1){
 			val = (B/TB)
 			unit="TB"}
-	
+
 		val = val.toFixed(2)
-	
+
 		return `${val} ${unit}`
 	}
-	
+
 	function uploader_showFile(file, index){
 		let filename = file.name;
 		let size = fmbytes(file.size);
-	
+
 		let item = createElement("div");
 		item.className = "upload-file-item";
-	
+
 		item.innerHTML = `
 				<span class="file-name">${filename}</span>
 				<span class="file-size">${size}</span>
 			<span class="file-remove" onclick="uploader_removeFileFromFileList(${index})">&times;</span>
 		`;
-	
+
 		uploader_file_display.appendChild(item);
-	
+
 	}
-	
-	
+
+
 	byId("uploader").onsubmit = (e) => {
 		e.preventDefault()
-	
+
 		uploader_input.files = selected_files.files // Assign the updates list
-	
-	
+
+
 		const formData = new FormData(e.target)
-	
-	
+
+
 		const status = byId("upload-status")
 		const progress = byId("upload-progress")
-	
+
 		var prog = 0;
 		var msg = "";
-	
+
 		// const filenames = formData.getAll('files').map(v => v.name).join(', ')
 		const request = new XMLHttpRequest()
 		request.open(e.target.method, e.target.action)
@@ -260,7 +260,7 @@
 			}
 			status.innerText = msg
 			progress.value = prog
-	
+
 		}
 		status.innerText = `Uploading : 0%`
 		byId('upload-task').style.display = 'block'
@@ -268,6 +268,6 @@
 	}
 
 
-	
+
 
 </script>

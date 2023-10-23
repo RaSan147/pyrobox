@@ -300,7 +300,7 @@ class Tools {
 
 
 
-	
+
 	/**
 	 * Adds a query parameter to the given URL.
 	 *
