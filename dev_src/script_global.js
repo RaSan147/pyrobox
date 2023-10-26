@@ -281,9 +281,10 @@ class Tools {
 	 * Pushes a new state object onto the history stack with a fake URL.
 	 * Used to prevent the browser from navigating to a new page when a link is clicked.
 	 */
-	fake_push(){
+	fake_push(state={}){
 		history.pushState({
-			url: window.location.href
+			url: window.location.href,
+			state: state
 		}, document.title, window.location.href)
 	}
 
@@ -392,6 +393,38 @@ class Tools {
 	}
 
 
+	async is_installed(){
+		var listOfInstalledApps = []
+		if("getInstalledRelatedApps" in navigator){
+			listOfInstalledApps  = await navigator.getInstalledRelatedApps();
+		}
+		console.log(listOfInstalledApps)
+		for (const app of listOfInstalledApps) {
+		// These fields are specified by the Web App Manifest spec.
+		console.log('platform:', app.platform);
+		console.log('url:', app.url);
+		console.log('id:', app.id);
+
+		// This field is provided by the UA.
+		console.log('version:', app.version);
+		}
+
+		return listOfInstalledApps
+	}
+
+	get AMPM_time() {
+		var date = new Date();
+		var hours = date.getHours();
+		var minutes = date.getMinutes();
+		var ampm = hours >= 12 ? 'pm' : 'am';
+		hours = hours % 12;
+		hours = hours ? hours : 12; // the hour '0' should be '12'
+		minutes = minutes < 10 ? '0'+minutes : minutes;
+		var strTime = hours + ':' + minutes + ' ' + ampm;
+		return strTime;
+	}
+
+
 	/**
 	 * Sets a cookie with the given name, value and expiration days.
 	 *
@@ -481,8 +514,6 @@ class Popup_Msg {
 			log("Creating new popup container");
 			this.popup_container = createElement("div");
 			this.popup_container.id = "popup-container";
-			console.log(this.popup_container);
-			console.log(document);
 			document.body.appendChild(this.popup_container);
 			const style = createElement("style");
 			style.innerHTML = `
@@ -701,7 +732,7 @@ class Popup_Msg {
 
 		this.opened = true;
 		tools.fake_push();
-		
+
 		HISTORY_ACTION.push(this.hide.bind(this));
 	}
 
