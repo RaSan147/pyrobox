@@ -655,7 +655,6 @@ class Popup_Msg {
 			return;
 		}
 
-		HISTORY_ACTION.push(this.hide.bind(this));
 		history.back(); //this.hide()
 
 		await tools.sleep(200);
@@ -702,6 +701,8 @@ class Popup_Msg {
 
 		this.opened = true;
 		tools.fake_push();
+		
+		HISTORY_ACTION.push(this.hide.bind(this));
 	}
 
 	/**
@@ -870,6 +871,7 @@ if (window.history && "pushState" in history) {
 		//log(evt.state)
 
 		if(HISTORY_ACTION){
+			console.log(HISTORY_ACTION)
 			HISTORY_ACTION.pop()();
 			return false
 		}
