@@ -2,7 +2,6 @@ from data_types import Template
 __all__ = [
 	"directory_explorer_header",
 	"global_script",
-	"file_list",
 	"upload_form",
 	"file_list_script",
 	"video_page",
@@ -13,7 +12,8 @@ __all__ = [
 	"video_page_script",
 	"page_handler_script",
 	"admin_page_script",
-	"login_page"
+	"login_page",
+	"style_css"
 
 ]
 

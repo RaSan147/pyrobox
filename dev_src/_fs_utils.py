@@ -359,7 +359,7 @@ def get_titles(path, file=False):
 	if file:
 		return 'Viewing ' + paths[-1]
 	if paths[-2]=='':
-		return 'Viewing &#127968; HOME'
+		return 'Viewing 🏠 HOME'
 	else:
 		return 'Viewing ' + paths[-2]
 
