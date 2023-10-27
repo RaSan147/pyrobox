@@ -202,7 +202,7 @@ class ServerHost(SH_base):
 
 
 	def send_error(self, code, message=None, explain=None, cookie:Union[SimpleCookie, str]=None):
-		print("ERROR", code, message, explain)
+		self.log_warning(["ERROR", code, message, explain]) # why warning? because it's not an server error, it's just a warning of error on client side
 
 		displaypath = self.get_displaypath(self.url_path)
 

@@ -87,13 +87,13 @@ def video_page():
 	return get_template("html_vid.html")
 
 def zip_script():
-	return get_template("html_zip_page.html")
+	return get_template("html_zip_page.html")  # TODO: Move to Dynamic island
 
 def admin_page():
 	return get_template("html_admin.html")
 
 def error_page():
-	return directory_explorer_header() + get_template("html_error.html")
+	return directory_explorer_header() + get_template("html_error.html")  # TODO: add to PWA
 
 def theme_script():
 	return get_template("script_theme.js")

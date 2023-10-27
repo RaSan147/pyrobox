@@ -787,7 +787,7 @@ class Toaster {
 
 		this.default_bg = "#005165ed";
 
-		this.queue = [];
+		this.queue = []; // queue to prevent multiple toasts from being displayed at the same time
 	}
 
 
@@ -806,7 +806,7 @@ class Toaster {
 		while (this.queue.length > 2) {
 			await tools.sleep(100)
 		}
-		this.queue.push(1)
+		this.queue.push(true)
 
 		let toastBody = createElement("div")
 		toastBody.classList.add("toast-body")

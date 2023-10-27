@@ -171,13 +171,18 @@ def handle_user_cookie(self: SH):
 		if x is not None:
 			return x.value
 		return ""
-	username = get("uname")
+	username = get("user")
 	token = get("token")
+
+	self.log_info("COOKIE", username, token)
 
 	if not (username and token):
 		return None
 
 	user = Sconfig.user_handler.get_user(username)
+	self.log_info("TEMP_USER", user)
+	self.log_info("TEMP_TOKEN_CHECK", user.check_token(token))
+
 	if user:
 		if user.check_token(token):
 			return user
@@ -195,7 +200,7 @@ def add_user_cookie(user):
 		cookie[k]["path"] = "/"
 
 	x("user", user.username)
-	x("token", user.token)
+	x("token", user.token_hex)
 	x("permissions", user.permission_pack)
 	return cookie
 
@@ -212,6 +217,8 @@ def clear_user_cookie():
 def Authorize_user(self:SH):
 	# do cookie stuffs and get user
 	user = handle_user_cookie(self)
+
+	self.log_info("USER", user)
 
 
 	if not user and Sconfig.GUESTS:
@@ -410,7 +417,10 @@ def get_size_n_count(self: SH, *args, **kwargs):
 
 @SH.on_req('HEAD', hasQ="czip")
 def create_zip(self: SH, *args, **kwargs):
-	"""Create ZIP task and return ID"""
+	"""Create ZIP task and return ID
+	
+	# TODO: Move to Dynamic island
+	"""
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
@@ -422,7 +432,7 @@ def create_zip(self: SH, *args, **kwargs):
 	url_path = kwargs.get('url_path', '')
 	spathsplit = kwargs.get('spathsplit', '')
 
-	if CoreConfig.disabled_func["zip"] or user.check_permission("zip") == False:
+	if CoreConfig.disabled_func["zip"] or (not user.ZIP):
 		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
 	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)

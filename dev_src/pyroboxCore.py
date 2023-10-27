@@ -859,7 +859,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			code = code.value
 		self.log_message(f'"{self.requestline}"', code, size)
 
-	def log_error(self, *args):
+	def log_error(self, *args, **kwargs):
 		"""Log an error. [ERROR PRIORITY]
 
 		This is called when a request cannot be fulfilled.  By
@@ -870,19 +870,19 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		XXX This should go to the separate error log.
 
 		"""
-		self.log_message(args, error=True)
+		self.log_message(*args, **kwargs, error=True)
 
-	def log_warning(self, *args):
+	def log_warning(self, *args, **kwargs):
 		"""Log a warning message [HIGH PRIORITY]"""
-		self.log_message(args, warning=True)
+		self.log_message(*args, **kwargs, warning=True)
 
-	def log_debug(self, *args, write=True):
+	def log_debug(self, *args, write=True, **kwargs):
 		"""Log a debug message [LOWEST PRIORITY]"""
-		self.log_message(args, debug=True, write=write)
+		self.log_message(*args, **kwargs, debug=True, write=write)
 
-	def log_info(self, *args, write=False):
+	def log_info(self, *args, write=False, **kwargs):
 		"""Default log message [MEDIUM PRIORITY]"""
-		self.log_message(args, write=write)
+		self.log_message(*args, **kwargs, write=write)
 
 	def _log_writer(self, message):
 		os.makedirs(config.log_location, exist_ok=True)
@@ -890,7 +890,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			f.write(
 				(f"#{self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"))
 
-	def log_message(self, *args, error=False, warning=False, debug=False, write=True):
+	def log_message(self, *args, error=False, warning=False, debug=False, write=True, **kwargs):
 		"""Log an arbitrary message.
 
 		This is used by all other logging functions.  Override
@@ -900,8 +900,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		every message.
 
 		"""
+		if not args:
+			return
+		
+		sep = kwargs.get('sep', ' ')
+		end = kwargs.get('end', '\n')
 
-		message = ' '.join(map(str, args))
+		message = sep.join(map(str, args)) + end
 
 		message = f"# {self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"
 

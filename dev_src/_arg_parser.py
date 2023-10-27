@@ -70,7 +70,7 @@ def main(config):
 
 	config.parser.add_argument('--guest-allowed', '-ga',
 							action='store_true',
-							default=True,
+							default=None,
 							help="Allow guests to access server when USING Account based server (default: %(default)s)")
 
 	# config.parser.add_argument('--no-js', '-nj',

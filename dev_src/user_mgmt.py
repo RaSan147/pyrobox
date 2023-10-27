@@ -122,6 +122,10 @@ class User:
 	@property
 	def token(self):
 		return self.db["token"]
+	
+	@property
+	def token_hex(self):
+		return binascii.hexlify(self.token).decode("ascii")
 
 	@property
 	def permission(self):
@@ -435,7 +439,7 @@ class User_handler:
 			"status": "success",
 			"message": "User created",
 			"user_name": user.username,
-			"token": binascii.hexlify(user.token).decode("ascii"),
+			"token": user.token_hex,
 		}
 
 	def server_login(self, username, password):
