@@ -34,7 +34,7 @@ class Video_Page {
 
 		this.player = null;
 
-		if (tools.is_defined(Plyr)){
+		if (typeof(Plyr) !== "undefined"){
 			this.player = new Plyr('#player', {
 				controls: this.controls
 			});
