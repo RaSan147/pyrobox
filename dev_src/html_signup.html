@@ -60,19 +60,6 @@
 	</div>
 </div>
 
-<br>
-<div>Already Have account? <a href="?login" style="font-size: medium;">LOGIN</a></div>
-
-<br>
-<b>Please Note:</b>
-<p>1. This app isn't ChatGPT or AI based, instead it uses patterns to recognize messages. So it can't recognize everything you speak of. Check <a href="https://github.com/RaSan147/VoiceAI-Asuna#common-io-similar-inputs-maywill-work-too">demo inputs</a></p>
-<p>2. Since its in alpha state, it uses user inputs anonymously to improve the system. So <u>please refrain from sending private data</u>. So feel free to text anything you want, to help improving this project.</p>
-<p>3. Voice module is still in testing phase (2d model will act according to voice). So not putting it in live demo yet.</p>
-<p>4. If you like it or got idea or want to improve, please file an issue <a href="https://github.com/RaSan147/VoiceAI-Asuna/issues ">here</a> and a <b>Star</b> would be inspiring.</p>
-
-<br>
-<p>Thanks</p>
-<br>
 <style>
 body {
 	padding: 20px;
@@ -122,10 +109,7 @@ table {
 }
 </style>
 
-<script src="./script_global.js"></script>
-<script src="script_user.js"></script>
-
-
+<script src="/?global_script"></script>
 <script>
 
 // user.get_local_data(false);
@@ -152,6 +136,10 @@ function test_fields(){
 	}
 	if (_uname.length>64){
 		note("Username must be less than 64 character long")
+		return 0;
+	}
+	if (_pass.length<4){
+		note("Password must have at least 4 character!")
 		return 0;
 	}
 	if (_pass.length>256){
@@ -192,9 +180,6 @@ byId("signup").onsubmit = (e) => {
 				if (response.status == "success"){
 					msg = "Signed up. REDIRECTING...";
 					color = "green";
-					user.user_name = response.user_name;
-					user.user_id = response.user_id;
-					user.set_local_data();
 					setTimeout(function(){window.location.href = "/";}, 1000);
 				}
 				else{

@@ -116,12 +116,8 @@ table {
 </style>
 
 
-
+<script src="/?global_script"></script>
 <script>
-
-user.get_local_data(false);
-tools.enable_debug()
-//user.verify_login();
 
 function update_note(note='', color="gray"){
 
@@ -193,11 +189,15 @@ byId("login").onsubmit = (e) => {
 					user.user_id = response.user_id;
 					user.set_local_data();
 
-					window.location.href = "/";
+					goto("./");
 				}
-				else{
+				else {
 					msg = response.message;
-					color = "yellow";
+					if (response.status == "failed"){
+						color = "red";
+					} else {
+						color = "Yellow";
+					}
 				}
 
 			}
