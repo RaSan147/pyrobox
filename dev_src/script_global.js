@@ -62,6 +62,12 @@ function go_link(type_code, locate) {
 	// function to generate link for different types of actions
 	return locate + "?" + type_code;
 }
+
+function goto(location) {
+	var a = createElement("a");
+	a.href = location;
+	a.click();
+}
 // getting all the links in the directory
 
 class Config {
@@ -751,7 +757,7 @@ class Popup_Msg {
 	 * @param {boolean} [hr=true] - Whether to display a horizontal rule or not.
 	 * @param {function} [onclose=null_func] - The function to call when the popup message is closed.
 	 */
-	async createPopup(header = "", content = "", hr = true, onclose = null_func) {
+	async createPopup(header = "", content = "", hr = true, onclose = null_func, script = "") {
 		this.init();
 		this.clean();
 		this.onclose = onclose;
@@ -770,6 +776,12 @@ class Popup_Msg {
 			this.hr.style.display = "block";
 		} else {
 			this.hr.style.display = "none";
+		}
+
+		if (script) {
+			var script_tag = createElement("script");
+			script_tag.innerHTML = script;
+			this.content.appendChild(script_tag);
 		}
 	}
 }
