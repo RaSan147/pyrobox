@@ -111,7 +111,7 @@ def list_directory_html(self:SH, path, user:User, cookie:Union[SimpleCookie, str
 
 	"""
 	if user.NOPERMISSION or user.VIEW == False:
-		return self.send_text("You don't have permission to see file list", 403)
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You don't have permission to see file list", cookie=cookie)
 
 
 	try:
