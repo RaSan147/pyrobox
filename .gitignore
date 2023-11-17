@@ -3,6 +3,7 @@
 **/test.*
 *.pdb
 *.bak
+**.bkp.*
 
 
 # Byte-compiled / optimized / DLL files

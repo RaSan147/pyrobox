@@ -108,39 +108,43 @@ class User:
 			return self.check_permission(getattr(UserPermission, name))
 
 	@property
-	def username(self):
+	def username(self) -> str:
 		return self.db["username"]
 
 	@property
-	def permission_pack(self):
+	def permission_pack(self) -> int:
 		return self.db["permission"]
 
 	@property
-	def password(self):
+	def password(self) -> bytes:
 		return self.db["password"]
 
 	@property
-	def token(self):
+	def token(self) -> bytes:
 		return self.db["token"]
 	
 	@property
-	def token_hex(self):
+	def uid(self) -> str:
+		return self.db["id"]
+	
+	@property
+	def token_hex(self) -> str:
 		return binascii.hexlify(self.token).decode("ascii")
 
 	@property
-	def permission(self):
+	def permission(self) -> PermissionList:
 		return self.unpack_permission(self.permission_pack)
 
 
-	def is_admin(self):
+	def is_admin(self) -> bool:
 		return self.ADMIN
 
 	# get the sha1 hash of the CLI password to use as a salt, makes a longer string and avoids holding secrets in memory
 
-	def salt_password(self, password):
+	def salt_password(self, password) -> bytes:
 		return hashlib.sha256((self.user_handler.common_salt+password).encode('utf-8')).digest()
 
-	def set_password(self, password:str):
+	def set_password(self, password:str) -> None:
 		# salt, hash and store password
 		p_hash = self.salt_password(password)
 		token = hashlib.sha256(p_hash + str(time.time()).encode()).digest()
@@ -152,7 +156,7 @@ class User:
 
 
 
-	def reset_pw(self, old_password: str, new_password: str) -> int:
+	def reset_pw(self, old_password: str, new_password: str) -> bool:
 		"""Reset password
 
 		Args:
@@ -243,6 +247,9 @@ class User:
 			List[UserPermission]: list of UserPermission that were modified
 		"""
 		return [UserPermission(each) for each in range(TOTAL_PERMISSIONS) if packed >> each & 1]
+	
+	def set_permission_pack(self, code) -> None:
+		self.update("permission", code)
 
 	def get_permissions(self) -> Tuple[UserPermission]:
 		"""Get searchable permissions tuple
@@ -258,7 +265,7 @@ class User:
 			output.append(UserPermission(-1)) # no permission
 		return tuple(output)
 
-	def check_permission(self, perm):
+	def check_permission(self, perm) -> bool:
 		if isinstance(perm, list):
 			return all([self.check_permission(each) for each in perm])
 		return perm in self.get_permissions()
@@ -289,7 +296,7 @@ class User:
 		self._save_permission(new_permission)
 
 
-	def revoke(self, *permission: Union[UserPermission,List[UserPermission],Tuple[UserPermission]]):
+	def revoke(self, *permission: Union[UserPermission,List[UserPermission],Tuple[UserPermission]]) -> None:
 		"""Turn off permissions
 
 		Args:
@@ -304,14 +311,14 @@ class User:
 
 		self._save_permission(new_permission)
 
-	def revoke_all(self):
+	def revoke_all(self) -> None:
 		"""Turn off all permissions
 		"""
 		permission = [0 for _ in range(len(self.permission))]
 		self._save_permission(permission)
 
 
-	def _save_permission(self, permission: list):
+	def _save_permission(self, permission: list) -> None:
 		"""Save permission to database
 		"""
 		self.update("permission", self.pack_permission(permission))
@@ -331,7 +338,7 @@ class User:
 		salted_new_password = self.salt_password(password)
 		return compare_digest(self.password, salted_new_password)
 
-	def check_token(self, token):
+	def check_token(self, token) -> bool:
 		"""match cookie token (hex str) with db["token"] (digest binary)
 		"""
 		return compare_digest_hex(digest=self.token, hex_data=token)
@@ -367,7 +374,7 @@ class User_handler:
 			exist_ok=True)
 
 
-	def create_user(self, username, password, is_admin=False):
+	def create_user(self, username, password, is_admin=False) -> User:
 		p_hash = token = None
 		uid = hashlib.sha1((str(time.time()) + username).encode("utf-8")).hexdigest()
 
@@ -408,16 +415,21 @@ class User_handler:
 		user.permit(self.member_permission.get("admin", []))
 		user.permit(permits.ADMIN)
 
-	def create_guest(self):
+	def create_guest(self) -> User:
 		user = self.create_user("Guest", "Guest")
 		if "guest" in self.member_permission:
 			user.revoke_all()
 			user.permit(self.member_permission["guest"])
 
 		return user
+	
+	def create_admin(self, username, password) -> User:
+		user = self.create_user(username, password, is_admin=True)
+		return user
 
 
-	def _user(self, username=None, user=None):
+
+	def _user(self, username=None, user=None) -> User:
 		if not user:
 			user = self.get_user(username)
 
@@ -425,7 +437,7 @@ class User_handler:
 			raise LookupError("User not found")
 		return user
 
-	def server_signup(self, username, password):
+	def server_signup(self, username, password) -> dict:
 		# check if username is already taken
 		if self.get_user(username, temp=True) is not None:
 			return {
@@ -442,7 +454,7 @@ class User_handler:
 			"token": user.token_hex,
 		}
 
-	def server_login(self, username, password):
+	def server_login(self, username, password) -> dict:
 		user = self.get_user(username)
 		if user is None:
 			return {
@@ -467,7 +479,7 @@ class User_handler:
 			"user_id": user["id"]
 		}
 
-	def get_user(self, username, temp=False):
+	def get_user(self, username, temp=False) -> User:
 		user = self.cached.get(username)
 		if user:
 			return user
@@ -488,7 +500,7 @@ class User_handler:
 
 		return user
 
-	def server_verify(self, username:str, token:str, return_user=False):
+	def server_verify(self, username:str, token:str, return_user=False) -> Union[bool, User]:
 		user = self.get_user(username)
 		if not user:
 			return False
