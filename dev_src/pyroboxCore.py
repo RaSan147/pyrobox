@@ -169,27 +169,27 @@ class Config:
 
 		parser.add_argument('--bind', '-b',
 							metavar='ADDRESS', default=bind,
-							help='Specify alternate bind address '
+							help='[xxx.xxx.xxx.xxx] Specify alternate bind address '
 								'[default: all interfaces]')
 		parser.add_argument('--directory', '-d', default=directory,
-							help='Specify alternative directory '
+							help='[Value] Specify alternative directory '
 								'[default: current directory]')
 		parser.add_argument('port', action='store',
 							default=port, type=int,
 							nargs='?',
-							help=f'Specify alternate port [default: {port}]')
+							help=f'[Value] Specify alternate port [default: {port}]')
 		parser.add_argument('--version', '-v', action='version',
 							version=__version__)
 
 		parser.add_argument('-h', '--help', action='help',
 								default='==SUPPRESS==',
-								help=('show this help message and exit'))
+								help=('[Option] show this help message and exit'))
 
 
-		parser.add_argument('--no-extra-log', '-nxl',
+		parser.add_argument('-nxl','--no-extra-log', 
 							action='store_true',
 							default=False,
-							help="Disable file path and [= + - #] based logs (default: %(default)s)")
+							help="[Flag] Disable file path and [= + - #] based logs (default: %(default)s)")
 
 
 		args = parser.parse_known_args()[0]
@@ -1149,7 +1149,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if self.test_req(*case):
 					try:
 						resp = func(self, url_path=url_path, query=query,
-								 fragment=fragment, path=path, spathsplit=spathsplit)
+								fragment=fragment, path=path, spathsplit=spathsplit)
 					except PostError:
 						traceback.print_exc()
 						# break if error is raised and send BAD_REQUEST (at end of loop)
@@ -1176,11 +1176,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.send_error(500, str(e))
 			return
 
-	def redirect(self, location):
+	def redirect(self, location, cookie:Union[SimpleCookie, str]=None):
 		'''redirect to location'''
 		print("REDIRECT ", location)
 		self.send_response(302)
 		self.send_header("Location", location)
+		self._send_cookie(cookie)
 		self.end_headers()
 
 
