@@ -383,7 +383,7 @@ window.addEventListener('touchend', (e) => {
 { // why bracket? To make is isolated, coz I don't want variable names conflict with these mini functions or things
 const resizer = () => {
 	theme_controller.getViewportSize();
-	document.body.style.height = vh + "px";
+	document.body.style.minHeight = vh + "px";
 }
 
 window.addEventListener("resize", (_e) => resizer());
