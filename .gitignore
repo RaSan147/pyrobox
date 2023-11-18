@@ -1,9 +1,9 @@
 **/.private
 **/log.txt
-**/test.*
+**/*test*
 *.pdb
 *.bak
-**.bkp.*
+**/*.bkp.*
 
 
 # Byte-compiled / optimized / DLL files

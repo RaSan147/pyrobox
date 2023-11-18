@@ -45,7 +45,6 @@ class ContextMenu {
 		};
 		var formData = new FormData();
 		formData.append("post-type", action);
-		formData.append("post-uid", 123456); // TODO: add uid
 		formData.append("name", link);
 		formData.append("data", more_data)
 		xhr.send(formData);
