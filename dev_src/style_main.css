@@ -1054,3 +1054,43 @@ input#folder-name {
 .page.active {
 	display: block;
 }
+
+
+
+
+
+  /* ************************************ */
+ /* **           Admin Page           ** */
+/* ************************************ */
+
+.admin_only {
+	display: none;
+}
+
+.users_list { 
+	/* TABLE */
+	width: 100%;
+	border-collapse: collapse;
+	border: 1px solid #ddd;
+	font-size: 18px;
+}
+
+.users_list tr:nth-child(even) {
+	background-color: #464646;
+}
+
+.users_list tr:hover {
+	background-color: #202020;
+}
+
+.users_list th {
+	padding-top: 12px;
+	padding-bottom: 12px;
+	text-align: left;
+	color: white;
+}
+
+.users_list td {
+	padding: 12px;
+}
+

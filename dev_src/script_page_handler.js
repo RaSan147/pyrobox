@@ -40,10 +40,10 @@ class Page{
 	}
 
 	async initialize(){
-		// for(let t=3; t>0; t--){
-		// 	console.log("Loading page in " + t)
-		// 	await tools.sleep (1000)
-		// }
+		/*for(let t=3; t>0; t--){
+			console.log("Loading page in " + t)
+			await tools.sleep (1000)
+		}*/
 		this.container.style.display = "none"
 		this.hide_all()
 		this.update_displaypath()

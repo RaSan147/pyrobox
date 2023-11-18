@@ -64,6 +64,7 @@ const public_url = "${PY_PUBLIC_URL}";
 	<div>
 		<div id="note_button" class="accordion accordion-button" onclick="appConfig.show_author_note()">User Panel</div>
 		<div id="commands_button" class="accordion accordion-button" onclick="appConfig.show_help_note()">Preference</div>
+		<div id="commands_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
 	</div>
 
 
@@ -106,6 +107,15 @@ const public_url = "${PY_PUBLIC_URL}";
 		</div>
 	</div>
 
+	<div id="error-page" class="page">
+		<h1><u>Error response</u></h1>
+		<p><u>Error code:</u> <p id="error_code">${code}</p></p>
+		<p><u>Message:</u> <p id="error_message">${message}</p></p>
+		<p><u>Error code explanation:</u> <p id="error_code2">${code}</p> - <p id="error_explain">${explain}</p></p>
+		<hr>
+	</div>
+
+
 	<div id="video-page" class="page">
 		<p><b>Watching:</b> <span id="player_title"></span></p>
 
@@ -142,8 +152,7 @@ const public_url = "${PY_PUBLIC_URL}";
 				<table class="users_list">
 					<tr>
 						<th>Username</th>
-						<th>Permissions</th>
-						<th>Actions</th>
+						<th>Manager</th>
 					</tr>
 				</table>
 			</div>
@@ -168,15 +177,15 @@ const public_url = "${PY_PUBLIC_URL}";
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
 
-<script src="?global_script"></script>
-<script src="?asset_script"></script>
+<script src="/?global_script"></script>
+<script src="/?asset_script"></script>
 
-<script src="?file_list_script"></script>
-<script src="?theme_script"></script>
-<script src="?video_page_script"></script>
-<script src="?admin_page_script"></script>
+<script src="/?file_list_script"></script>
+<script src="/?theme_script"></script>
+<script src="/?video_page_script"></script>
+<script src="/?admin_page_script"></script>
 
-<script src="?page_handler_script"></script>
+<script src="/?page_handler_script"></script>
 
 
 <!-- ASSET_SCRIPT will load at the end with all the classes defined -->
