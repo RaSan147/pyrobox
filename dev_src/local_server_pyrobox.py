@@ -799,6 +799,8 @@ def signup_page(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="folder_data")
 def get_folder_data(self: SH, *args, **kwargs):
 	"""Send folder data"""
+	user, cookie = Authorize_user(self)
+
 	if not user:
 		return self.send_json({
 			"status": 0,
@@ -945,7 +947,7 @@ def handle_login_post(self: SH, *args, **kwargs):
 	if not user:
 		return self.send_json({"status": "failed", "message": "User not found"}, cookie=cookie)
 	
-	if not user.check_pass(password):
+	if not user.check_password(password):
 		return self.send_json({"status": "failed", "message": "Incorrect password"}, cookie=cookie)
 	
 	cookie = add_user_cookie(user)

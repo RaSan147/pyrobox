@@ -2,25 +2,20 @@
 <!-- test1 -->
 <html lang="en">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
 
-<meta  property="og:title" content="VoiceAI Asuna: Login" />
+<meta  property="og:title" content="Signup" />
 
-<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/voiceAI-skins@9a22a42/SEO/asuna%20cover.png" />
-
-
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" />
 
 
-
-<meta id="seoDescription" name="description" content="Demo webpage for VoiceAI Asuna server.">
 
 
 <link href='https://fonts.googleapis.com/css?family=Open Sans' rel='stylesheet'>
 
-
 <title>Login</title>
-
 
 
 <link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
@@ -30,7 +25,6 @@
 </head>
 
 <body>
-
 
 
 <div>
@@ -84,6 +78,7 @@ body {
 
 #login-page {
 	width: 100%;
+	height: 100%;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
@@ -115,7 +110,6 @@ table {
 }
 </style>
 
-
 <script src="/?global_script"></script>
 <script>
 
@@ -146,6 +140,10 @@ function test_fields(){
 	}
 	if (_uname.length>64){
 		note("Username must be less than 64 character long")
+		return 0;
+	}
+	if (_pass.length<4){
+		note("Password must have at least 4 character!")
 		return 0;
 	}
 	if (_pass.length>256){
@@ -185,11 +183,8 @@ byId("login").onsubmit = (e) => {
 				if (response.status == "success"){
 					msg = "Signed up. REDIRECTING...";
 					color = "green"
-					user.user_name = response.user_name;
-					user.user_id = response.user_id;
-					user.set_local_data();
 
-					goto("./");
+					setTimeout(function(){goto("./");}, 1000);
 				}
 				else {
 					msg = response.message;
@@ -201,7 +196,7 @@ byId("login").onsubmit = (e) => {
 				}
 
 			}
-			if (request.status === 401) msg = 'Incorrect password'
+			if (request.status === 401) msg = 'Incorrect password';
 
 			update_note(msg, color)
 		}

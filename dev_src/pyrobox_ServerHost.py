@@ -7,7 +7,7 @@ from pyroDB import PickleTable
 import user_mgmt as u_mgmt
 from user_mgmt import User
 
-from pyroboxCore import config as CoreConfig, SimpleHTTPRequestHandler as SH_base, SimpleCookie
+from pyroboxCore import config as CoreConfig, SimpleHTTPRequestHandler as SH_base, SimpleCookie, tools
 
 
 from string import Template
@@ -69,7 +69,19 @@ class ServerConfig():
 		self.uDB = self.user_handler.user_db
 
 		if (self.admin_username and self.admin_password):
-			self.user_handler.create_admin(self.admin_username, self.admin_password)
+			_admin = self.user_handler.get_user(self.admin_username, temp=True)
+
+			if _admin:
+				if not _admin.is_admin:
+					raise ValueError(tools.text_box("Provided username is not an admin"))
+				if not _admin.check_password(self.admin_password):
+					raise ValueError(tools.text_box("Admin password is incorrect"))
+
+			elif self.uDB.height == 0:
+				self.user_handler.create_admin(self.admin_username, self.admin_password)
+
+			else:
+				raise ValueError(tools.text_box("Please start the server with an existing admin account"))
 		
 		if self.GUESTS:
 			self.guest_id = self.user_handler.create_guest()
@@ -102,6 +114,7 @@ class ServerConfig():
 				check(not cli_args.no_modify, permits.MODIFY),
 				check(not cli_args.no_delete, permits.DELETE),
 				check(not cli_args.no_download, permits.DOWNLOAD),
+				permits.MEMBER,
 			]
 
 			def remove_from_members(perm):
@@ -130,6 +143,7 @@ class ServerConfig():
 				permits.UPLOAD,
 				permits.ZIP,
 				permits.ADMIN,
+				permits.MEMBER,
 			]
 
 

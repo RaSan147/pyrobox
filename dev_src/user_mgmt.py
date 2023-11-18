@@ -47,6 +47,7 @@ class UserPermission(Enum):
 	UPLOAD = 4      # upload files
 	ZIP = 5         # download zip folder
 	ADMIN = 6       # admin
+	MEMBER = 7      # member or guest
 
 TOTAL_PERMISSIONS = max([each.value for each in UserPermission]) + 1
 
@@ -67,6 +68,7 @@ class PermissionList(list):
 			UPLOAD = 4,     # upload files
 			ZIP = 5,        # download zip folder
 			ADMIN = 6,      # admin
+			MEMBER = 7,     # member or guest
 		)
 		if name in options:
 			return bool(self[options[name]])
@@ -168,7 +170,7 @@ class User:
 		"""
 
 
-		if self.check_pass(old_password):
+		if self.check_password(old_password):
 			logger.info(f"Updating password of user {self.username}")
 			salted_new_password = self.salt_password(new_password)
 
@@ -326,7 +328,7 @@ class User:
 
 
 
-	def check_pass(self, password: str) -> bool:
+	def check_password(self, password: str) -> bool:
 		"""Check credentials
 
 		Args:
@@ -462,7 +464,7 @@ class User_handler:
 				"message": "User not found"
 			}
 
-		if not user.check_pass(password):
+		if not user.check_password(password):
 			return {
 				"status": "error",
 				"message": "Wrong password"

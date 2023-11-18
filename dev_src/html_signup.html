@@ -6,15 +6,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
 
-<meta  property="og:title" content="VoiceAI Asuna: Signup" />
+<meta  property="og:title" content="Signup" />
 
-<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/voiceAI-skins@9a22a42/SEO/asuna%20cover.png" />
-
-
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" />
 
 
-
-<meta id="seoDescription" name="description" content="Demo webpage for VoiceAI Asuna server.">
 
 
 <link href='https://fonts.googleapis.com/css?family=Open Sans' rel='stylesheet'>
@@ -59,6 +55,10 @@
 
 	</div>
 </div>
+
+<br>
+<div>Already have an account? <a href="?login" style="font-size: medium;">LOGIN</a></div>
+
 
 <style>
 body {
@@ -112,15 +112,18 @@ table {
 <script src="/?global_script"></script>
 <script>
 
-// user.get_local_data(false);
+function update_note(note='', color="gray"){
 
-
-function update_note(note, color="gray"){
 	const status = byId('status')
-	status.style.display = 'block';
+	status.style.display = 'none';
+	if(note != ''){
+		status.style.display = 'block';
+	}
 	status.style.color = color;
 	status.innerText = note;
 }
+
+
 
 function test_fields(){
 	const note = (msg) => {update_note(msg, "red")}
@@ -150,7 +153,7 @@ function test_fields(){
 		note("Username can only have A-Z, a-z, 0-9, _")
 		return 0;
 	}
-
+	note()
 	return 1;
 }
 
@@ -160,31 +163,35 @@ byId("signup").onsubmit = (e) => {
 
 	const formData = new FormData(e.target)
 
-
+	if (!test_fields()){
+		return 0
+	}
 	var msg = "";
 	var color = "red"
 
-	if(!test_fields()){
-		return 0
-	}
 	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
 	const request = new XMLHttpRequest()
 	request.open(e.target.method, e.target.action)
-	request.timeout = 3600000;
+	request.timeout = 60*1000;
 	request.onreadystatechange = () => {
 		if (request.readyState === XMLHttpRequest.DONE) {
 			msg = `${request.status}: ${request.statusText}`
-			if (request.status === 0) msg ='Connection failed';
+			if (request.status === 0) msg = 'Connection failed'
 			if (request.status === 204 || request.status === 200){
 				var response = JSON.parse(request.responseText);
 				if (response.status == "success"){
 					msg = "Signed up. REDIRECTING...";
-					color = "green";
-					setTimeout(function(){window.location.href = "/";}, 1000);
+					color = "green"
+
+					setTimeout(function(){goto("./");}, 1000);
 				}
-				else{
+				else {
 					msg = response.message;
-					color = "yellow";
+					if (response.status == "failed"){
+						color = "red";
+					} else {
+						color = "Yellow";
+					}
 				}
 
 			}

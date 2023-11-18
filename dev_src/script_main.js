@@ -500,7 +500,8 @@ class User {
 			'UPLOAD',
 			'ZIP',
 			'ADMIN',
-		]
+			'MEMBER',
+		];
 	}
 
 	get_user(){
@@ -517,6 +518,7 @@ class User {
 			'UPLOAD': false,
 			'ZIP': false,
 			'ADMIN': false,
+			'MEMBER': false,
 		};
 		this.extract_permissions();
 	}
@@ -570,6 +572,24 @@ user.get_user();
 		css.innerHTML = `
 		.admin_only {
 			display: block;
+		}
+		`;
+		document.body.appendChild(css);
+	}
+
+	if(user.permissions.MEMBER){
+		let css = document.createElement("style");
+		css.innerHTML = `
+		.member_only {
+			display: block;
+		}
+		`;
+		document.body.appendChild(css);
+	} else {
+		let css = document.createElement("style");
+		css.innerHTML = `
+		.guest_only {
+			display: none;
 		}
 		`;
 		document.body.appendChild(css);
