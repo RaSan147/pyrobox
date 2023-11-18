@@ -21,13 +21,24 @@ class FM_Page{
 		page.clear()
 		page.set_title("File Manager")
 
+		if (user.permissions.NOPERMISSION || !user.permissions.VIEW){
+			page.set_title("No Permission")
+
+			const container = byId("js-content_list")
+			const warning = createElement("h2")
+			warning.innerText = "You don't have permission to view this page"
+			container.appendChild(warning)
+
+			return
+		}
+
 		var folder_data = await fetch(tools.add_query_here("folder_data"))
 								.then(response => response.json())
 								.catch(error => {
 									console.error('There has been a problem with your fetch operation:', error); // TODO: Show error in page
 								});
 
-		if (!folder_data.status || folder_data.status == "error"){
+		if (!folder_data || !folder_data["status"] || folder_data.status == "error"){
 			console.error("Error getting folder data") // TODO: Show error in page
 			return
 		}
@@ -126,11 +137,6 @@ class UploadManager {
 		post_type.value = "upload";
 		center.appendChild(post_type)
 
-		let post_uid = createElement("input")
-		post_uid.type = "hidden";
-		post_uid.name = "post-uid";
-		post_uid.value = "12345";
-		center.appendChild(post_uid)
 
 		let pass_header = createElement("span")
 		pass_header.className = "upload-pass";
@@ -637,9 +643,17 @@ class FileManager {
 const fm = new FileManager();
 
 
+function clear_file_list() {
+	// clear previous data
+	tools.del_child("linkss");
+	tools.del_child("js-content_list")
+}
+
+
+
 
 function show_file_list() {
-	tools.del_child("linkss"); // clear the links since they are no js compatible
+	clear_file_list(); // clear the links since they are no js compatible
 
 
 	let folder_li = createElement('div');
