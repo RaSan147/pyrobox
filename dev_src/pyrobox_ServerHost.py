@@ -1,3 +1,4 @@
+from http import HTTPStatus
 import os
 from typing import Union
 
@@ -20,12 +21,15 @@ import _page_templates as pt
 class ServerConfig():
 	def __init__(self, cli_args):
 		self.name = cli_args.name
+		self.admin_username = cli_args.admin_id
+		self.admin_password = cli_args.admin_pass
+
 		self.uDB = PickleTable()
 		self.configDB = PickleTable()
 		self.cli_args = cli_args
 
 
-		self.GUESTS = (self.name and self.cli_args.guest_allowed) or True # unless account mode, everyone is guest
+		self.GUESTS =  not self.cli_args.no_guest_allowed  # unless account mode, everyone is guest
 
 		self.admin_perms = []
 		self.member_perms = []
@@ -40,6 +44,11 @@ class ServerConfig():
 
 	def init_config(self):
 		if self.name:
+			if not self.name:
+				raise ValueError("If you want to create a server User accounts based, value of --name is required")
+			if not (self.admin_username and self.admin_password):
+				raise ValueError("If you want to create a User accounts based server, --name and --admin-id and --admin-pass values are required")
+			
 			config_loc = os.path.join(CoreConfig.MAIN_FILE_dir, "config", self.name+ ".pdb")
 
 			os.makedirs(os.path.dirname(config_loc), exist_ok=True)
@@ -53,16 +62,17 @@ class ServerConfig():
 		userDB_loc = "" # will  create in memory
 		if self.name:
 			userDB_loc = os.path.join(CoreConfig.MAIN_FILE_dir, "userDB", self.name+ ".pdb")
-
 			os.makedirs(os.path.dirname(userDB_loc), exist_ok=True)
 
 		self.user_handler = u_mgmt.User_handler(init_permissions= {"member": self.member_perms, "admin": self.admin_perms, "guest": self.guest_perms})
 		self.user_handler.load_db(userDB_loc)
 		self.uDB = self.user_handler.user_db
 
+		if (self.admin_username and self.admin_password):
+			self.user_handler.create_admin(self.admin_username, self.admin_password)
+		
 		if self.GUESTS:
 			self.guest_id = self.user_handler.create_guest()
-			# print("Guest added ", self.guest_id)
 
 # This will contain server configurations, user database and limits.
 
@@ -113,11 +123,11 @@ class ServerConfig():
 			self.admin_perms = User.unpack_permission_to_list(self.DefaultPerms["value"]["admin"])
 		else:
 			self.admin_perms = [
+				permits.VIEW,
 				permits.DELETE,
 				permits.DOWNLOAD,
 				permits.MODIFY,
 				permits.UPLOAD,
-				permits.VIEW,
 				permits.ZIP,
 				permits.ADMIN,
 			]
@@ -185,7 +195,7 @@ class ServerHost(SH_base):
 		"""
 
 		if user.NOPERMISSION or user.VIEW == False:
-			return self.send_text("You don't have permission to see file list", 403)
+			return self.send_error(HTTPStatus.UNAUTHORIZED, "You don't have permission to see file list", cookie=cookie)
 
 
 		displaypath = self.get_displaypath(self.url_path)

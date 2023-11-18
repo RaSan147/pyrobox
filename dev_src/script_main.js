@@ -162,7 +162,7 @@ class ContextMenu {
 			that.menu_click('info', file);
 		};
 
-		if (user.permissions.READ) {
+		if (user.permissions.VIEW) {
 			menu.appendChild(property)
 		}
 
@@ -487,13 +487,30 @@ progress_bars.update_island()
 
 class User {
 	constructor(){
+		this.user = null;
+		this.token = null;
+		this.permissions_code = null;
+		this.permissions = null;
+
+		this.all_permissions = [
+			'VIEW',
+			'DOWNLOAD',
+			'MODIFY',
+			'DELETE',
+			'UPLOAD',
+			'ZIP',
+			'ADMIN',
+		]
+	}
+
+	get_user(){
 		this.user = tools.getCookie("user");
 		this.token = tools.getCookie("token");
 		this.permissions_code = tools.getCookie("permissions") || 0;
 
 		this.permissions = {
 			// NOPERMISSIONS: false is not needed since its handled by the server
-			'READ': false,
+			'VIEW': false,
 			'DOWNLOAD': false,
 			'MODIFY': false,
 			'DELETE': false,
@@ -506,15 +523,7 @@ class User {
 
 	extract_permissions(){
 		// this function extracts the permissions from the permissions_code
-		let permissions = [
-			'READ',
-			'DOWNLOAD',
-			'MODIFY',
-			'DELETE',
-			'UPLOAD',
-			'ZIP',
-			'ADMIN',
-		]
+		let permissions = this.all_permissions;
 		this.permissions = {}
 		permissions.forEach((permission, i) => {
 			this.permissions[permission] = this.permissions_code >> i & 1;
@@ -526,9 +535,43 @@ class User {
 			this.permissions['NOPERMISSION'] = false;
 		}
 
+		return this.permissions;
 
+
+	}
+
+	pack_permissions(){
+		// this function packs the permissions into permissions_code
+		let permissions = this.all_permissions;
+
+		this.permissions_code = 0;
+		permissions.forEach((permission, i) => {
+			this.permissions_code |= this.permissions[permission] << i;
+		}, this);
+
+		return this.permissions_code;
 	}
 
 }
 
 const user = new User();
+user.get_user();
+
+
+
+
+// /////////////////////////////
+//    Show Admin Only Stuffs  //
+// /////////////////////////////
+
+{
+	if(user.permissions.ADMIN){
+		let css = document.createElement("style");
+		css.innerHTML = `
+		.admin_only {
+			display: block;
+		}
+		`;
+		document.body.appendChild(css);
+	}
+}
