@@ -273,111 +273,111 @@ class UploadManager {
 		Form["prog_id"] = null; // This is used to update the progress bar
 
 		Form.onsubmit = (e) => {
-			e.preventDefault()
-
-			console.log(that.status)
+			e.preventDefault();
 
 			if(that.status[index]){
-				that.cancel(index)
-				show_status("Upload cancelled")
-				return
+				that.cancel(index);
+				show_status("Upload cancelled");
+				return;
 			}
 
 			if(selected_files.files.length == 0){
-				toaster.toast("No files selected")
-				return
+				toaster.toast("No files selected");
+				return;
 			}
 
 			that.status[index] = true; // The user is uploading
 
-			request = request || new XMLHttpRequest()
-			that.requests[index] = request
+			request = request || new XMLHttpRequest();
+			that.requests[index] = request;
 			that.uploaders[index] = Form; // Save the form for later use
 			// Unless the user is uploading, this won't be saved
 
 
 			submit_button.innerText = "⏹️ Cancel";
 
-			popup_msg.close()
+			popup_msg.close();
 
-			up_files.files = selected_files.files // Assign the updates list
+			up_files.files = selected_files.files; // Assign the updates list
 
 
-			const formData = new FormData(e.target)
+			const formData = new FormData(e.target);
 
-			prog_id = prog_id || progress_bars.new('upload', index, window.location.href) // Create a new progress bar if not already created
-			Form.prog_id = prog_id // Save the progress bar id for later use
+			prog_id = prog_id || progress_bars.new('upload', index, window.location.href); // Create a new progress bar if not already created
+			Form.prog_id = prog_id; // Save the progress bar id for later use
 
 
 
 			var prog = 0,
 			msg = "",
-			color = "green"
-			status = "waiting"
+			color = "green",
+			upload_status = "waiting";
 
 
 			progress_bars.update(prog_id, {
 						"status_text": "Waiting",
 						"status_color": color,
 						"status": "waiting",
-						"percent": 0})
+						"percent": 0});
 
 
 			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
 
-			request.open(e.target.method, e.target.action)
-			request.timeout = 3600000;
+			request.open(e.target.method, e.target.action);
+			request.timeout = 60 * 1000;
 			request.onreadystatechange = () => {
 				if (request.readyState === XMLHttpRequest.DONE) {
-					msg = `${request.status}: ${request.statusText}`
-					status = "error"
-					color = "red"
-					prog = 0
+					msg = `${request.status}: ${request.statusText}`;
+					upload_status = "error";
+					color = "red";
+					prog = 0;
 					if (request.status === 401){
 						msg = 'Incorrect password';
 					} else if (request.status == 503) {
-						msg = 'Upload is disabled'
+						msg = 'Upload is disabled';
 					} else if (request.status === 0) {
-						msg = 'Connection failed (Possible cause: Incorrect password or Upload disabled)'
+						msg = 'Connection failed (Possible cause: Incorrect password or Upload disabled)';
 					} else if (request.status === 204 || request.status === 200) {
-						msg = 'Success'
-						color = "green"
-						prog = 100
-						status = "done"
+						msg = 'Success';
+						color = "green";
+						prog = 100;
+						upload_status = "done";
+
+						page.refresh_dir(); // refresh the page if it is a dir page
 					}
 
 
 					progress_bars.update(prog_id, {
 						"status_text": msg,
 						"status_color": color,
-						"status": status,
-						"percent": prog})
+						"status": upload_status,
+						"percent": prog});
 
 					submit_button.innerText = "➾ Re-upload";
 					if (!that.status[index]){
-						return// needs to check this.status[index] because the user might have cancelled the upload but its still called. On cancel already a toast is shown
+						return; // needs to check this.status[index] because the user might have cancelled the upload but its still called. On cancel already a toast is shown
 					}
-					show_status(msg)
+					show_status(msg);
 
-					if (status === "error") {
-						msg = "Upload Failed"
+					if (upload_status === "error") {
+						msg = "Upload Failed";
 					} else {
-						msg = "Upload Complete"
+						msg = "Upload Complete";
 					}
-					toaster.toast(msg, 3000, color)
+					toaster.toast(msg, 3000, color);
 
-					that.status[index] = false
+					that.status[index] = false;
 
 				}
 			}
 			request.upload.onprogress = e => {
-				prog = Math.floor(100*e.loaded/e.total)
+				prog = Math.floor(100*e.loaded/e.total);
 				if(e.loaded === e.total){
-					msg ='Saving...'
-					show_status(msg)
+					msg ='Saving...';
+					show_status(msg);
 				}else{
-					msg = `Progress`
-					show_status(msg + " "+prog + "%")
+					msg = `Progress`;
+					show_status(msg + " " + prog + "%");
 				}
 
 
@@ -385,9 +385,9 @@ class UploadManager {
 						"status_text": msg,
 						"status_color": "green",
 						"status": "running",
-						"percent": prog})
+						"percent": prog});
 			}
-			request.send(formData)
+			request.send(formData);
 		}
 
 
@@ -402,11 +402,11 @@ class UploadManager {
 		 */
 		function show_status(msg, hide=false){
 			if(hide){
-				upload_pop_status_label.style.display = "none"
-				return
+				upload_pop_status_label.style.display = "none";
+				return;
 			}
-			upload_pop_status_label.style.display = "block"
-			upload_pop_status.innerText = msg
+			upload_pop_status_label.style.display = "block";
+			upload_pop_status.innerText = msg;
 		}
 
 		/**
@@ -421,7 +421,7 @@ class UploadManager {
 					return i+1; // 0 is false, so we add 1 to make it true
 				}
 			};
-			return 0 // false;
+			return 0; // false;
 		}
 
 
@@ -434,7 +434,7 @@ class UploadManager {
 
 			for (let i = 0; i < files.length; i++) {
 				const file = files[i];
-				exist = uploader_exist(file)
+				exist = uploader_exist(file);
 
 				if (exist) {
 					// if file already selected,
@@ -452,7 +452,7 @@ class UploadManager {
 		}
 
 		function uploader_removeFileFromFileList(index) {
-			let dt = new DataTransfer()
+			let dt = new DataTransfer();
 			// const input = byId('files')
 			// const { files } = input
 
@@ -591,7 +591,7 @@ class FileManager {
 
 		let sort_by = createElement("div")
 		sort_by.innerText = "Sort By"
-		sort_by.className = "disable_selection popup-btn menu_options"
+		sort_by.className = "disable_selection popup-btn menu_options debug_only"
 		sort_by.onclick = function(){
 			that.Show_sort_by()
 		}

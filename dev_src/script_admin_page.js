@@ -37,7 +37,7 @@ class Updater{
 	async check_update() {
 		fetch('/?update')
 		.then(response => {
-			console.log(response);
+			// console.log(response);
 			return response.json()
 		}).then(data => {
 			if (data.update_available) {

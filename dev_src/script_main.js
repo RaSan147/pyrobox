@@ -1,7 +1,6 @@
 
 
 
-
 class ContextMenu {
 	constructor() {
 		this.old_name = null;
@@ -25,7 +24,7 @@ class ContextMenu {
 		}
 		popup_msg.open_popup()
 	}
-	menu_click(action, link, more_data = null) {
+	menu_click(action, link, more_data = null, callback = null) {
 		let that = this
 		popup_msg.close()
 
@@ -35,35 +34,43 @@ class ContextMenu {
 		xhr.onreadystatechange = function() {
 			if (this.readyState === 4) {
 				that.on_result(this)
+				if (callback) {
+					callback()
+				}
 			}
 		};
 		const formData = new FormData();
 		formData.append("post-type", action);
-		formData.append("post-uid", 123456); // TODO: add uid
 		formData.append("name", link);
 		formData.append("data", more_data)
 		xhr.send(formData);
 	}
 	rename_data() {
-		let new_name = byId("rename").value;
+		let new_name = byId("input_rename").value;
 
-		this.menu_click("rename", this.old_name, new_name)
+		this.menu_click("rename", this.old_name, new_name, null, () => {page.refresh_dir()});
 		// popup_msg.createPopup("Done!", "New name: "+new_name)
 		// popup_msg.open_popup()
 	}
-	rename(link, name) {
-		popup_msg.close()
+	async rename(link, name) {
+		await popup_msg.close()
 		popup_msg.createPopup("Rename",
-			"Enter new name: <input id='rename' type='text'><br><br><div class='pagination center' onclick='context_menu.rename_data()'>Change!</div>"
+			"Enter new name: <input id='input_rename' type='text'><br><br><div class='pagination center' onclick='context_menu.rename_data()'>Change!</div>"
 			);
+		console.log(popup_msg.content)
 		popup_msg.open_popup()
 		this.old_name = link;
-		byId("rename").value = name;
-		byId("rename").focus()
+		byId("input_rename").value = name;
+		byId("input_rename").focus()
 	}
 	show_menus(file, name, type) {
 		let that = this;
 		let menu = createElement("div")
+
+		
+		const refresh = () => {
+			page.refresh_dir()
+		}
 
 		let new_tab = createElement("div")
 			new_tab.innerText = "↗️" + " New tab"
@@ -121,7 +128,7 @@ class ContextMenu {
 			that.rename(file, name)
 		}
 
-		if (user.permissions.RENAME) {
+		if (user.permissions.MODIFY) {
 			menu.appendChild(rename)
 		}
 
@@ -133,7 +140,7 @@ class ContextMenu {
 			xxx = 'D'
 		}
 		del.onclick = function() {
-			that.menu_click('del-f', file);
+			that.menu_click('del-f', file, null, refresh);
 		};
 
 		if (user.permissions.DELETE) {
@@ -147,7 +154,7 @@ class ContextMenu {
 
 		del_P.onclick = () => {
 			r_u_sure({y:()=>{
-				that.menu_click('del-p', file);
+				that.menu_click('del-p', file, null, refresh);
 			}, head:"Are you sure?", body:"This can't be undone!!!", y_msg:"Continue", n_msg:"Cancel"})
 		}
 
@@ -171,7 +178,7 @@ class ContextMenu {
 	}
 	create_folder() {
 		let folder_name = byId('folder-name').value;
-		this.menu_click('new_folder', folder_name)
+		this.menu_click('new_folder', folder_name, null, refresh);
 	}
 }
 var context_menu = new ContextMenu()
@@ -590,6 +597,16 @@ user.get_user();
 		css.innerHTML = `
 		.guest_only {
 			display: none;
+		}
+		`;
+		document.body.appendChild(css);
+	}
+
+	if (config.allow_Debugging) {
+		let css = document.createElement("style");
+		css.innerHTML = `
+		.debug_only {
+			display: block;
 		}
 		`;
 		document.body.appendChild(css);

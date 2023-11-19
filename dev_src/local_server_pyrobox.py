@@ -1325,7 +1325,7 @@ def get_info(self: SH, *args, **kwargs):
 		data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
 		script = '''
 		tools.fetch_json(tools.full_path("''' + path + '''?size_n_count")).then(resp => {
-		console.log(resp);
+		// console.log(resp);
 		if (resp.status) {
 			size = resp.humanbyte;
 			count = resp.count;

@@ -1078,6 +1078,10 @@ input#folder-name {
 	display: none;
 }
 
+.debug_only {
+	display: none;
+}
+
 
 
   /* ************************************ */

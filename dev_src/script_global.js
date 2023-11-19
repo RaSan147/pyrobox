@@ -1,3 +1,7 @@
+const DEBUGGING = true;
+
+
+
 const log = console.log,
 	byId = document.getElementById.bind(document),
 	byClass = document.getElementsByClassName.bind(document),
@@ -74,7 +78,7 @@ class Config {
 	constructor() {
 		this.total_popup = 0;
 		this.popup_msg_open = false;
-		this.allow_Debugging = true
+		this.allow_Debugging = DEBUGGING;
 		this.Debugging = false;
 		this.is_touch_device = 'ontouchstart' in document.documentElement;
 
@@ -215,6 +219,7 @@ class Tools {
 	 * @returns {void}
 	 */
 	enable_debug() {
+		const that = this;
 		if (!config.allow_Debugging) {
 			alert("Debugging is not allowed");
 			return;
@@ -225,7 +230,9 @@ class Tools {
 		config.Debugging = true;
 		var script = this.add_script("//cdn.jsdelivr.net/npm/eruda");
 		script.onload = function() {
-			eruda.init()
+			if(that.is_touch_device()){
+				eruda.init()
+			}
 		};
 	}
 
@@ -370,7 +377,7 @@ class Tools {
 		}
 	}
 
-	fetch_json(url){
+	async fetch_json(url){
 		return fetch(url).then(r => r.json()).catch(e => {console.log(e); return null;})
 	}
 
@@ -404,7 +411,7 @@ class Tools {
 		if("getInstalledRelatedApps" in navigator){
 			listOfInstalledApps  = await navigator.getInstalledRelatedApps();
 		}
-		console.log(listOfInstalledApps)
+		// console.log(listOfInstalledApps)
 		for (const app of listOfInstalledApps) {
 		// These fields are specified by the Web App Manifest spec.
 		console.log('platform:', app.platform);
@@ -668,11 +675,12 @@ class Popup_Msg {
 	/**
 	 * Closes the popup message.
 	 */
-	close() {
+	async close() {
 		this.onclose();
-		this.dismiss();
+		await this.dismiss();
 		config.popup_msg_open = false;
 		this.init();
+		console.log("Popup closed");
 	}
 
 	/**
@@ -913,9 +921,10 @@ if (window.history && "pushState" in history) {
 		// guard against popstate event on chrome init
 		//log(evt.state)
 
-		if(HISTORY_ACTION){
-			console.log(HISTORY_ACTION)
-			HISTORY_ACTION.pop()();
+		if(HISTORY_ACTION.length){
+			let action = HISTORY_ACTION.pop()
+			action()
+
 			return false
 		}
 
