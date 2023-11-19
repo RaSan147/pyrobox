@@ -65,6 +65,7 @@ class ServerConfig():
 			os.makedirs(os.path.dirname(userDB_loc), exist_ok=True)
 
 		self.user_handler = u_mgmt.User_handler(init_permissions= {"member": self.member_perms, "admin": self.admin_perms, "guest": self.guest_perms})
+
 		self.user_handler.load_db(userDB_loc)
 		self.uDB = self.user_handler.user_db
 
@@ -103,6 +104,9 @@ class ServerConfig():
 		else:
 			self.DefaultPerms = self.configDB.add_row(dict(name="DefaultPerm", value={}))
 
+		def remove_perm(perm_list, perm):
+			if perm in perm_list:
+				perm_list.remove(perm)
 
 		if self.DefaultPerms["value"].get("member", None):
 			self.member_perms = User.unpack_permission_to_list(self.DefaultPerms["value"]["member"])
@@ -117,17 +121,13 @@ class ServerConfig():
 				permits.MEMBER,
 			]
 
-			def remove_from_members(perm):
-				if perm in permits:
-					self.member_perms.remove(perm)
-
 			if cli_args.view_only or cli_args.read_only:
-				remove_from_members(permits.UPLOAD)
-				remove_from_members(permits.MODIFY)
-				remove_from_members(permits.DELETE)
+				remove_perm(self.member_perms, permits.UPLOAD)
+				remove_perm(self.member_perms, permits.MODIFY)
+				remove_perm(self.member_perms, permits.DELETE)
 
 			if cli_args.view_only:
-				remove_from_members(permits.DOWNLOAD)
+				remove_perm(self.member_perms, permits.DOWNLOAD)
 
 
 		#######
@@ -150,6 +150,11 @@ class ServerConfig():
 		#######
 		if self.DefaultPerms["value"].get("guest", None):
 			self.guest_perms = User.unpack_permission_to_list(self.DefaultPerms["value"]["guest"])
+		elif not self.name:
+			self.guest_perms = self.admin_perms # if no account mode, guest is admin
+			self.guest_perms.remove(permits.ADMIN) # remove admin permission
+			self.guest_perms.remove(permits.MEMBER) # remove member permission
+
 		else:
 			self.guest_perms = [
 				check(cli_args.guest_allowed, permits.VIEW),
@@ -161,15 +166,13 @@ class ServerConfig():
 			]
 
 			if cli_args.view_only or cli_args.read_only:
-				remove_from_members(permits.UPLOAD)
-				remove_from_members(permits.MODIFY)
-				remove_from_members(permits.DELETE)
+				remove_perm(self.guest_perms, permits.UPLOAD)
+				remove_perm(self.guest_perms, permits.MODIFY)
+				remove_perm(self.guest_perms, permits.DELETE)
 
 			if cli_args.view_only:
-				remove_from_members(permits.DOWNLOAD)
+				remove_perm(self.guest_perms, permits.DOWNLOAD)
 
-			if not self.name:
-				self.guest_perms = self.admin_perms # if no account mode, guest is admin
 
 		self.update_config_perms() # update the config file with the new permissions | can be used from the admin page
 

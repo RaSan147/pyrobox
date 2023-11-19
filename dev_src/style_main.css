@@ -1057,15 +1057,32 @@ input#folder-name {
 
 
 
+  /* ************************************ */
+ /* **           All Page             ** */
+/* ************************************ */
+
+
+.admin_only {
+	display: none;
+}
+
+.member_only {
+	display: none;
+}
+
+.guest_only {
+	display: none;
+}
+
+.named_server {
+	display: none;
+}
+
 
 
   /* ************************************ */
  /* **           Admin Page           ** */
 /* ************************************ */
-
-.admin_only {
-	display: none;
-}
 
 .users_list { 
 	/* TABLE */

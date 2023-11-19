@@ -62,9 +62,16 @@ const public_url = "${PY_PUBLIC_URL}";
 		id="close-sidebarR" onclick = "sidebar_control.closeNavR()">&times;</span> <!-- × -->
 
 	<div>
-		<div id="note_button" class="accordion accordion-button" onclick="appConfig.show_author_note()">User Panel</div>
-		<div id="commands_button" class="accordion accordion-button" onclick="appConfig.show_help_note()">Preference</div>
-		<div id="commands_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
+		<div id="preference_button" class="accordion accordion-button" onclick="appConfig.show_help_note()">Preference</div>
+		<div class="member_only">
+			<div id="note_button" class="accordion accordion-button" onclick="appConfig.show_author_note()">User Panel</div>
+			<div id="admin_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
+			<div id="logout_button" class="accordion accordion-button" onclick="goto('./?logout')">Logout</div>
+		</div>
+		<div class="guest_only named_server">
+			<div id="login_button" class="accordion accordion-button" onclick="goto('./?login')">Login</div>
+			<div id="signup_button" class="accordion accordion-button" onclick="goto('./?signup')">Signup</div>
+		</div>
 	</div>
 
 
