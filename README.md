@@ -19,16 +19,18 @@
 
 * File Hosting system (Serve files from local Storage system)
 * Access Shared File System from Multiple Devices
+* Has optional account system (Admin can add users or allow signup) (Check ***Advanced Account System*** section)
+* Set Server Permission (Check ***Customization Options*** section)
 
 ## Extra FEATURES
 
 * 🔽 DOWNLOAD AND VIDEO STREAM WITH **PAUSE AND RESUME**
-* 🔼 UPLOAD WITH **PASSWORD**
+* 🔼 UPLOAD WITH **PASSWORD** (User password or server-wide password)
 * 👌 HTML5 drag and drop uploader
 * 📈 MULTIPLE FILE **UPLOAD**
 * 📝 RENAME
 * 📁 FOLDER DOWNLOAD as **ZIP** (uses temp folder)
-* ⏯ VIDEO PLAYER
+* ⏯ Built-in VIDEO PLAYER
 * 🔁 **DELETE FILE** (MOVE TO RECYCLE BIN)
 * 🔥 PERMANENTLY DELETE
 * ⛓ `File manager` like `NAVIGATION BAR`
@@ -39,12 +41,13 @@
 * 🌐 (Didn't test yet) If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (also vulnerable, since you can't control access *yet*)
 * 🧬 Clone entire directory from Host to Client with least changes (last modified preserved)
 * 🔜 More comming soon
+* All of these without the need of any internet connection (having connection will provide better experience)
 
 ## Server side requirement
 
 * Python 3.7 or higher. Older support available.[^1]
 * Basic knowledge about Python
-* `send2trash`, `natsort` pip package (if missing, will be auto installed when the code runs)
+* `send2trash`, `natsort` python modules
 
 [^1]: [<=3.4 compatibility] is on the way.
 
@@ -107,13 +110,14 @@ usage: `local_server_pyrobox.py [--password PASSWORD] [--no-upload] [--no-zip] [
 
 ## Options
 
-  | arg `value`           | Description |
+  | Flags/Arg `value`     | Description |
   | --------------------- | ------------|
   |--password `PASSWORD`, -k  `PASSWORD` | Upload Password (GUESTS users and Nameless server users must use it to upload files)(default: SECret)|
   |--directory `DIRECTORY`, -d `DIRECTORY` | Specify alternative directory [default: current directory]
   |--bind `ADDRESS`, -b `ADDRESS` | Specify alternate bind address [default: all interfaces]|
   |--version, -v          | show program's version number and exit|
   |-h, --help             | show this help message and exit|
+  |--no-extra-log         | Disable file path and [= + - #] based logs (default: False)|
 
 ## Customization Options
 
@@ -137,6 +141,14 @@ usage: `local_server_pyrobox.py [--password PASSWORD] [--no-upload] [--no-zip] [
   |--admin-id `ADMIN_ID`, -aid `ADMIN_ID` | Admin ID (default: None)|
   |--admin-pass `ADMIN_PASS`, -ak `ADMIN_PASS` | Admin Password (default: None)|
   |--no-signup, -ns      | Disable Signing up (Only admin can add user from admin page)(default: False)|
+  |--no-guest-allowed, -ng | Disable Guest Access (default: False)|
+
+## Account Example
+
+  1. `pyrobox -n "My Server1" -aid "admin" -ak "admin123" -k "Guest_pass"` # will allow anyone to access the server, but they must use `Guest_pass` to upload files
+  1. `pyrobox -n "My Server2" -aid "admin" -ak "admin123" -ng` # If someone wants to access the server they must sign up via signup page first. No guest allowed
+  1. `pyrobox -n "My Server3" -aid "admin" -ak "admin123" -ng -ns` # Only admin can access the server. No guest allowed, no signup allowed. Admin can add user from admin page
+
 
 ## TODO
 
@@ -145,7 +157,6 @@ usage: `local_server_pyrobox.py [--password PASSWORD] [--no-upload] [--no-zip] [
 * https://github.com/RaSan147/pyrobox/issues/36 Add side bar to do something 🤔
 * check output ip and port accuracy on multiple os  
 * https://github.com/RaSan147/pyrobox/issues/37 Backup code if Reload causes unhandled issue and can't be accessed
-* https://github.com/RaSan147/pyrobox/issues/39 User login and user based permission set. 🔑
 * Add more flags to disable specific features
 
 ## Support for more features
