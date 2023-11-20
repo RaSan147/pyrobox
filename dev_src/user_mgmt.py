@@ -501,6 +501,16 @@ class User_handler:
 			self.cached[username] = user
 
 		return user
+	
+	def delete_user(self, username) -> bool:
+		user = self.get_user(username)
+		if user is None:
+			return False
+
+		user.db.del_row() # delete from db
+		self.cached.pop(username, None) # delete from cache
+		return True
+
 
 	def server_verify(self, username:str, token:str, return_user=False) -> Union[bool, User]:
 		user = self.get_user(username)

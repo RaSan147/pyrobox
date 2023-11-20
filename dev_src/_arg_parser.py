@@ -12,7 +12,7 @@ def main(config):
 
 
 
-	config.parser.add_argument('--name', '-nm',
+	config.parser.add_argument('--name', '-n',
 							type=str,
 							default=None,
 							help='[Value] In case you want to create a server User accounts based. --password must be always same and --admin-id and --admin-pass is required. See web doc for more info.'
@@ -33,7 +33,10 @@ def main(config):
 
 
 
-
+	config.parser.add_argument('--no-signup', '-ns',
+							action='store_true',
+							default=False,
+							help="[Flag] Disable signup page (default: %(default)s)")
 
 
 	config.parser.add_argument('--guest-allowed', '-ga',
@@ -56,7 +59,7 @@ def main(config):
 							default=False,
 							help="[Flag] Disable Folder->Zip downloading (default: %(default)s)")
 
-	config.parser.add_argument('--no-modify', '-no',
+	config.parser.add_argument('--no-modify', '-nm',
 							action='store_true',
 							default=False,
 							help="[Flag] Disable File Modification (ie: renaming, overwriting existing files) (On upload, if file exists, will add a number at the end(default: %(default)s)")

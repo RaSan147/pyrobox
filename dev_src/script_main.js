@@ -178,7 +178,7 @@ class ContextMenu {
 	}
 	create_folder() {
 		let folder_name = byId('folder-name').value;
-		this.menu_click('new_folder', folder_name, null, refresh);
+		this.menu_click('new_folder', folder_name, null, () => {page.refresh_dir()});
 	}
 }
 var context_menu = new ContextMenu()

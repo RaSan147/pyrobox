@@ -411,6 +411,62 @@ def get_user_perm(self: SH, *args, **kwargs):
 	return self.send_json({"status": True, "permissions_code": USER.permission_pack}, cookie=cookie)
 
 
+@SH.on_req('HEAD', hasQ="add_user") # added by Admin
+def add_user(self: SH, *args, **kwargs):
+	"""Add a user"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	username = self.query.get("username", [None])[0]
+	password = self.query.get("password", [None])[0]
+
+	if not (username and password):
+		return self.send_json({"status": False, "message": "Username or password not provided"}, cookie=cookie)
+
+	if Sconfig.user_handler.get_user(username):
+		return self.send_json({"status": False, "message": "Username already exists"}, cookie=cookie)
+
+	new_user = Sconfig.user_handler.create_user(username, password)
+	if not new_user:
+		return self.send_json({"status": False, "message": "Failed to create user"}, cookie=cookie)
+
+	return self.send_json({"status": True, "message": f"<h2>User created.</h2> UID: {new_user.uid}"}, cookie=cookie)
+
+
+
+@SH.on_req('HEAD', hasQ="delete_user")
+def delete_user(self: SH, *args, **kwargs):
+	"""Delete a user"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	username = self.query.get("username", [None])[0]
+
+	if not username:
+		return self.send_json({"status": False, "message": "Username not provided"}, cookie=cookie)
+
+	USER = Sconfig.user_handler.get_user(username, temp=True)
+	if not USER:
+		return self.send_json({"status": False, "message": "User not found"}, cookie=cookie)
+
+	if USER.is_admin():
+		return self.send_json({"status": False, "message": "Cannot delete admin! Remove from admin 1st."}, cookie=cookie)
+
+	if not Sconfig.user_handler.delete_user(username): # delete user
+		return self.send_json({"status": False, "message": "Failed to delete user"}, cookie=cookie)
+
+	return self.send_json({"status": True, "message": "User deleted"}, cookie=cookie)
+
 
 
 @SH.on_req('HEAD', hasQ="update")
@@ -767,6 +823,10 @@ def send_file_list_script(self: SH, *args, **kwargs):
 	"""Send file list script"""
 	return self.send_script(pt.file_list_script())
 
+@SH.on_req('HEAD', hasQ="error_page_script")
+def send_error_page_script(self: SH, *args, **kwargs):
+	"""Send error page script"""
+	return self.send_script(pt.error_page_script())
 
 
 
@@ -787,8 +847,13 @@ def signup_page(self: SH, *args, **kwargs):
 
 	if user:
 		return self.redirect("/")
+
+	if Sconfig.cli_args.no_signup:
+		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Signup is disabled")
 	
 	return self.send_text(pt.signup_page())
+
+
 
 
 
@@ -963,6 +1028,8 @@ def handle_signup_post(self: SH, *args, **kwargs):
 	if user:
 		return self.redirect("/")
 
+	if Sconfig.cli_args.no_signup:
+		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Signup is disabled")
 
 
 	post = DPD(self)
@@ -1029,7 +1096,8 @@ def upload(self: SH, *args, **kwargs):
 	password = form.get_multi_field(verify_name='password', decode=T)[1]
 
 	self.log_debug(f'post password: {[password]} by client')
-	if password != CoreConfig.PASSWORD: # readline returns password with \r\n at end
+
+	if (user.MEMBER and not user.check_password(password)) or (not user.MEMBER and password != CoreConfig.PASSWORD): # readline returns password with \r\n at end
 		self.log_info(f"Incorrect password by {uid}")
 
 		return self.send_txt("Incorrect password", HTTPStatus.UNAUTHORIZED, cookie=cookie)

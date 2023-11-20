@@ -25,6 +25,16 @@
 	background: #aaa;
 }
 
+.hidden {
+	display: none !important;
+}
+
+.disabled {
+	pointer-events: none;
+	filter: grayscale(100%);
+	cursor: not-allowed;
+}
+
 
 #content_list {
 	/* making sure this don't get visible if js enabled */
@@ -858,12 +868,13 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 
 
 #actions-btn {
-	display: flex;
+	/* display: flex; */
+	display: none;
 	position: fixed;
 	color: var(--popup-color);
 	background-color: var(--popup-btn-bg);
-	width: 50px;
-	height: 50px;
+	min-width: 50px;
+	min-height: 50px;
 	line-height: 1.8;
 	font-size: 25px;
 	font-weight: 700;
@@ -894,8 +905,57 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 	transform: scale(0.3);
 }
 
+#actions-btn-text {
+	display: none;
+}
+
+@media screen and (min-width: 700px) {
+	#actions-btn-text {
+		display: block;
+	}
+	#actions-btn {
+		border-radius: 20px;
+		padding: 0 10px;
+	}
+}
+
+#actions-loading-icon {
+	display: block;
+}
 
 
+.spin {
+	-webkit-animation-name: spin;
+	-webkit-animation-duration: 4000ms;
+	-webkit-animation-iteration-count: infinite;
+	-webkit-animation-timing-function: linear;
+	-moz-animation-name: spin;
+	-moz-animation-duration: 4000ms;
+	-moz-animation-iteration-count: infinite;
+	-moz-animation-timing-function: linear;
+	-ms-animation-name: spin;
+	-ms-animation-duration: 4000ms;
+	-ms-animation-iteration-count: infinite;
+	-ms-animation-timing-function: linear;
+
+	animation-name: spin;
+	animation-duration: 4000ms;
+	animation-iteration-count: infinite;
+	animation-timing-function: linear;
+}
+
+@-moz-keyframes spin {
+    from { -moz-transform: rotate(0deg); }
+    to { -moz-transform: rotate(360deg); }
+}
+@-webkit-keyframes spin {
+    from { -webkit-transform: rotate(0deg); }
+    to { -webkit-transform: rotate(360deg); }
+}
+@keyframes spin {
+    from {transform:rotate(0deg);}
+    to {transform:rotate(360deg);}
+}
 
 
 

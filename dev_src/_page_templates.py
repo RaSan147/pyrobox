@@ -77,6 +77,9 @@ def page_handler_script():
 def admin_page_script():
 	return get_template("script_admin_page.js")
 
+def error_page_script():
+	return get_template("script_error_page.js")
+
 
 
 
@@ -93,7 +96,7 @@ def admin_page():
 	return get_template("html_admin.html")
 
 def error_page():
-	return directory_explorer_header() + get_template("html_error.html")  # TODO: add to PWA
+	return directory_explorer_header()  # TODO: add to PWA
 
 def theme_script():
 	return get_template("script_theme.js")

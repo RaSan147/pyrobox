@@ -109,24 +109,34 @@ usage: `local_server_pyrobox.py [--password PASSWORD] [--no-upload] [--no-zip] [
 
   | arg `value`           | Description |
   | --------------------- | ------------|
-  |--password `PASSWORD`, -k  `PASSWORD` | Upload Password (default: SECret)|
+  |--password `PASSWORD`, -k  `PASSWORD` | Upload Password (GUESTS users and Nameless server users must use it to upload files)(default: SECret)|
   |--directory `DIRECTORY`, -d `DIRECTORY` | Specify alternative directory [default: current directory]
   |--bind `ADDRESS`, -b `ADDRESS` | Specify alternate bind address [default: all interfaces]|
+  |--version, -v          | show program's version number and exit|
+  |-h, --help             | show this help message and exit|
 
 ## Customization Options
 
-  | arg                  | Description |
+  | Flags                | Description |
   | -------------------- | ------------|
   |--no-upload, -nu      | Files can't be uploaded (default: False)|
   |--no-zip, -nz         | Disable Folder->Zip downloading (default: False)|
-  |--no-update, -no      | Disable File Updating (ie: **renaming**, **overwriting existing files**) (On upload, if file exists, will add a number at the end(default: False)|
+  |--no-modify, -nm      | Disable File Modification (ie: **renaming**, **overwriting existing files**) (On upload, if file exists, will add a number at the end) (default: False)|
   |--no-delete, -nd      | Disable File Deletion (default: False)|
   |--no-download, -ndw   | Disable File Downloading [**videos won't play either**] (default: False)|
   |--read-only, -ro      | Read Only Mode *disables upload and any modifications ie: rename, delete* (default: False)|
   |--view-only, -vo      | Only allowed to see file list, nothing else (default: False)|
-  --version, -v          | show program's version number and exit|
-  -h, --help             | show this help message and exit|
 
+## Advanced Account System
+
+> ### You must give a `--name [Name]` and `--admin-id [USER Name]`, `--admin-pass [PASSWORD]` to create an admin account. If guest not allowed `--no-guest-allowed` User must login to access the server. You can also disable signing up `--no-signup` (Only admin can add user from admin page). Admin can also update user permission from admin page.
+
+  | Flags/Arg `value`    | Description |
+  | -------------------- | ------------|
+  |--name `NAME`, -n `NAME` | Name of the user (default: None)|
+  |--admin-id `ADMIN_ID`, -aid `ADMIN_ID` | Admin ID (default: None)|
+  |--admin-pass `ADMIN_PASS`, -ak `ADMIN_PASS` | Admin Password (default: None)|
+  |--no-signup, -ns      | Disable Signing up (Only admin can add user from admin page)(default: False)|
 
 ## TODO
 
@@ -189,8 +199,8 @@ usage: `local_server_pyrobox.py [--password PASSWORD] [--no-upload] [--no-zip] [
 <details>
   <summary>Running on WINDOWS, but can't access with other device [FIREWALL]</summary>
  
-  > You probably have **FireWall ON** and Unconfigured.
-  > For your safety, I'd recommand you to allow Python on private network and run the server when your network is Private.
+  > You probably have **FireWall ON** and not configured.
+  > For your safety, I'd recommend you to allow Python on private network and run the server when your network is Private.
   > IN SHORT: ALLOW PYTHON ON FIREWALL, RUN THE SERVER
  
   > *note: allowed on private but using public network on firewall will cause similar issue, you gotta make both same or allow python both on public and private*

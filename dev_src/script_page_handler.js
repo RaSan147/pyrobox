@@ -3,7 +3,11 @@ class Page{
 	constructor(){
 		this.container = byId('content_container')
 		this.type = null;
-		this.handler = null;
+		this.handler = fm_page; // default handler
+
+		this.actions_button = byId("actions-btn")
+		this.actions_button_text = byId("actions-btn-text")
+
 
 		this.dir_tree = document.getElementById("dir-tree")
 
@@ -20,7 +24,25 @@ class Page{
 			event.deltaY < 0;
 		}
 
+
+		this.handlers = {
+			"dir": fm_page,
+			"vid": video_page,
+			"admin": admin_page,
+			"error": error_page
+		}
+
+
+
 		this.initialize()
+	}
+
+	get actions_loading_icon(){
+		return byId("actions-loading-icon")
+	}
+
+	get actions_button_icon(){
+		return byId("actions-btn-icon")
 	}
 
 	get_type(){
@@ -30,9 +52,9 @@ class Page{
 	}
 
 	hide_all(){
-		fm_page.hide()
-		video_page.hide()
-		admin_page.hide()
+		for (let handler of Object.values(this.handlers)){
+			handler.hide();
+		}
 	}
 
 	clear(){
@@ -44,6 +66,9 @@ class Page{
 			console.log("Loading page in " + t)
 			await tools.sleep (1000)
 		}*/
+
+		this.show_loading();
+
 		this.container.style.display = "none";
 		this.hide_all();
 		this.update_displaypath();
@@ -55,8 +80,11 @@ class Page{
 
 		this.handler = null;
 
-
-		if (type == 'dir') {
+		console.log("Page type: " + type)
+		
+		if (ERROR_PAGE == "active") {
+			this.handler = error_page;
+		} else if (type == 'dir') {
 			this.handler = fm_page;
 		} else if (type == 'vid') {
 			this.handler = video_page;
@@ -68,19 +96,44 @@ class Page{
 			this.handler.initialize();
 			this.handler.show();
 		} else {
-			popup_msg.createPopup("This type of page is not ready yet");
-			popup_msg.show();
+			// popup_msg.createPopup("This type of page is not ready yet");
+			// popup_msg.show();
 
 			this.handler = old_handler;
 		}
 
-
+		this.hide_loading();
 		this.container.style.display = "block";
 
 	}
 
+	show_loading(){
+		this.actions_loading_icon.classList.remove("hidden");
+		this.actions_button_icon.classList.add("hidden");
+		this.actions_button_text.classList.add("hidden");
+	}
+
+	hide_loading(){
+		this.actions_loading_icon.classList.add("hidden");
+		this.actions_button_icon.classList.remove("hidden");
+		this.actions_button_text.classList.remove("hidden");
+	}
+
+
+	show_actions_button(){
+		this.actions_button.style.display = "flex";
+	}
+
+	hide_actions_button(){
+		this.actions_button.style.display = "none";
+	}
+
 	on_action_button() {
 		this.handler.on_action_button();
+	}
+
+	set_actions_button_text(text) {
+		this.actions_button_text.innerHTML = text;
 	}
 
 	set_title(title) {
@@ -115,7 +168,7 @@ class Page{
 	refresh_dir(){
 		console.log(this)
 		if (this.type == "dir"){
-			fm_page.initialize(); // refresh the page
+			fm_page.initialize(true); // refresh the page
 		}
 	}
 }

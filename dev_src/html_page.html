@@ -14,6 +14,7 @@
 const public_url = "${PY_PUBLIC_URL}";
 </script>
 
+
 <style>
 	#content_container {
 		display: none; /* hide content until page is loaded */
@@ -25,6 +26,14 @@ const public_url = "${PY_PUBLIC_URL}";
 	<style>
 		.jsonly {
 			display: none !important
+		}
+
+		#content_container {
+			display: block; /* making sure its visible */
+		}
+
+		#fm_page {
+			display: block;
 		}
 
 		#content_list {
@@ -64,7 +73,7 @@ const public_url = "${PY_PUBLIC_URL}";
 	<div>
 		<div id="preference_button" class="accordion accordion-button debug_only" onclick="appConfig.show_help_note()">Preference</div>
 		<div class="member_only">
-			<div id="note_button" class="accordion accordion-button" onclick="appConfig.show_author_note()">User Panel</div>
+			<div id="user_panel_button" class="accordion accordion-button debug_only" onclick="appConfig.show_author_note()">User Panel</div>
 			<div id="admin_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
 			<div id="logout_button" class="accordion accordion-button" onclick="goto('./?logout')">Logout</div>
 		</div>
@@ -82,7 +91,11 @@ const public_url = "${PY_PUBLIC_URL}";
 </div>
 
 
-<div id="actions-btn" class="disable_selection jsonly" onclick="page.on_action_button()"><span class="fa fa-solid fa-plus"><b>+</b></span></div>
+<div id="actions-btn" class="disable_selection jsonly" onclick="page.on_action_button()">
+	<div id="actions-btn-text">More&nbsp;</div>
+	<span class="fa fa-solid fa-plus" id="actions-btn-icon"><b>+</b></span>
+	<span class="fa fa-duotone fa-spinner fa-spin" id="actions-loading-icon"><span class='spin'>⚉</span></span>
+</div>
 <div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
 	<span id="progress-uploads">Running Uploads
 	<span id="progress-uploads-count">(0/0)</span></span>
@@ -114,12 +127,14 @@ const public_url = "${PY_PUBLIC_URL}";
 		</div>
 	</div>
 
-	<div id="error-page" class="page">
+	<div id="error-page" class="page ${PY_ERROR_PAGE}">
+		<script>var ERROR_PAGE = "${PY_ERROR_PAGE}"</script>
 		<h1><u>Error response</u></h1>
-		<p><u>Error code:</u> <p id="error_code">${code}</p></p>
-		<p><u>Message:</u> <p id="error_message">${message}</p></p>
-		<p><u>Error code explanation:</u> <p id="error_code2">${code}</p> - <p id="error_explain">${explain}</p></p>
+		<p><u>Error code:</u> <span id="error_code">${code}</span></p>
+		<p><u>Message:</u> <span id="error_message">${message}</span></p>
+		<p><u>Error code explanation:</u> <span id="error_code2">${code}</span> - <span id="error_explain">${explain}</span></p>
 		<hr>
+		<center><img src = "https://http.cat/${code}" style="max-width: 95vw;" alt="Error Image"></img></center>
 	</div>
 
 
@@ -191,6 +206,7 @@ const public_url = "${PY_PUBLIC_URL}";
 <script src="/?theme_script"></script>
 <script src="/?video_page_script"></script>
 <script src="/?admin_page_script"></script>
+<script src="/?error_page_script"></script>
 
 <script src="/?page_handler_script"></script>
 

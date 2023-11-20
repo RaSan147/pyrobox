@@ -87,7 +87,7 @@ class Theme_Controller {
 
 	async del_fa_alt() {
 		if (this.fa_ok) {
-			document.querySelectorAll(".fa").forEach(e => e.parentNode.replaceChild(Object.assign(document.createElement("i"), { className: e.className, style: e.style }), e));
+			document.querySelectorAll(".fa").forEach(e => e.parentNode.replaceChild(Object.assign(document.createElement("i"), { className: e.className, style: e.style , id: e.id}), e));
 		}
 	}
 

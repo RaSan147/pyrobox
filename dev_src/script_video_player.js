@@ -42,6 +42,9 @@ class Video_Page {
 	}
 
 	async initialize() {
+		page.hide_actions_button(); // Hide actions button, not needed here
+
+
 		var url = tools.add_query_here("vid-data")
 
 		var data = await fetch(url)

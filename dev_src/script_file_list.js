@@ -3,6 +3,12 @@ var f_li = [] // ${PY_FILE_LIST};
 var s_li = [] // ${PY_FILE_SIZE};
 
 
+function clear_file_list() {
+	// clear previous data
+	tools.del_child("linkss");
+	tools.del_child("js-content_list")
+}
+
 
 class FM_Page{
 	constructor(){
@@ -17,9 +23,14 @@ class FM_Page{
 		fm.show_more_menu()
 	}
 
-	async initialize(){
-		page.clear()
+	async initialize(lazyload=false){
+		if (!lazyload){
+			page.clear();
+		}
+
 		page.set_title("File Manager")
+		page.set_actions_button_text("New&nbsp;")
+		page.show_actions_button()
 
 		if (user.permissions.NOPERMISSION || !user.permissions.VIEW){
 			page.set_title("No Permission")
@@ -643,19 +654,10 @@ class FileManager {
 const fm = new FileManager();
 
 
-function clear_file_list() {
-	// clear previous data
-	tools.del_child("linkss");
-	tools.del_child("js-content_list")
-}
-
 
 
 
 function show_file_list() {
-	clear_file_list(); // clear the links since they are no js compatible
-
-
 	let folder_li = createElement('div');
 	let file_li = createElement("div")
 	r_li.forEach((r, i) => {
@@ -760,6 +762,7 @@ function show_file_list() {
 		}
 	});
 
+	clear_file_list(); // clear the links since they are no js compatible
 
 	let dir_container = byId("js-content_list")
 	dir_container.appendChild(folder_li)

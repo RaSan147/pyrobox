@@ -5,6 +5,8 @@ class Admin_page {
 
 	initialize(){
 		this.show()
+		page.set_actions_button_text("Add User&nbsp;");
+		page.show_actions_button();
 	}
 
 	show(){
@@ -18,7 +20,7 @@ class Admin_page {
 	}
 
 	on_action_button() {
-		// this.handler.on_action_button()
+		admin_tools.add_user();
 	}
 
 	clear() {
@@ -125,7 +127,7 @@ class Admin_tools {
 
 
 		const client_page_html = `
-<form action="" method="post" class="perm_checker">
+<form action="" method="post" class="perm_checker_form">
 	<h2>Update Permissions</h2>
 	<table>
 		<tr>
@@ -156,6 +158,10 @@ class Admin_tools {
 			<td>Admin</td>
 			<td><input type="checkbox" name="ADMIN" value="6" id="admin"></td>
 		</tr>
+		<tr>
+			<td>Member</td>
+			<td><input type="checkbox" name="MEMBER" value="7" id="member" disabled></td>
+		</tr>
 	</table>
 
 	<div class="submit_parent">
@@ -165,7 +171,7 @@ class Admin_tools {
 </form>
 
 <br>
-<div class='pagination' onclick='admin_tools.delete_user(" + i +")'
+<div class='pagination' onclick='admin_tools.delete_user(${index})'
 	style="margin: 0 auto;">Delete User</div>
 
 <!-- 
@@ -176,7 +182,7 @@ if admin is checked, all other values are checked -->
 <!-- make the table and input look modern 
 keep the submit button in center, modernize the button UI-->
 <style>
-	.perm_checker table {
+	.perm_checker_form table {
 		border-collapse: collapse;
 		width: 100%;
 		color: #afafaf;
@@ -184,20 +190,20 @@ keep the submit button in center, modernize the button UI-->
 		font-size: 25px;
 		text-align: left;
 	}
-	.perm_checker tr:nth-child(even) {background-color: #4d4d4d}
+	.perm_checker_form tr:nth-child(even) {background-color: #4d4d4d}
 
-	.perm_checker td:nth-child(1){
+	.perm_checker_form td:nth-child(1){
 		text-align: left;
 		width: calc(100% - 50px);
 	}
 
-	.perm_checker td:nth-child(2){
+	.perm_checker_form td:nth-child(2){
 		text-align: center;
 		width: 50px;
 	}
 
 
-	.perm_checker input[type=checkbox] {
+	.perm_checker_form input[type=checkbox] {
 		-moz-appearance:none;
 		-webkit-appearance:none;
 		-o-appearance:none;
@@ -205,7 +211,7 @@ keep the submit button in center, modernize the button UI-->
 		content: none;	
 	}
 
-	.perm_checker input[type=checkbox]:before {
+	.perm_checker_form input[type=checkbox]:before {
 		content: "✅";
 		font-size: 17px;
 		color: transparent !important;
@@ -216,11 +222,15 @@ keep the submit button in center, modernize the button UI-->
 		border: 1px solid black;
 	}
 
-	.perm_checker input[type=checkbox]:checked:before {
+	.perm_checker_form input[type=checkbox][disabled]:before {
+		filter: grayscale(1);
+	}
+
+	.perm_checker_form input[type=checkbox]:checked:before {
 		color: black !important;
 	}
 
-	.perm_checker input[type=submit] {
+	.perm_checker_form input[type=submit] {
 		background-color: #444;
 		color: white;
 		font-family: monospace;
@@ -238,12 +248,12 @@ keep the submit button in center, modernize the button UI-->
 		box-shadow: 5px 5px 0 0 #1abeff;
 	}
 
-	.perm_checker input[type=submit]:hover {
+	.perm_checker_form input[type=submit]:hover {
 		background-color: #333;
 		box-shadow: 3px 3px 0 0 #1abeff;
 	}
 
-	.perm_checker .submit_parent {
+	.perm_checker_form .submit_parent {
 		display: flex;
 		justify-content: center;
 	}
@@ -261,10 +271,11 @@ keep the submit button in center, modernize the button UI-->
 	var upload = document.getElementById("upload");
 	var zip = document.getElementById("zip");
 	var admin = document.getElementById("admin");
+	var member = document.getElementById("member");
 
 	var submit = document.getElementById("submit");
 
-	var username = "` + username + `";
+	var username = "${username}";
 	var _user = new User();
 	fetch('/?get_user_perm&username=' + username)
 	.then(response => response.json())
@@ -280,6 +291,7 @@ keep the submit button in center, modernize the button UI-->
 			upload.checked = perms["UPLOAD"];
 			zip.checked = perms["ZIP"];
 			admin.checked = perms["ADMIN"];
+			member.checked = perms["MEMBER"];
 		} else {
 			popup_msg.createPopup(data["message"]);
 			popup_msg.open_popup();
@@ -297,6 +309,7 @@ keep the submit button in center, modernize the button UI-->
 		dict["UPLOAD"] = upload.checked;
 		dict["ZIP"] = zip.checked;
 		dict["ADMIN"] = admin.checked;
+		dict["MEMBER"] = member.checked;
 
 		
 		_user.permissions = dict;
@@ -339,12 +352,16 @@ keep the submit button in center, modernize the button UI-->
 	delete_user(index) {
 		var username = this.user_list[index];
 		r_u_sure({y:()=>{
-			fetch('/?delete_user=' + username)
-			.then(response => response.text())
+			fetch('/?delete_user&username=' + username)
+			.then(response => response.json())
 			.then(data => {
-				popup_msg.createPopup(data);
-				this.get_users();
+				if (data.status) {
+					popup_msg.createPopup("Success", data["message"]);
+				} else {
+					popup_msg.createPopup("Error", data["message"]);
+				}
 				popup_msg.open_popup();
+				this.get_users();
 			})
 			.catch(err => {
 				console.log(err);
@@ -374,6 +391,164 @@ keep the submit button in center, modernize the button UI-->
 			})
 
 		}});
+	}
+
+	add_user() {
+		var client_page_html = `
+<form action="" method="post" class="add_user_form">
+	<table>
+		<tr>
+			<td>Username</td>
+			<td><input type="text" name="username" id="add_user_username"></td>
+		</tr>
+		<tr>
+			<td>Password</td>
+			<td><input type="password" name="password" id="add_user_password"></td>
+		</tr>
+		<tr>
+			<td>Confirm Password</td>
+			<td><input type="password" name="confirm_password" id="add_user_confirm_password"></td>
+		</tr>
+	</table>
+
+	<div class="submit_parent">
+		<input type="submit" name="submit" value="Submit" id="add_user_submit">
+	</div>
+
+	<div id="add_user_status"></div>
+
+</form>
+
+<style>
+
+	.add_user_form table {
+		border-collapse: collapse;
+		width: 100%;
+		color: #afafaf;
+		font-family: monospace;
+		font-size: 18px;
+		text-align: left;
+	}
+
+	.add_user_form input[type=text], input[type=password] {
+		background-color: #444;
+		color: white;
+		font-family: monospace;
+		font-size: 20px;
+		text-align: center;
+		border: none;
+		width: 90%;
+		padding: 5px 7px;
+		text-decoration: none;
+		display: inline-block;
+		margin: 4px 2px;
+		cursor: pointer;
+
+		border-radius: 2px;
+		box-shadow: 5px 5px 0 0 #1abeff;
+	}
+
+	.add_user_form input[type=text]:hover, input[type=password]:hover {
+		background-color: #333;
+		box-shadow: 3px 3px 0 0 #1abeff;
+	}
+
+	.add_user_form .submit_parent {
+		display: flex;
+		justify-content: center;
+	}
+
+	.add_user_form input[type=submit] {
+		background-color: #444;
+		color: white;
+		font-family: monospace;
+		font-size: 25px;
+		text-align: center;
+		border: none;
+		width: 60%;
+		padding: 15px 32px;
+		text-decoration: none;
+		display: inline-block;
+		margin: 4px 2px;
+		cursor: pointer;
+
+		border-radius: 2px;
+		box-shadow: 5px 5px 0 0 #1abeff;
+	}
+
+	.add_user_form input[type=submit]:hover {
+		background-color: #333;
+		box-shadow: 3px 3px 0 0 #1abeff;
+	}
+
+</style>
+		`
+
+		var client_page_script = `
+{
+	var username = document.getElementById("add_user_username");
+	var password = document.getElementById("add_user_password");
+	var confirm_password = document.getElementById("add_user_confirm_password");
+	var submit = document.getElementById("add_user_submit");
+	var submit_status = document.getElementById("add_user_status");
+	const NotUsernameRegex = /[^a-zA-Z0-9_]/g;
+	const note = (msg, color='red') => {
+		submit_status.innerHTML = msg;
+		submit_status.style.color = color;
+	}
+
+	submit.onclick = function(e) {
+		e.preventDefault();
+
+		var OK = false;
+		var _uname = username.value;
+		var _pass = password.value;
+		var _pass_confirm = confirm_password.value;
+
+		console.log(_uname);
+		console.log(_pass);
+		
+		if(_uname.length<1){
+			note("Username must have at least 1 character!")
+		} else if (_uname.length>64){
+			note("Username must be less than 64 character long")
+		} else if (_pass.length<4){
+			note("Password must have at least 4 character!")
+		}else if (_pass.length>256){
+			note("Password can't be longer than 256 characters")
+		} else if (NotUsernameRegex.test(_uname)){
+			note("Username can only have A-Z, a-z, 0-9, _")
+		} else if (_uname == _pass){
+			note("Username and password can't be the same!")
+		} else if (_pass != _pass_confirm){
+			note("Passwords do not match!")
+		} else {
+			OK = true;
+			note("Adding user...", "green");
+		}
+
+		if (!OK) {
+			return false;
+		}
+		
+		fetch('/?add_user&username=' + username.value + "&password=" + password.value)
+		.then(response => response.json())
+		.then(data => {
+			popup_msg.createPopup(data["status"], data["message"]);
+			popup_msg.open_popup();
+
+			admin_tools.get_users();
+		})
+		.catch(err => {
+			console.log(err);
+		})
+	}
+}
+		`
+
+		popup_msg.createPopup("Add User", client_page_html, true, null_func, client_page_script);
+
+		popup_msg.open_popup()
 	}
 }
 

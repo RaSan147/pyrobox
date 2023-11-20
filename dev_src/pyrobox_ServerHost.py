@@ -151,8 +151,7 @@ class ServerConfig():
 		if self.DefaultPerms["value"].get("guest", None):
 			self.guest_perms = User.unpack_permission_to_list(self.DefaultPerms["value"]["guest"])
 		elif not self.name:
-			self.guest_perms = self.admin_perms # if no account mode, guest is admin
-			self.guest_perms.remove(permits.ADMIN) # remove admin permission
+			self.guest_perms = self.member_perms # if no account mode, guest is member
 			self.guest_perms.remove(permits.MEMBER) # remove member permission
 
 		else:
@@ -174,12 +173,22 @@ class ServerConfig():
 				remove_perm(self.guest_perms, permits.DOWNLOAD)
 
 
+		# remove None values
+		self.member_perms = [x for x in self.member_perms if x is not None]
+		self.admin_perms = [x for x in self.admin_perms if x is not None]
+		self.guest_perms = [x for x in self.guest_perms if x is not None]
+
 		self.update_config_perms() # update the config file with the new permissions | can be used from the admin page
 
 	def update_config_perms(self):
-		self.DefaultPerms["value"]["member"] = User.pack_permission_from_list(self.member_perms)
-		self.DefaultPerms["value"]["admin"] = User.pack_permission_from_list(self.admin_perms)
-		self.DefaultPerms["value"]["guest"] = User.pack_permission_from_list(self.guest_perms)
+			"""
+			Update the permissions in the config file database
+
+			This method updates the default permissions for members, admins, and guests.
+			"""
+			self.DefaultPerms["value"]["member"] = User.pack_permission_from_list(self.member_perms)
+			self.DefaultPerms["value"]["admin"] = User.pack_permission_from_list(self.admin_perms)
+			self.DefaultPerms["value"]["guest"] = User.pack_permission_from_list(self.guest_perms)
 
 
 
@@ -220,6 +229,7 @@ class ServerHost(SH_base):
 		title = get_titles(displaypath)
 
 		_format = pt.directory_explorer_header().safe_substitute(
+			PY_ERROR_PAGE="",
 			PY_PAGE_TITLE=title,
 			PY_PUBLIC_URL=CoreConfig.address(),
 			PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
@@ -236,6 +246,7 @@ class ServerHost(SH_base):
 		title = get_titles(displaypath)
 
 		_format = pt.error_page().safe_substitute(
+			PY_ERROR_PAGE="active",
 			PY_PAGE_TITLE=title,
 			PY_PUBLIC_URL=CoreConfig.address(),
 			PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
