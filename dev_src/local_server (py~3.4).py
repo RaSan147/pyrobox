@@ -2814,7 +2814,7 @@ config.file_list["html_page.html"] = r"""
 <meta charset="{UTF-8}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <head>
-<link href='https://fonts.googleapis.com/css?family=Open Sans' rel='stylesheet'>
+<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
 </head>
 <title>${PY_PAGE_TITLE}</title>
 

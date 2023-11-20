@@ -86,9 +86,6 @@ def error_page_script():
 def upload_form():
 	return _get_template("html_upload.html")
 
-def video_page():
-	return get_template("html_vid.html")
-
 def zip_script():
 	return get_template("html_zip_page.html")  # TODO: Move to Dynamic island
 

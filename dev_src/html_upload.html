@@ -1,0 +1,26 @@
+<noscript>
+	<form ENCTYPE="multipart/form-data" method="post" action="?upload" id="uploader-nojs">
+		<!-- using "?upload" action so that user can go back to the page -->
+		<center>
+			<h1><u>Upload file</u></h1>
+
+
+			<input type="hidden" name="post-type" value="upload">
+
+			<span class="upload-pass">Upload PassWord:</span>&nbsp;&nbsp;<input name="password" type="password"
+				label="Password" class="upload-pass-box" placeholder="Password" maxlength="512" minlength="1" required><br><br>
+			<br><br>
+			<!-- <p>Load File:&nbsp;&nbsp;</p><input name="file" type="file" multiple /><br><br> -->
+			<div class="upload-box">
+				<div class="drag-area">
+					<div class="drag-icon">⬆️</div>
+					<header>Select Files To Upload</header>
+					<input type="file" name="file" multiple class="drag-browse" value="Browse File" style="max-width: min(300px, 80%);">
+				</div>
+			</div>
+
+		</center>
+		<center><input class="drag-browse" type="submit" value="&#10174; upload"></center>
+	</form>
+</noscript>
+

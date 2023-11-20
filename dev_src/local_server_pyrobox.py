@@ -1017,7 +1017,7 @@ def handle_login_post(self: SH, *args, **kwargs):
 	
 	cookie = add_user_cookie(user)
 
-	return self.send_json({"status": "success", "message": "Login successful"}, cookie=cookie)
+	return self.send_json({"status": "success", "message": "Login successful, if not Auto-redirecting, kindly Refresh"}, cookie=cookie)
 
 
 @SH.on_req('POST', hasQ="do_signup")
