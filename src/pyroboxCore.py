@@ -30,7 +30,7 @@ import logging
 import atexit
 import os
 
-__version__ = "0.9.0"
+__version__ = "0.9.2"
 enc = "utf-8"
 DEV_MODE = False
 
@@ -188,7 +188,7 @@ class Config:
 								help=('[Option] show this help message and exit'))
 
 
-		parser.add_argument('-nxl','--no-extra-log',
+		parser.add_argument('--no-extra-log',
 							action='store_true',
 							default=False,
 							help="[Flag] Disable file path and [= + - #] based logs (default: %(default)s)")

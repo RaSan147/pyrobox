@@ -1737,7 +1737,6 @@ class Tools {
 	enable_debug() {
 		const that = this;
 		if (!config.allow_Debugging) {
-			alert("Debugging is not allowed");
 			return;
 		}
 		if (config.Debugging) {
