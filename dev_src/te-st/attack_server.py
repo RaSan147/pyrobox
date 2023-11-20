@@ -10,7 +10,7 @@ session = urllib3.PoolManager()
 # ping an address for a certain amount of time
 def ping(address, duration):
 	count  = 0
-	
+
 	success = 0
 	fail = 0
 	start = time.time()
@@ -29,7 +29,7 @@ def ping(address, duration):
 
 # main
 if __name__ == "__main__":
-	address = "http://127.0.0.1:45454"
+	address = input("Enter address to ping: ")
 	duration = 10
 	count, success, fail = ping(address, duration)
 	print("Sent %d requests in %d seconds" % (count, duration))

@@ -1,1 +1,3 @@
-favicon.png => https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.png?raw=true
+favicon.png => https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png
+favicon.ico => https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.ico
+video.css => https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css

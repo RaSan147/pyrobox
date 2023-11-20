@@ -30,9 +30,11 @@ import logging
 import atexit
 import os
 
-
-__version__ = "0.8.1"
+__version__ = "0.9.0"
 enc = "utf-8"
+DEV_MODE = False
+
+
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
 	"SimpleHTTPRequestHandler",
@@ -59,6 +61,7 @@ class Config:
 		self.ftp_dir = "."  # DEFAULT DIRECTORY TO LAUNCH SERVER
 
 		self.IP = None  # will be assigned by checking
+		self.protocol = "http"  # DEFAULT PROTOCOL TO LAUNCH SERVER
 
 		# DEFAULT PORT TO LAUNCH SERVER
 		self.port = 6969  # DEFAULT PORT TO LAUNCH SERVER
@@ -72,11 +75,12 @@ class Config:
 		# if you want to see some important LOG in browser, may contain your important information
 		self.allow_web_log = True
 		self.write_log = False  # if you want to write log to file
+		self.log_extra = True
 
 		# ZIP FEATURES
 		self.default_zip = "zipfile"  # or "zipfile" to use python built in zip module
 
-		# CHECK FOR MISSING REQUEIREMENTS
+		# CHECK FOR MISSING REQUIREMENTS
 		self.run_req_check = True
 
 		# FILE INFO
@@ -88,7 +92,7 @@ class Config:
 
 		# RUNNING SERVER STATS
 		self.ftp_dir = self.get_default_dir()
-		self.dev_mode = True
+		self.dev_mode = DEV_MODE
 		self.ASSETS = False  # if you want to use assets folder, set this to True
 		self.ASSETS_dir = os.path.join(self.MAIN_FILE_dir, "/../assets/")
 		self.reload = False
@@ -148,10 +152,12 @@ class Config:
 		return out
 
 	def get_default_dir(self):
+		if self.get_os()== 'Android':
+			return '/storage/emulated/0/'
 		return './'
 
 	def address(self):
-		return f"http://{self.IP}:{self.port}"
+		return f"{self.protocol}://{self.IP}:{self.port}"
 
 	def parse_default_args(self, port=0, directory="", bind=None):
 		if not port:
@@ -165,23 +171,32 @@ class Config:
 
 		parser.add_argument('--bind', '-b',
 							metavar='ADDRESS', default=bind,
-							help='Specify alternate bind address '
+							help='[xxx.xxx.xxx.xxx] Specify alternate bind address '
 								'[default: all interfaces]')
 		parser.add_argument('--directory', '-d', default=directory,
-							help='Specify alternative directory '
+							help='[Value] Specify alternative directory '
 								'[default: current directory]')
 		parser.add_argument('port', action='store',
 							default=port, type=int,
 							nargs='?',
-							help=f'Specify alternate port [default: {port}]')
+							help=f'[Value] Specify alternate port [default: {port}]')
 		parser.add_argument('--version', '-v', action='version',
 							version=__version__)
 
-		self.parser.add_argument('-h', '--help', action='help',
+		parser.add_argument('-h', '--help', action='help',
 								default='==SUPPRESS==',
-								help=('show this help message and exit'))
+								help=('[Option] show this help message and exit'))
+
+
+		parser.add_argument('-nxl','--no-extra-log',
+							action='store_true',
+							default=False,
+							help="[Flag] Disable file path and [= + - #] based logs (default: %(default)s)")
+
 
 		args = parser.parse_known_args()[0]
+
+		self.log_extra = not args.no_extra_log
 
 		return args
 
@@ -226,6 +241,7 @@ class Tools:
 
 tools = Tools()
 config = Config()
+
 
 
 class Callable_dict(dict):
@@ -304,6 +320,11 @@ class Zfunc(object):
 
 	def new(self, caller, store_return=False):
 		self.__init__(caller=caller, store_return=store_return)
+
+	def destroy(self):
+		"""Clear the queue
+		however if running, caller function will still keep running till end"""
+		self.__init__(caller=null, store_return=False)
 
 
 """HTTP server classes.
@@ -555,14 +576,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		elif (conntype.lower() == 'keep-alive' and
 			  self.protocol_version >= "HTTP/1.1"):
 			self.close_connection = False
-		
+
 		# Load cookies from request
 		# Uses standard SimpleCookie
 		# doc: https://docs.python.org/3/library/http.cookies.html
 		self.cookie = SimpleCookie()
 		self.cookie.load(self.headers.get('Cookie', ""))
 		# print(tools.text_box("Cookie: ", self.cookie))
-		
+
 		# Examine the headers and look for an Expect directive
 		expect = self.headers.get('Expect', "")
 		if (expect.lower() == "100-continue" and
@@ -635,7 +656,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			_w = tools.term_width()
 			w = _w - len(str(self.req_hash)) - 2
 			w = w//2
-			logger.info('='*w + f' {self.req_hash} ' + '='*w + '\n' +
+			if config.log_extra:
+				logger.info('='*w + f' {self.req_hash} ' + '='*w + '\n' +
 						'\n'.join(
 								[f'{self.req_hash}|=>\t request\t: {self.command}',
 								 f'{self.req_hash}|=>\t url     \t: {url_path}',
@@ -651,10 +673,11 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			except Exception:
 				traceback.print_exc()
 
-			logger.info('-'*w + f' {self.req_hash} ' + '-'*w + '\n' +
+			if config.log_extra:
+				logger.info('-'*w + f' {self.req_hash} ' + '-'*w + '\n' +
 						'#'*_w
 						)
-			
+
 			# actually send the response if not already done.
 			self.wfile.flush()
 
@@ -672,7 +695,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		while not self.close_connection:
 			self.handle_one_request()
 
-	def send_error(self, code, message=None, explain=None, error_message_format: Template = None):
+	def send_error(self, code, message=None, explain=None, error_message_format: Template = None, cookie:Union[SimpleCookie, str]=None):
 		"""Send and log an error reply.
 
 		Arguments are
@@ -712,6 +735,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			explain = longmsg
 		self.log_error("code", code, "message", message)
 		self.send_response(code, message)
+
+		self._send_cookie(cookie=cookie)
+
 		self.send_header('Connection', 'close')
 
 		# Message body is omitted for cases described in:
@@ -748,7 +774,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		"""
 		if self.response_code_sent:
 			return
-		
+
 		if not code//100 ==1: # 1xx - Informational (allowes multiple responses)
 			self.response_code_sent = True
 
@@ -770,7 +796,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self._headers_buffer.append(("%s %d %s\r\n" %
 				(self.protocol_version, code, message)).encode(
 				'utf-8', 'strict'))
-				
+
 	def send_header_string(self, lines:str):
 		"""Send a header multiline string to the headers buffer."""
 		for i in lines.split("\r\n"):
@@ -778,7 +804,18 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				continue
 			tag, _, msg = i.partition(":")
 			self.send_header(tag.strip(), msg.strip())
-			
+
+
+	def _send_cookie(self, cookie:Union[SimpleCookie, str]=None):
+		"""Must send cookie after self.send_response(XXX)"""
+		if cookie is not None:
+			if isinstance(cookie, SimpleCookie):
+				cookie = cookie.output()
+
+			self.send_header_string(cookie)
+
+
+
 
 	def send_header(self, keyword, value):
 		"""Send a MIME header to the headers buffer."""
@@ -824,7 +861,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			code = code.value
 		self.log_message(f'"{self.requestline}"', code, size)
 
-	def log_error(self, *args):
+	def log_error(self, *args, **kwargs):
 		"""Log an error. [ERROR PRIORITY]
 
 		This is called when a request cannot be fulfilled.  By
@@ -835,19 +872,19 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		XXX This should go to the separate error log.
 
 		"""
-		self.log_message(args, error=True)
+		self.log_message(*args, **kwargs, error=True)
 
-	def log_warning(self, *args):
+	def log_warning(self, *args, **kwargs):
 		"""Log a warning message [HIGH PRIORITY]"""
-		self.log_message(args, warning=True)
+		self.log_message(*args, **kwargs, warning=True)
 
-	def log_debug(self, *args, write=True):
+	def log_debug(self, *args, write=True, **kwargs):
 		"""Log a debug message [LOWEST PRIORITY]"""
-		self.log_message(args, debug=True, write=write)
+		self.log_message(*args, **kwargs, debug=True, write=write)
 
-	def log_info(self, *args, write=False):
+	def log_info(self, *args, write=False, **kwargs):
 		"""Default log message [MEDIUM PRIORITY]"""
-		self.log_message(args, write=write)
+		self.log_message(*args, **kwargs, write=write)
 
 	def _log_writer(self, message):
 		os.makedirs(config.log_location, exist_ok=True)
@@ -855,7 +892,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			f.write(
 				(f"#{self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"))
 
-	def log_message(self, *args, error=False, warning=False, debug=False, write=True):
+	def log_message(self, *args, error=False, warning=False, debug=False, write=True, **kwargs):
 		"""Log an arbitrary message.
 
 		This is used by all other logging functions.  Override
@@ -865,8 +902,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		every message.
 
 		"""
+		if not args:
+			return
 
-		message = ' '.join(map(str, args))
+		sep = kwargs.get('sep', ' ')
+		end = kwargs.get('end', '\n')
+
+		message = sep.join(map(str, args)) + end
 
 		message = f"# {self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"
 
@@ -1109,7 +1151,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if self.test_req(*case):
 					try:
 						resp = func(self, url_path=url_path, query=query,
-								 fragment=fragment, path=path, spathsplit=spathsplit)
+								fragment=fragment, path=path, spathsplit=spathsplit)
 					except PostError:
 						traceback.print_exc()
 						# break if error is raised and send BAD_REQUEST (at end of loop)
@@ -1136,17 +1178,27 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.send_error(500, str(e))
 			return
 
-	def redirect(self, location):
+	def redirect(self, location, cookie:Union[SimpleCookie, str]=None):
 		'''redirect to location'''
 		print("REDIRECT ", location)
 		self.send_response(302)
 		self.send_header("Location", location)
+		self._send_cookie(cookie)
 		self.end_headers()
 
-	def return_txt(self, code, msg, content_type="text/html; charset=utf-8"):
+
+
+	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''returns only the head to client
 		and returns a file object to be used by copyfile'''
 		self.log_debug(f'[RETURNED] {code} to client')
+		if isinstance(msg, Template):
+			msg = msg.safe_substitute(
+				code=code,
+				message=HTTPStatus(code).phrase,
+				explain=HTTPStatus(code).description,
+				version=__version__
+			)
 		if not isinstance(msg, bytes):
 			encoded = msg.encode('utf-8', 'surrogateescape')
 		else:
@@ -1157,46 +1209,73 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		box.seek(0)
 
 		self.send_response(code)
+
+		self._send_cookie(cookie)
+
+
+
 		self.send_header("Content-Type", content_type)
 		self.send_header("Content-Length", str(len(encoded)))
 		self.end_headers()
 		return box
 
-	def send_txt(self, code, msg, content_type="text/html; charset=utf-8"):
+	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
-		file = self.return_txt(code, msg, content_type)
+		file = self.return_txt(msg, code, content_type, cookie)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
 		file.close()
 
-	def send_text(self, code, msg, content_type="text/html; charset=utf-8"):
+	def send_text(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''proxy to send_txt'''
-		self.send_txt(code, msg, content_type)
+		self.send_txt(msg, code, content_type, cookie)
 
-	def send_json(self, obj):
+	def return_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
+		'''proxy to send_txt'''
+		return self.return_txt(msg, code, content_type, cookie)
+
+	def send_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8"):
+		'''proxy to send_txt'''
+		return self.send_txt(msg, code, content_type)
+
+	def return_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
+		'''proxy to send_txt'''
+		return self.return_txt(msg, code, content_type, cookie)
+
+	def send_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8"):
+		'''proxy to send_txt'''
+		return self.send_txt(msg, code, content_type)
+
+	def send_json(self, obj:Union[object, str, bytes], code=200, cookie:Union[SimpleCookie, str]=None):
 		"""send object as json
 		obj: json-able object or json.dumps() string"""
 		if not isinstance(obj, str):
 			obj = json.dumps(obj, indent=1)
-		file = self.return_txt(200, obj, content_type="application/json")
+		file = self.return_txt(obj, code, content_type="application/json", cookie=cookie)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
 		file.close()
 
-	def return_file(self, path, filename=None, download=False, cache_control=""):
+	def return_file(self, path, filename=None, download=False, cache_control="", cookie:Union[SimpleCookie, str]=None):
 		file = None
 		is_attachment = "attachment;" if (self.query("dl") or download) else ""
 
 		first, last = 0, None
 
+		C_encoding = None
+
 		try:
 			ctype = self.guess_type(path)
-			
+
 			# make sure texts are sent as utf-8
 			if ctype.startswith("text/"):
 				ctype += "; charset=utf-8"
+
+			# if file is gziped, send as gzip
+			if ctype == "application/gzip" and "gzip" in self.headers.get("Accept-Encoding", ""):
+				C_encoding = "gzip"
 
 			file = open(path, 'rb')
 			fs = os.fstat(file.fileno())
@@ -1240,41 +1319,48 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					last = file_len - 1
 
 				if first >= file_len:  # PAUSE AND RESUME SUPPORT
-					self.send_error(416, 'Requested Range Not Satisfiable')
+					self.send_error(416, 'Requested Range Not Satisfiable', cookie=cookie)
 					return None
 
 				self.send_response(206)
+				self._send_cookie(cookie=cookie)
+
 				self.send_header('Accept-Ranges', 'bytes')
 
 				response_length = last - first + 1
 
 				self.send_header('Content-Range',
-								 f'bytes {first}-{last}/{file_len}')
+								f'bytes {first}-{last}/{file_len}')
 				self.send_header('Content-Length', str(response_length))
 
 			else:
 				self.send_response(HTTPStatus.OK)
-				
+				self._send_cookie(cookie)
+
 				self.send_header("Content-Length", str(file_len))
-				
+
 			if cache_control:
 				self.send_header("Cache-Control", cache_control)
 
 			self.send_header("Last-Modified",
-							 self.date_time_string(fs.st_mtime))
+							self.date_time_string(fs.st_mtime))
 			self.send_header("Content-Type", ctype)
+
+			if C_encoding:
+				self.send_header("Content-Encoding", C_encoding)
+
 			self.send_header("Content-Disposition", is_attachment+' filename="%s"' %
-							 (os.path.basename(path) if filename is None else filename))
+							(os.path.basename(path) if filename is None else filename))
 			self.end_headers()
 
 			return file
 
 		except PermissionError:
-			self.send_error(HTTPStatus.FORBIDDEN, "Permission denied")
+			self.send_error(HTTPStatus.FORBIDDEN, "Permission denied", cookie)
 			return None
 
 		except OSError:
-			self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+			self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie)
 			return None
 
 		except Exception:
@@ -1283,17 +1369,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			# if f and not f.closed(): f.close()
 			raise
 
-	def send_file(self, path, filename=None, download=False, cache_control=''):
+	def send_file(self, path, filename=None, download=False, cache_control='', cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
-		file = self.return_file(path, filename, download, cache_control)
+		file = self.return_file(path, filename, download, cache_control, cookie=cookie)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		try:
 			self.copyfile(file, self.wfile)
 		finally:
 			file.close()
-			
-	
+
+
 	def send_head(self):
 		"""Common code for GET and HEAD commands.
 
@@ -1527,6 +1613,7 @@ class DealPostData:
 
 		self.form = FormData(req, self, fake=True)
 
+
 	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
 
 	def is_multipart(self):
@@ -1550,7 +1637,7 @@ class DealPostData:
 			raise PostError(
 				f"Content size limit exceeded: {self.content_length} > {max_size}")
 
-	def get(self, show=F, strip=F, Timeout=20, chunk_size=0):
+	def get(self, show=F, strip=F, Timeout=10, chunk_size=0):
 		"""
 		show: print line
 		strip: strip \r\n at end
@@ -1663,13 +1750,14 @@ class FormData:
 		self.content_length = dpd.content_length
 		self.content_type = dpd.content_type
 
+		self.is_multipart = self.dpd.is_multipart()
 		if self.fake:
 			return
-		self.is_multipart = self.dpd.is_multipart()
 		self.boundary = dpd.boundary
 		if self.is_multipart:
 			# pass first boundary line (because after every field, there is a boundary line)
 			self.pass_bound()
+
 
 	def pass_bound(self):
 		"""
@@ -1737,13 +1825,14 @@ class FormData:
 		* if `empty string`, field name must be empty too
 		"""
 		line = self.dpd.get()
+
 		got_field_name = self.get_field_name(line)
 
 		if field_name is not None and got_field_name != field_name:
 			raise PostError(
 				f"Invalid request: Expected {field_name} but got {got_field_name}")
 
-		return line
+		return got_field_name
 
 	def get_multi_field(self, verify_name: Union[None, bytes, str] = None, verify_msg: Union[None, bytes, str] = None, decode=F):
 		'''read a form field
@@ -1765,6 +1854,9 @@ class FormData:
 		field_name = self.match_field_name(verify_name)  # LINE 1 (field name)
 		# if not verified, raise PostError
 
+		if not field_name:
+			return None, None
+
 		self.dpd.skip()  # LINE 2 (blank line)
 
 		line = b''
@@ -1773,6 +1865,9 @@ class FormData:
 			if (not _line) or (self.boundary in _line):  # boundary
 				break
 			line += _line
+
+		if not line:
+			return None, None
 
 		line = line.rpartition(b"\r\n")[0]  # remove \r\n at end
 		if decode:
@@ -1832,6 +1927,7 @@ class FormData:
 
 		self.dpd.check_size_limit(max_size)
 
+
 		data = self.dpd.get().decode()
 		for part in data.split("&"):
 			name, value = part.split("=")
@@ -1849,6 +1945,8 @@ class FormData:
 
 		while True:
 			field_name, value = self.get_multi_field(decode=True)
+			if not field_name:
+				break
 			yield field_name, value
 
 	def get_parts(self, max_size=-1):
