@@ -48,7 +48,7 @@ class ServerConfig():
 				raise ValueError("If you want to create a server User accounts based, value of --name is required")
 			if not (self.admin_username and self.admin_password):
 				raise ValueError("If you want to create a User accounts based server, --name and --admin-id and --admin-pass values are required")
-			
+
 			config_loc = os.path.join(CoreConfig.MAIN_FILE_dir, "config", self.name+ ".pdb")
 
 			os.makedirs(os.path.dirname(config_loc), exist_ok=True)
@@ -83,7 +83,7 @@ class ServerConfig():
 
 			else:
 				raise ValueError(tools.text_box("Please start the server with an existing admin account"))
-		
+
 		if self.GUESTS:
 			self.guest_id = self.user_handler.create_guest()
 

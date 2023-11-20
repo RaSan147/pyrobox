@@ -231,7 +231,7 @@ const public_url = "${PY_PUBLIC_URL}";
 
 				<!-- ${PY_NO_JS_FILE_LIST} -->
 
-				
+
 			</ul>
 			<!-- ${PY_UPLOAD_FORM} -->
 		</div>
@@ -1483,7 +1483,7 @@ input#folder-name {
  /* **           Admin Page           ** */
 /* ************************************ */
 
-.users_list { 
+.users_list {
 	/* TABLE */
 	width: 100%;
 	border-collapse: collapse;
@@ -2527,7 +2527,7 @@ class ContextMenu {
 		let that = this;
 		let menu = createElement("div")
 
-		
+
 		const refresh = () => {
 			page.refresh_dir()
 		}
@@ -4161,7 +4161,7 @@ class Page{
 		this.handler = null;
 
 		console.log("Page type: " + type)
-		
+
 		if (ERROR_PAGE == "active") {
 			this.handler = error_page;
 		} else if (type == 'dir') {
@@ -4427,19 +4427,19 @@ class Admin_tools {
 	<div class="submit_parent">
 		<input type="submit" name="submit" value="Submit" id="submit">
 	</div>
-	
+
 </form>
 
 <br>
 <div class='pagination' onclick='admin_tools.delete_user(${index})'
 	style="margin: 0 auto;">Delete User</div>
 
-<!-- 
+<!--
 on submit, get all the values and put them in a dict object
 if admin is checked, all other values are checked -->
 
 
-<!-- make the table and input look modern 
+<!-- make the table and input look modern
 keep the submit button in center, modernize the button UI-->
 <style>
 	.perm_checker_form table {
@@ -4468,7 +4468,7 @@ keep the submit button in center, modernize the button UI-->
 		-webkit-appearance:none;
 		-o-appearance:none;
 		outline: none;
-		content: none;	
+		content: none;
 	}
 
 	.perm_checker_form input[type=checkbox]:before {
@@ -4519,7 +4519,7 @@ keep the submit button in center, modernize the button UI-->
 	}
 
 </style>
-		
+
 		`
 
 		var client_page_script = `
@@ -4571,10 +4571,10 @@ keep the submit button in center, modernize the button UI-->
 		dict["ADMIN"] = admin.checked;
 		dict["MEMBER"] = member.checked;
 
-		
+
 		_user.permissions = dict;
 		var perms = _user.pack_permissions();
-		
+
 		fetch('/?update_user_perm&username=' + username + "&perms=" + perms)
 		.then(response => response.json())
 		.then(data => {
@@ -4585,7 +4585,7 @@ keep the submit button in center, modernize the button UI-->
 			console.log(err);
 		})
 	}
-	
+
 
 	admin.onclick = function() {
 		if (admin.checked) {
@@ -4599,13 +4599,13 @@ keep the submit button in center, modernize the button UI-->
 	}
 
 }
-		`		
+		`
 
 
 		popup_msg.createPopup(username + " Options", client_page_html, true, null_func, client_page_script);
 
 		popup_msg.open_popup()
-		
+
 
 	}
 
@@ -4767,7 +4767,7 @@ keep the submit button in center, modernize the button UI-->
 
 		console.log(_uname);
 		console.log(_pass);
-		
+
 		if(_uname.length<1){
 			note("Username must have at least 1 character!")
 		} else if (_uname.length>64){
@@ -4790,7 +4790,7 @@ keep the submit button in center, modernize the button UI-->
 		if (!OK) {
 			return false;
 		}
-		
+
 		fetch('/?add_user&username=' + username.value + "&password=" + password.value)
 		.then(response => response.json())
 		.then(data => {
@@ -4827,7 +4827,7 @@ class Error_Page {
 	}
 
 	initialize() {
-		page.hide_actions_button(); // Hide actions button, not needed 
+		page.hide_actions_button(); // Hide actions button, not needed
 		page.set_title("Error")
 	}
 

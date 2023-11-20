@@ -188,7 +188,7 @@ class Config:
 								help=('[Option] show this help message and exit'))
 
 
-		parser.add_argument('-nxl','--no-extra-log', 
+		parser.add_argument('-nxl','--no-extra-log',
 							action='store_true',
 							default=False,
 							help="[Flag] Disable file path and [= + - #] based logs (default: %(default)s)")
@@ -904,7 +904,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		"""
 		if not args:
 			return
-		
+
 		sep = kwargs.get('sep', ' ')
 		end = kwargs.get('end', '\n')
 

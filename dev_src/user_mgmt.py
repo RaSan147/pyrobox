@@ -124,11 +124,11 @@ class User:
 	@property
 	def token(self) -> bytes:
 		return self.db["token"]
-	
+
 	@property
 	def uid(self) -> str:
 		return self.db["id"]
-	
+
 	@property
 	def token_hex(self) -> str:
 		return binascii.hexlify(self.token).decode("ascii")
@@ -249,7 +249,7 @@ class User:
 			List[UserPermission]: list of UserPermission that were modified
 		"""
 		return [UserPermission(each) for each in range(TOTAL_PERMISSIONS) if packed >> each & 1]
-	
+
 	def set_permission_pack(self, code) -> None:
 		self.update("permission", code)
 
@@ -424,7 +424,7 @@ class User_handler:
 			user.permit(self.member_permission["guest"])
 
 		return user
-	
+
 	def create_admin(self, username, password) -> User:
 		user = self.create_user(username, password, is_admin=True)
 		return user
@@ -501,7 +501,7 @@ class User_handler:
 			self.cached[username] = user
 
 		return user
-	
+
 	def delete_user(self, username) -> bool:
 		user = self.get_user(username)
 		if user is None:

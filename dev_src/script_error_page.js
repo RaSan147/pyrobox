@@ -6,7 +6,7 @@ class Error_Page {
 	}
 
 	initialize() {
-		page.hide_actions_button(); // Hide actions button, not needed 
+		page.hide_actions_button(); // Hide actions button, not needed
 		page.set_title("Error")
 	}
 

@@ -67,7 +67,7 @@ class ContextMenu {
 		let that = this;
 		let menu = createElement("div")
 
-		
+
 		const refresh = () => {
 			page.refresh_dir()
 		}

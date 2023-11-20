@@ -376,13 +376,13 @@ def update_user_perm(self: SH, *args, **kwargs):
 
 	if not (username is not None and permission is not None):
 		return self.send_json({"status": "Failed", "message": "Username or permission not provided"}, cookie=cookie)
-	
+
 	USER = Sconfig.user_handler.get_user(username, temp=True)
 	if not USER:
 		return self.send_json({"status": "Failed", "message": "User not found"}, cookie=cookie)
-	
+
 	USER.set_permission_pack(permission)
-	
+
 	self.log_warning(f'Updating permission of "{username}" to "{permission}" by {[USER.uid]}')
 
 	return self.send_json({"status": "Success", "message": "Permission updated"}, cookie=cookie)
@@ -476,7 +476,7 @@ def update(self: SH, *args, **kwargs):
 
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED)
-	
+
 	if not user.is_admin():
 		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
 
@@ -554,7 +554,7 @@ def get_size_n_count(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="czip")
 def create_zip(self: SH, *args, **kwargs):
 	"""Create ZIP task and return ID
-	
+
 	# TODO: Move to Dynamic island
 	"""
 	user, cookie = Authorize_user(self)
@@ -850,7 +850,7 @@ def signup_page(self: SH, *args, **kwargs):
 
 	if Sconfig.cli_args.no_signup:
 		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Signup is disabled")
-	
+
 	return self.send_text(pt.signup_page())
 
 
@@ -871,7 +871,7 @@ def get_folder_data(self: SH, *args, **kwargs):
 			"status": 0,
 			"error_code": HTTPStatus.UNAUTHORIZED,
 			"error_message": "You must be logged in to access this data.",
-			
+
 		}, cookie=cookie)
 
 	path = kwargs.get('path', '')
@@ -881,10 +881,10 @@ def get_folder_data(self: SH, *args, **kwargs):
 			"status": 0,
 			"error_code": HTTPStatus.UNAUTHORIZED,
 			"error_message": "You don't have permission to view this folder",
-			
+
 		}, cookie=cookie)
-		
-		
+
+
 	is_dir = None
 	try:
 		is_dir = os.path.isdir(path)
@@ -894,7 +894,7 @@ def get_folder_data(self: SH, *args, **kwargs):
 			"status": 0,
 			"error_code": HTTPStatus.NOT_FOUND,
 			"error_message": str(e),
-			
+
 		})
 
 	if is_dir is None:
@@ -1011,10 +1011,10 @@ def handle_login_post(self: SH, *args, **kwargs):
 	user = Sconfig.user_handler.get_user(username)
 	if not user:
 		return self.send_json({"status": "failed", "message": "User not found"}, cookie=cookie)
-	
+
 	if not user.check_password(password):
 		return self.send_json({"status": "failed", "message": "Incorrect password"}, cookie=cookie)
-	
+
 	cookie = add_user_cookie(user)
 
 	return self.send_json({"status": "success", "message": "Login successful, if not Auto-redirecting, kindly Refresh"}, cookie=cookie)
@@ -1046,11 +1046,11 @@ def handle_signup_post(self: SH, *args, **kwargs):
 	user = Sconfig.user_handler.get_user(username)
 	if user:
 		return self.send_json({"status": "failed", "message": "Username is already in use!"}, cookie=cookie)
-	
+
 	user = Sconfig.user_handler.create_user(username, password)
 	if not user:
 		return self.send_json({"status": "failed", "message": "Failed to create user"}, cookie=cookie)
-	
+
 	cookie = add_user_cookie(user)
 
 	return self.send_json({"status": "success", "message": "Signup successful"}, cookie=cookie)
@@ -1153,7 +1153,7 @@ def upload(self: SH, *args, **kwargs):
 
 		except (IOError, OSError):
 			traceback.print_exc()
-			
+
 			return self.send_txt("Can't create file to write, do you have permission to write?", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 		finally:

@@ -81,7 +81,7 @@ class Page{
 		this.handler = null;
 
 		console.log("Page type: " + type)
-		
+
 		if (ERROR_PAGE == "active") {
 			this.handler = error_page;
 		} else if (type == 'dir') {
