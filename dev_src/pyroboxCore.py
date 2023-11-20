@@ -30,7 +30,7 @@ import logging
 import atexit
 import os
 
-__version__ = "0.8.1"
+__version__ = "0.9.0"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",

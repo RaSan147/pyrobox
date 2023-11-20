@@ -6,7 +6,6 @@ __all__ = [
 	"file_list_script",
 	"video_page",
 	"zip_script",
-	"admin_page",
 	"error_page",
 	"theme_script",
 	"video_page_script",
@@ -88,9 +87,6 @@ def upload_form():
 
 def zip_script():
 	return get_template("html_zip_page.html")  # TODO: Move to Dynamic island
-
-def admin_page():
-	return get_template("html_admin.html")
 
 def error_page():
 	return directory_explorer_header()  # TODO: add to PWA

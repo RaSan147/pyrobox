@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 
 
@@ -8,34 +6,38 @@
 # * ADD MORE FILE TYPES
 # * ADD SEARCH
 
-
-import html
-from string import Template
 import os
-import sys
+#import sys
 import posixpath
 import shutil
 
 import datetime
 
-import importlib.util
 
 import urllib.parse
 import urllib.request
 
-import subprocess
+#import subprocess
 import json
 from http import HTTPStatus
+from http.cookies import SimpleCookie
+
 
 import traceback
 
-from .pyroboxCore import config, logger, SimpleHTTPRequestHandler as SH_base, DealPostData as DPD, run as run_server, tools, reload_server, __version__
+from .pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, run as run_server, tools, reload_server, __version__
 
-from ._fs_utils import get_titles, dir_navigator, get_dir_size, get_dir_m_time, get_stat, get_tree_count_n_size, _get_tree_path_n_size, fmbytes, humanbytes
+from ._fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes
 from ._arg_parser import main as arg_parser
 from . import _page_templates as pt
 from ._exceptions import LimitExceed
 from ._zipfly_manager import ZIP_Manager
+from ._list_maker import list_directory, list_directory_json, list_directory_html
+
+
+from .pyrobox_ServerHost import ServerConfig, ServerHost as SH
+
+
 
 __version__ = __version__
 true = T = True
@@ -45,19 +47,26 @@ enc = "utf-8"
 ###########################################
 # ADD COMMAND LINE ARGUMENTS
 ###########################################
-arg_parser(config)
-cli_args = config.parser.parse_known_args()[0]
-config.PASSWORD = cli_args.password
+arg_parser(CoreConfig)
+cli_args = CoreConfig.parser.parse_known_args()[0]
+CoreConfig.PASSWORD = cli_args.password
 
-logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args))))
+logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)} for i in vars(cli_args) if not (i.startswith("admin") or "password" in i))))
+
+
+Sconfig = ServerConfig(cli_args=cli_args)
+
+
+
+
 
 ###########################################
-config.dev_mode = False
-pt.pt_config.dev_mode = config.dev_mode
+# CoreConfig.dev_mode = False
+pt.pt_config.dev_mode = CoreConfig.dev_mode
 
-config.MAIN_FILE = os.path.abspath(__file__)
+CoreConfig.MAIN_FILE = os.path.abspath(__file__)
 
-config.disabled_func.update({
+CoreConfig.disabled_func.update({
 			"send2trash": False,
 			"natsort": False,
 			"zip": False,
@@ -70,309 +79,42 @@ config.disabled_func.update({
 })
 
 ########## ZIP MANAGER ################################
-config.max_zip_size = 6*1024*1024*1024
-zip_manager = ZIP_Manager(config, size_limit=config.max_zip_size)
+# max_zip_size = 6*1024*1024*1024
+zip_manager = ZIP_Manager(CoreConfig, size_limit=Sconfig.max_zip_size)
 
 #######################################################
 
 
 
 # INSTALL REQUIRED PACKAGES
-REQUEIREMENTS= ['send2trash', 'natsort']
+REQUIREMENTS= ['send2trash', 'natsort']
 
 
 
 
-def check_installed(pkg):
-	return bool(importlib.util.find_spec(pkg))
 
 
 
-def run_update():
-	dep_modified = False
-
-	import sysconfig, pip
-
-	i = "pyrobox"
-	more_arg = ""
-	if pip.__version__ >= "6.0":
-		more_arg += " --disable-pip-version-check"
-	if pip.__version__ >= "20.0":
-		more_arg += " --no-python-version-warning"
 
 
-	py_h_loc = os.path.dirname(sysconfig.get_config_h_filename())
-	on_linux = f'export CPPFLAGS="-I{py_h_loc}";'
-	command = "" if config.OS == "Windows" else on_linux
-	comm = f'{command} {sys.executable} -m pip install -U --user {more_arg} {i}'
 
+
+if not os.path.isdir(CoreConfig.log_location):
 	try:
-		subprocess.call(comm, shell=True)
-	except Exception as e:
-		logger.error(traceback.format_exc())
-		return False
-
-
-	#if i not in get_installed():
-	if not check_installed(i):
-		return False
-
-	ver = subprocess.check_output(['pyrobox', "-v"]).decode()
-
-	if ver > __version__:
-		return True
-
-
-	else:
-		print("Failed to load ", i)
-		return False
-
-
-
-#############################################
-#            PATCH SERVER CLASS            #
-#############################################
-
-
-
-class SH(SH_base):
-	"""
-	Just a wrapper for SH_base to add some extra functionality
-	"""
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-
-	def send_error(self, code, message=None, explain=None):
-		print("ERROR", code, message, explain)
-
-		displaypath = self.get_displaypath(self.url_path)
-
-		title = get_titles(displaypath)
-
-		_format = pt.error_page().safe_substitute(
-			PY_PAGE_TITLE=title,
-			PY_PUBLIC_URL=config.address(),
-			PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
-
-		return super().send_error(code, message, explain, Template(_format))
-
-
-
-
-#############################################
-#                FILE HANDLER               #
-#############################################
-
-
-
-def list_directory_json(self:SH, path=None):
-	"""Helper to produce a directory listing (JSON).
-	Return json file of available files and folders"""
-	if path == None:
-		path = self.translate_path(self.path)
-
-	try:
-		dir_list = scansort(os.scandir(path))
-	except OSError:
-		self.send_error(
-			HTTPStatus.NOT_FOUND,
-			"No permission to list directory")
-		return None
-	dir_dict = []
-
-
-	for file in dir_list:
-		name = file.name
-		displayname = linkname = name
-
-
-		if file.is_dir():
-			displayname = name + "/"
-			linkname = name + "/"
-		elif file.is_symlink():
-			displayname = name + "@"
-
-		dir_dict.append([urllib.parse.quote(linkname, errors='surrogatepass'),
-						html.escape(displayname, quote=False)])
-
-	return self.send_json(dir_dict)
-
-
-
-def list_directory(self:SH, path):
-	"""Helper to produce a directory listing (absent index.html).
-
-	Return value is either a file object, or None (indicating an
-	error).  In either case, the headers are sent, making the
-	interface the same as for send_head().
-
-	"""
-
-	try:
-		dir_list = scansort(os.scandir(path))
-	except OSError:
-		self.send_error(
-			HTTPStatus.NOT_FOUND,
-			"No permission to list directory")
-		return None
-	r = []
-
-	displaypath = self.get_displaypath(self.url_path)
-
-
-	title = get_titles(displaypath)
-
-
-	r.append(pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-													PY_PUBLIC_URL=config.address(),
-													PY_DIR_TREE_NO_JS=dir_navigator(displaypath)))
-
-	r_li= [] # type + file_link
-				# f  : File
-				# d  : Directory
-				# v  : Video
-				# h  : HTML
-	f_li = [] # file_names
-	s_li = [] # size list
-
-	r_folders = [] # no js
-	r_files = [] # no js
-
-
-	LIST_STRING = '<li><a class= "%s" href="%s">%s</a></li><hr>'
-
-	r.append("""
-			<div id="content_list">
-				<ul id="linkss">
-					<!-- CONTENT LIST (NO JS) -->
-			""")
-
-
-	# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
-	for file in dir_list:
-		#fullname = os.path.join(path, name)
-		name = file.name
-		displayname = linkname = name
-		size=0
-		# Append / for directories or @ for symbolic links
-		_is_dir_ = True
-		if file.is_dir():
-			displayname = name + "/"
-			linkname = name + "/"
-		elif file.is_symlink():
-			displayname = name + "@"
-		else:
-			_is_dir_ =False
-			size = fmbytes(file.stat().st_size)
-			__, ext = posixpath.splitext(name)
-			if ext=='.html':
-				r_files.append(LIST_STRING % ("link", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-				r_li.append('h'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
-
-			elif self.guess_type(linkname).startswith('video/'):
-				r_files.append(LIST_STRING % ("vid", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-				r_li.append('v'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
-
-			elif self.guess_type(linkname).startswith('image/'):
-				r_files.append(LIST_STRING % ("file", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-				r_li.append('i'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
-
-			else:
-				r_files.append(LIST_STRING % ("file", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-				r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
-		if _is_dir_:
-			r_folders.append(LIST_STRING % ("", urllib.parse.quote(linkname,
-									errors='surrogatepass'),
-									html.escape(displayname, quote=False)))
-
-			r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
-			f_li.append(html.escape(displayname, quote=False))
-
-		s_li.append(size)
-
-
-
-	r.extend(r_folders)
-	r.extend(r_files)
-
-	r.append("""</ul>
-				</div>
-				<!-- END CONTENT LIST (NO JS) -->
-				<div id="js-content_list" class="jsonly"></div>
-			""")
-
-	r.append(pt.file_list().safe_substitute())
-
-	if not (cli_args.no_upload or cli_args.read_only or cli_args.view_only):
-
-		r.append(pt.upload_form().safe_substitute(PY_PUBLIC_URL=config.address()))
-
-	r.append(pt.file_list_script().safe_substitute(PY_LINK_LIST=str(r_li),
-										PY_FILE_LIST=str(f_li),
-										PY_FILE_SIZE =str(s_li)))
-
-
-	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-
-	return self.send_txt(HTTPStatus.OK, encoded)
-
-
-
-
-
-if not os.path.isdir(config.log_location):
-	try:
-		os.mkdir(path=config.log_location)
+		os.mkdir(path=CoreConfig.log_location)
 	except Exception:
-		config.log_location ="./"
+		CoreConfig.log_location ="./"
 
 
 
 
-if not config.disabled_func["send2trash"]:
+if not CoreConfig.disabled_func["send2trash"]:
 	try:
 		from send2trash import send2trash, TrashPermissionError
 	except Exception:
-		config.disabled_func["send2trash"] = True
+		CoreConfig.disabled_func["send2trash"] = True
 		logger.warning("send2trash module not found, send2trash function disabled")
 
-if not config.disabled_func["natsort"]:
-	try:
-		import natsort
-	except Exception:
-		config.disabled_func["natsort"] = True
-		logger.warning("natsort module not found, natsort function disabled")
-
-def humansorted(li):
-	if not config.disabled_func["natsort"]:
-		return natsort.humansorted(li)
-
-	return sorted(li, key=lambda x: x.lower())
-
-def scansort(li):
-	if not config.disabled_func["natsort"]:
-		return natsort.humansorted(li, key=lambda x:x.name)
-
-	return sorted(li, key=lambda x: x.name.lower())
-
-def listsort(li):
-	return humansorted(li)
 
 
 
@@ -397,12 +139,11 @@ def listsort(li):
 
 
 
-
-
+# TODO check against user_mgmt
 # download file from url using urllib
 def fetch_url(url, file = None):
 	try:
-		with urllib.request.urlopen(url) as response:
+		with urllib.request.urlopen(url, timeout=5) as response:
 			data = response.read() # a `bytes` object
 			if not file:
 				return data
@@ -422,67 +163,351 @@ class PostError(Exception):
 
 
 
+def handle_user_cookie(self: SH):
+	cookie = self.cookie
+	#print(cookie)
+	def get(k):
+		x = cookie.get(k)
+		if x is not None:
+			return x.value
+		return ""
+	username = get("user")
+	token = get("token")
+
+	self.log_info("COOKIE", username, token)
+
+	if not (username and token):
+		return None
+
+	user = Sconfig.user_handler.get_user(username)
+	#self.log_info("TEMP_USER", user)
+#	self.log_info("TEMP_TOKEN_CHECK", user.check_token(token))
+
+	if user:
+		if user.check_token(token):
+			return user
+		else:
+			return None
+	return None
+
+def add_user_cookie(user):
+	# add cookie with 1 year expire
+	cookie = SimpleCookie()
+	def x(k, v):
+		nonlocal cookie
+		cookie[k] = v
+		cookie[k]["expires"] = 365*86400
+		cookie[k]["path"] = "/"
+
+	x("user", user.username)
+	x("token", user.token_hex)
+	x("permissions", user.permission_pack)
+	return cookie
+
+def clear_user_cookie():
+	cookie = SimpleCookie()
+	keys = ("user", "token", "permissions")
+	for k in keys:
+		cookie[k] = ""
+		cookie[k]["expires"] = -1
+		cookie[k]["path"] = "/"
+
+	return cookie
+
+def Authorize_user(self:SH):
+	# do cookie stuffs and get user
+	user = handle_user_cookie(self)
+
+	# self.log_info("USER", user)
+
+
+	if not user and Sconfig.GUESTS:
+		user = Sconfig.guest_id # default guest user
+
+	if not user:
+		return None, clear_user_cookie()
+
+	cookie = add_user_cookie(user)
+
+
+	return user, cookie
+
+
+
+
+
+
+
+@SH.on_req('HEAD', hasQ="type")
+def get_page_type(self: SH, *args, **kwargs):
+	"""Return type of the page"""
+	user, cookie = Authorize_user(self)
+
+
+
+	path = kwargs.get('path', '')
+
+	result= "unknown"
+
+	if self.query("admin"):
+		result = "admin"
+
+	elif self.query("login"):
+		result = "login"
+
+	elif self.query("signup"):
+		result = "signup"
+
+	elif self.query("vid"):
+		result = "vid"
+
+	elif self.query("czip"):
+		result = "zip"
+
+	elif path == "/favicon.ico":
+		result = "favicon"
+
+
+	elif os.path.isdir(path):
+		for index in "index.html", "index.htm":
+			index = os.path.join(path, index)
+			if os.path.exists(index):
+				result = "html"
+				break
+
+		else:
+			if self.query("json"):
+				result = "dir_json"
+			else:
+				result = "dir"
+
+	elif os.path.isfile(path):
+		result = "file"
+
+	return self.return_txt(result, cookie=cookie)
+
 
 
 
 @SH.on_req('HEAD', '/favicon.ico')
 def send_favicon(self: SH, *args, **kwargs):
-	self.redirect('https://cdn.jsdelivr.net/gh/RaSan147/py_httpserver_Ult@main/assets/favicon.ico')
+	self.redirect('https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.ico')
 
 @SH.on_req('HEAD', hasQ="reload")
 def reload(self: SH, *args, **kwargs):
 	# RELOADS THE SERVER BY RE-READING THE FILE, BEST FOR TESTING REMOTELY. VULNERABLE
-	config.reload = True
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+
+	CoreConfig.reload = True
+	self.send_text("Reload initiated")
 
 	reload_server()
 
+@SH.on_req('HEAD', hasQ="shutdown")
+def shutdown(self: SH, *args, **kwargs):
+	# SHUTS DOWN THE SERVER. VULNERABLE
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	self.send_text("Shut down initiated", cookie=cookie)
+	self.server.shutdown()
+
 @SH.on_req('HEAD', hasQ="admin")
 def admin_page(self: SH, *args, **kwargs):
-	title = "ADMIN PAGE"
-	url_path = kwargs.get('url_path', '')
-	displaypath = self.get_displaypath(url_path)
+	user, cookie = Authorize_user(self)
 
-	head = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-												PY_PUBLIC_URL=config.address(),
-												PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
-	tail = pt.admin_page().template
-	return self.return_txt(HTTPStatus.OK,  f"{head}{tail}")
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	return self.html_main_page(user, cookie=cookie)
+
+
+
+
+@SH.on_req('HEAD', hasQ="get_users")
+def get_users(self: SH, *args, **kwargs):
+	"""Send list of users"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+
+
+	return self.send_json(Sconfig.get_users(), cookie=cookie)
+
+
+@SH.on_req('HEAD', hasQ="update_user_perm")
+def update_user_perm(self: SH, *args, **kwargs):
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	query = self.query
+	username = query.get("username", [None])[0]
+	permission = query.get("perms", [None])[0]
+
+	try:
+		permission = int(permission)
+	except Exception:
+		permission = None
+
+	if not (username is not None and permission is not None):
+		return self.send_json({"status": "Failed", "message": "Username or permission not provided"}, cookie=cookie)
+	
+	USER = Sconfig.user_handler.get_user(username, temp=True)
+	if not USER:
+		return self.send_json({"status": "Failed", "message": "User not found"}, cookie=cookie)
+	
+	USER.set_permission_pack(permission)
+	
+	self.log_warning(f'Updating permission of "{username}" to "{permission}" by {[USER.uid]}')
+
+	return self.send_json({"status": "Success", "message": "Permission updated"}, cookie=cookie)
+
+
+@SH.on_req('HEAD', hasQ="get_user_perm")
+def get_user_perm(self: SH, *args, **kwargs):
+	"""Send permission of a user"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	username = self.query.get("username", [None])[0]
+
+	if not username:
+		return self.send_json({"status": False, "message": "Username not provided"}, cookie=cookie)
+
+	USER = Sconfig.user_handler.get_user(username, temp=True)
+	if not USER:
+		return self.send_json({"status": False, "message": "User not found"}, cookie=cookie)
+
+	return self.send_json({"status": True, "permissions_code": USER.permission_pack}, cookie=cookie)
+
+
+@SH.on_req('HEAD', hasQ="add_user") # added by Admin
+def add_user(self: SH, *args, **kwargs):
+	"""Add a user"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	username = self.query.get("username", [None])[0]
+	password = self.query.get("password", [None])[0]
+
+	if not (username and password):
+		return self.send_json({"status": False, "message": "Username or password not provided"}, cookie=cookie)
+
+	if Sconfig.user_handler.get_user(username):
+		return self.send_json({"status": False, "message": "Username already exists"}, cookie=cookie)
+
+	new_user = Sconfig.user_handler.create_user(username, password)
+	if not new_user:
+		return self.send_json({"status": False, "message": "Failed to create user"}, cookie=cookie)
+
+	return self.send_json({"status": True, "message": f"<h2>User created.</h2> UID: {new_user.uid}"}, cookie=cookie)
+
+
+
+@SH.on_req('HEAD', hasQ="delete_user")
+def delete_user(self: SH, *args, **kwargs):
+	"""Delete a user"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	username = self.query.get("username", [None])[0]
+
+	if not username:
+		return self.send_json({"status": False, "message": "Username not provided"}, cookie=cookie)
+
+	USER = Sconfig.user_handler.get_user(username, temp=True)
+	if not USER:
+		return self.send_json({"status": False, "message": "User not found"}, cookie=cookie)
+
+	if USER.is_admin():
+		return self.send_json({"status": False, "message": "Cannot delete admin! Remove from admin 1st."}, cookie=cookie)
+
+	if not Sconfig.user_handler.delete_user(username): # delete user
+		return self.send_json({"status": False, "message": "Failed to delete user"}, cookie=cookie)
+
+	return self.send_json({"status": True, "message": "User deleted"}, cookie=cookie)
+
+
 
 @SH.on_req('HEAD', hasQ="update")
 def update(self: SH, *args, **kwargs):
 	"""Check for update and return the latest version"""
-	data = fetch_url("https://raw.githubusercontent.com/RaSan147/py_httpserver_Ult/main/VERSION")
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED)
+	
+	if not user.is_admin():
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+
+
+	data = fetch_url("https://raw.githack.com/RaSan147/pyrobox/main/VERSION")
 	if data:
 		data  = data.decode("utf-8").strip()
 		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
-		return self.return_txt(HTTPStatus.OK, ret)
+		return self.return_txt(ret, HTTPStatus.OK, cookie=cookie)
 	else:
-		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "Failed to fetch latest version")
+		return self.return_txt("Failed to fetch latest version", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
-@SH.on_req('HEAD', hasQ="update_now")
-def update_now(self: SH, *args, **kwargs):
-	"""Run update"""
-	if config.disabled_func["update"]:
-		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FEATURE IS UNAVAILABLE !"}))
-	else:
-		data = run_update()
-
-		if data:
-			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1, "message": "UPDATE SUCCESSFUL !"}))
-		else:
-			return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0, "message": "UPDATE FAILED !"}))
 
 @SH.on_req('HEAD', hasQ="size")
 def get_size(self: SH, *args, **kwargs):
 	"""Return size of the file"""
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
+
 	url_path = kwargs.get('url_path', '')
 
 	xpath = self.translate_path(url_path)
 
 	stat = get_stat(xpath)
 	if not stat:
-		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+		return self.send_json({"status": 0}, cookie=cookie)
 	if os.path.isfile(xpath):
 		size = stat.st_size
 	else:
@@ -490,21 +515,28 @@ def get_size(self: SH, *args, **kwargs):
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
-	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+	return self.send_json({"status": 1,
 														"byte": size,
 														"humanbyte": humanbyte,
-														"fmbyte": fmbyte}))
+														"fmbyte": fmbyte}, cookie=cookie)
 
 @SH.on_req('HEAD', hasQ="size_n_count")
 def get_size_n_count(self: SH, *args, **kwargs):
 	"""Return size of the file"""
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
+
 	url_path = kwargs.get('url_path', '')
 
 	xpath = self.translate_path(url_path)
 
 	stat = get_stat(xpath)
 	if not stat:
-		return self.return_txt(HTTPStatus.OK, json.dumps({"status": 0}))
+		return self.send_json({"status": 0}, cookie=cookie)
 	if os.path.isfile(xpath):
 		count, size = 1, stat.st_size
 	else:
@@ -512,22 +544,32 @@ def get_size_n_count(self: SH, *args, **kwargs):
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
-	return self.return_txt(HTTPStatus.OK, json.dumps({"status": 1,
+	return self.send_json({"status": 1,
 														"byte": size,
 														"humanbyte": humanbyte,
 														"fmbyte": fmbyte,
-														"count": count}))
+														"count": count}, cookie=cookie)
 
 
 @SH.on_req('HEAD', hasQ="czip")
 def create_zip(self: SH, *args, **kwargs):
-	"""Create ZIP task and return ID"""
+	"""Create ZIP task and return ID
+	
+	# TODO: Move to Dynamic island
+	"""
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
+
 	path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
 	spathsplit = kwargs.get('spathsplit', '')
 
-	if config.disabled_func["zip"]:
-		return self.return_txt(HTTPStatus.INTERNAL_SERVER_ERROR, "ERROR: ZIP FEATURE IS UNAVAILABLE !")
+	if CoreConfig.disabled_func["zip"] or (not user.ZIP):
+		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
 	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
@@ -541,7 +583,7 @@ def create_zip(self: SH, *args, **kwargs):
 	title = "Creating ZIP"
 
 	head = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-											PY_PUBLIC_URL=config.address(),
+											PY_PUBLIC_URL=CoreConfig.address(),
 											PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
 
 	try:
@@ -549,19 +591,26 @@ def create_zip(self: SH, *args, **kwargs):
 
 		tail = pt.zip_script().safe_substitute(PY_ZIP_ID = zid,
 												PY_ZIP_NAME = filename)
-		return self.return_txt(HTTPStatus.OK, f"{head} {tail}")
+		return self.return_txt(f"{head} {tail}", cookie=cookie)
 
 	except LimitExceed:
 		tail = "<h3>Directory size is too large, please contact the host</h3>"
-		return self.return_txt(HTTPStatus.SERVICE_UNAVAILABLE, f"{head} {tail}")
+		return self.return_txt(f"{head} {tail}", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 	except Exception:
 		self.log_error(traceback.format_exc())
-		return self.return_txt(HTTPStatus.OK, "ERROR")
+		return self.return_txt("ERROR", cookie=cookie)
 
 @SH.on_req('HEAD', hasQ="zip")
 def get_zip(self: SH, *args, **kwargs):
 	"""Return ZIP file if available
 	Else return progress of the task"""
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
+
 	path = kwargs.get('path', '')
 	spathsplit = kwargs.get('spathsplit', '')
 
@@ -572,7 +621,7 @@ def get_zip(self: SH, *args, **kwargs):
 		return self.send_json({
 			"status": status,
 			"message": msg
-		})
+		}, cookie=cookie)
 
 	if not os.path.isdir(path):
 		msg = "Folder not found. Failed to create zip"
@@ -599,7 +648,7 @@ def get_zip(self: SH, *args, **kwargs):
 		if query("download"):
 			path = zip_manager.zip_ids[id]
 
-			return self.return_file(path, filename, True)
+			return self.return_file(path, filename, True, cookie=cookie)
 
 
 		if query("progress"):
@@ -608,27 +657,85 @@ def get_zip(self: SH, *args, **kwargs):
 	# IF IN PROGRESS
 	if zip_manager.zip_id_status[id] == "ARCHIVING":
 		progress = zip_manager.zip_in_progress[id]
-		# return self.return_txt(HTTPStatus.OK, "%.2f" % progress)
+		# return self.return_txt("%.2f" % progress)
 		return reply("PROGRESS", "%.2f" % progress)
 
 	if zip_manager.zip_id_status[id].startswith("ERROR"):
-		# return self.return_txt(HTTPStatus.OK, zip_manager.zip_id_status[id])
+		# return self.return_txt(zip_manager.zip_id_status[id])
 		return reply("ERROR", zip_manager.zip_id_status[id])
 
 @SH.on_req('HEAD', hasQ="json")
 def send_ls_json(self: SH, *args, **kwargs):
 	"""Send directory listing in JSON format"""
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
 	return list_directory_json(self)
+
+
+
+
+@SH.on_req('HEAD', hasQ=("vid", "vid-data"))
+def send_video_data(self: SH, *args, **kwargs):
+	# SEND VIDEO DATA
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+
+
+	vid_source = url_path
+
+	content_type = self.guess_type(path)
+
+	if not content_type.startswith('video/'):
+		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
+		return None
+
+
+	displaypath = self.get_displaypath(url_path)
+
+	title = get_titles(displaypath, file=True)
+
+
+	warning = ""
+
+	if content_type not in ['video/mp4', 'video/ogg', 'video/webm']:
+		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
+
+	return self.send_json({
+		"status": "success",
+		"warning": warning,
+		"video": vid_source,
+		"title": displaypath.split("/")[-1],
+		"content_type": content_type,
+	}, cookie=cookie)
+
+
 
 @SH.on_req('HEAD', hasQ="vid")
 def send_video_page(self: SH, *args, **kwargs):
 	# SEND VIDEO PLAYER
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
 	path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
 
 	vid_source = url_path
-	if not self.guess_type(path).startswith('video/'):
-		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE")
+	content_type = self.guess_type(path)
+
+	if not content_type.startswith('video/'):
+		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
 		return None
 
 	r = []
@@ -640,53 +747,179 @@ def send_video_page(self: SH, *args, **kwargs):
 	title = get_titles(displaypath, file=True)
 
 	r.append(pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
-													PY_PUBLIC_URL=config.address(),
+													PY_PUBLIC_URL=CoreConfig.address(),
 													PY_DIR_TREE_NO_JS= dir_navigator(displaypath)))
 
-	ctype = self.guess_type(path)
-	warning = ""
-
-	if ctype not in ['video/mp4', 'video/ogg', 'video/webm']:
-		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
-
-
-	r.append(pt.video_script().safe_substitute(PY_VID_SOURCE=vid_source,
-												PY_FILE_NAME = displaypath.split("/")[-1],
-												PY_CTYPE=ctype,
-												PY_UNSUPPORT_WARNING=warning))
-
-
-
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
-	return self.return_txt(HTTPStatus.OK, encoded)
+	return self.return_txt(encoded, cookie=cookie)
 
 
 
-@SH.on_req('HEAD', url_regex="/@assets/.*")
-def send_assets(self: SH, *args, **kwargs):
-	"""Send assets"""
-	if not config.ASSETS:
-		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
-		return None
 
+
+
+# @SH.on_req('HEAD', url_regex="/@assets/.*")
+# def send_assets(self: SH, *args, **kwargs):
+# 	"""Send assets"""
+# 	user = Authorize_user(self)
+
+# 	if not user: # guest or not will be handled in Authentication
+# 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED)
+
+# 	if not CoreConfig.ASSETS:
+# 		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
+# 		return None
+
+
+# 	path = kwargs.get('path', '')
+# 	spathsplit = kwargs.get('spathsplit', '')
+
+# 	path = CoreConfig.ASSETS_dir + "/".join(spathsplit[2:])
+# 	#	print("USING ASSETS", path)
+
+# 	if not os.path.isfile(path):
+# 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+# 		return None
+
+# 	return self.return_file(path)
+
+@SH.on_req('HEAD', hasQ="style")
+def send_style(self: SH, *args, **kwargs):
+	"""Send style sheet"""
+	return self.send_css(pt.style_css())
+
+@SH.on_req('HEAD', hasQ="global_script")
+def send_global_script(self: SH, *args, **kwargs):
+	"""Send global script"""
+	return self.send_script(pt.global_script(), content_type="text/javascript")
+
+@SH.on_req('HEAD', hasQ="asset_script")
+def send_script(self: SH, *args, **kwargs):
+	"""Send script"""
+	return self.send_script(pt.assets_script())
+
+@SH.on_req('HEAD', hasQ="theme_script")
+def send_theme_script(self: SH, *args, **kwargs):
+	"""Send theme script"""
+	return self.send_script(pt.theme_script())
+
+@SH.on_req('HEAD', hasQ="page_handler_script")
+def send_page_handler_script(self: SH, *args, **kwargs):
+	"""Send page handler script"""
+	return self.send_script(pt.page_handler_script())
+
+@SH.on_req('HEAD', hasQ="video_page_script")
+def send_video_script(self: SH, *args, **kwargs):
+	"""Send video script"""
+	return self.send_script(pt.video_page_script())
+
+@SH.on_req('HEAD', hasQ="admin_page_script")
+def send_admin_script(self: SH, *args, **kwargs):
+	"""Send admin script"""
+	return self.send_script(pt.admin_page_script())
+
+@SH.on_req('HEAD', hasQ="file_list_script")
+def send_file_list_script(self: SH, *args, **kwargs):
+	"""Send file list script"""
+	return self.send_script(pt.file_list_script())
+
+@SH.on_req('HEAD', hasQ="error_page_script")
+def send_error_page_script(self: SH, *args, **kwargs):
+	"""Send error page script"""
+	return self.send_script(pt.error_page_script())
+
+
+
+@SH.on_req('HEAD', hasQ="login")
+def login_page(self: SH, *args, **kwargs):
+	"""Send login page"""
+	user, cookie = Authorize_user(self)
+
+	if user:
+		return self.redirect("/")
+
+	return self.send_text(pt.login_page())
+
+@SH.on_req('HEAD', hasQ="signup")
+def signup_page(self: SH, *args, **kwargs):
+	"""Send signup page"""
+	user, cookie = Authorize_user(self)
+
+	if user:
+		return self.redirect("/")
+
+	if Sconfig.cli_args.no_signup:
+		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Signup is disabled")
+	
+	return self.send_text(pt.signup_page())
+
+
+
+
+
+
+
+
+
+@SH.on_req('HEAD', hasQ="folder_data")
+def get_folder_data(self: SH, *args, **kwargs):
+	"""Send folder data"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_json({
+			"status": 0,
+			"error_code": HTTPStatus.UNAUTHORIZED,
+			"error_message": "You must be logged in to access this data.",
+			
+		}, cookie=cookie)
 
 	path = kwargs.get('path', '')
-	spathsplit = kwargs.get('spathsplit', '')
 
-	path = config.ASSETS_dir + "/".join(spathsplit[2:])
-	#	print("USING ASSETS", path)
+	if not user.VIEW:
+		return self.send_json({
+			"status": 0,
+			"error_code": HTTPStatus.UNAUTHORIZED,
+			"error_message": "You don't have permission to view this folder",
+			
+		}, cookie=cookie)
+		
+		
+	is_dir = None
+	try:
+		is_dir = os.path.isdir(path)
+	except Exception as e:
+		err = traceback.format_exc()
+		return self.send_json({
+			"status": 0,
+			"error_code": HTTPStatus.NOT_FOUND,
+			"error_message": str(e),
+			
+		})
 
-	if not os.path.isfile(path):
-		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-		return None
+	if is_dir is None:
+		return self.send_json({"status": 0,
+								"warning": "Folder not found"}, cookie=cookie)
 
-	return self.return_file(path)
+	data = list_directory(self, path, user, cookie=cookie)
 
+	if data:
+		return self.send_json(data, cookie=cookie)
 
 
 @SH.on_req('HEAD')
 def default_get(self: SH, filename=None, *args, **kwargs):
 	"""Serve a GET request."""
+	user, cookie = Authorize_user(self)
+
+	#print("/"*50)
+	#print(user.permission)
+	#print("/"*50)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.redirect("?login")
+
+
 	path = kwargs.get('path', '')
 
 	if os.path.isdir(path):
@@ -707,27 +940,28 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 				path = index
 				break
 		else:
-			return list_directory(self, path)
+			return list_directory_html(self, path, user, cookie=cookie)
 
 	# check for trailing "/" which should return 404. See Issue17324
 	# The test for this was added in test_httpserver.py
 	# However, some OS platforms accept a trailingSlash as a filename
 	# See discussion on python-dev and Issue34711 regarding
-	# parseing and rejection of filenames with a trailing slash
+	# parsing and rejection of filenames with a trailing slash
 
 	if path.endswith("/"):
-		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+		self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie=cookie)
 		return None
 
 
 
 	# else:
 
-	if cli_args.view_only or cli_args.no_download:
-		if not os.path.exists(path):
-			return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Download is disabled")
-	return self.return_file(path, filename)
+	if (not user.DOWNLOAD) or user.NOPERMISSION:
+		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Download is disabled", cookie=cookie)
+
+	if not os.path.exists(path):
+		return self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie=cookie)
+	return self.return_file(path, filename, cookie=cookie)
 
 
 
@@ -740,7 +974,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 
 
 
-
+# TODO check against user_mgmt
 def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 	"""Check if the user is authorized to post"""
 
@@ -750,35 +984,92 @@ def AUTHORIZE_POST(req: SH, post:DPD, post_type=''):
 
 	verify_1 = form.get_multi_field(verify_name='post-type', verify_msg=post_type, decode=T)
 
-
-	# GET UID
-	uid_verify = form.get_multi_field(verify_name='post-uid', decode=T)
-
-	uid = uid_verify[1]
-
-	if not uid:
-		raise PostError("Invalid request: No uid provided")
+	return verify_1[1]
 
 
+@SH.on_req('POST', hasQ="do_login")
+def handle_login_post(self: SH, *args, **kwargs):
+	"""Handle login post"""
+	user, cookie = Authorize_user(self)
 
-
-	##################################
-
-	# HANDLE USER PERMISSION BY CHECKING UID
-
-	##################################
-
-	return uid
+	if user:
+		return self.redirect("/")
 
 
 
+	post = DPD(self)
+
+	AUTHORIZE_POST(self, post, 'login')
+
+	form = post.form
+
+	username = form.get_multi_field(verify_name='username', decode=T)[1]
+
+	# GET PASSWORD
+	password = form.get_multi_field(verify_name='password', decode=T)[1]
+
+	user = Sconfig.user_handler.get_user(username)
+	if not user:
+		return self.send_json({"status": "failed", "message": "User not found"}, cookie=cookie)
+	
+	if not user.check_password(password):
+		return self.send_json({"status": "failed", "message": "Incorrect password"}, cookie=cookie)
+	
+	cookie = add_user_cookie(user)
+
+	return self.send_json({"status": "success", "message": "Login successful, if not Auto-redirecting, kindly Refresh"}, cookie=cookie)
 
 
+@SH.on_req('POST', hasQ="do_signup")
+def handle_signup_post(self: SH, *args, **kwargs):
+	"""Handle signup post"""
+	user, cookie = Authorize_user(self)
+
+	if user:
+		return self.redirect("/")
+
+	if Sconfig.cli_args.no_signup:
+		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Signup is disabled")
+
+
+	post = DPD(self)
+
+	AUTHORIZE_POST(self, post, 'signup')
+
+	form = post.form
+
+	username = form.get_multi_field(verify_name='username', decode=T)[1]
+
+	# GET PASSWORD
+	password = form.get_multi_field(verify_name='password', decode=T)[1]
+
+	user = Sconfig.user_handler.get_user(username)
+	if user:
+		return self.send_json({"status": "failed", "message": "Username is already in use!"}, cookie=cookie)
+	
+	user = Sconfig.user_handler.create_user(username, password)
+	if not user:
+		return self.send_json({"status": "failed", "message": "Failed to create user"}, cookie=cookie)
+	
+	cookie = add_user_cookie(user)
+
+	return self.send_json({"status": "success", "message": "Signup successful"}, cookie=cookie)
+
+
+
+
+# TODO check against user_mgmt
 @SH.on_req('POST', hasQ="upload")
 def upload(self: SH, *args, **kwargs):
 	"""GET Uploaded files"""
-	if cli_args.no_upload or cli_args.read_only or cli_args.view_only:
-		return self.send_txt(HTTPStatus.SERVICE_UNAVAILABLE, "Upload not allowed")
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
+	if user.NOPERMISSION or (not user.UPLOAD):
+		return self.send_txt("Upload not allowed", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 
 	path = kwargs.get('path')
@@ -805,22 +1096,23 @@ def upload(self: SH, *args, **kwargs):
 	password = form.get_multi_field(verify_name='password', decode=T)[1]
 
 	self.log_debug(f'post password: {[password]} by client')
-	if password != config.PASSWORD: # readline returns password with \r\n at end
+
+	if (user.MEMBER and not user.check_password(password)) or (not user.MEMBER and password != CoreConfig.PASSWORD): # readline returns password with \r\n at end
 		self.log_info(f"Incorrect password by {uid}")
 
-		return self.send_txt(HTTPStatus.UNAUTHORIZED, "Incorrect password")
+		return self.send_txt("Incorrect password", HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	while post.remainbytes > 0:
 		fn = form.get_file_name() # reads the next line and returns the file name
 		if not fn:
-			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...")
+			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...", cookie=cookie)
 
 
 		path = self.translate_path(self.path)
 		rltv_path = posixpath.join(url_path, fn)
 
-		temp_fn = os.path.join(path, ".LStemp-"+fn[0]+'.tmp')
-		config.temp_file.add(temp_fn)
+		temp_fn = os.path.join(path, ".LStemp-"+fn +'.tmp')
+		CoreConfig.temp_file.add(temp_fn)
 
 
 		fn = os.path.join(path, fn)
@@ -850,7 +1142,7 @@ def upload(self: SH, *args, **kwargs):
 						preline = line
 
 
-			while cli_args.no_update and os.path.isfile(fn):
+			while (not user.MODIFY) and os.path.isfile(fn):
 				n = 1
 				name, ext = os.path.splitext(fn)
 				fn = f"{name}({n}){ext}"
@@ -861,19 +1153,20 @@ def upload(self: SH, *args, **kwargs):
 
 		except (IOError, OSError):
 			traceback.print_exc()
-			return self.send_txt(HTTPStatus.SERVICE_UNAVAILABLE, "Can't create file to write, do you have permission to write?")
+			
+			return self.send_txt("Can't create file to write, do you have permission to write?", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 		finally:
 			try:
 				os.remove(temp_fn)
-				config.temp_file.remove(temp_fn)
+				CoreConfig.temp_file.remove(temp_fn)
 
 			except OSError:
 				pass
 
 
 
-	return self.return_txt(HTTPStatus.OK, "File(s) uploaded")
+	return self.return_txt("File(s) uploaded", cookie=cookie)
 
 
 
@@ -882,9 +1175,14 @@ def upload(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-f")
 def del_2_recycle(self: SH, *args, **kwargs):
 	"""Move 2 recycle bin"""
+	user, cookie = Authorize_user(self)
 
-	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
-		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
+	if user.NOPERMISSION or (not user.DELETE):
+		return self.send_json({"head": "Failed", "body": "You have no permission to delete."}, cookie=cookie)
 
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
@@ -896,8 +1194,8 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	uid = AUTHORIZE_POST(self, post, 'del-f')
 	form = post.form
 
-	if config.disabled_func["send2trash"]:
-		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+	if CoreConfig.disabled_func["send2trash"]:
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."}, cookie=cookie)
 
 
 
@@ -911,16 +1209,20 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 	head = "Failed"
 	try:
+		if CoreConfig.OS == 'Android':
+			raise InterruptedError
 		send2trash(xpath)
 		msg = "Successfully Moved To Recycle bin"+ post.refresh
 		head = "Success"
 	except TrashPermissionError:
 		msg = "Recycling unavailable! Try deleting permanently..."
+	except InterruptedError:
+		msg = "Recycling unavailable! Try deleting permanently..."
 	except Exception as e:
 		traceback.print_exc()
 		msg = "<b>" + path + "</b> " + e.__class__.__name__
 
-	return self.send_json({"head": head, "body": msg})
+	return self.send_json({"head": head, "body": msg}, cookie=cookie)
 
 
 
@@ -929,8 +1231,14 @@ def del_2_recycle(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="del-p")
 def del_permanently(self: SH, *args, **kwargs):
 	"""DELETE files permanently"""
-	if cli_args.read_only or cli_args.view_only or cli_args.no_delete:
-		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."})
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
+	if user.NOPERMISSION or (not user.DELETE):
+		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."}, cookie=cookie)
 
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
@@ -957,12 +1265,12 @@ def del_permanently(self: SH, *args, **kwargs):
 		if os.path.isfile(xpath): os.remove(xpath)
 		else: shutil.rmtree(xpath)
 
-		return self.send_json({"head": "Success", "body": "PERMANENTLY DELETED  " + path + post.refresh})
+		return self.send_json({"head": "Success", "body": "PERMANENTLY DELETED  " + path + post.refresh}, cookie=cookie)
 
 
 	except Exception as e:
 		traceback.print_exc()
-		return self.send_json({"head": "Failed", "body": "<b>" + path + "<b>" + e.__class__.__name__})
+		return self.send_json({"head": "Failed", "body": "<b>" + path + "<b>" + e.__class__.__name__}, cookie=cookie)
 
 
 
@@ -971,11 +1279,14 @@ def del_permanently(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="rename")
 def rename_content(self: SH, *args, **kwargs):
 	"""Rename files"""
+	user, cookie = Authorize_user(self)
 
-	print(cli_args.read_only , cli_args.view_only , cli_args.no_update)
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
-	if cli_args.read_only or cli_args.view_only or cli_args.no_update:
-		return self.send_json({"head": "Failed", "body": "Renaming is disabled."})
+
+	if user.NOPERMISSION or (not user.MODIFY):
+		return self.send_json({"head": "Failed", "body": "Renaming is disabled."}, cookie=cookie)
 
 
 	path = kwargs.get('path')
@@ -1008,9 +1319,9 @@ def rename_content(self: SH, *args, **kwargs):
 
 	try:
 		os.rename(xpath, new_path)
-		return self.send_json({"head": "Renamed Successfully", "body":  post.refresh})
+		return self.send_json({"head": "Renamed Successfully", "body":  post.refresh}, cookie=cookie)
 	except Exception as e:
-		return self.send_json({"head": "Failed", "body": "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) })
+		return self.send_json({"head": "Failed", "body": "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) }, cookie=cookie)
 
 
 
@@ -1019,6 +1330,15 @@ def rename_content(self: SH, *args, **kwargs):
 @SH.on_req('POST', hasQ="info")
 def get_info(self: SH, *args, **kwargs):
 	"""Get files permanently"""
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+
+	if user.NOPERMISSION:
+		return self.send_json({"head": "Failed", "body": "You have no permission to view."}, cookie=cookie)
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1046,11 +1366,11 @@ def get_info(self: SH, *args, **kwargs):
 	self.log_warning(f'Info Checked "{xpath}" by: {[uid]}')
 
 	if not os.path.exists(xpath):
-		return self.send_json({"head":"Failed", "body":"File/Folder Not Found"})
+		return self.send_json({"head":"Failed", "body":"File/Folder Not Found"}, cookie=cookie)
 
 	file_stat = get_stat(xpath)
 	if not file_stat:
-		return self.send_json({"head":"Failed", "body":"Permission Denied"})
+		return self.send_json({"head":"Failed", "body":"Permission Denied"}, cookie=cookie)
 
 	data = []
 	data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
@@ -1073,7 +1393,7 @@ def get_info(self: SH, *args, **kwargs):
 		data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
 		script = '''
 		tools.fetch_json(tools.full_path("''' + path + '''?size_n_count")).then(resp => {
-		console.log(resp);
+		// console.log(resp);
 		if (resp.status) {
 			size = resp.humanbyte;
 			count = resp.count;
@@ -1099,19 +1419,19 @@ def get_info(self: SH, *args, **kwargs):
 	body = """
 <style>
 table {
-font-family: arial, sans-serif;
-border-collapse: collapse;
-width: 100%;
+	font-family: arial, sans-serif;
+	border-collapse: collapse;
+	width: 100%;
 }
 
 td, th {
-border: 1px solid #00BFFF;
-text-align: left;
-padding: 8px;
+	border: 1px solid #00BFFF;
+	text-align: left;
+	padding: 8px;
 }
 
 tr:nth-child(even) {
-background-color: #111;
+	background-color: #111;
 }
 </style>
 
@@ -1125,13 +1445,21 @@ background-color: #111;
 		body += "<tr><td>{key}</td><td>{val}</td></tr>".format(key=key, val=val)
 	body += "</table>"
 
-	return self.send_json({"head":"Properties", "body":body, "script":script})
-
+	return self.send_json({"head":"Properties", "body":body, "script":script}, cookie=cookie)
 
 
 @SH.on_req('POST', hasQ="new_folder")
 def new_folder(self: SH, *args, **kwargs):
 	"""Create new folder"""
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED)
+
+	if user.NOPERMISSION or (not user.MODIFY):
+		return self.send_json({"head": "Failed", "body": "Permission denied."}, cookie=cookie)
+
+
 	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
@@ -1147,7 +1475,7 @@ def new_folder(self: SH, *args, **kwargs):
 
 	xpath = filename
 	if xpath.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in xpath or '\\..\\' in xpath or xpath.endswith(('/..', '\\..')):
-		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + path})
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + path}, cookie=cookie)
 
 	xpath = self.translate_path(posixpath.join(url_path, filename))
 
@@ -1156,15 +1484,15 @@ def new_folder(self: SH, *args, **kwargs):
 
 	try:
 		if os.path.exists(xpath):
-			return self.send_json({"head": "Failed", "body": "Folder Already Exists:  " + path})
+			return self.send_json({"head": "Failed", "body": "Folder Already Exists:  " + path}, cookie=cookie)
 		if os.path.isfile(xpath):
-			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + path})
+			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + path}, cookie=cookie)
 		os.makedirs(xpath)
-		return self.send_json({"head": "Success", "body": "New Folder Created:  " + path +post.refresh})
+		return self.send_json({"head": "Success", "body": "New Folder Created:  " + path +post.refresh}, cookie=cookie)
 
 	except Exception as e:
 		self.log_error(traceback.format_exc())
-		return self.send_json({"head": "Failed", "body": f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b>"})
+		return self.send_json({"head": "Failed", "body": f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b>"}, cookie=cookie)
 
 
 
@@ -1210,8 +1538,8 @@ def default_post(self: SH, *args, **kwargs):
 
 
 # proxy for old versions
-def run():
-	run_server(handler=SH)
+def run(*args, **kwargs):
+	run_server(handler=SH, *args, **kwargs)
 
 if __name__ == '__main__':
-	run()
+	run(port = 45454)
