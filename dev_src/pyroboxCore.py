@@ -29,7 +29,6 @@ from queue import Queue
 import logging
 import atexit
 import os
-#from session_mgmt import MachineSession
 
 __version__ = "0.8.1"
 enc = "utf-8"
