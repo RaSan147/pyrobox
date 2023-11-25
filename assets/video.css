@@ -36,7 +36,7 @@ body {
 }
 
 audio,
-.plyr img, /* For Vimeo poster images */
+.plyr img, /* For Video poster images */
 video {
 	max-width: 95vh;
 	max-height: 90vh;
