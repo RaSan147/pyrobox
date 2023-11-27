@@ -1,3 +1,29 @@
+
+:root {
+	--theme-background: #222;
+	--theme-color-focused: #00b7ff;
+	--theme-color: #1f83b6;
+	--theme-color-text: #fff;
+	--theme-color-text2: #3ab7ff;
+	--theme-hover-color: #444;
+	--button-background-color: #555;
+	--button-background-color-focused: #444;
+	--button-border-focused: #777;
+	--button-border: #666;
+	--button-border-radius: 0;
+	--border-width: 0;
+	--border-color: #000;
+	--space-height: 3em;
+	--tick-spacing: 0;
+
+}
+
+
+
+
+
+
+
 ::-webkit-scrollbar-track {
 	background: #222;
 }
@@ -36,12 +62,25 @@
 }
 
 
-#content_list {
-	/* making sure this don't get visible if js enabled */
-	/* otherwise that part makes a weird flash */
-	display: none;
+.invisible {
+	opacity: 0;
+	touch-action: none;
+	pointer-events: none;
+	transition: opacity 0.5s;
 }
 
+
+.overflowHidden {
+	overflow: hidden !important
+}
+
+html, body {
+	margin: 0;
+}
+
+html, pre {
+	font-family: "Open Sans", sans-serif;
+}
 
 body {
 	position: relative;
@@ -49,9 +88,7 @@ body {
 	top: 50px; /* Height of navbar */
 }
 
-#content_container {
-	min-height: 100vh;
-}
+
 
 html,
 body,
@@ -64,17 +101,12 @@ button {
 	background-color: #181a1b;
 }
 
-* {
-	font-family: "Open Sans", sans-serif;
-}
-
-
 .center {
 	text-align: center;
 	margin: auto;
 }
 
-.disable_selection, .no_select {
+.disable_selection, .no_select, img {
 	-webkit-touch-callout: none;
 	/* iOS Safari */
 	-webkit-user-select: none;
@@ -101,137 +133,15 @@ a {
 }
 
 
-.drag-file-list {
-	width: 98%;
-	max-height: 300px;
-	overflow: auto;
-	padding: 20px 3px;
-
-	border: #005ab2 2px solid;
-	border-radius: 5px;
-}
-
-.upload-file-item {
-display: block;
-border: 1px solid #ddd;
-margin-top: -1px; /* Prevent double borders */
-background-color: #8c8c8c5b;
-padding: 12px;
-text-decoration: none;
-font-size: 18px;
-color: white;
-position: relative;
-border-radius: 5px;
-
-max-width: 100%;
+img {
+	max-width: 100%;
+	height: auto;
 }
 
 
-.upload-file-item {
-	table-layout: fixed;
-	width: 100%;
-	max-height: 300px;
-	overflow: auto;
-	padding: 20px 0;
-	/* align-items: center; */
-}
-
-.upload-file-item tr {
-	padding: 5px 0;
-}
-
-.upload-file-item td.ufname {
-	width: 70%;
-	text-align: left;
-}
-
-.upload-file-item td.ufsize {
-	width: auto;
-	font-size: .6em;
-	font-weight: 600;
-	color: #fff;
-}
-
-.upload-file-item td.ufsize span {
-	background-color: #3d8be4;
-	border-radius: 5px;
-	padding: 3px;
-}
-
-.upload-file-item td.ufremove {
-	width: 20px;
-}
-
-.upload-file-item td.ufremove span {
-	background-color: #2a2a2a;
-	border-radius: 5px;
-	padding: 6px;
-}
-
-.file-size, .link_size {
-	font-size: .6em;
-	font-weight: 600;
-	background-color: #19a6c979;
-	padding: 3px;
-	display: inline-block;
-	color: #fff;
-	border-radius: 4px;
-
-}
-
-.file-size, .file-remove, .link_icon {
-	white-space: nowrap;
-
-	position: absolute;
-	top: 50%;
-	transform: translate(0%, -50%);
-}
-
-
-
-.file-name, .link_name {
-	display: inline-block;
-	word-wrap: break-all;
-	overflow-wrap: anywhere;
-	width: 70%;
-}
-
-.link_name {
-	width: calc(100% - 57px);
-
-}
-
-
-.file-remove {
-padding: 5px 7px;
-margin: 0 5px;
-margin-right: 10px;
-cursor: pointer;
-font-size: 23px;
-color: #fff;
-background-color: #505050;
-border-radius: 5px;
-font-weight: 900;
-right: 0%;
-
-}
-
-
-#footer {
-	position: absolute;
-	bottom: 0;
-	width: 100%;
-	height: 2.5rem;
-	/* Footer height */
-}
-
-
-.overflowHidden {
-	overflow: hidden !important
-}
-
-
-/* POPUP CSS */
+  /* ************************************ */
+ /* **        Popup & Modal           ** */
+/* ************************************ */
 
 :root {
 	--popup-bg: #292929;
@@ -252,6 +162,11 @@ right: 0%;
 	height: 100%;
 	overflow: auto;
 }
+
+
+  /* ************************************ */
+ /* **           Popup Box           ** */
+/* ************************************ */
 
 
 .popup {
@@ -328,6 +243,11 @@ right: 0%;
 
 
 
+  /* ************************************ */
+ /* **         Pagination Btn         ** */
+/* ************************************ */
+
+
 .pagination {
 	cursor: pointer;
 	width: 150px;
@@ -363,100 +283,12 @@ right: 0%;
 
 
 
-.menu_options {
-	background: #8c8c8c5b;
-	width: calc(100% - 10px);
-	padding: 5px;
-	margin: 5px 0;
-	text-align: left;
-	cursor: pointer;
-}
-
-.menu_options:hover,
-.menu_options:focus {
-	background: #3f3ffa8d;
-
-}
-
-.menu_options.disabled {
-	cursor: not-allowed;
-	background: #8c8c8c5b;
-	border: #222 solid 1px;
-	opacity: 0.7;
-}
-
-.menu_options.disabled:hover {
-	background: #8c8c8c5b;
-}
 
 
-ul{
-	list-style-type: none; /* Remove bullets */
-	padding-left: 5px;
-	margin: 0;
-}
 
-.upload-pass {
-	background-color: #000;
-	padding: 5px;
-	border-radius: 4px;
-	font: 1.5em sans-serif;
-}
-
-.upload-pass-box {
-	/* make text field larger */
-	font-size: 1.5em;
-	border: #aa00ff solid 2px;;
-	border-radius: 4px;
-	background-color: #0f0f0f;
-	max-width: 90%;
-}
-
-
-.upload-box {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-.drag-area{
-	border: 2px dashed #fff;
-	height: 300px;
-	width: 95%;
-	border-radius: 5px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-direction: column;
-}
-.drag-area.active{
-	border: 2px solid #fff;
-}
-.drag-area .drag-icon{
-	font-size: 100px;
-	color: #fff;
-}
-.drag-area header{
-	font-size: 25px;
-	font-weight: 500;
-	color: #fff;
-}
-.drag-area span{
-	font-size: 20px;
-	font-weight: 500;
-	color: #fff;
-	margin: 10px 0 15px 0;
-}
-.drag-browse, #submit-btn{
-	padding: 10px 25px;
-	font-size: 20px;
-	font-weight: 500;
-	outline: none;
-	background: #fff;
-	color: #5256ad;
-	border-radius: 5px;
-	border: solid 2px #00ccff;
-	cursor: pointer;
-}
+  /* ************************************ */
+ /* **           Toast Box           ** */
+/* ************************************ */
 
 .toast-box {
 	z-index: 99;
@@ -503,41 +335,15 @@ ul{
 
 
 
-.update_text {
-	font-size: 1.5em;
-	padding: 5px;
-	margin: 5px;
-	border: solid 2px;
-	border-radius: 4px;
-}
 
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  /* ************************************ */
+ /* **           Top Bar             ** */
+/* ************************************ */
 
 
 .top_bar {
@@ -574,60 +380,11 @@ ul{
 }
 
 
-#dir-tree {
-	display: flex;
-	overflow-x: auto;
-	overflow-y: hidden;
-	white-space: nowrap;
-	word-wrap: break-word;
-	width: calc(100% - 110px);
-	font-size: large;
-	border: #075baf 2px solid;
-	border-radius: 5px;
-	background-color: #0d29379f;
-	padding: 0 5px;
-	height: 34px;
-	align-items: center;
-}
-
-#dir-tree::-webkit-scrollbar {
-	display: none;
-}
 
 
-.dir_arrow {
-	position: relative;
-	padding: 4px;
-	color: #e8e6e3;
-	font-size: 12px;
-}
-
-
-.dir_turns {
-	padding: 4px;
-	border-radius: 5px;
-}
-
-.dir_turns:hover {
-	background-color: #90cdeb82;
-	color: #ffffff;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  /* ************************************ */
+ /* **           Side Bar             ** */
+/* ************************************ */
 
 
 :root {
@@ -783,7 +540,7 @@ ul{
 
 
   /* ************************************ */
- /* **        Action Btn + Island     ** */
+ /* **            Island              ** */
 /* ************************************ */
 
 #progress-island {
@@ -866,6 +623,11 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 
 
 
+  /* ************************************ */
+ /* **           Action Btn           ** */
+/* ************************************ */
+
+
 
 #actions-btn {
 	/* display: flex; */
@@ -924,6 +686,12 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 }
 
 
+
+
+  /* ************************************ */
+ /* **            Animations          ** */
+/* ************************************ */
+
 .spin {
 	-webkit-animation-name: spin;
 	-webkit-animation-duration: 4000ms;
@@ -945,33 +713,181 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 }
 
 @-moz-keyframes spin {
-    from { -moz-transform: rotate(0deg); }
-    to { -moz-transform: rotate(360deg); }
+	from { -moz-transform: rotate(0deg); }
+	to { -moz-transform: rotate(360deg); }
 }
 @-webkit-keyframes spin {
-    from { -webkit-transform: rotate(0deg); }
-    to { -webkit-transform: rotate(360deg); }
+	from { -webkit-transform: rotate(0deg); }
+	to { -webkit-transform: rotate(360deg); }
 }
 @keyframes spin {
-    from {transform:rotate(0deg);}
-    to {transform:rotate(360deg);}
+	from {transform:rotate(0deg);}
+	to {transform:rotate(360deg);}
 }
 
 
 
 
 
+  /* ************************************ */
+ /* **           Accordion            ** */
+/* ************************************ */
 
-  /* ********************** */
- /* Make Dir input element */
-/* ********************** */
 
-input#folder-name {
+
+
+.accordion {
+	background-color: var(--button-background-color);
+	color: var(--theme-color-text);
+	cursor: pointer;
+	padding: 13px;
+	width: 85%;
+	border: none;
+	text-align: left;
+	outline: none;
+	font-size: 15px;
+	transition: all 0.4s;
+	border-radius: 3px;
+	margin: 0 auto 10px auto;
+	box-shadow: 0 2px 3px 1px #3d8be4;
+}
+
+.accordion-button {
+	text-align: center;
+	font-size: larger;
+	font-weight: bold;
+	padding: 13px 6px;
+	color:  var(--theme-color-text);
+}
+
+.accordion>.tron-switch {
+	margin-right: 5px;
+}
+
+.accordion-active,
+.accordion:hover {
+	background-color: var(--button-background-color-focused);
+	color: var(--theme-color-text2);
+	box-shadow: 0 2px 3px 1px #d8d8d8;
+}
+
+.accordion-panel {
+	padding: 0 10px 10px;
+	display: none;
+	background-color: inherit;
+	color: #fff;
+	overflow: hidden;
+	transition: all 0.8s;
+}
+
+.accordion-panel-heading {
+	line-height: 40px;
+}
+
+
+
+
+
+  /* ************************************ */
+ /* **          Page segments         ** */
+/* ************************************ */
+
+.page {
+	display: none;
+}
+
+.page.active {
+	display: block;
+}
+
+
+
+  /* ************************************ */
+ /* **           All Page             ** */
+/* ************************************ */
+
+#dir-tree {
+	display: flex;
+	overflow-x: auto;
+	overflow-y: hidden;
+	white-space: nowrap;
+	word-wrap: break-word;
+	width: calc(100% - 110px);
 	font-size: large;
-	border-radius: 7px;
-	padding: 3px;
+	border: #075baf 2px solid;
+	border-radius: 5px;
+	background-color: #0d29379f;
+	padding: 0 5px;
+	height: 34px;
+	align-items: center;
 }
 
+#dir-tree::-webkit-scrollbar {
+	display: none;
+}
+
+
+.dir_arrow {
+	position: relative;
+	padding: 4px;
+	color: #e8e6e3;
+	font-size: 12px;
+}
+
+
+.dir_turns {
+	padding: 4px;
+	border-radius: 5px;
+}
+
+.dir_turns:hover {
+	background-color: #90cdeb82;
+	color: #ffffff;
+}
+
+
+
+
+#content_list {
+	/* making sure this don't get visible if js enabled */
+	/* otherwise that part makes a weird flash */
+	display: none;
+}
+
+#content_container {
+	min-height: 100vh;
+}
+
+
+.admin_only {
+	display: none;
+}
+
+.member_only {
+	display: none;
+}
+
+.guest_only {
+	display: none;
+}
+
+.named_server {
+	display: none;
+}
+
+.debug_only {
+	display: none;
+}
+
+
+  /* ************************************ */
+ /* **         File List Page         ** */
+/* ************************************ */
+
+
+		/* ********************** */
+		/* For Dir items element  */
+		/* ********************** */
 
 
 .dir_item {
@@ -1034,112 +950,246 @@ input#folder-name {
 	color: #c07cf7;
 }
 
+		/* ********************** */
+		/* For Menu options       */
+		/* ********************** */
 
 
-
-
-
-.accordion {
-	background-color: var(--button-background-color);
-	color: var(--theme-color-text);
-	cursor: pointer;
-	padding: 13px;
-	width: 85%;
-	border: none;
+input#folder-name {
+	font-size: large;
+	border-radius: 7px;
+	padding: 3px;
+}
+		
+		
+.menu_options {
+	background: #8c8c8c5b;
+	width: calc(100% - 10px);
+	padding: 5px;
+	margin: 5px 0;
 	text-align: left;
-	outline: none;
-	font-size: 15px;
-	transition: all 0.4s;
-	border-radius: 3px;
-	margin: 0 auto 10px auto;
-	box-shadow: 0 2px 3px 1px #3d8be4;
+	cursor: pointer;
 }
 
-.accordion-button {
-	text-align: center;
-	font-size: larger;
-	font-weight: bold;
-	padding: 13px 6px;
+.menu_options:hover,
+.menu_options:focus {
+	background: #3f3ffa8d;
+
 }
 
-.accordion>.tron-switch {
-	margin-right: 5px;
+.menu_options.disabled {
+	cursor: not-allowed;
+	background: #8c8c8c5b;
+	border: #222 solid 1px;
+	opacity: 0.7;
 }
 
-.accordion-active,
-.accordion:hover {
-	background-color: var(--button-background-color-focused);
-	color: var(--theme-color-text2);
-	box-shadow: 0 2px 3px 1px #d8d8d8;
+.menu_options.disabled:hover {
+	background: #8c8c8c5b;
 }
 
-.accordion-panel {
-	padding: 0 10px 10px;
-	display: none;
-	background-color: inherit;
+		/* ********************** */
+		/* For Upload box         */
+		/* ********************** */
+
+
+
+ul{
+	list-style-type: none; /* Remove bullets */
+	padding-left: 5px;
+	margin: 0;
+}
+
+.upload-pass {
+	background-color: #000;
+	padding: 5px;
+	border-radius: 4px;
+	font: 1.5em sans-serif;
+}
+
+.upload-pass-box {
+	/* make text field larger */
+	font-size: 1.5em;
+	border: #aa00ff solid 2px;;
+	border-radius: 4px;
+	background-color: #0f0f0f;
+	max-width: 90%;
+}
+
+
+.upload-box {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.drag-area{
+	border: 2px dashed #fff;
+	height: 300px;
+	width: 95%;
+	border-radius: 5px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+}
+.drag-area.active{
+	border: 2px solid #fff;
+}
+.drag-area .drag-icon{
+	font-size: 100px;
 	color: #fff;
-	overflow: hidden;
-	transition: all 0.8s;
+}
+.drag-area header{
+	font-size: 25px;
+	font-weight: 500;
+	color: #fff;
+}
+.drag-area span{
+	font-size: 20px;
+	font-weight: 500;
+	color: #fff;
+	margin: 10px 0 15px 0;
+}
+.drag-browse, #submit-btn{
+	padding: 10px 25px;
+	font-size: 20px;
+	font-weight: 500;
+	outline: none;
+	background: #fff;
+	color: #5256ad;
+	border-radius: 5px;
+	border: solid 2px #00ccff;
+	cursor: pointer;
 }
 
-.accordion-panel-heading {
-	line-height: 40px;
+
+.drag-file-list {
+	width: 98%;
+	max-height: 300px;
+	overflow: auto;
+	padding: 20px 3px;
+
+	border: #005ab2 2px solid;
+	border-radius: 5px;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  /* ************************************ */
- /* **          Page segments         ** */
-/* ************************************ */
-
-.page {
-	display: none;
-}
-
-.page.active {
+.upload-file-item {
 	display: block;
+	border: 1px solid #ddd;
+	margin-top: -1px; /* Prevent double borders */
+	background-color: #8c8c8c5b;
+	padding: 12px;
+	text-decoration: none;
+	font-size: 18px;
+	color: white;
+	position: relative;
+	border-radius: 5px;
+
+	max-width: 100%;
+}
+
+
+.upload-file-item {
+	table-layout: fixed;
+	width: 100%;
+	max-height: 300px;
+	overflow: auto;
+	padding: 20px 0;
+	/* align-items: center; */
+}
+
+.upload-file-item tr {
+	padding: 5px 0;
+}
+
+.upload-file-item td.ufname {
+	width: 70%;
+	text-align: left;
+}
+
+.upload-file-item td.ufsize {
+	width: auto;
+	font-size: .6em;
+	font-weight: 600;
+	color: #fff;
+}
+
+.upload-file-item td.ufsize span {
+	background-color: #3d8be4;
+	border-radius: 5px;
+	padding: 3px;
+}
+
+.upload-file-item td.ufremove {
+	width: 20px;
+}
+
+.upload-file-item td.ufremove span {
+	background-color: #2a2a2a;
+	border-radius: 5px;
+	padding: 6px;
+}
+
+
+		/* ********************** */
+		/* For Upload & File List */
+		/* ********************** */
+
+
+.file-size, .link_size {
+	font-size: .6em;
+	font-weight: 600;
+	background-color: #19a6c979;
+	padding: 3px;
+	display: inline-block;
+	color: #fff;
+	border-radius: 4px;
+
+}
+
+.file-size, .file-remove, .link_icon {
+	white-space: nowrap;
+
+	position: absolute;
+	top: 50%;
+	transform: translate(0%, -50%);
 }
 
 
 
-  /* ************************************ */
- /* **           All Page             ** */
-/* ************************************ */
-
-
-.admin_only {
-	display: none;
+.file-name, .link_name {
+	display: inline-block;
+	word-wrap: break-all;
+	overflow-wrap: anywhere;
+	width: 70%;
 }
 
-.member_only {
-	display: none;
+.link_name {
+	width: calc(100% - 57px);
+
 }
 
-.guest_only {
-	display: none;
+
+.file-remove {
+	padding: 5px 7px;
+	margin: 0 5px;
+	margin-right: 10px;
+	cursor: pointer;
+	font-size: 23px;
+	color: #fff;
+	background-color: #505050;
+	border-radius: 5px;
+	font-weight: 900;
+	right: 0%;
 }
 
-.named_server {
-	display: none;
-}
 
-.debug_only {
-	display: none;
+#footer {
+	position: absolute;
+	bottom: 0;
+	width: 100%;
+	height: 2.5rem;
+	/* Footer height */
 }
 
 
@@ -1173,5 +1223,14 @@ input#folder-name {
 
 .users_list td {
 	padding: 12px;
+}
+
+
+.update_text {
+	font-size: 1.5em;
+	padding: 5px;
+	margin: 5px;
+	border: solid 2px;
+	border-radius: 4px;
 }
 
