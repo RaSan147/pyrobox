@@ -60,14 +60,14 @@
 ### On Windows
 
   1. Open `CMD` or `PowerShell`
-  1. Run `pip install pyrobox`
-  1. Run `pyrobox` to launch the server
+  1. Run `pip install -U pyrobox`
+  1. Run `pyrobox` to launch the server on the Terminal Current Working Directory.
 
 ### On Linux
 
   1. Open `Terminal`
-  1. Run `pip3 install pyrobox`
-  1. Run `pyrobox` to launch the server
+  1. Run `pip3 install -U pyrobox`
+  1. Run `pyrobox` to launch the server on the Terminal Current Working Directory.
 
 ### CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 
