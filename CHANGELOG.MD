@@ -1,3 +1,27 @@
+# Version 0.9.2
+  ## Client-side Changes:
+  * Added optional Account system.
+  * Converted the Entire website structure in single page mode (kinda PWA like)
+  * Added dynamic island for uploading.
+  * Fixed video player double tap
+  * Added sidebar for user preference and admin panel
+  * Admin can change user permission, add/remove user
+  * UI reflects based on permissions
+
+  ## Server-side Changes:
+  * Using pyroDB database to store server data
+  * added more methods
+  * added permission system and flags
+
+  ## Fixes:
+  * fixed uploaded temp file with broken name
+
+  ## TODO:
+  * add zip in pwa system and dynamic island
+
+
+
+
 # Version 0.8.1
   ## Client-side Changes:
   * Clicking on text files should show in UTF-8

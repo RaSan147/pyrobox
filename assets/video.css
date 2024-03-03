@@ -36,7 +36,7 @@ body {
 }
 
 audio,
-img,
+.plyr img, /* For Video poster images */
 video {
 	max-width: 95vh;
 	max-height: 90vh;
@@ -638,6 +638,7 @@ a.plyr__control:before {
 	height: var(--plyr-range-track-height, 5px);
 	-moz-transition: box-shadow .3s ease;
 	transition: box-shadow .3s ease;
+	-webkit-user-select: none;
 	user-select: none
 }
 
@@ -679,6 +680,7 @@ a.plyr__control:before {
 	height: var(--plyr-range-track-height, 5px);
 	-ms-transition: box-shadow .3s ease;
 	transition: box-shadow .3s ease;
+	-webkit-user-select: none;
 	user-select: none
 }
 
@@ -692,6 +694,7 @@ a.plyr__control:before {
 	height: var(--plyr-range-track-height, 5px);
 	-ms-transition: box-shadow .3s ease;
 	transition: box-shadow .3s ease;
+	-webkit-user-select: none;
 	user-select: none
 }
 
@@ -928,6 +931,7 @@ a.plyr__control:before {
 
 .plyr__progress__buffer {
 	-webkit-appearance: none;
+	appearance: none;
 	background: 0 0;
 	border: 0;
 	border-radius: 100px;

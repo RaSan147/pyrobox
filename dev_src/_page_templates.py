@@ -1,15 +1,19 @@
-from string import Template as _Template # using this because js also use {$var} and {var} syntax and py .format is often unsafe
-
+from data_types import Template
 __all__ = [
 	"directory_explorer_header",
 	"global_script",
-	"file_list",
 	"upload_form",
 	"file_list_script",
-	"video_script",
+	"video_page",
 	"zip_script",
-	"admin_page",
 	"error_page",
+	"theme_script",
+	"video_page_script",
+	"page_handler_script",
+	"admin_page_script",
+	"login_page",
+	"style_css"
+
 ]
 
 
@@ -18,16 +22,6 @@ __all__ = [
 # PAGE TEMPLATES
 ##############################################################
 
-
-class Template(_Template):
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-
-	def __add__(self, other):
-		if isinstance(other, _Template):
-			return Template(self.template + other.template)
-		return Template(self.template + str(other))
-	
 
 enc = "utf-8"
 
@@ -39,40 +33,72 @@ class config:
 pt_config = config()
 
 
-def get_template(path):
+
+def _get_template(path):
 	if pt_config.dev_mode:
 		with open(path, encoding=enc) as f:
-			return Template(f.read())
+			return f.read()
 
-	return Template(pt_config.file_list[path])
+	return pt_config.file_list[path]
+
+def get_template(path):
+	return Template(_get_template(path))
+
 
 def directory_explorer_header():
 	return get_template("html_page.html")
 
 
-def global_script():
-	return get_template("global_script.html")
 
-def file_list():
-	return global_script() + get_template("html_file_list.html")
+def style_css():
+	return _get_template("style_main.css")
+
+
+
+
+
+
+def global_script():
+	return get_template("script_global.js")
+
+def assets_script():
+	return get_template("script_main.js")
 
 def file_list_script():
-	return get_template("html_script.html")
+	return get_template("script_file_list.js")
+
+def video_page_script():
+	return get_template("script_video_player.js")
+
+def page_handler_script():
+	return get_template("script_page_handler.js")
+
+def admin_page_script():
+	return get_template("script_admin_page.js")
+
+def error_page_script():
+	return get_template("script_error_page.js")
+
+
+
 
 def upload_form():
-	return get_template("html_upload.html")
-
-def video_script():
-	return global_script() + get_template("html_vid.html")
+	return _get_template("html_upload.html")
 
 def zip_script():
-	return global_script() + get_template("html_zip_page.html")
-
-def admin_page():
-	return global_script() + get_template("html_admin.html")
+	return get_template("html_zip_page.html")  # TODO: Move to Dynamic island
 
 def error_page():
-	return directory_explorer_header() + get_template("html_error.html")
+	return directory_explorer_header()  # TODO: add to PWA
 
-directory_explorer_header()
+def theme_script():
+	return get_template("script_theme.js")
+
+def login_page():
+	return get_template("html_login.html")
+
+def signup_page():
+	return get_template("html_signup.html")
+
+#directory_explorer_header()
 

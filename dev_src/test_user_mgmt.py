@@ -6,11 +6,11 @@ from typing import Tuple
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # from dev_src.pyroboxCore import config
 import dev_src
-from dev_src.user_mgmt import User, UserPermission
+from user_mgmt import User, UserPermission
 
 @pytest.fixture(scope="session", autouse=True)
 def cleanup():
-    from dev_src.user_mgmt import config
+    from user_mgmt import config
     # setup
     yield
     # teardown
@@ -18,7 +18,6 @@ def cleanup():
         os.remove(os.path.join(config.MAIN_FILE_dir, "test_users.db"))
     # if os.path.exists(os.path.join(config.MAIN_FILE_dir, "users.db")):
     #     os.remove(os.path.join(config.MAIN_FILE_dir, "users.db"))
-          
 
 def test_mock_db(monkeypatch):
     from dev_src.user_mgmt import config
@@ -62,6 +61,7 @@ def test_class_User_lookup(monkeypatch):
     monkeypatch.setattr("dev_src.user_mgmt.user_db", test_user_db)
     demo_user_dn = "AliceTheAdmin"
     demo_user = User.get_user(demo_user_dn)
+    print(demo_user)
     assert type(demo_user) == User
     assert type(demo_user.permission) == int
     assert type(demo_user.get_permissions()) == tuple

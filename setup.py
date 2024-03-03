@@ -5,9 +5,12 @@ setup(
     install_requires=[
         'natsort',
         "send2trash",
+        "msgpack"
     ],
     entry_points='''
         [console_scripts]
         pyrobox=pyrobox:server.run
     ''',
+
+    
 )

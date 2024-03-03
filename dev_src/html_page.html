@@ -1,11 +1,12 @@
 <!DOCTYPE HTML>
-<!-- test1 -->
 <html lang="en">
 <head>
-<meta charset="{UTF-8}">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link href='https://fonts.googleapis.com/css?family=Open Sans' rel='stylesheet'>
+<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
 <title>${PY_PAGE_TITLE}</title>
+
+<link rel="stylesheet" href="?style">
 </head>
 
 <body>
@@ -13,530 +14,26 @@
 const public_url = "${PY_PUBLIC_URL}";
 </script>
 
-<style type="text/css">
 
-#content_list {
-	/* making sure this don't get visible if js enabled */
-	/* otherwise that part makes a wierd flash */
-	display: none;
-}
-
-
-body {
-	position: relative;
-	min-height: 100vh;
-	overflow-x: hidden;
-}
-
-html,
-body,
-input,
-textarea,
-select,
-button {
-	border-color: #736b5e;
-	color: #e8e6e3;
-	background-color: #181a1b;
-}
-
-* {
-	scrollbar-color: #0f0f0f #454a4d;
-	font-family: "Open Sans", sans-serif;
-}
-
-
-.center {
-	text-align: center;
-	margin: auto;
-}
-
-.dir_arrow {
-	position: relative;
-	top: -3px;
-	padding: 4px;
-	color: #e8e6e3;
-	font-size: 12px;
-}
-
-.disable_selection {
-	-webkit-touch-callout: none;
-	/* iOS Safari */
-	-webkit-user-select: none;
-	/* Safari */
-	-khtml-user-select: none;
-	/* Konqueror HTML */
-	-moz-user-select: none;
-	/* Old versions of Firefox */
-	-ms-user-select: none;
-	/* Internet Explorer/Edge */
-	user-select: none;
-	/* Non-prefixed version, currently */
-	-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-}
-
-a {
-	/*line-height: 200%;*/
-	font-size: 20px;
-	font-weight: 600;
-	text-decoration: none;
-	color: #00BFFF;
-
-	letter-spacing: .1em;
-}
-
-.dir_item {
-	display: inline;
-}
-
-
-
-.all_link {
-	display: block;
-	white-space: wrap;
-	overflow-wrap: anywhere;
-	position: relative;
-	border-radius: 5px;
-}
-
-.dir_item:active .link_name {
-	color: red;
-}
-
-.dir_item:active .all_link, .dir_item:hover .all_link {
-	background-color: #25a2c222;
-}
-
-.link_name {
-	display: inline-block;
-	font-size: .8em;
-	word-wrap: break-all;
-	padding: 5px;
-	left: 50px;
-	position: relative;
-}
-
-.link_icon {
-	display: inline-block;
-	font-size: 2em;
-	left:0%;
-	width: 40px;
-}
-
-
-
-.context_menu {
-	margin-left: 10px;
-}
-
-
-.link {
-	color: #1589FF;
-	/* background-color: #1589FF; */
-}
-
-.vid {
-	color: #8A2BE2;
-	/* font-weight: 300; */
-}
-
-.file {
-	color: #c07cf7;
-}
-
-
-
-::-webkit-scrollbar-track {
-	background: #222;
-}
-
-::-webkit-scrollbar {
-	width: 7px;
-	height: 7px;
-	opacity: 0.3;
-}
-
-::-webkit-scrollbar:hover {
-	opacity: 0.9;
-}
-
-::-webkit-scrollbar-thumb {
-	background: #333;
-	border-radius: 10px;
-}
-
-:hover::-webkit-scrollbar-thumb {
-	background: #666;
-}
-
-::-webkit-scrollbar-thumb:hover {
-	background: #aaa;
-}
-
-
-
-#dir-tree {
-	overflow-x: auto;
-	overflow-y: hidden;
-	white-space: nowrap;
-	word-wrap: break-word;
-	max-width: 98vw;
-	border: #075baf 2px solid;
-	border-radius: 5px;
-	background-color: #0d29379f;
-	padding: 0 5px;
-	height: 50px;
-}
-
-.dir_turns {
-	padding: 4px;
-	border-radius: 5px;
-	font-size: .6em;
-
-}
-
-.dir_turns:hover {
-	background-color: #90cdeb82;
-	color: #ffffff;
-}
-
-
-
-#drag-file-list {
-	width: 98%;
-	max-height: 300px;
-	overflow: auto;
-	padding: 20px 0;
-	align-items: center;
-}
-
-.upload-file-item {
-  display: block;
-  border: 1px solid #ddd;
-  margin-top: -1px; /* Prevent double borders */
-  background-color: #f6f6f6;
-  padding: 12px;
-  text-decoration: none;
-  font-size: 18px;
-  color: black;
-  position: relative;
-  border-radius: 5px;
-
-  max-width: 100%;
-}
-
-.file-size, .link_size {
-	font-size: .6em;
-	font-weight: 600;
-	background-color: #19a6c979;
-	padding: 3px;
-	display: inline-block;
-	color: #fff;
-	border-radius: 4px;
-
-}
-
-.file-size, .file-remove, .link_icon {
-	white-space: nowrap;
-
-	position: absolute;
-	top: 50%;
-	transform: translate(0%, -50%);
-}
-
-
-
-.file-name, .link_name {
-	display: inline-block;
-	word-wrap: break-all;
-	overflow-wrap: anywhere;
-	width: 70%;
-}
-
-.link_name {
-	width: calc(100% - 57px);
-
-}
-
-
-.file-remove {
-  padding: 5px 7px;
-  margin: 0 5px;
-  margin-right: 10px;
-  cursor: pointer;
-  font-size: 23px;
-  color: #fff;
-  background-color: #505050;
-  border-radius: 5px;
-  font-weight: 900;
-  right: 0%;
-
-}
-
-
-#footer {
-	position: absolute;
-	bottom: 0;
-	width: 100%;
-	height: 2.5rem;
-	/* Footer height */
-}
-
-
-.overflowHidden {
-	overflow: hidden !important
-}
-
-
-/* POPUP CSS */
-
-.modal_bg {
-	display: inherit;
-	position: fixed;
-	z-index: 1;
-	padding-top: inherit;
-	left: 0;
-	top: 0;
-	width: 100%;
-	height: 100%;
-	overflow: auto;
-}
-
-
-.popup {
-	position: fixed;
-	z-index: 22;
-	left: 50%;
-	top: 50%;
-	width: 100%;
-	height: 100%;
-	overflow: none;
-	transition: all .5s ease-in-out;
-	transform: translate(-50%, -50%) scale(1)
-}
-
-.popup-box {
-	display: block;
-	/*display: inline;*/
-	/*text-align: center;*/
-	position: fixed;
-	top: 50%;
-	left: 50%;
-	color: #BBB;
-	transition: all 400ms ease-in-out;
-	background: #222;
-	width: 95%;
-	max-width: 500px;
-	z-index: 23;
-	padding: 20px;
-	box-sizing: border-box;
-	max-height: min(600px, 80%);
-	height: max-content;
-	min-height: 300px;
-	overflow: auto;
-	border-radius: 6px;
-	text-align: center;
-	overflow-wrap: anywhere;
-}
-
-.popup-close-btn {
-	cursor: pointer;
-	position: absolute;
-	right: 20px;
-	top: 20px;
-	width: 30px;
-	height: 30px;
-	background: #222;
-	color: #fff;
-	font-size: 25px;
-	font-weight: 600;
-	line-height: 30px;
-	text-align: center;
-	border-radius: 50%
-}
-
-.popup:not(.active) {
-	transform: translate(-50%, -50%) scale(0);
-	opacity: 0;
-}
-
-
-.popup.active .popup-box {
-	transform: translate(-50%, -50%) scale(1);
-	opacity: 1;
-}
-
-
-
-.pagination {
-	cursor: pointer;
-	width: 150px;
-	max-width: 800px
-}
-
-.pagination {
-	font: bold 20px Arial;
-	text-decoration: none;
-	background-color: #8a8b8d6b;
-	color: #1f83b6;
-	padding: 2px 6px;
-	border-top: 1px solid #828d94;
-	box-shadow: 4px 4px #5050506b;
-	border-left: 1px solid #828D94;
-}
-
-.pagination:hover {
-	background-color: #4e4f506b;
-	color: #00b7ff;
-	box-shadow: 4px 4px #8d8d8d6b;
-	border: none;
-	border-right: 1px solid #959fa5;
-	border-bottom: 1px solid #959fa5
-}
-
-.pagination:active {
-	position: relative;
-	top: 4px;
-	left: 4px;
-	box-shadow: none
-}
-
-
-
-.menu_options {
-	background: #333;
-	width: 95%;
-	padding: 5px;
-	margin: 5px;
-	text-align: left;
-	cursor: pointer;
-}
-
-.menu_options:hover,
-.menu_options:focus {
-	background: #337;
-
-}
-
-
-ul{
-	list-style-type: none; /* Remove bullets */
-	padding-left: 5px;
-	margin: 0;
-}
-
-.upload-pass {
-	background-color: #000;
-	padding: 5px;
-	border-radius: 4px;
-	font: 1.5em sans-serif;
-}
-
-.upload-pass-box {
-	/* make text field larger */
-	font-size: 1.5em;
-	border: #aa00ff solid 2px;;
-	border-radius: 4px;
-	background-color: #0f0f0f;
-}
-
-
-.upload-box {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-.drag-area{
-	border: 2px dashed #fff;
-	height: 300px;
-	width: 95%;
-	border-radius: 5px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-direction: column;
-}
-.drag-area.active{
-	border: 2px solid #fff;
-}
-.drag-area .drag-icon{
-	font-size: 100px;
-	color: #fff;
-}
-.drag-area header{
-	font-size: 25px;
-	font-weight: 500;
-	color: #fff;
-}
-.drag-area span{
-	font-size: 20px;
-	font-weight: 500;
-	color: #fff;
-	margin: 10px 0 15px 0;
-}
-.drag-browse, #submit-btn{
-	padding: 10px 25px;
-	font-size: 20px;
-	font-weight: 500;
-	outline: none;
-	background: #fff;
-	color: #5256ad;
-	border-radius: 5px;
-	border: solid 2px #00ccff;
-	cursor: pointer;
-}
-
-.toast-box {
-	z-index: 99;
-
-	position: fixed;
-	bottom: 0;
-	right: 0;
-	max-width: 100%;
-	overflow-wrap: anywhere;
-	transform: translateY(100%);
-	opacity: 0;
-
-	transition:
-		opacity 500ms,
-		transform 500ms;
-}
-
-.toast-box.visible {
-	transform: translateY(0);
-	opacity: 1;
-}
-
-
-.toast-body {
-	max-height: 100px;
-	overflow-y: auto;
-	margin: 28px;
-	padding: 10px;
-
-	font-size: 1em;
-	background-color: #005165ed;
-	color: #fff;
-
-	border-radius: 4px;
-}
-
-
-.update_text {
-	font-size: 1.5em;
-	padding: 5px;
-	margin: 5px;
-	border: solid 2px;
-	border-radius: 4px;
-}
-
-
-
+<style>
+	#content_container {
+		display: none; /* hide content until page is loaded */
+	}
 </style>
+
 
 <noscript>
 	<style>
 		.jsonly {
 			display: none !important
+		}
+
+		#content_container {
+			display: block; /* making sure its visible */
+		}
+
+		#fm_page {
+			display: block;
 		}
 
 		#content_list {
@@ -552,12 +49,172 @@ ul{
 
 <div id="popup-container"></div>
 
-<h1 id="dir-tree">${PY_DIR_TREE_NO_JS}</h1>
+<div id='TopBar' class='top_bar'>
+
+	<span id="dir-tree">${PY_DIR_TREE_NO_JS}</span>
+
+
+	<button class="open-sidebar-btn" onclick="sidebar_control.toggleNavR()" style='float: right;'><span>
+		<span class='nav-btn-text'>Menu</span> <span class="fa fa-thin fa-ellipsis-stroke-vertical">&vellip;</span></span>
+	</button>
+
+</div>
+
+<div id="sidebar_bg"></div> <!-- trigger to close Sidebar-->
+
+
+
+<div id="mySidebarR" class="sidebar sidebarR theme-tools">
+
+	<span style='right:0; text-align:right;margin-right: 20px;' class="close-sidebar disable_selection"
+
+		id="close-sidebarR" onclick = "sidebar_control.closeNavR()">&times;</span> <!-- × -->
+
+	<div>
+		<div id="preference_button" class="accordion accordion-button debug_only" onclick="appConfig.show_help_note()">Preference</div>
+		<div class="member_only">
+			<div id="user_panel_button" class="accordion accordion-button debug_only" onclick="appConfig.show_author_note()">User Panel</div>
+			<div id="admin_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
+			<div id="logout_button" class="accordion accordion-button" onclick="goto('./?logout')">Logout</div>
+		</div>
+		<div class="guest_only named_server">
+			<div id="login_button" class="accordion accordion-button" onclick="goto('./?login')">Login</div>
+			<div id="signup_button" class="accordion accordion-button" onclick="goto('./?signup')">Signup</div>
+		</div>
+	</div>
+
+
+	<div class='sidebar-end'></div>
+
+
+
+</div>
+
+
+<div id="actions-btn" class="disable_selection jsonly" onclick="page.on_action_button()">
+	<div id="actions-btn-text">More&nbsp;</div>
+	<span class="fa fa-solid fa-plus" id="actions-btn-icon"><b>+</b></span>
+	<span class="fa fa-duotone fa-spinner fa-spin" id="actions-loading-icon"><span class='spin'>⚉</span></span>
+</div>
+<div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
+	<span id="progress-uploads">Running Uploads
+	<span id="progress-uploads-count">(0/0)</span></span>
+
+	<br>
+
+	<span id="progress-zips">Running Zips
+	<span id="progress-zips-count">(0/0)</span></span>
+</div>
+
 <hr>
 
-<script>
-const dir_tree = document.getElementById("dir-tree");
-dir_tree.scrollLeft = dir_tree.scrollWidth;
-</script>
+<div id="content_container">
 
-<hr>
+	<!-- Contains all the files -->
+
+	<div id="fm_page" class="page">
+		<div id="content_list">
+
+			<ul id="linkss">
+				<!-- CONTENT LIST (NO JS) -->
+
+				<!-- ${PY_NO_JS_FILE_LIST} -->
+
+
+			</ul>
+			<!-- ${PY_UPLOAD_FORM} -->
+		</div>
+
+		<div id="js-content_list" class="jsonly">
+			<!-- CONTENT LIST (JS) -->
+		</div>
+	</div>
+
+	<div id="error-page" class="page ${PY_ERROR_PAGE}">
+		<script>var ERROR_PAGE = "${PY_ERROR_PAGE}"</script>
+		<h1><u>Error response</u></h1>
+		<p><u>Error code:</u> <span id="error_code">${code}</span></p>
+		<p><u>Message:</u> <span id="error_message">${message}</span></p>
+		<p><u>Error code explanation:</u> <span id="error_code2">${code}</span> - <span id="error_explain">${explain}</span></p>
+		<hr>
+		<center><img src = "https://http.cat/${code}" style="max-width: 95vw;" alt="Error Image"/></center>
+	</div>
+
+
+	<div id="video-page" class="page">
+		<p><b>Watching:</b> <span id="player_title"></span></p>
+
+		<h2 id="player-warning"></h2>
+
+		<div id="container">
+			<video controls crossorigin playsinline id="player">
+
+				<source id="player_source" />
+			</video>
+		</div>
+
+		<a id="video_dl_url"  download class='pagination'>Download</a>
+
+	</div>
+
+	<div id="admin_page" class="page">
+
+		<h1 style="text-align: center;">Admin Page</h1>
+		<hr>
+
+
+		<div class="jsonly">
+
+			<!-- check if update available -->
+
+			<div>
+				<p class="update_text" id="update_text">Checking for Update...</p>
+				<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
+				<br><br>
+			</div>
+
+			<div>
+				<table class="users_list">
+					<tr>
+						<th>Username</th>
+						<th>Manager</th>
+					</tr>
+				</table>
+			</div>
+
+
+
+			<div class='pagination jsonly' onclick="admin_tools.request_reload()">RELOAD SERVER 🧹</div>
+			<noscript><a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br></noscript>
+			<hr>
+
+			<div class='pagination jsonly' onclick="admin_tools.request_shutdown()">Shut down 🔻</div>
+		</div>
+
+		<noscript>
+			<h2>This page requires JS enabled</h2>
+		</noscript>
+	</div>
+</div>
+
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
+
+<script src="/?global_script"></script>
+<script src="/?asset_script"></script>
+
+<script src="/?file_list_script"></script>
+<script src="/?theme_script"></script>
+<script src="/?video_page_script"></script>
+<script src="/?admin_page_script"></script>
+<script src="/?error_page_script"></script>
+
+<script src="/?page_handler_script"></script>
+
+
+<!-- ASSET_SCRIPT will load at the end with all the classes defined -->
+
+
+
+<link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />
