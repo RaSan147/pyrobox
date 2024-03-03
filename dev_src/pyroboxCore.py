@@ -101,9 +101,6 @@ class Config:
 		# TEMP FILE MAPPING
 		self.temp_file = set()
 
-		# SESSION OBJECT
-		self.LOCALSESSION = MachineSession(path = self.ftp_dir, main_dir= self.MAIN_FILE_dir) # TODO: Optional name parameter
-
 		# CLEAN TEMP FILES ON EXIT
 		atexit.register(self.clear_temp)
 
