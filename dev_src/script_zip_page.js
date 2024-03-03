@@ -1,10 +1,4 @@
 
-
-// const id = "${PY_ZIP_ID}";
-// const filename = "${PY_ZIP_NAME}";
-
-
-
 class Zip_Page {
 	constructor() {
 		this.type = "zip"

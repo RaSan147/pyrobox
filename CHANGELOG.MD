@@ -1,3 +1,22 @@
+# Version 0.9.3
+  ## Client-side Changes:
+  * Fixed zip downloader as a PWA
+  * Now empty folders are included in zip
+
+  ## Server-side Changes:
+  * Support empty folders in zip
+  * Added zip as a PWA
+
+  ## Fixes:
+  * Fixed zip downloader page
+  * Fixed unwanted URL-encoding in Top-nav
+  * Video player page now use innerHTML instead of innerText (error message was wrongly shown)
+
+  ## TODO:
+  * add zip in dynamic island (maybe use session storage to store zip data)
+
+
+
 # Version 0.9.2
   ## Client-side Changes:
   * Added optional Account system.

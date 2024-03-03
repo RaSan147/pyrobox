@@ -97,6 +97,20 @@ class ZipFly:
 					# arcname will be default path
 					path[self.arcname] = path[self.filesystem]
 
+
+				if os.path.isdir(path[self.filesystem]):
+					if os.listdir(path[self.filesystem]):
+						continue # not empty
+					print("empty")
+					# Write empty directory:
+					z_info = zipfile.ZipInfo(path[self.arcname] + '/')
+					z_info.compress_type = zipfile.ZIP_STORED
+
+
+					zf.writestr(z_info, b'')
+
+					yield stream.get(), self.ezs
+					continue
 				z_info = zipfile.ZipInfo.from_file(
 					path[self.filesystem],
 					path[self.arcname],
@@ -137,15 +151,15 @@ class Callable_dict(dict):
 
 
 class FixSizeOrderedDict(OrderedDict, Callable_dict):
-    def __init__(self, *args, max=0, **kwargs):
-        self._max = max
-        super().__init__(*args, **kwargs)
+	def __init__(self, *args, max=0, **kwargs):
+		self._max = max
+		super().__init__(*args, **kwargs)
 
-    def __setitem__(self, key, value):
-        OrderedDict.__setitem__(self, key, value)
-        if self._max > 0:
-            if len(self) > self._max:
-                self.popitem(False)
+	def __setitem__(self, key, value):
+		OrderedDict.__setitem__(self, key, value)
+		if self._max > 0:
+			if len(self) > self._max:
+				self.popitem(False)
 
 class ZIP_Manager:
 	def __init__(self, zip_allowed, size_limit=-1) -> None:
@@ -193,7 +207,7 @@ class ZIP_Manager:
 		source_m_time = get_dir_m_time(path)
 		if size is None:
 			try:
-				fs = _get_tree_path_n_size(path, must_read=True, limit=self.size_limit, path_type="both")
+				fs = _get_tree_path_n_size(path, must_read=True, limit=self.size_limit, path_type="both", add_dirs=True)
 			except LimitExceed as e:
 				self.calculating.pop(path) # make sure to remove calculating flag (MAJOR BUG)
 				raise e
@@ -255,7 +269,7 @@ class ZIP_Manager:
 
 		if not self.calculation_cache(zid):
 			try:
-				fs = _get_tree_path_n_size(path, must_read=True, path_type="both", limit=self.size_limit)
+				fs = _get_tree_path_n_size(path, must_read=True, path_type="both", limit=self.size_limit, add_dirs=True)
 			except LimitExceed as e:
 				return err("DIRECTORY SIZE LIMIT EXCEED")
 			source_size = sum(i[1] for i in fs)
@@ -322,3 +336,22 @@ class ZIP_Manager:
 
 	def archive_thread(self, path, zid, size=None):
 		return threading.Thread(target=self.archive, args=(path, zid, size))
+
+
+if __name__ == "__main__":
+	paths = [
+		{
+			'fs': 'test(hahah)'
+		},
+	]
+
+	zfly = ZipFly(paths = paths)
+
+	generator = zfly.generator()
+	print (generator)
+	# <generator object ZipFly.generator at 0x7f74d52bcc50>
+
+
+	with open("large.zip", "wb") as f:
+		for i in generator:
+			f.write(i[0])

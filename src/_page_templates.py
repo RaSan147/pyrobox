@@ -79,6 +79,9 @@ def admin_page_script():
 def error_page_script():
 	return get_template("script_error_page.js")
 
+def zip_page_script():
+	return get_template("script_zip_page.js")
+
 
 
 
@@ -268,6 +271,12 @@ const public_url = "${PY_PUBLIC_URL}";
 
 	</div>
 
+	<div id="zip-page" class="page">
+		<h2>ZIPPING FOLDER</h2>
+		<h3 id="zip-prog">Progress</h3>
+		<h3 id="zip-perc"></h3>
+	</div>
+
 	<div id="admin_page" class="page">
 
 		<h1 style="text-align: center;">Admin Page</h1>
@@ -320,6 +329,8 @@ const public_url = "${PY_PUBLIC_URL}";
 <script src="/?video_page_script"></script>
 <script src="/?admin_page_script"></script>
 <script src="/?error_page_script"></script>
+<script src="/?zip_page_script"></script>
+
 
 <script src="/?page_handler_script"></script>
 
@@ -329,6 +340,7 @@ const public_url = "${PY_PUBLIC_URL}";
 
 
 <link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />
+
 """
 
 
@@ -3910,7 +3922,7 @@ class Video_Page {
 
 
 		this.player_title.innerText = title
-		this.player_warning.innerText = warning
+		this.player_warning.innerHTML = warning
 		this.video_dl_url.href = video
 
 		page.set_title(title)
@@ -3950,7 +3962,7 @@ class Video_Page {
 		this.player_source.src = ""
 		this.player_source.type = ""
 		this.player_title.innerText = ""
-		this.player_warning.innerText = ""
+		this.player_warning.innerHTML = ""
 		this.video_dl_url.href = ""
 	}
 
@@ -4169,6 +4181,8 @@ class Page{
 			this.handler = video_page;
 		} else if (type == "admin") {
 			this.handler = admin_page;
+		} else if (type == "zip") {
+			this.handler = zip_page;
 		}
 
 		if (this.handler){
@@ -4232,7 +4246,8 @@ class Page{
 
 		for (let i = 1; i < dirs.length - 1; i++) {
 			const dir = dirs[i];
-			urls.push(urls[i - 1] + encodeURIComponent(dir).replace(/'/g, "%27").replace(/"/g, "%22") + (dir.endsWith('/') ? '' : '/'));
+			// urls.push(urls[i - 1] + encodeURIComponent(dir).replace(/'/g, "%27").replace(/"/g, "%22") + (dir.endsWith('/') ? '' : '/'));
+			urls.push(urls[i - 1] + dir + '/');
 			names.push(decodeURIComponent(dir));
 		}
 
@@ -4253,6 +4268,7 @@ class Page{
 }
 
 const page = new Page();
+
 """
 
 
@@ -4876,70 +4892,128 @@ pt_config.file_list["html_upload.html"] = r"""
 """
 
 
-pt_config.file_list["html_zip_page.html"] = r"""
-<h2>ZIPPING FOLDER</h2>
-<h3 id="zip-prog">Progress</h3>
-<h3 id="zip-perc"></h3>
+pt_config.file_list["script_zip_page.js"] = r"""
 
-<script>
+class Zip_Page {
+	constructor() {
+		this.type = "zip"
 
+		this.my_part = document.getElementById("zip-page")
 
-const id = "${PY_ZIP_ID}";
-const filename = "${PY_ZIP_NAME}";
-var dl_now = false
-var check_prog = true
-var message = document.getElementById("zip-prog")
-var percentage = document.getElementById("zip-perc")
+		this.message = document.getElementById("zip-prog")
+		this.percentage = document.getElementById("zip-perc")
+	}
 
-function ping(url) {
-	var xhttp = new XMLHttpRequest();
-	xhttp.onreadystatechange = function() {
-		if (dl_now) {
-			return
+	async initialize() {
+		page.hide_actions_button(); // Hide actions button, not needed here
+
+		this.dl_now = false
+		this.check_prog = true
+
+		this.prog_timer = null
+
+		var url = tools.add_query_here("zip_id")
+
+		var data = await fetch(url)
+					.then(data => {return data.json()})
+					.catch(err => {console.error(err)})
+
+		// {
+		// 	"status": status,
+		// 	"message": message,
+		// 	"zid": zid,
+		//  "filename": filename
+		// }
+
+		var status = data.status
+		var message = data.message
+		this.zid = data.zid
+		this.filename = data.filename
+
+		const that = this
+
+		if (status) {
+			this.prog_timer = setInterval(function() {
+				that.ping(window.location.pathname + "?zip&zid=" + that.zid + "&progress")}, 500)
+		} else {
+			this.message.innerHTML = "Error";
+			this.percentage.innerText = message;
 		}
-		if (this.readyState == 4 && this.status == 200) {
-			// Typical action to be performed when the document is ready:
-			//document.getElementById("demo").innerHTML = xhttp.responseText;
-			// json of the response
-			var resp = safeJSONParse(xhttp.response, ["status", "message"], 5000);
 
 
-			if (resp.status=="SUCCESS"){
-				check_prog = true;
-			} else if (resp.status=="DONE"){
-				message.innerHTML = "Downloading";
-				percentage.innerText = "";
-				dl_now = true;
-				clearTimeout(prog_timer)
-				run_dl()
-			} else if (resp.status=="ERROR"){
-				message.innerHTML = "Error";
-				percentage.innerText = resp.message;
-				clearTimeout(prog_timer)
-			} else if (resp.status=="PROGRESS"){
-				percentage.innerText = resp.message + "%";
-			} else {
-				percentage.innerText = resp.status + ": " + resp.message;
-				clearTimeout(prog_timer)
+	}
+
+	hide() {
+		this.my_part.classList.remove("active");
+	}
+
+	show() {
+		this.my_part.classList.add("active");
+	}
+
+	clear() {
+		this.message.innerHTML = ""
+		this.percentage.innerText = ""
+		this.dl_now = false
+		this.check_prog = true
+		this.zid = null
+		this.filename = null
+		if(this.prog_timer){
+			clearTimeout(this.prog_timer)
+			this.prog_timer = null
+		}
+	}
+
+	
+	ping(url) {
+		const that = this
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if (that.dl_now) {
+				return
 			}
-		}
-	};
-	xhttp.open("GET", url, true);
-	xhttp.send();
+			if (this.readyState == 4 && this.status == 200) {
+				// Typical action to be performed when the document is ready:
+				//document.getElementById("demo").innerHTML = xhttp.responseText;
+				// json of the response
+				var resp = safeJSONParse(this.response, ["status", "message"], 5000);
+				// console.log(resp)
+
+				if (resp.status=="SUCCESS"){
+					that.check_prog = true;
+				} else if (resp.status=="DONE"){
+					that.message.innerHTML = "Downloading";
+					that.percentage.innerText = "";
+					that.dl_now = true;
+					clearTimeout(that.prog_timer)
+					that.run_dl()
+				} else if (resp.status=="ERROR"){
+					that.message.innerHTML = "Error";
+					that.percentage.innerText = resp.message;
+					clearTimeout(that.prog_timer)
+				} else if (resp.status=="PROGRESS"){
+					that.percentage.innerText = resp.message + "%";
+				} else {
+					that.percentage.innerText = resp.status + ": " + resp.message;
+					if(that.prog_timer){
+						clearTimeout(that.prog_timer)
+						that.prog_timer = null
+					}
+				}
+			}
+		};
+		xhttp.open("GET", url, true);
+		xhttp.send();
+	}
+
+	
+	run_dl() {
+		tools.download(window.location.pathname + "?zip&zid=" + this.zid + "&download", this.filename, true)
+	}
+
 }
 
-function run_dl() {
-	tools.download(window.location.pathname + "?zip&zid=" + id + "&download", filename, new_tab = true)
-}
-var prog_timer = setInterval(function() {
-	ping(window.location.pathname + "?zip&zid=" + id + "&progress")}, 500)
-
-
-</script>
-
-
-<p>pyroBox UI v4 - I ❤️ emoji!</p>
-
+var zip_page = new Zip_Page();
 """
 
 

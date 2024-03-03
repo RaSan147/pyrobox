@@ -99,7 +99,6 @@ class ZipFly:
 
 
 				if os.path.isdir(path[self.filesystem]):
-					print(path[self.filesystem])
 					if os.listdir(path[self.filesystem]):
 						continue # not empty
 					print("empty")

@@ -601,6 +601,9 @@ class PickleTable:
 
 			self._pk.db[name].extend([None] * tsize)
 
+		if isinstance(names[0], Iterable) and not isinstance(names[0], str) and not isinstance(names[0], bytes) and len(names) == 1:
+			names = names[0]
+
 		for name in names:
 			add(name)
 
@@ -942,10 +945,11 @@ class PickleTable:
 	def auto_dump(self):
 		self._pk._autodumpdb()
 
-	def to_csv(self, filename):
+	def to_csv(self, filename, write_header=True):
 		with open(filename, "w", newline='', encoding='utf8') as f:
 			writer = csv.writer(f)
-			writer.writerow(self.column_names) # header
+			if write_header:
+				writer.writerow(self.column_names) # header
 			for row in self.rows():
 				writer.writerow([row[k] for k in self.column_names])
 
