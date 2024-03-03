@@ -4,7 +4,7 @@
 *.pdb
 *.bak
 **/*.bkp.*
-
+pipfile
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

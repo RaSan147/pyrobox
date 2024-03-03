@@ -551,6 +551,52 @@ def get_size_n_count(self: SH, *args, **kwargs):
 														"count": count}, cookie=cookie)
 
 
+@SH.on_req('HEAD', hasQ=("zip_id", "czip"))
+def get_zip_id(self: SH, *args, **kwargs):
+	"""Return ZIP ID status"""
+	user, cookie = Authorize_user(self)
+
+	if not user: # guest or not will be handled in Authentication
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if not user.ZIP:
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+	
+	if not (user.DOWNLOAD and user.VIEW):
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	if CoreConfig.disabled_func["zip"]:
+		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+	
+	
+	path = kwargs.get('path', '')
+	os_path = self.translate_path(path)
+	spathsplit = kwargs.get('spathsplit', '')
+	filename = spathsplit[-2] + ".zip"
+
+	zid = None
+	status = False
+	message = ''
+	
+	try:
+		zid = zip_manager.get_id(os_path)
+		status = True
+
+	except LimitExceed:
+		message = 'Directory size limit exceed'
+		
+	except Exception:
+		self.log_error(traceback.format_exc())
+		message = 'Failed to create zip'
+
+	return self.send_json({
+		"status": status,
+		"message": message,
+		"zid": zid,
+		"filename": filename
+	}, cookie=cookie)
+
+
 @SH.on_req('HEAD', hasQ="czip")
 def create_zip(self: SH, *args, **kwargs):
 	"""Create ZIP task and return ID
@@ -562,14 +608,17 @@ def create_zip(self: SH, *args, **kwargs):
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
+	if not user.ZIP:
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+	
+	if not (user.DOWNLOAD and user.VIEW):
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
 
-
-	path = kwargs.get('path', '')
-	url_path = kwargs.get('url_path', '')
-	spathsplit = kwargs.get('spathsplit', '')
-
-	if CoreConfig.disabled_func["zip"] or (not user.ZIP):
+	if CoreConfig.disabled_func["zip"]:
 		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+
+	url_path = kwargs.get('url_path', '')
+
 
 	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)
 
@@ -578,27 +627,16 @@ def create_zip(self: SH, *args, **kwargs):
 	# 	return self.return_txt(HTTPStatus.OK, msg)
 
 	displaypath = self.get_displaypath(url_path)
-	filename = spathsplit[-2] + ".zip"
 
 	title = "Creating ZIP"
 
-	head = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+	data = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 											PY_PUBLIC_URL=CoreConfig.address(),
 											PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+	
+	return self.return_txt(data, cookie=cookie)
 
-	try:
-		zid = zip_manager.get_id(path)
 
-		tail = pt.zip_script().safe_substitute(PY_ZIP_ID = zid,
-												PY_ZIP_NAME = filename)
-		return self.return_txt(f"{head} {tail}", cookie=cookie)
-
-	except LimitExceed:
-		tail = "<h3>Directory size is too large, please contact the host</h3>"
-		return self.return_txt(f"{head} {tail}", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
-	except Exception:
-		self.log_error(traceback.format_exc())
-		return self.return_txt("ERROR", cookie=cookie)
 
 @SH.on_req('HEAD', hasQ="zip")
 def get_zip(self: SH, *args, **kwargs):
@@ -609,9 +647,19 @@ def get_zip(self: SH, *args, **kwargs):
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
+	if not user.ZIP:
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+	
+	if not (user.DOWNLOAD and user.VIEW):
+		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+
+	if CoreConfig.disabled_func["zip"]:
+		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+
 
 
 	path = kwargs.get('path', '')
+	os_path = self.translate_path(path)
 	spathsplit = kwargs.get('spathsplit', '')
 
 	query = self.query
@@ -623,7 +671,7 @@ def get_zip(self: SH, *args, **kwargs):
 			"message": msg
 		}, cookie=cookie)
 
-	if not os.path.isdir(path):
+	if not os.path.isdir(os_path):
 		msg = "Folder not found. Failed to create zip"
 		self.log_error(msg)
 		return reply("ERROR", msg)
@@ -638,7 +686,7 @@ def get_zip(self: SH, *args, **kwargs):
 		return reply("CALCULATING")
 
 	if not zip_manager.zip_id_status(id):
-		t = zip_manager.archive_thread(path, id)
+		t = zip_manager.archive_thread(os_path, id)
 		t.start()
 
 		return reply("SUCCESS", "ARCHIVING")
@@ -646,9 +694,9 @@ def get_zip(self: SH, *args, **kwargs):
 
 	if zip_manager.zip_id_status[id] == "DONE":
 		if query("download"):
-			path = zip_manager.zip_ids[id]
+			zip_path = zip_manager.zip_ids[id]
 
-			return self.return_file(path, filename, True, cookie=cookie)
+			return self.return_file(zip_path, filename, True, cookie=cookie)
 
 
 		if query("progress"):
@@ -827,6 +875,11 @@ def send_file_list_script(self: SH, *args, **kwargs):
 def send_error_page_script(self: SH, *args, **kwargs):
 	"""Send error page script"""
 	return self.send_script(pt.error_page_script())
+
+@SH.on_req('HEAD', hasQ="zip_page_script")
+def send_zip_page_script(self: SH, *args, **kwargs):
+	"""Send zip page script"""
+	return self.send_script(pt.zip_page_script())
 
 
 

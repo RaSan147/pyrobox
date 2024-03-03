@@ -34,6 +34,7 @@ def get_list_dir(path):
 
 def check_exist(url, path, check_method):
 	# print(check_method)
+	print("CHECK: ", url)
 	try:
 		header = session.head(url).headers
 
@@ -56,7 +57,7 @@ def check_exist(url, path, check_method):
 	if not os.path.isfile(path):
 		return False
 
-	if check_method =="date":
+	if check_method.startswith("date"):
 		tt = os.path.getmtime(path)
 
 		# tt = fs.st_mtime
@@ -67,7 +68,10 @@ def check_exist(url, path, check_method):
 			# remove microseconds, like in If-Modified-Since
 			local_last_modify = local_last_modify.replace(microsecond=0)
 
-			if local_last_modify == original_modify:
+			if local_last_modify == original_modify and check_method == "date":
+				return True
+			
+			if local_last_modify >= original_modify and check_method == "date+":
 				return True
 
 			# print("LOCAL: ", path, "==", local_last_modify)
@@ -133,7 +137,7 @@ def dl(url, path, overwrite, check_method):
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-executor = ThreadPoolExecutor(8)
+executor = ThreadPoolExecutor(6)
 
 futures = []
 
@@ -144,6 +148,9 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 	overwrite: overwrite existing files reguardless of checking existance (False)
 	check_exist: check if file exists by "date" or "size" or None to ignore totally (date)
 	"""
+	if url[-1] != "/":
+		url += "/"
+		
 	Q = Queue()
 	def get_json(url):
 
@@ -162,12 +169,13 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 
 		if path[-1] != "/":
 			path += "/"
+		
+		os.makedirs(path, exist_ok=True) # make sure the directory exists even if it's empty
 
 		json = get_json(url)
 		if not json:
 			return
 
-		os.makedirs(path, exist_ok=True)
 
 
 		remote_list = []
@@ -208,7 +216,13 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 
 
 if __name__ == "__main__":
-	clone("SOURCE_DIR", "DESTINATION_DIR", False, "date", True)
+	clone(
+		url="http://192.168.0.108:6969/7%2C%2CVP%20%20424-425/", 
+		path="./", 
+		overwrite=False, 
+		check_exist="date+", 
+		delete_extras=False
+	)
 
 	for future in as_completed(futures):
 		bool(future.result())

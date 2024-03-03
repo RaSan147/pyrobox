@@ -58,7 +58,7 @@ class Video_Page {
 
 
 		this.player_title.innerText = title
-		this.player_warning.innerText = warning
+		this.player_warning.innerHTML = warning
 		this.video_dl_url.href = video
 
 		page.set_title(title)
@@ -98,7 +98,7 @@ class Video_Page {
 		this.player_source.src = ""
 		this.player_source.type = ""
 		this.player_title.innerText = ""
-		this.player_warning.innerText = ""
+		this.player_warning.innerHTML = ""
 		this.video_dl_url.href = ""
 	}
 

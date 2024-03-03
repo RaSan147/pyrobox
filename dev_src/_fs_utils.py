@@ -199,7 +199,7 @@ def _get_tree_size(path, limit=None, must_read=False):
 
 	return total
 
-def _get_tree_path_n_size(path, limit=-1, must_read=False, path_type="full"):
+def _get_tree_path_n_size(path, limit=-1, must_read=False, path_type="full", add_dirs=False):
 	"""
 	returns a list of files[size, path] in a directory and its subdirectories.
 		[ [`path`, size], ... ]
@@ -212,18 +212,20 @@ def _get_tree_path_n_size(path, limit=-1, must_read=False, path_type="full"):
 	total = 0
 	start_path = path
 
-	for entry in walk_dir(path):
-		try:
-			size = entry.stat(follow_symlinks=False).st_size
-		except OSError:
-			continue
-		total += size
+	for entry in walk_dir(path, yield_dir=add_dirs):
+		size = 0
+		if not entry.is_dir():
+			try:
+				size = entry.stat(follow_symlinks=False).st_size
+			except OSError:
+				continue
+			total += size
 
-		if limit>0 and total>limit:
-			raise LimitExceed
+			if limit>0 and total>limit:
+				raise LimitExceed
 
-		if must_read and not check_access(entry.path):
-			continue
+			if must_read and not check_access(entry.path):
+				continue
 
 
 		if path_type == "full":
@@ -376,7 +378,8 @@ def dir_navigator(path):
 
 	for i in range(1, len(dirs)-1):
 		dir = dirs[i]
-		urls.append(urls[i-1] + urllib.parse.quote(dir, errors='surrogatepass' )+ '/' if not dir.endswith('/') else "")
+		# urls.append(urls[i-1] + urllib.parse.quote(dir, errors='surrogatepass' )+ '/' if not dir.endswith('/') else "")
+		urls.append(urls[i-1] + dir+ '/' if not dir.endswith('/') else "")
 		names.append(dir)
 
 	for i in range(len(names)):

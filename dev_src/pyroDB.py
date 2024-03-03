@@ -428,17 +428,17 @@ class PickleDB(object):
 
 
 # DUMMY CLASS FOR TYPING
-# class PickleTable:
-# 	pass
+class PickleTable(dict):
+	pass
 
-# class _PickleTCell:
-# 	pass
+class _PickleTCell:
+	pass
 
-# class _PickleTRow:
-# 	pass
+class _PickleTRow(dict):
+	pass
 
-# class _PickleTColumn:
-# 	pass
+class _PickleTColumn(list):
+	pass
 
 
 
@@ -550,7 +550,7 @@ class PickleTable:
 		'''Return a copy list of all values in column'''
 		self.rescan()
 		return self._pk.db[name].copy()
-
+	
 	def get_column(self, name) -> list:
 		'''Return the list pointer to the column (unsafe)'''
 		return self._pk.db[name]
@@ -600,6 +600,9 @@ class PickleTable:
 
 
 			self._pk.db[name].extend([None] * tsize)
+
+		if isinstance(names[0], Iterable) and not isinstance(names[0], str) and not isinstance(names[0], bytes) and len(names) == 1:
+			names = names[0]
 
 		for name in names:
 			add(name)
@@ -737,7 +740,7 @@ class PickleTable:
 						yield ret(col=col, row=r)
 
 
-	def find_1st(self, kw, column=None , row=None, full_match=False, return_obj=True) -> Union["_PickleTCell", None]:
+	def find_1st(self, kw, column=None , row=None, full_match=False, return_obj=True) -> Union[_PickleTCell, None]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the 1st matched cell object
 		"""
@@ -837,9 +840,26 @@ class PickleTable:
 		"""
 		self.del_row(self.ids.index(row_id), AD=AD)
 
+	def clear(self, AD=True):
+		"""
+		Delete all rows
+
+		AD: auto dump
+		"""
+		self.rescan()
+
+		for c in self.column_names:
+			self._pk.db[c].clear()
+
+		self.ids.clear()
+		self.height = 0
+
+		if AD:
+			self.auto_dump()
 
 
-	def _add_row(self, row:Union[dict, "_PickleTRow"], position:int="last") -> "_PickleTRow":
+
+	def _add_row(self, row:Union[dict, _PickleTRow], position:int="last") -> _PickleTRow:
 		"""
 		# row: row must be a dict or _PickleTRow containing column names and values
 		"""
@@ -871,7 +891,7 @@ class PickleTable:
 		return self.row_obj_by_id(row_id)
 
 
-	def add_row(self, row:Union[dict, "_PickleTRow"], position="last", AD=True) -> "_PickleTRow":
+	def add_row(self, row:Union[dict, _PickleTRow], position="last", AD=True) -> _PickleTRow:
 		"""
 		@ locked
 		* row: row must be a dict|TableRow containing column names and values
@@ -885,7 +905,7 @@ class PickleTable:
 		return row_obj
 
 
-	def insert_row(self, row:Union[dict, "_PickleTRow"], position:int, AD=True) -> "_PickleTRow":
+	def insert_row(self, row:Union[dict, _PickleTRow], position:int, AD=True) -> _PickleTRow:
 		"""
 		@ locked
 		* row: row must be a dict|_PickleTRow containing column names and values
@@ -896,7 +916,7 @@ class PickleTable:
 
 
 
-	def add_row_as_list(self, row:list, position:int="last", AD=True) -> "_PickleTRow":
+	def add_row_as_list(self, row:list, position:int="last", AD=True) -> _PickleTRow:
 		"""
 		@ locked
 		* row: row must be a list containing values
@@ -925,10 +945,11 @@ class PickleTable:
 	def auto_dump(self):
 		self._pk._autodumpdb()
 
-	def to_csv(self, filename):
+	def to_csv(self, filename, write_header=True):
 		with open(filename, "w", newline='', encoding='utf8') as f:
 			writer = csv.writer(f)
-			writer.writerow(self.column_names) # header
+			if write_header:
+				writer.writerow(self.column_names) # header
 			for row in self.rows():
 				writer.writerow([row[k] for k in self.column_names])
 
@@ -998,7 +1019,7 @@ class _PickleTCell:
 	def row(self):
 		self.source_check()
 
-		return self.source.row_by_id(self.id)
+		return self.source.ids.index(self.id)
 
 	def row_obj(self):
 		"""
@@ -1237,95 +1258,95 @@ class _PickleTColumn(list):
 
 
 
-
-
-import string
-def Lower_string(length): # define the function and pass the length as argument
-    # Print the string in Lowercase
-	result = ''.join((random.choice(string.ascii_lowercase) for x in range(length))) # run loop until the define length
-	return result
-
-
-
-
-def test():
-	st = time.perf_counter()
-	tb = PickleTable("__test.pdb")
-	tt = time.perf_counter()
-	print(f"load time: {tt-st}s")
-
-	print("Existing table height:", tb.height)
-
-	tb.add_column("x", exist_ok=1, AD=False) # no dumps
-	tb.add_column("Ysz", exist_ok=1, AD=False ) # no dumps
-	tb.add_column("Y", exist_ok=1, AD=False) # no dumps
-
-	print("adding")
-	for n in range(int(100)):
-		tb._add_row({"x":n, "Y":'🍎'})
-
-		#print(n)
-
-	tb.add_column("m", exist_ok=1, AD=False)  # no dumps
-
-	print(tb)
-	dt = time.perf_counter()
-	tb.dump()
-	tt = time.perf_counter()
-	print(f"dump time: {tt-dt}s")
-
-	dt = time.perf_counter()
-	# col = tb.column_obj("x")
-	# for i in range(10,20,2):
-	# 	col.remove(i)
-
-	tb.find_1st(20, column="x").set(1000)
-	tt = time.perf_counter()
-	print(f"remove time: {tt-dt}s")
-
-	print(tb)
-	#print("Total cells", tb.height * len(tb.column_names))
-
-	et = time.perf_counter()
-	print(f"Load and dump test in {et - st}s\n")
-
-	print("="*50)
-
-	print("\n Assign random string in first 1,000 rows test")
-	print("="*50)
-	st = time.perf_counter()
-
-	for row_ in tb.rows_obj(0, 100):
-		row_.update({"m": Lower_string(100)}, AD=False)
-
-	et = time.perf_counter()
-
-	print(f"Assigned test in {et - st}s")
-	# print(tb)
-	dt = time.perf_counter()
-	tb.dump()
-	tt = time.perf_counter()
-	print(f"dump time: {tt-dt}s")
-
-	print("="*50)
-
-	print("\n\n Search test")
-	st = time.perf_counter()
-
-	for cell in tb.search_iter(kw="abc", column="m"):
-		print(cell)
-
-	et = time.perf_counter()
-
-	print(f"Search 'abc' test in {et - st}s")
-
-	for row in tb:
-		print(row)
-
-	tb.to_csv("test.csv")
-
-
 if __name__ == "__main__":
+
+	import string
+	def Lower_string(length): # define the function and pass the length as argument
+		# Print the string in Lowercase
+		result = ''.join((random.choice(string.ascii_lowercase) for x in range(length))) # run loop until the define length
+		return result
+
+
+
+
+	def test():
+		st = time.perf_counter()
+		tb = PickleTable("__test.pdb")
+		tt = time.perf_counter()
+		print(f"load time: {tt-st}s")
+
+		print("Existing table height:", tb.height)
+
+		tb.add_column("x", exist_ok=1, AD=False) # no dumps
+		tb.add_column("Ysz", exist_ok=1, AD=False ) # no dumps
+		tb.add_column("Y", exist_ok=1, AD=False) # no dumps
+
+		print("adding")
+		for n in range(int(100)):
+			tb._add_row({"x":n, "Y":'🍎'})
+
+			#print(n)
+
+		tb.add_column("m", exist_ok=1, AD=False)  # no dumps
+
+		print(tb)
+		dt = time.perf_counter()
+		tb.dump()
+		tt = time.perf_counter()
+		print(f"dump time: {tt-dt}s")
+
+		dt = time.perf_counter()
+		# col = tb.column_obj("x")
+		# for i in range(10,20,2):
+		# 	col.remove(i)
+
+		tb.find_1st(20, column="x").set(1000)
+		tt = time.perf_counter()
+		print(f"remove time: {tt-dt}s")
+
+		print(tb)
+		#print("Total cells", tb.height * len(tb.column_names))
+
+		et = time.perf_counter()
+		print(f"Load and dump test in {et - st}s\n")
+
+		print("="*50)
+
+		print("\n Assign random string in first 1,000 rows test")
+		print("="*50)
+		st = time.perf_counter()
+
+		for row_ in tb.rows_obj(0, 100):
+			row_.update({"m": Lower_string(100)}, AD=False)
+
+		et = time.perf_counter()
+
+		print(f"Assigned test in {et - st}s")
+		# print(tb)
+		dt = time.perf_counter()
+		tb.dump()
+		tt = time.perf_counter()
+		print(f"dump time: {tt-dt}s")
+
+		print("="*50)
+
+		print("\n\n Search test")
+		st = time.perf_counter()
+
+		for cell in tb.search_iter(kw="abc", column="m"):
+			print(cell)
+
+		et = time.perf_counter()
+
+		print(f"Search 'abc' test in {et - st}s")
+
+		for row in tb:
+			print(row)
+
+		tb.to_csv("test.csv")
+
+
+# if __name__ == "__main__":
 	for i in range(1):
 		try:
 			os.remove("__test.pdb")

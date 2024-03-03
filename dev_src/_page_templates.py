@@ -79,6 +79,9 @@ def admin_page_script():
 def error_page_script():
 	return get_template("script_error_page.js")
 
+def zip_page_script():
+	return get_template("script_zip_page.js")
+
 
 
 

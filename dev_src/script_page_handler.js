@@ -90,6 +90,8 @@ class Page{
 			this.handler = video_page;
 		} else if (type == "admin") {
 			this.handler = admin_page;
+		} else if (type == "zip") {
+			this.handler = zip_page;
 		}
 
 		if (this.handler){
@@ -153,7 +155,8 @@ class Page{
 
 		for (let i = 1; i < dirs.length - 1; i++) {
 			const dir = dirs[i];
-			urls.push(urls[i - 1] + encodeURIComponent(dir).replace(/'/g, "%27").replace(/"/g, "%22") + (dir.endsWith('/') ? '' : '/'));
+			// urls.push(urls[i - 1] + encodeURIComponent(dir).replace(/'/g, "%27").replace(/"/g, "%22") + (dir.endsWith('/') ? '' : '/'));
+			urls.push(urls[i - 1] + dir + '/');
 			names.push(decodeURIComponent(dir));
 		}
 
