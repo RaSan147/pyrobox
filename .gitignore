@@ -1,6 +1,6 @@
 **/.private
 **/log.txt
-**/test.*
+**/*test.*
 
 *.bak
 
