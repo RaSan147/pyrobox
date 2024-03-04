@@ -30,7 +30,7 @@ import logging
 import atexit
 import os
 
-__version__ = "0.9.3"
+__version__ = "0.9.4"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -391,7 +391,7 @@ def URL_MANAGER(url: str):
 	returns a tuple of (`path`, `query_dict`, `fragment`)\n
 
 	`url` = `'/store?page=10&limit=15&price=ASC#dskjfhs'`\n
-	`path` = `'/store'`\n
+	`path` = `'/store'` or `/`\n
 	`query_dict` = `{'page': ['10'], 'limit': ['15'], 'price': ['ASC']}`\n
 	`fragment` = `dskjfhs`\n
 	"""
@@ -399,11 +399,18 @@ def URL_MANAGER(url: str):
 	# url = '/store?page=10&limit=15&price#dskjfhs'
 	parse_result = urllib.parse.urlparse(url)
 
+	path = parse_result.path
+	if path == '':
+		path = '/'
+
 	dict_result = Callable_dict(urllib.parse.parse_qs(
 		parse_result.query, keep_blank_values=True))
 
-	return (parse_result.path, dict_result, parse_result.fragment)
+	return (path, dict_result, parse_result.fragment)
 
+if __name__ == "__main__":
+	print(URL_MANAGER('https://www.google.com'))
+	print(URL_MANAGER('https://www.google.com/store?page=10&limit=15&price=ASC#dskjfhs'))
 
 
 class HTTPServer(socketserver.TCPServer):
@@ -1431,8 +1438,37 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		return displaypath
 
 	def get_rel_path(self, filename):
-		"""Return the relative path to the file, FOR OS."""
+		"""Return the relative path to the file, FOR WEB."""
 		return urllib.parse.unquote(posixpath.join(self.url_path, filename), errors='surrogatepass')
+	
+	def get_web_path(self, path:str, times=1):
+		"""replace current directory with /"""
+		return path.replace(self.directory, "/", times)
+	
+	def path_safety_check(self, paths:Union[str, list], *more_paths:Union[str, list]):
+		"""check if path is safe
+		paths: list of paths to check"""
+		if isinstance(paths, str):
+			paths = [paths]
+
+		if more_paths:
+			for path in more_paths:
+				if isinstance(path, str):
+					paths.append(path)
+				elif isinstance(path, (list, tuple, set)):
+					paths += more_paths
+				else:
+					raise TypeError(f"Invalid type {type(path)} for path")
+
+
+		for path in paths:
+			if path.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in path or '\\..\\' in path or path.endswith(('/..', '\\..')):
+				return False
+			
+		return True
+
+
+		
 
 	def translate_path(self, path):
 		"""Translate a /-separated PATH to the local filename syntax.

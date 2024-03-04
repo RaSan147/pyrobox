@@ -245,7 +245,9 @@ def get_page_type(self: SH, *args, **kwargs):
 
 
 
-	path = kwargs.get('path', '')
+	os_path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
 
 	result= "unknown"
 
@@ -264,13 +266,14 @@ def get_page_type(self: SH, *args, **kwargs):
 	elif self.query("czip"):
 		result = "zip"
 
-	elif path == "/favicon.ico":
+	elif url_path == "/favicon.ico":
 		result = "favicon"
 
 
-	elif os.path.isdir(path):
+
+	elif os.path.isdir(os_path):
 		for index in "index.html", "index.htm":
-			index = os.path.join(path, index)
+			index = os.path.join(os_path, index)
 			if os.path.exists(index):
 				result = "html"
 				break
@@ -281,7 +284,7 @@ def get_page_type(self: SH, *args, **kwargs):
 			else:
 				result = "dir"
 
-	elif os.path.isfile(path):
+	elif os.path.isfile(os_path):
 		result = "file"
 
 	return self.return_txt(result, cookie=cookie)
@@ -502,16 +505,15 @@ def get_size(self: SH, *args, **kwargs):
 
 
 	url_path = kwargs.get('url_path', '')
+	os_path = self.translate_path(url_path)
 
-	xpath = self.translate_path(url_path)
-
-	stat = get_stat(xpath)
+	stat = get_stat(os_path)
 	if not stat:
 		return self.send_json({"status": 0}, cookie=cookie)
-	if os.path.isfile(xpath):
+	if os.path.isfile(os_path):
 		size = stat.st_size
 	else:
-		size = get_dir_size(xpath)
+		size = get_dir_size(os_path)
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
@@ -531,16 +533,15 @@ def get_size_n_count(self: SH, *args, **kwargs):
 
 
 	url_path = kwargs.get('url_path', '')
+	os_path = self.translate_path(url_path)
 
-	xpath = self.translate_path(url_path)
-
-	stat = get_stat(xpath)
+	stat = get_stat(os_path)
 	if not stat:
 		return self.send_json({"status": 0}, cookie=cookie)
-	if os.path.isfile(xpath):
+	if os.path.isfile(os_path):
 		count, size = 1, stat.st_size
 	else:
-		count, size = get_tree_count_n_size(xpath)
+		count, size = get_tree_count_n_size(os_path)
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
@@ -569,9 +570,8 @@ def get_zip_id(self: SH, *args, **kwargs):
 		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 	
 	
-	path = kwargs.get('path', '')
-	os_path = self.translate_path(path)
-	spathsplit = kwargs.get('spathsplit', '')
+	os_path = kwargs.get('path')
+	spathsplit = kwargs.get('spathsplit')
 	filename = spathsplit[-2] + ".zip"
 
 	zid = None
@@ -618,6 +618,11 @@ def create_zip(self: SH, *args, **kwargs):
 		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
 	url_path = kwargs.get('url_path', '')
+	os_path = self.translate_path(url_path)
+
+	# if not dir or not exists
+	if not os.path.isdir(os_path):
+		return self.send_error(HTTPStatus.NOT_FOUND, "Directory not found", cookie=cookie)
 
 
 	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)
@@ -658,9 +663,8 @@ def get_zip(self: SH, *args, **kwargs):
 
 
 
-	path = kwargs.get('path', '')
-	os_path = self.translate_path(path)
-	spathsplit = kwargs.get('spathsplit', '')
+	os_path = kwargs.get('path')
+	spathsplit = kwargs.get('spathsplit')
 
 	query = self.query
 	msg = False
@@ -734,13 +738,14 @@ def send_video_data(self: SH, *args, **kwargs):
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
-	path = kwargs.get('path', '')
-	url_path = kwargs.get('url_path', '')
+	os_path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
+
 
 
 	vid_source = url_path
 
-	content_type = self.guess_type(path)
+	content_type = self.guess_type(os_path)
 
 	if not content_type.startswith('video/'):
 		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
@@ -776,11 +781,11 @@ def send_video_page(self: SH, *args, **kwargs):
 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
-	path = kwargs.get('path', '')
-	url_path = kwargs.get('url_path', '')
+	os_path = kwargs.get('path')
+	url_path = kwargs.get('url_path')
 
-	vid_source = url_path
-	content_type = self.guess_type(path)
+	# vid_source = url_path
+	content_type = self.guess_type(os_path)
 
 	if not content_type.startswith('video/'):
 		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
@@ -819,8 +824,8 @@ def send_video_page(self: SH, *args, **kwargs):
 # 		return None
 
 
-# 	path = kwargs.get('path', '')
-# 	spathsplit = kwargs.get('spathsplit', '')
+# 	path = kwargs.get('path')
+# 	spathsplit = kwargs.get('spathsplit')
 
 # 	path = CoreConfig.ASSETS_dir + "/".join(spathsplit[2:])
 # 	#	print("USING ASSETS", path)
@@ -927,7 +932,7 @@ def get_folder_data(self: SH, *args, **kwargs):
 
 		}, cookie=cookie)
 
-	path = kwargs.get('path', '')
+	os_path = kwargs.get('path')
 
 	if not user.VIEW:
 		return self.send_json({
@@ -938,9 +943,11 @@ def get_folder_data(self: SH, *args, **kwargs):
 		}, cookie=cookie)
 
 
-	is_dir = None
 	try:
-		is_dir = os.path.isdir(path)
+		if not os.path.isdir(os_path):
+			return self.send_json({"status": 0,
+						"warning": "Folder not found"}, cookie=cookie)
+
 	except Exception as e:
 		err = traceback.format_exc()
 		return self.send_json({
@@ -950,11 +957,7 @@ def get_folder_data(self: SH, *args, **kwargs):
 
 		})
 
-	if is_dir is None:
-		return self.send_json({"status": 0,
-								"warning": "Folder not found"}, cookie=cookie)
-
-	data = list_directory(self, path, user, cookie=cookie)
+	data = list_directory(self, os_path, user, cookie=cookie)
 
 	if data:
 		return self.send_json(data, cookie=cookie)
@@ -973,9 +976,9 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 		return self.redirect("?login")
 
 
-	path = kwargs.get('path', '')
+	os_path = kwargs.get('path')
 
-	if os.path.isdir(path):
+	if os.path.isdir(os_path):
 		parts = urllib.parse.urlsplit(self.path)
 		if not parts.path.endswith('/'):
 			# redirect browser - doing basically what apache does
@@ -988,12 +991,12 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 			self.end_headers()
 			return None
 		for index in "index.html", "index.htm":
-			index = os.path.join(path, index)
+			index = os.path.join(os_path, index)
 			if os.path.exists(index):
-				path = index
+				os_path = index
 				break
 		else:
-			return list_directory_html(self, path, user, cookie=cookie)
+			return list_directory_html(self, os_path, user, cookie=cookie)
 
 	# check for trailing "/" which should return 404. See Issue17324
 	# The test for this was added in test_httpserver.py
@@ -1001,7 +1004,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# See discussion on python-dev and Issue34711 regarding
 	# parsing and rejection of filenames with a trailing slash
 
-	if path.endswith("/"):
+	if os_path.endswith("/"):
 		self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie=cookie)
 		return None
 
@@ -1012,9 +1015,9 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	if (not user.DOWNLOAD) or user.NOPERMISSION:
 		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Download is disabled", cookie=cookie)
 
-	if not os.path.exists(path):
+	if not os.path.exists(os_path):
 		return self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie=cookie)
-	return self.return_file(path, filename, cookie=cookie)
+	return self.return_file(os_path, filename, cookie=cookie)
 
 
 
@@ -1125,7 +1128,7 @@ def upload(self: SH, *args, **kwargs):
 		return self.send_txt("Upload not allowed", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 
-	path = kwargs.get('path')
+	os_path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
 
@@ -1161,14 +1164,16 @@ def upload(self: SH, *args, **kwargs):
 			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...", cookie=cookie)
 
 
-		path = self.translate_path(self.path)
 		rltv_path = posixpath.join(url_path, fn)
+		
+		if not self.path_safety_check(fn, rltv_path):
+			return self.send_txt("Invalid Path:  " + rltv_path, HTTPStatus.BAD_REQUEST, cookie=cookie)
 
-		temp_fn = os.path.join(path, ".LStemp-"+fn +'.tmp')
+		temp_fn = os.path.join(os_path, ".LStemp-"+fn +'.tmp')
 		CoreConfig.temp_file.add(temp_fn)
 
 
-		fn = os.path.join(path, fn)
+		os_f_path = os.path.join(os_path, fn)
 
 
 
@@ -1195,12 +1200,12 @@ def upload(self: SH, *args, **kwargs):
 						preline = line
 
 
-			while (not user.MODIFY) and os.path.isfile(fn):
+			while (not user.MODIFY) and os.path.isfile(os_f_path):
 				n = 1
-				name, ext = os.path.splitext(fn)
+				name, ext = os.path.splitext(os_f_path)
 				fn = f"{name}({n}){ext}"
 				n += 1
-			os.replace(temp_fn, fn)
+			os.replace(temp_fn, os_f_path)
 
 
 
@@ -1237,7 +1242,6 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	if user.NOPERMISSION or (not user.DELETE):
 		return self.send_json({"head": "Failed", "body": "You have no permission to delete."}, cookie=cookie)
 
-	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
 
@@ -1255,16 +1259,20 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	# File link to move to recycle bin
 	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
-	path = self.get_rel_path(filename)
-	xpath = self.translate_path(posixpath.join(url_path, filename))
+	rel_path = self.get_rel_path(filename)
+	
+	if not self.path_safety_check(filename, rel_path):
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
+	
+	os_f_path = self.translate_path(posixpath.join(url_path, filename))
 
-	self.log_warning(f'<-send2trash-> {xpath} by {[uid]}')
+	self.log_warning(f'<-send2trash-> {os_f_path} by {[uid]}')
 
 	head = "Failed"
 	try:
 		if CoreConfig.OS == 'Android':
 			raise InterruptedError
-		send2trash(xpath)
+		send2trash(os_f_path)
 		msg = "Successfully Moved To Recycle bin"+ post.refresh
 		head = "Success"
 	except TrashPermissionError:
@@ -1273,7 +1281,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 		msg = "Recycling unavailable! Try deleting permanently..."
 	except Exception as e:
 		traceback.print_exc()
-		msg = "<b>" + path + "</b> " + e.__class__.__name__
+		msg = "<b>" + rel_path + "</b> " + e.__class__.__name__
 
 	return self.send_json({"head": head, "body": msg}, cookie=cookie)
 
@@ -1293,7 +1301,6 @@ def del_permanently(self: SH, *args, **kwargs):
 	if user.NOPERMISSION or (not user.DELETE):
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."}, cookie=cookie)
 
-	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
 
@@ -1307,23 +1314,27 @@ def del_permanently(self: SH, *args, **kwargs):
 
 	# File link to move to recycle bin
 	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
-	path = self.get_rel_path(filename)
 
-	xpath = self.translate_path(posixpath.join(url_path, filename))
+	rel_path = self.get_rel_path(filename)
 
-	self.log_warning(f'Perm. DELETED {xpath} by {[uid]}')
+	if not self.path_safety_check(filename, rel_path):
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
+
+	os_f_path = self.translate_path(posixpath.join(url_path, filename))
+
+	self.log_warning(f'Perm. DELETED {os_f_path} by {[uid]}')
 
 
 	try:
-		if os.path.isfile(xpath): os.remove(xpath)
-		else: shutil.rmtree(xpath)
+		if os.path.isfile(os_f_path): os.remove(os_f_path)
+		else: shutil.rmtree(os_f_path, ignore_errors=True)
 
-		return self.send_json({"head": "Success", "body": "PERMANENTLY DELETED  " + path + post.refresh}, cookie=cookie)
+		return self.send_json({"head": "Success", "body": "PERMANENTLY DELETED  " + rel_path + post.refresh}, cookie=cookie)
 
 
 	except Exception as e:
 		traceback.print_exc()
-		return self.send_json({"head": "Failed", "body": "<b>" + path + "<b>" + e.__class__.__name__}, cookie=cookie)
+		return self.send_json({"head": "Failed", "body": "<b>" + rel_path + "<b>" + e.__class__.__name__}, cookie=cookie)
 
 
 
@@ -1342,7 +1353,6 @@ def rename_content(self: SH, *args, **kwargs):
 		return self.send_json({"head": "Failed", "body": "Renaming is disabled."}, cookie=cookie)
 
 
-	path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
 
@@ -1355,26 +1365,31 @@ def rename_content(self: SH, *args, **kwargs):
 
 
 	# File link to move to recycle bin
+	
 	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
-
 	new_name = form.get_multi_field(verify_name='data', decode=T)[1].strip()
 
-	path = self.get_rel_path(filename)
+	rel_path = self.get_rel_path(filename)
+	new_rel_path = self.get_rel_path(new_name)
+
+	if not self.path_safety_check(filename, new_name, rel_path, new_rel_path):
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
+
+	os_f_path = self.translate_path(posixpath.join(url_path, filename))
+	os_new_f_path = self.translate_path(posixpath.join(url_path, new_name))
+
+	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
 
-	xpath = self.translate_path(posixpath.join(url_path, filename))
 
-
-	new_path = self.translate_path(posixpath.join(url_path, new_name))
-
-	self.log_warning(f'Renamed "{xpath}" to "{new_path}" by {[uid]}')
+	self.log_warning(f'Renamed "{os_f_path}" to "{os_new_f_path}" by {[uid]}')
 
 
 	try:
-		os.rename(xpath, new_path)
+		os.rename(os_f_path, os_new_f_path)
 		return self.send_json({"head": "Renamed Successfully", "body":  post.refresh}, cookie=cookie)
 	except Exception as e:
-		return self.send_json({"head": "Failed", "body": "<b>" + path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + str(e) }, cookie=cookie)
+		return self.send_json({"head": "Failed", "body": "<b>" + rel_path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + self.get_web_path(str(e), -1) }, cookie=cookie)
 
 
 
@@ -1392,7 +1407,7 @@ def get_info(self: SH, *args, **kwargs):
 	if user.NOPERMISSION:
 		return self.send_json({"head": "Failed", "body": "You have no permission to view."}, cookie=cookie)
 
-	path = kwargs.get('path')
+	os_path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
 	script = None
@@ -1405,30 +1420,31 @@ def get_info(self: SH, *args, **kwargs):
 	form = post.form
 
 
-
-
-
 	# File link to move to check info
+
 	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
-	path = self.get_rel_path(filename) # the relative path of the file or folder
+	rel_path = self.get_rel_path(filename)
 
-	xpath = self.translate_path(posixpath.join(url_path, filename)) # the absolute path of the file or folder
+	if not self.path_safety_check(filename, rel_path):
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
+
+	os_f_path = self.translate_path(posixpath.join(url_path, filename))
 
 
-	self.log_warning(f'Info Checked "{xpath}" by: {[uid]}')
+	self.log_warning(f'Info Checked "{os_f_path}" by: {[uid]}')
 
-	if not os.path.exists(xpath):
+	if not os.path.exists(os_f_path):
 		return self.send_json({"head":"Failed", "body":"File/Folder Not Found"}, cookie=cookie)
 
-	file_stat = get_stat(xpath)
+	file_stat = get_stat(os_f_path)
 	if not file_stat:
 		return self.send_json({"head":"Failed", "body":"Permission Denied"}, cookie=cookie)
 
 	data = []
 	data.append(["Name", urllib.parse.unquote(filename, errors= 'surrogatepass')])
 
-	if os.path.isfile(xpath):
+	if os.path.isfile(os_f_path):
 		data.append(["Type","File"])
 		if "." in filename:
 			data.append(["Extension", filename.rpartition(".")[2]])
@@ -1445,7 +1461,7 @@ def get_info(self: SH, *args, **kwargs):
 
 		data.append(["Total Size", '<span id="f_size">Please Wait</span>'])
 		script = '''
-		tools.fetch_json(tools.full_path("''' + path + '''?size_n_count")).then(resp => {
+		tools.fetch_json(tools.full_path("''' + rel_path + '''?size_n_count")).then(resp => {
 		// console.log(resp);
 		if (resp.status) {
 			size = resp.humanbyte;
@@ -1460,7 +1476,7 @@ def get_info(self: SH, *args, **kwargs):
 		});
 		'''
 
-	data.append(["Path", path])
+	data.append(["Path", rel_path])
 
 	def get_dt(time):
 		return datetime.datetime.fromtimestamp(time)
@@ -1513,7 +1529,7 @@ def new_folder(self: SH, *args, **kwargs):
 		return self.send_json({"head": "Failed", "body": "Permission denied."}, cookie=cookie)
 
 
-	path = kwargs.get('path')
+	os_path = kwargs.get('path')
 	url_path = kwargs.get('url_path')
 
 	post = DPD(self)
@@ -1524,28 +1540,27 @@ def new_folder(self: SH, *args, **kwargs):
 
 	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
 
-	path = self.get_rel_path(filename)
+	rel_path = self.get_rel_path(filename)
 
-	xpath = filename
-	if xpath.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in xpath or '\\..\\' in xpath or xpath.endswith(('/..', '\\..')):
-		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + path}, cookie=cookie)
+	if not self.path_safety_check(filename, rel_path):
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
 
-	xpath = self.translate_path(posixpath.join(url_path, filename))
+	os_f_path = self.translate_path(posixpath.join(url_path, filename))
 
 
-	self.log_warning(f'New Folder Created "{xpath}" by: {[uid]}')
+	self.log_warning(f'New Folder Created "{os_f_path}" by: {[uid]}')
 
 	try:
-		if os.path.exists(xpath):
-			return self.send_json({"head": "Failed", "body": "Folder Already Exists:  " + path}, cookie=cookie)
-		if os.path.isfile(xpath):
-			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + path}, cookie=cookie)
-		os.makedirs(xpath)
-		return self.send_json({"head": "Success", "body": "New Folder Created:  " + path +post.refresh}, cookie=cookie)
+		if os.path.exists(os_f_path):
+			return self.send_json({"head": "Failed", "body": "Folder Already Exists:  " + rel_path}, cookie=cookie)
+		if os.path.isfile(os_f_path):
+			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + rel_path}, cookie=cookie)
+		os.makedirs(os_f_path)
+		return self.send_json({"head": "Success", "body": "New Folder Created:  " + rel_path +post.refresh}, cookie=cookie)
 
 	except Exception as e:
 		self.log_error(traceback.format_exc())
-		return self.send_json({"head": "Failed", "body": f"<b>{ path }</b><br><b>{ e.__class__.__name__ }</b>"}, cookie=cookie)
+		return self.send_json({"head": "Failed", "body": f"<b>{ rel_path }</b><br><b>{ e.__class__.__name__ }</b>"}, cookie=cookie)
 
 
 

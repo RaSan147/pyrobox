@@ -1,3 +1,19 @@
+# Version 0.9.4
+  ## Client-side Changes:
+  * Nothing to notice
+
+  ## Server-side Changes:
+  * Improved code quality
+  * Fixed zip, when empty folder has \ in name
+  * Added security check for POST requests to prevent directory traversal
+
+  ## Fixes:
+  * Fixed zip, when empty folder has \ in name
+
+  ## TODO:
+  * add zip in the dynamic island (maybe use session storage to store zip data)
+
+
 # Version 0.9.3
   ## Client-side Changes:
   * Fixed zip downloader as a PWA
@@ -9,11 +25,11 @@
 
   ## Fixes:
   * Fixed zip downloader page
-  * Fixed unwanted URL-encoding in Top-nav
-  * Video player page now use innerHTML instead of innerText (error message was wrongly shown)
+  * Fixed unwanted URL encoding in Top-nav
+  * Video player page now uses innerHTML instead of innerText (error message was wrongly shown)
 
   ## TODO:
-  * add zip in dynamic island (maybe use session storage to store zip data)
+  * add zip in the dynamic island (maybe use session storage to store zip data)
 
 
 

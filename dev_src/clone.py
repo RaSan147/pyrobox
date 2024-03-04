@@ -3,8 +3,6 @@ import email, time, traceback
 from queue import Queue
 from datetime import datetime, timezone
 
-#print(datetime.datetime.now())
-
 import requests
 
 os.umask(0) # make sure permissions are set correctly
