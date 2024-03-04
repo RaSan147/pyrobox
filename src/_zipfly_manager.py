@@ -101,9 +101,16 @@ class ZipFly:
 				if os.path.isdir(path[self.filesystem]):
 					if os.listdir(path[self.filesystem]):
 						continue # not empty
-					print("empty")
 					# Write empty directory:
-					z_info = zipfile.ZipInfo(path[self.arcname] + '/')
+					if path[self.arcname].endswith('\\'):
+						path[self.arcname] = path[self.arcname][:-1] + '/'
+
+					if not path[self.arcname].endswith('/'):
+						path[self.arcname] += '/'
+
+					if path[self.arcname].startswith('/') or path[self.arcname].startswith('\\'):
+						path[self.arcname] = path[self.arcname][1:]
+					z_info = zipfile.ZipInfo(path[self.arcname])
 					z_info.compress_type = zipfile.ZIP_STORED
 
 
