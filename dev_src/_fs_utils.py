@@ -547,6 +547,8 @@ class UploadHandler:
 
 
 						try:
+							if os.path.exists(os_f_path): # if overwrite is disabled then the previous part will handle the new filename.
+								os.remove(os_f_path)
 							os.rename(temp_fn, os_f_path)
 						except Exception as e:
 							server.log_error(f'Failed to replace {temp_fn} with {os_f_path} by {self.uid}')
@@ -566,7 +568,7 @@ class UploadHandler:
 		self.active = False
 		self.done = True
 		
-		for f in self.serial_io.queue:
+		for f in tuple(self.serial_io):
 			name = f[0].name
 			if not f[0].closed:
 				f[0].close()
