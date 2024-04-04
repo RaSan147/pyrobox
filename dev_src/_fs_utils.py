@@ -15,9 +15,12 @@ File System Utilities
 > Thanks for your help!
 """
 
+from io import BufferedWriter
 import os
 from queue import Queue
 import re
+import time
+import traceback
 import urllib.parse
 
 
@@ -475,4 +478,103 @@ def writer(fname, mode, data, direc="", encoding='utf-8'):  # fc=0608 v
 
 
 	write(location)
+
+
+class UploadHandler:
+	def __init__(self, uid):
+		self.serial_io = Queue()
+		# format [[temp_file_obj, mode, data?], ...]
+		# if mode is 's' then data is [os_f_path, overwrite]
+		# if mode is 'w' then data is the data to write
+		self.active = True
+		self.waited = 0
+		self.done = False
+		self.uid = uid
+		self.error = False
+		self.nap_time = 1
+
+		self.stop_on_error = True
+
+	def upload(self, temp_file, mode, data=None):
+		"""
+		* format `[[temp_file_obj, mode, data?], ...]`
+		* if `mode` is `s` then data is [os_f_path, overwrite]
+		* if `mode` is `w` then binary data is the data to write
+		"""
+		if not self.done:
+			self.serial_io.put([temp_file, mode, data])
+
+	def start(self, server):
+		try:
+			self._start(server)
+		except Exception as e:
+			traceback.print_exc()
+			server.log_error("Upload Failed")
+			self.kill()
+
+	def err(self, error_msg):
+		self.error = error_msg
+		if self.stop_on_error:
+			self.kill()
+
+	def sleep(self):
+		time.sleep(self.nap_time)
+
+
+
+	def _start(self, server):
+		while self.active or not self.serial_io.empty():
+			if not self.serial_io.empty():
+				self.waited = 0
+				req_data = self.serial_io.get()
+				file:BufferedWriter = req_data[0]
+				mode = req_data[1]
+				data = req_data[2]
+				if mode == "w": # write
+					file.write(data)
+				if mode == "s": #save
+					temp_fn = file.name
+					if not file.closed:
+						file.close()
+						os_f_path, overwrite = data
+						os_fn = os.path.basename(os_f_path)
+
+						name, ext = os.path.splitext(os_f_path)
+						while (not overwrite) and os.path.isfile(os_f_path):
+							n = 1
+							os_f_path = f"{name}({n}){ext}"
+							n += 1
+
+
+						try:
+							os.rename(temp_fn, os_f_path)
+						except Exception as e:
+							server.log_error(f'Failed to replace {temp_fn} with {os_f_path} by {self.uid}')
+							server.log_error(traceback.format_exc())
+							self.err(f"Failed to upload {os_fn}")
+
+							break
+	
+			else:
+				self.waited += 1
+				self.sleep()
+				if self.waited > 100:
+					self.active = False
+					break
+
+	def kill(self):
+		self.active = False
+		self.done = True
+		
+		for f in self.serial_io.queue:
+			name = f[0].name
+			if not f[0].closed:
+				f[0].close()
+
+			if os.path.exists(name):
+				os.remove(name)
+
+		self.serial_io.queue.clear()
+
+
 
