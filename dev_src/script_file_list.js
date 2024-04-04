@@ -398,6 +398,9 @@ class UploadManager {
 						"status": "running",
 						"percent": prog});
 			}
+			
+			request.setRequestHeader('Cache-Control','no-cache');
+			request.setRequestHeader("Connection", "close");
 			request.send(formData);
 		}
 
