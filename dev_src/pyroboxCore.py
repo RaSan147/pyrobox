@@ -1684,6 +1684,7 @@ class DealPostData:
 		if chunk_size <= 0:
 			chunk_size = self.remainbytes
 
+		waited = 0
 		for _ in range(Timeout*2):
 			if self.is_multipart():
 				line = req.rfile.readline()
@@ -1692,6 +1693,8 @@ class DealPostData:
 			if line:
 				break
 			time.sleep(.5)
+			waited +=.5
+			print(f"Waited for {waited}s")
 		else:
 			raise ConnectionAbortedError
 
