@@ -1222,7 +1222,7 @@ def upload(self: SH, *args, **kwargs):
 
 			if upload_handler.error and not upload_handler.active:
 				remove_from_temp(temp_fn)
-				return self.send_error(upload_handler.error, HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+				return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, upload_handler.error, cookie=cookie)
 
 
 

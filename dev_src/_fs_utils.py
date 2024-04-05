@@ -568,7 +568,7 @@ class UploadHandler:
 		self.active = False
 		self.done = True
 		
-		for f in tuple(self.serial_io):
+		for f in tuple(self.serial_io.queue):
 			name = f[0].name
 			if not f[0].closed:
 				f[0].close()

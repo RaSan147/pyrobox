@@ -30,7 +30,7 @@ import logging
 import atexit
 import os
 
-__version__ = "0.9.4"
+__version__ = "0.9.5"
 enc = "utf-8"
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
@@ -1684,7 +1684,7 @@ class DealPostData:
 		if chunk_size <= 0:
 			chunk_size = self.remainbytes
 
-		waited = 0
+		# waited = 0
 		for _ in range(Timeout*2):
 			if self.is_multipart():
 				line = req.rfile.readline()
@@ -1693,8 +1693,8 @@ class DealPostData:
 			if line:
 				break
 			time.sleep(.5)
-			waited +=.5
-			print(f"Waited for {waited}s")
+			# waited +=.5
+			# print(f"Waited for {waited}s")
 		else:
 			raise ConnectionAbortedError
 
