@@ -32,6 +32,9 @@ import os
 
 __version__ = "0.9.5"
 enc = "utf-8"
+DEV_MODE = False
+
+
 __all__ = [
 	"HTTPServer", "ThreadingHTTPServer", "BaseHTTPRequestHandler",
 	"SimpleHTTPRequestHandler",
@@ -89,7 +92,7 @@ class Config:
 
 		# RUNNING SERVER STATS
 		self.ftp_dir = self.get_default_dir()
-		self.dev_mode = True
+		self.dev_mode = DEV_MODE
 		self.ASSETS = False  # if you want to use assets folder, set this to True
 		self.ASSETS_dir = os.path.join(self.MAIN_FILE_dir, "/../assets/")
 		self.reload = False
@@ -1684,7 +1687,6 @@ class DealPostData:
 		if chunk_size <= 0:
 			chunk_size = self.remainbytes
 
-		# waited = 0
 		for _ in range(Timeout*2):
 			if self.is_multipart():
 				line = req.rfile.readline()
@@ -1693,8 +1695,6 @@ class DealPostData:
 			if line:
 				break
 			time.sleep(.5)
-			# waited +=.5
-			# print(f"Waited for {waited}s")
 		else:
 			raise ConnectionAbortedError
 

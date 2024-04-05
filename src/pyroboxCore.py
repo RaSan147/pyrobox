@@ -30,7 +30,7 @@ import logging
 import atexit
 import os
 
-__version__ = "0.9.3"
+__version__ = "0.9.5"
 enc = "utf-8"
 DEV_MODE = False
 

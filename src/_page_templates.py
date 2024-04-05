@@ -3187,14 +3187,14 @@ class UploadManager {
 		let file_list = byId("content_container")
 		this.drag_pop_open = false;
 
-		file_list.ondragover = (event)=>{
+		file_list.ondragover = async (event)=>{
 			event.preventDefault(); //preventing from default behaviour
 			if(that.drag_pop_open){
 				return;
 			}
 			that.drag_pop_open = true;
 
-			form = upload_man.new()
+			form = await upload_man.new()
 			popup_msg.createPopup("Upload Files", form, true, onclose=()=>{
 				that.drag_pop_open = false;
 			})
@@ -3214,7 +3214,7 @@ class UploadManager {
 		};
 	}
 
-	new() {
+	async new() {
 		//selecting all required elements
 		let that = this;
 		let index = this.last_index;
@@ -3424,7 +3424,7 @@ class UploadManager {
 			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
 
 			request.open(e.target.method, e.target.action);
-			request.timeout = 60 * 1000;
+			// request.timeout = 60 * 1000; // in case wifi have no internet, it will stop after 60 seconds
 			request.onreadystatechange = () => {
 				if (request.readyState === XMLHttpRequest.DONE) {
 					msg = `${request.status}: ${request.statusText}`;
@@ -3487,6 +3487,9 @@ class UploadManager {
 						"status": "running",
 						"percent": prog});
 			}
+			
+			request.setRequestHeader('Cache-Control','no-cache');
+			request.setRequestHeader("Connection", "close");
 			request.send(formData);
 		}
 
@@ -3509,19 +3512,32 @@ class UploadManager {
 			upload_pop_status.innerText = msg;
 		}
 
-		/**
-		 * Checks if a file is already selected or not.
-		 * @param {File} file - The file to check.
-		 * @returns {number} - Returns the index+1 of the file if it exists, otherwise returns 0.
-		 */
-		function uploader_exist(file) {
-			for (let i = 0; i < selected_files.files.length; i++) {
-				const f = selected_files.files[i];
-				if (f.name == file.name) {
-					return i+1; // 0 is false, so we add 1 to make it true
+		function truncate_file_name(name){
+			// if bigger than 20, truncate, veryvery...last6chars
+			if(name.length > 20){
+				return name.slice(0, 7) + "..." + name.slice(-6);
+			}
+			return name;
+		}
+
+		function remove_duplicates(files) {
+			for (let i = 0; i < files.length; i++) {
+				var selected_fnames = [];
+				const file = files[i];
+				
+				let exist = [...selected_files.files].findIndex(f => f.name === file.name);
+
+				if (exist > -1) {
+					// if file already selected,
+					// remove that and replace with
+					// new one, because, when uploading
+					// last file will remain in host server,
+					// so we need to replace it with new one
+					toaster.toast(truncate_file_name(file.name) + " already selected", 1500);
+					selected_files.items.remove(exist-1);
 				}
+				selected_files.items.add(file);
 			};
-			return 0; // false;
 		}
 
 
@@ -3530,23 +3546,10 @@ class UploadManager {
 		 * @param {FileList} files - The list of files to add.
 		 */
 		function addFiles(files) {
-			var exist = false;
 
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
-				exist = uploader_exist(file);
+			remove_duplicates(files);
+			
 
-				if (exist) {
-					// if file already selected,
-					// remove that and replace with
-					// new one, because, when uploading
-					// last file will remain in host server,
-					// so we need to replace it with new one
-					toaster.toast("File already selected", 1500);
-					selected_files.items.remove(exist-1);
-				}
-				selected_files.items.add(file);
-			};
 			log("selected "+ selected_files.items.length+ " files");
 			uploader_showFiles();
 		}
@@ -3730,8 +3733,8 @@ class FileManager {
 		popup_msg.open_popup();
 	}
 
-	Show_upload_files() {
-		let form = upload_man.new()
+	async Show_upload_files() {
+		let form = await upload_man.new()
 		popup_msg.createPopup("Upload Files", form);
 		popup_msg.open_popup();
 	}
@@ -3857,6 +3860,7 @@ function show_file_list() {
 	dir_container.appendChild(folder_li)
 	dir_container.appendChild(file_li)
 }
+
 
 """
 

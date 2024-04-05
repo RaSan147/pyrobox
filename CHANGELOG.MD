@@ -1,3 +1,17 @@
+# Version 0.9.5
+  ## Client-side Changes:
+  * Fixed unexpected upload cancel
+
+  ## Server-side Changes:
+  * Improved upload proceess (using thread and queue)
+
+  ## Fixes:
+  * Fixed upload being cancelled unexpectedly
+
+  ## TODO:
+  * add zip in the dynamic island (maybe use session storage to store zip data)
+
+
 # Version 0.9.4
   ## Client-side Changes:
   * Nothing to notice

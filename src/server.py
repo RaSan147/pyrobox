@@ -14,6 +14,7 @@ import shutil
 import datetime
 
 
+import threading
 import urllib.parse
 import urllib.request
 
@@ -27,7 +28,7 @@ import traceback
 
 from .pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, run as run_server, tools, reload_server, __version__
 
-from ._fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes
+from ._fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes, UploadHandler
 from ._arg_parser import main as arg_parser
 from . import _page_templates as pt
 from ._exceptions import LimitExceed
@@ -1144,7 +1145,22 @@ def upload(self: SH, *args, **kwargs):
 		return None
 
 
-	uploaded_files = [] # Uploaded folder list
+	# uploaded_files = [] # Uploaded folder list
+
+	upload_handler = UploadHandler(uid)
+
+	upload_thread = threading.Thread(target=upload_handler.start, args=(self,))
+	upload_thread.start()
+
+	def remove_from_temp(temp_fn):
+		try:
+			upload_handler.kill()
+		except OSError:
+			pass
+
+		finally:
+			if temp_fn in CoreConfig.temp_file:
+				CoreConfig.temp_file.remove(temp_fn)
 
 
 
@@ -1184,43 +1200,42 @@ def upload(self: SH, *args, **kwargs):
 
 		# ORIGINAL FILE STARTS FROM HERE
 		try:
-			with open(temp_fn, 'wb') as out:
-				preline = post.get()
-				while post.remainbytes > 0:
-					line = post.get()
-					if post.boundary in line:
+			out = open(temp_fn, 'wb')
+			preline = post.get()
+			while post.remainbytes > 0 and not upload_handler.error:
+				line = post.get()
+				if post.boundary in line:
+					preline = preline[0:-1]
+					if preline.endswith(b'\r'):
 						preline = preline[0:-1]
-						if preline.endswith(b'\r'):
-							preline = preline[0:-1]
-						out.write(preline)
-						uploaded_files.append(rltv_path,)
-						break
-					else:
-						out.write(preline)
-						preline = line
 
+					upload_handler.upload(out, 'w', preline)
+					# out.write(preline)
+					# uploaded_files.append(rltv_path,)
+					break
+				else:
+					upload_handler.upload(out, 'w', preline)
+					# out.write(preline)
+					preline = line
 
-			while (not user.MODIFY) and os.path.isfile(os_f_path):
-				n = 1
-				name, ext = os.path.splitext(os_f_path)
-				fn = f"{name}({n}){ext}"
-				n += 1
-			os.replace(temp_fn, os_f_path)
+			upload_handler.upload(out, 's', (os_f_path, user.MODIFY))
+
+			if upload_handler.error and not upload_handler.active:
+				remove_from_temp(temp_fn)
+				return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, upload_handler.error, cookie=cookie)
 
 
 
 		except (IOError, OSError):
 			traceback.print_exc()
-
 			return self.send_txt("Can't create file to write, do you have permission to write?", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
-		finally:
-			try:
-				os.remove(temp_fn)
-				CoreConfig.temp_file.remove(temp_fn)
 
-			except OSError:
-				pass
+	upload_handler.active = False # will take no further inputs
+	upload_thread.join()
+
+	if upload_handler.error:
+		return self.send_error(upload_handler.error, HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
 
 
@@ -1377,10 +1392,6 @@ def rename_content(self: SH, *args, **kwargs):
 
 	os_f_path = self.translate_path(posixpath.join(url_path, filename))
 	os_new_f_path = self.translate_path(posixpath.join(url_path, new_name))
-
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
-
-
 
 	self.log_warning(f'Renamed "{os_f_path}" to "{os_new_f_path}" by {[uid]}')
 
