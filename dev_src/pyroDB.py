@@ -51,10 +51,12 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
 
-from typing import Union
+from typing import Generator, Union
 
 from tabulate import tabulate
 import msgpack
+
+__version__ = "0.1.0"
 
 def load(location, auto_dump, sig=True):
 	'''Return a pickledb object. location is the path to the json file.'''
@@ -691,7 +693,7 @@ class PickleTable:
 			yield self.row_obj_by_id(id)
 
 
-	def search_iter(self, kw, column=None , row=None, full_match=False, return_obj=True):
+	def search_iter(self, kw, column=None , row=None, full_match=False, return_obj=True) -> Generator[_PickleTCell, None, None]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the cell object in loop
 
@@ -747,6 +749,14 @@ class PickleTable:
 
 		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=return_obj):
 			return cell
+		
+	def find_1st_row(self, kw, column=None , row=None, full_match=False, return_obj=True) -> Union[_PickleTRow, None]:
+		"""
+		search a keyword in a cell/row/column/entire sheet and return the 1st matched row object
+		"""
+
+		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=True):
+			return cell.row_obj() if return_obj else cell.row
 
 
 
