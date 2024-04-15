@@ -1625,11 +1625,13 @@ def run(*args, **kwargs):
 		try:
 			import pyqrcode
 			# Create a QR code on terminal
-			url = pyqrcode.create(url)
+			url = pyqrcode.create(url, error='L')
 			print(url.terminal('black', 'white', quiet_zone=1))
-		except Exception:
+		except ImportError:
 			CoreConfig.disabled_func["pyqrcode"] = True
 			logger.warning("pyqrcode module not found, QR code generation disabled. Install it using `pip install pyqrcode`")
+		except Exception as e:
+			logger.error(f"Error generating QR code: {e}")
 
 
 
