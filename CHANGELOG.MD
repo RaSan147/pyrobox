@@ -1,3 +1,35 @@
+# Version 0.9.6
+  ## Client-side Changes:
+  
+
+  ## Server-side Changes:
+  * **Server:** Added QR code for easy access to the server (from terminal -q)
+  * **Core:** Improved control over logging (on startup details) [`_log_details`, `_get_details`]
+  * **Core:** Server can be initialized without starting the server [`init_server` -> use `init_server.run` to start server]. Previous `run(...)` will keep working as usual.
+  * **Core:** Removed `httpd` from global scope.
+
+  ## Fixes:
+
+  ## TODO:
+  * add zip in the dynamic island (maybe use session storage to store zip data)
+
+
+# Version 0.9.4
+  ## Client-side Changes:
+  * Nothing to notice
+
+  ## Server-side Changes:
+  * Improved code quality
+  * Fixed zip, when empty folder has \ in name
+  * Added security check for POST requests to prevent directory traversal
+
+  ## Fixes:
+  * Fixed zip, when empty folder has \ in name
+
+  ## TODO:
+  * add zip in the dynamic island (maybe use session storage to store zip data)
+
+
 # Version 0.9.5
   ## Client-side Changes:
   * Fixed unexpected upload cancel

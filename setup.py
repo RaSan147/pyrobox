@@ -5,7 +5,8 @@ setup(
     install_requires=[
         'natsort',
         "send2trash",
-        "msgpack"
+        "msgpack",
+        "pyqrcode",
     ],
     entry_points='''
         [console_scripts]

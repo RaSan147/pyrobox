@@ -26,7 +26,7 @@ from http.cookies import SimpleCookie
 
 import traceback
 
-from pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, run as run_server, tools, reload_server, __version__
+from pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, init_server, tools, reload_server, __version__
 
 from _fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes, UploadHandler
 from _arg_parser import main as arg_parser
@@ -70,6 +70,7 @@ CoreConfig.MAIN_FILE = os.path.abspath(__file__)
 CoreConfig.disabled_func.update({
 			"send2trash": False,
 			"natsort": False,
+			"pyqrcode": False,
 			"zip": False,
 			"update": False,
 			"delete": False,
@@ -88,7 +89,7 @@ zip_manager = ZIP_Manager(CoreConfig, size_limit=Sconfig.max_zip_size)
 
 
 # INSTALL REQUIRED PACKAGES
-REQUIREMENTS= ['send2trash', 'natsort']
+REQUIREMENTS= ['send2trash', 'natsort', 'pyqrcode']
 
 
 
@@ -115,7 +116,6 @@ if not CoreConfig.disabled_func["send2trash"]:
 	except Exception:
 		CoreConfig.disabled_func["send2trash"] = True
 		logger.warning("send2trash module not found, send2trash function disabled")
-
 
 
 
@@ -1618,7 +1618,22 @@ def default_post(self: SH, *args, **kwargs):
 
 # proxy for old versions
 def run(*args, **kwargs):
-	run_server(handler=SH, *args, **kwargs)
+	runner = init_server(handler=SH, *args, **kwargs)
+
+	url = CoreConfig.address()
+	if cli_args.qr and not CoreConfig.disabled_func["pyqrcode"]:
+		try:
+			import pyqrcode
+			# Create a QR code on terminal
+			url = pyqrcode.create(url)
+			print(url.terminal('black', 'white', quiet_zone=1))
+		except Exception:
+			CoreConfig.disabled_func["pyqrcode"] = True
+			logger.warning("pyqrcode module not found, QR code generation disabled. Install it using `pip install pyqrcode`")
+
+
+
+	runner.run()
 
 if __name__ == '__main__':
 	run(port = 45454)

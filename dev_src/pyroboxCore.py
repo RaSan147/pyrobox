@@ -30,9 +30,9 @@ import logging
 import atexit
 import os
 
-__version__ = "0.9.5"
+__version__ = "0.9.6"
 enc = "utf-8"
-DEV_MODE = False
+DEV_MODE = True
 
 
 __all__ = [
@@ -57,8 +57,11 @@ F = f = false = False  # too lazy to type
 
 class Config:
 	def __init__(self):
+		self.server_init = False # if server is initialized
+		self.server_runner = None # server runner
 		# DEFAULT DIRECTORY TO LAUNCH SERVER
 		self.ftp_dir = "."  # DEFAULT DIRECTORY TO LAUNCH SERVER
+		self.bind = None # DEFAULT BIND ADDRESS
 
 		self.IP = None  # will be assigned by checking
 		self.protocol = "http"  # DEFAULT PROTOCOL TO LAUNCH SERVER
@@ -2029,6 +2032,66 @@ def get_ip(bind=None):
 	return IP
 
 
+
+_bind = None
+
+
+def _get_details():
+	if not config.server_init:
+		logger.warning("Server not initialized")
+		return
+
+	device_ip = _bind or "127.0.0.1"
+	# bind can be None (=> 127.0.0.1) or a string (=> 127.0.0.DDD)
+
+	# host, port = httpd.socket.getsockname()[:2]
+	# url_host = f'[{host}]' if ':' in host else host
+	hostname = socket.gethostname()
+	local_ip = config.IP if config.IP else get_ip(device_ip)
+	config.IP = local_ip
+
+	on_network = local_ip != (device_ip)
+
+	data = {
+		'port': config.port,
+		'hostname': hostname,
+		'local_ip': local_ip,
+		'on_network': on_network,
+		'network_address': config.address() # f"http://{IP}:{port}"
+	}
+
+	return data
+
+
+
+def _log_details():	
+	data = _get_details()
+
+	port = data['port'] # same as config.port
+	hostname = data['hostname']
+	local_ip = data['local_ip']
+	on_network = data['on_network']
+	network_address = data['network_address'] # f"http://{IP}:{port}" or config.address()
+
+
+
+
+	logger.info(tools.text_box(
+		# TODO: need to check since the output is "Serving HTTP on :: port 6969"
+		# f"Serving HTTP on {host} port {port} \n",
+		# TODO: need to check since the output is "(http://[::]:6969/) ..."
+		# f"(http://{url_host}:{port}/) ...\n",
+		f"Serving HTTP on port {port} \n",
+		f"Server is probably running on\n",
+		(f"[over NETWORK] {network_address}\n" if on_network else ""),
+		f"[on DEVICE] http://localhost:{port} & http://{local_ip}:{port}", 
+		
+		style="star", sep=""
+	)
+	)
+
+
+
 def test(HandlerClass=BaseHTTPRequestHandler,
 		 ServerClass=ThreadingHTTPServer,
 		 protocol="HTTP/1.0", port=8000, bind=None):
@@ -2038,35 +2101,14 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 
 	"""
 
-	global httpd
 	if sys.version_info >= (3, 8):  # BACKWARD COMPATIBILITY
 		ServerClass.address_family, addr = _get_best_family(bind, port)
 	else:
 		addr = (bind if bind != None else '', port)
 
-	device_ip = bind or "127.0.0.1"
-	# bind can be None (=> 127.0.0.1) or a string (=> 127.0.0.DDD)
-
 	HandlerClass.protocol_version = protocol
 	httpd = ServerClass(addr, HandlerClass)
-	host, port = httpd.socket.getsockname()[:2]
-	url_host = f'[{host}]' if ':' in host else host
-	hostname = socket.gethostname()
-	local_ip = config.IP if config.IP else get_ip(device_ip)
-	config.IP = local_ip
 
-	on_network = local_ip != (device_ip)
-
-	logger.info(tools.text_box(
-		# TODO: need to check since the output is "Serving HTTP on :: port 6969"
-		f"Serving HTTP on {host} port {port} \n",
-		# TODO: need to check since the output is "(http://[::]:6969/) ..."
-		f"(http://{url_host}:{port}/) ...\n",
-		f"Server is probably running on\n",
-		(f"[over NETWORK] {config.address()}\n" if on_network else ""),
-		f"[on DEVICE] http://localhost:{config.port} & http://127.0.0.1:{config.port}", style="star", sep=""
-	)
-	)
 	try:
 		httpd.serve_forever(poll_interval=0.1)
 	except KeyboardInterrupt:
@@ -2096,7 +2138,11 @@ class DualStackServer(ThreadingHTTPServer):  # UNSUPPORTED IN PYTHON 3.7
 								 directory=config.ftp_dir)
 
 
-def run(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler):
+def init_server(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler, log_details=True):
+	global _bind
+
+	if config.server_init:
+		return config.server_runner
 
 	if arg_parse:
 		args = config.parse_default_args(
@@ -2105,6 +2151,7 @@ def run(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequest
 		port = args.port
 		directory = args.directory
 		bind = args.bind
+
 
 	logger.info(tools.text_box("Running pyroboxCore: ",
 				config.MAIN_FILE, "Version: ", __version__))
@@ -2117,30 +2164,57 @@ def run(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequest
 	handler_class = partial(handler,
 							directory=directory)
 
-	config.port = port
 	if port > 65535 or port < 0:
 		raise ValueError("Port must be between 0 and 65535")
 
+	config.port = port
 	config.ftp_dir = directory
+	config.bind = bind
 
-	if not config.reload:
-		if sys.version_info > (3, 8):
-			test(
-				HandlerClass=handler_class,
-				ServerClass=DualStackServer,
-				port=port,
-				bind=bind,
-			)
-		else:  # BACKWARD COMPATIBILITY
-			test(
-				HandlerClass=handler_class,
-				ServerClass=ThreadingHTTPServer,
-				port=port,
-				bind=bind,
-			)
+	class ServerRunner:
 
-	if config.reload == True:
-		reload_server()
+		@staticmethod
+		def run():
+			if not config.reload:
+				if sys.version_info > (3, 8):
+					test(
+						HandlerClass=handler_class,
+						ServerClass=DualStackServer,
+						port=port,
+						bind=bind,
+					)
+				else:  # BACKWARD COMPATIBILITY
+					test(
+						HandlerClass=handler_class,
+						ServerClass=ThreadingHTTPServer,
+						port=port,
+						bind=bind,
+					)
+
+			if config.reload == True:
+				reload_server()
+
+	config.server_runner = ServerRunner()
+	config.server_init = True
+
+	if log_details:
+		_log_details()
+
+	return config.server_runner
+
+
+
+
+def run(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler):
+	server_runner = init_server(
+		port=port,
+		directory=directory,
+		bind=bind,
+		arg_parse=arg_parse,
+		handler=handler
+	)
+
+	server_runner.run()
 
 
 if __name__ == '__main__':

@@ -8,7 +8,13 @@ def main(config):
 							default=config.PASSWORD,
 							type=str,
 							help='[Value] Upload Password (default: %(default)s)')
+	
 
+
+	config.parser.add_argument('--qr', '-q',
+							action='store_true',
+							default=False,
+							help='[Flag] Show QR code for easy access (default: %(default)s)[Requires pyqrcode]')
 
 
 
