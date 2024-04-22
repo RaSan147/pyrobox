@@ -89,7 +89,7 @@ def check_exist(url, path, check_method):
 	return False
 
 
-
+CANCEL = False
 
 
 
@@ -119,6 +119,13 @@ def dl(url, path, overwrite, check_method):
 			with open(local_filename, 'wb') as f:
 				for chunk in r.iter_content(chunk_size=8192):
 					f.write(chunk)
+
+	except KeyboardInterrupt:
+		global CANCEL
+		CANCEL = True
+		os.remove(local_filename)
+		return False
+	
 	except Exception:
 		traceback.print_exc()
 		print("ALERT:  [dl] Server is probably down")
@@ -180,10 +187,14 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 
 
 		for link, name in json:
+			if CANCEL:
+				return
+
 			remote_list.append(name)
 			if link.endswith("/"):
 				Q.put((url+link, path+name, overwrite, check_exist))
 				continue
+
 
 			futures.append(executor.submit(dl, url+link, path+name, overwrite, check_exist))
 
@@ -201,9 +212,12 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 
 	Q.put((url, path, overwrite, check_exist))
 
-	while not Q.empty():
-		run_Q(*Q.get())
-
+	try:
+		while not Q.empty():
+			run_Q(*Q.get())
+	except KeyboardInterrupt:
+		global CANCEL
+		CANCEL = True
 
 
 
