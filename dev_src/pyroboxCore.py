@@ -1025,7 +1025,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			'.ogv': 'video/ogg',
 			'.ogg': 'application/ogg',
-			'm4a': 'audio/mp4',
+			'.m4a': 'audio/mp4',
 	})
 
 	handlers = {

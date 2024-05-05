@@ -1,4 +1,5 @@
 import os
+import shutil
 import email, time, traceback
 from queue import Queue
 from datetime import datetime, timezone
@@ -146,7 +147,7 @@ executor = ThreadPoolExecutor(6)
 
 futures = []
 
-def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extras = False):
+def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extras = False, ignore_hidden=False):
 	"""Clone a directory from a url
 	url: url to clone from (local_server.py)
 	path: path to clone to (./)
@@ -191,8 +192,10 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 				return
 
 			remote_list.append(name)
+			if ignore_hidden and name.startswith('.'):
+				continue
 			if link.endswith("/"):
-				Q.put((url+link, path+name, overwrite, check_exist))
+				Q.put((url+link, path+name, overwrite, check_exist, delete_extras))
 				continue
 
 
@@ -207,10 +210,13 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 			for name in local_list:
 				if name not in remote_list:
 					print("DELETE: [", path+name, "]")
-					os.remove(path+name)
+					if os.path.isdir(path+name):
+						shutil.rmtree(path+name)
+					else:
+						os.remove(path+name)
 
 
-	Q.put((url, path, overwrite, check_exist))
+	Q.put((url, path, overwrite, check_exist, delete_extras))
 
 	try:
 		while not Q.empty():
