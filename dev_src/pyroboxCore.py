@@ -191,7 +191,7 @@ class Config:
 								help=('[Option] show this help message and exit'))
 
 
-		parser.add_argument('--no-extra-log',
+		parser.add_argument('--no-extra-log', '-nxl',
 							action='store_true',
 							default=False,
 							help="[Flag] Disable file path and [= + - #] based logs (default: %(default)s)")
@@ -414,9 +414,6 @@ def URL_MANAGER(url: str):
 
 	return (path, dict_result, parse_result.fragment)
 
-if __name__ == "__main__":
-	print(URL_MANAGER('https://www.google.com'))
-	print(URL_MANAGER('https://www.google.com/store?page=10&limit=15&price=ASC#dskjfhs'))
 
 
 class HTTPServer(socketserver.TCPServer):
@@ -484,6 +481,41 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 	# Most web servers default to HTTP 0.9, i.e. don't send a status line.
 	default_request_version = "HTTP/0.9"
 
+	allow_star_CORS = dict() # list of methods that can be accessed by any origin
+	# {
+	# 	"GET": '*',
+	# 	"POST": '/',
+	# }
+	# ALL will be used for all methods (not defaults)
+	# use allow_CORS to add a method to the list (and Override ALL)
+	# DEFAULT: None
+
+
+
+	@staticmethod
+	def allowed_CORS(method) -> Union[str, None]:
+		"""Check if the method is allowed by the server"""
+		self = __class__
+		cors = self.allow_star_CORS.get(method.upper(), None)
+
+		return cors or self.allow_star_CORS.get("ALL", None)
+
+
+	@staticmethod
+	def allow_CORS(method, origin):
+		"""Add a method to the allowed list"""
+		self = __class__
+		method = method.upper()
+		self.allow_star_CORS[method] = origin
+
+		if method == "HEAD":
+			self.allow_star_CORS["GET"] = origin
+
+		if method == "GET":
+			self.allow_star_CORS["HEAD"] = origin
+
+
+
 	def parse_request(self):
 		"""Parse a request (internal).
 
@@ -496,6 +528,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		"""
 		self.command = ''  # set in case of error on the first line
+		self.method = ''  # set in case of error on the first line
 		self.request_version = version = self.default_request_version
 		self.close_connection = True
 		self.header_flushed = False # true when headers are flushed by self.flush_headers()
@@ -644,6 +677,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				# An error code has been sent, just exit
 				return
 			mname = 'do_' + self.command
+			self.method = self.command
+
 			if not hasattr(self, mname):
 				self.send_error(
 					HTTPStatus.NOT_IMPLEMENTED,
@@ -769,6 +804,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			body = content.encode('UTF-8', 'replace')
 			self.send_header("Content-Type", error_content_type)
 			self.send_header('Content-Length', str(len(body)))
+
+			# if user Ovverides the CORS policy
+			self.method = "ERROR"
+
 		self.end_headers()
 
 		if self.command != 'HEAD' and body:
@@ -843,6 +882,11 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 	def end_headers(self):
 		"""Send the blank line ending the MIME headers."""
+		
+		CORS_POLICY = self.allowed_CORS(self.method)
+		if self.allowed_CORS(self.method):
+			self.send_header('Access-Control-Allow-Origin', CORS_POLICY)
+
 		if self.request_version != 'HTTP/0.9':
 			self._headers_buffer.append(b"\r\n")
 			self.flush_headers()
@@ -1276,8 +1320,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		C_encoding = None
 
+		filename = filename or os.path.basename(path)
+
 		try:
-			ctype = self.guess_type(path)
+			ctype = self.guess_type(filename)
 
 			# make sure texts are sent as utf-8
 			if ctype.startswith("text/"):
@@ -1359,8 +1405,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			if C_encoding:
 				self.send_header("Content-Encoding", C_encoding)
 
-			self.send_header("Content-Disposition", is_attachment+' filename="%s"' %
-							(os.path.basename(path) if filename is None else filename))
+			self.send_header("Content-Disposition", f'{is_attachment} filename="{filename}"')
 			self.end_headers()
 
 			return file
