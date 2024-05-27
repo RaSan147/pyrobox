@@ -1234,7 +1234,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def redirect(self, location, cookie:Union[SimpleCookie, str]=None):
 		'''redirect to location'''
-		print("REDIRECT ", location)
+		self.log_info("REDIRECT ", location)
 		self.send_response(302)
 		self.send_header("Location", location)
 		self._send_cookie(cookie)
@@ -1427,6 +1427,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def send_file(self, path, filename=None, download=False, cache_control='', cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
 		file = self.return_file(path, filename, download, cache_control, cookie=cookie)
+		if not file: 
+			return # already flushed (with error/unchanged)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		try:
@@ -2137,7 +2139,7 @@ def _log_details():
 
 
 
-def test(HandlerClass=BaseHTTPRequestHandler,
+def build(HandlerClass=BaseHTTPRequestHandler,
 		 ServerClass=ThreadingHTTPServer,
 		 protocol="HTTP/1.0", port=8000, bind=None):
 	"""Test the HTTP request handler class.
@@ -2154,16 +2156,7 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 	HandlerClass.protocol_version = protocol
 	httpd = ServerClass(addr, HandlerClass)
 
-	try:
-		httpd.serve_forever(poll_interval=0.1)
-	except KeyboardInterrupt:
-		logger.info("\nKeyboard interrupt received, exiting.")
-
-	except OSError:
-		logger.info("\nOSError received, exiting.")
-	finally:
-		if not config.reload:
-			sys.exit(0)
+	return httpd
 
 
 class DualStackServer(ThreadingHTTPServer):  # UNSUPPORTED IN PYTHON 3.7
@@ -2183,7 +2176,7 @@ class DualStackServer(ThreadingHTTPServer):  # UNSUPPORTED IN PYTHON 3.7
 								 directory=config.ftp_dir)
 
 
-def init_server(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler, log_details=True):
+def init_server(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler):
 	global _bind
 
 	if config.server_init:
@@ -2216,51 +2209,74 @@ def init_server(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTT
 	config.ftp_dir = directory
 	config.bind = bind
 
-	class ServerRunner:
-
-		@staticmethod
-		def run():
-			if not config.reload:
-				if sys.version_info > (3, 8):
-					test(
-						HandlerClass=handler_class,
-						ServerClass=DualStackServer,
-						port=port,
-						bind=bind,
-					)
-				else:  # BACKWARD COMPATIBILITY
-					test(
-						HandlerClass=handler_class,
-						ServerClass=ThreadingHTTPServer,
-						port=port,
-						bind=bind,
-					)
-
-			if config.reload == True:
-				reload_server()
-
-	config.server_runner = ServerRunner()
-	config.server_init = True
-
-	if log_details:
-		_log_details()
-
-	return config.server_runner
+	if sys.version_info > (3, 8):
+		return build(
+			HandlerClass=handler_class,
+			ServerClass=DualStackServer,
+			port=port,
+			bind=bind,
+		)
+	else:  # BACKWARD COMPATIBILITY
+		return build(
+			HandlerClass=handler_class,
+			ServerClass=ThreadingHTTPServer,
+			port=port,
+			bind=bind,
+		)
 
 
+class EasyServerRunner:
+	def __init__(self, port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler):
+		self.httpd = init_server(
+			port=port,
+			directory=directory,
+			bind=bind,
+			arg_parse=arg_parse,
+			handler=handler
+		)
+
+	def run(self, poll_interval=0.1):
+		try:
+			self.httpd.serve_forever(poll_interval=poll_interval)
+		except KeyboardInterrupt:
+			logger.info("\nKeyboard interrupt received, exiting.")
+
+		except OSError:
+			logger.info("\nOSError received, exiting.")
+
+		except Exception as e:
+			logger.error(str(e ) + "\n" + traceback.format_exc())
+
+		finally:
+			self.stop()
 
 
-def run(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler):
-	server_runner = init_server(
+
+	def stop(self):
+		if self.httpd:
+			self.httpd.shutdown()
+			self.httpd.server_close()
+			logger.info("Server stopped")
+
+
+
+def runner(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler, log_details=True) -> EasyServerRunner:
+	
+	EasyServer = EasyServerRunner(
 		port=port,
 		directory=directory,
 		bind=bind,
 		arg_parse=arg_parse,
 		handler=handler
 	)
+	config.server_init = True
+	config.server_runner = EasyServer.httpd
 
-	server_runner.run()
+	if log_details:
+		_log_details()
+
+	return EasyServer
 
 
 if __name__ == '__main__':
-	run()
+	runner().run()

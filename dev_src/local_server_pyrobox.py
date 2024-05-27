@@ -26,7 +26,7 @@ from http.cookies import SimpleCookie
 
 import traceback
 
-from pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, init_server, tools, reload_server, __version__
+from pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, runner as pyroboxRunner, tools, reload_server, __version__
 
 from _fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes, UploadHandler
 from _arg_parser import main as arg_parser
@@ -1618,7 +1618,7 @@ def default_post(self: SH, *args, **kwargs):
 
 # proxy for old versions
 def run(*args, **kwargs):
-	runner = init_server(handler=SH, *args, **kwargs)
+	runner = pyroboxRunner(handler=SH, *args, **kwargs)
 
 	url = CoreConfig.address()
 	if cli_args.qr and not CoreConfig.disabled_func["pyqrcode"]:
