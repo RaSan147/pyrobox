@@ -71,6 +71,11 @@
 
 ### CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 
+## Quick Tutorial
+https://github.com/RaSan147/pyrobox/assets/34002411/eb2ac313-f95a-4334-a265-c3feeb333821
+
+
+
 ## Customization
 
 1. Simply running the code on will create a server on `CURRENT WORKING DIRECTORY` on `Port: 6969`
