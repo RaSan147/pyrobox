@@ -34,7 +34,7 @@
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-import sys
+import io
 import os
 import signal
 import atexit
@@ -45,7 +45,7 @@ import random
 from tempfile import NamedTemporaryFile
 from threading import Thread
 import csv
-import json
+import copy as datacopy
 
 import logging
 logger = logging.getLogger(__name__)
@@ -528,9 +528,19 @@ class PickleDB(object):
 
 
 
+def _int_to_alpha(n):
+	"""
+	Convert an integer to an excel column name
+	"""
+	n += 1
+	string = ""
+	while n > 0:
+		n, remainder = divmod(n - 1, 26)
+		string = chr(65 + remainder) + string
+	return string
 
 class PickleTable(dict):
-	def __init__(self, filename="", *args, **kwargs):
+	def __init__(self, file_path="", *args, **kwargs):
 		"""
 		args:
 		- filename: path to the db file (default: `""` or in-memory db)
@@ -544,7 +554,7 @@ class PickleTable(dict):
 
 
 		self.busy = False
-		self._pk = PickleDB(filename, *args, **kwargs)
+		self._pk = PickleDB(file_path, *args, **kwargs)
 
 		# make the super dict = self._pk.db
 
@@ -595,6 +605,17 @@ class PickleTable(dict):
 		- returns: PickleTRow object
 		"""
 		return self.rows_obj()
+
+	def dataFrame(self, copy=False):
+		"""
+		Return a pandas DataFrame object
+		- copy: return a copy of the dataframe (deepcopy)(default: `False`)
+		"""
+		if copy:
+			return datacopy.deepcopy(self._pk.db)
+		return self._pk.db
+
+	to_dataframe = dataFrame
 
 	def rescan(self, rescan=True):
 		"""
@@ -812,6 +833,8 @@ class PickleTable(dict):
 
 
 		self.auto_dump(AD=AD)
+
+	add_columns = add_column # alias
 
 
 	def del_column(self, name, AD=True):
@@ -1067,6 +1090,21 @@ class PickleTable(dict):
 		self.auto_dump(AD=AD)
 
 
+	def copy(self, location=None, auto_dump=True, sig=True):
+		"""
+		Copy the table to a new location
+		"""
+		
+		new = PickleTable(location, auto_dump=auto_dump, sig=sig)
+		new.add_column(*self.column_names)
+		new.__db__ = datacopy.deepcopy(self.__db__)
+		new.height = self.height
+		new.ids = self.ids.copy()
+
+		return new
+
+
+
 
 	def _add_row(self, row:Union[dict, "_PickleTRow"], position:int="last") -> "_PickleTRow":
 		"""
@@ -1153,13 +1191,80 @@ class PickleTable(dict):
 		if AD:
 			self._pk._autodumpdb()
 
-	def to_csv(self, filename, write_header=True):
-		with open(filename, "w", newline='', encoding='utf8') as f:
+
+	def to_csv(self, filename=None, write_header=True):
+		"""
+		Write the table to a csv file
+		* filename: path to the file (if None, use current filename.csv) (if in memory, use "table.csv")
+		* write_header: write column names as header
+		"""
+		if filename is None:
+			# check filename
+			path = self._pk.location
+			if not path:
+				path = "table.csv"
+			else:
+				path = os.path.splitext(path)[0] + ".csv"
+		else:
+			path = filename
+		with open(path, "w", newline='', encoding='utf8') as f:
 			writer = csv.writer(f)
 			if write_header:
 				writer.writerow(self.column_names) # header
 			for row in self.rows():
 				writer.writerow([row[k] for k in self.column_names])
+
+	def to_csv_str(self, write_header=True):
+		"""
+		Return the table as a csv string
+		* write_header: write column names as header
+		"""
+		output = io.StringIO()
+		writer = csv.writer(output)
+		if write_header:
+			writer.writerow(self.column_names)
+		for row in self.rows():
+			writer.writerow([row[k] for k in self.column_names])
+
+		return output.getvalue()
+
+	def load_csv(self, filename, header=True, ignore_none=False, AD=True):
+		"""
+		Load a csv file to the table
+		* WILL OVERWRITE THE EXISTING DATA
+		* header: 
+			* if True, the first row will be considered as column names
+			* if False, the columns will be named as "Unnamed-1", "Unnamed-2", ...
+			* if "auto", the columns will be named as "A", "B", "C", ..., "Z", "AA", "AB", ...
+		* ignore_none: ignore the None rows
+		"""
+		def add_row(row):
+			if ignore_none and all(v is None for v in row):
+				return
+
+			self.add_row({k: v for k, v in zip(self.column_names, row)}, AD=False)
+		with open(filename, 'r', encoding='utf8') as f:
+			reader = csv.reader(f)
+			if header is True:
+				columns = next(reader)
+				updated_columns = []
+				for col in columns:
+					if col is None:
+						col = f"Unnamed-{len(updated_columns)+1}"
+					updated_columns.append(col)
+				self.add_column(updated_columns, exist_ok=True, AD=False)
+
+			elif isinstance(header, str) and header.lower() == "auto":
+				row = next(reader)
+				columns = [_int_to_alpha(i) for i in range(len(row))]
+				
+				self.add_column(columns, exist_ok=True, AD=False)		
+				add_row(row)
+			else:
+				columns = self.column_names
+
+			for row in reader:
+				add_row(row)
 
 	def add(self, table:Union["PickleTable", dict], add_columns=False, AD=True):
 		"""
@@ -1298,6 +1403,12 @@ class _PickleTRow(dict):
 
 		return self.source.get_cell_by_id(name, self.id)
 
+	def __bool__(self):
+		"""
+		return True if the row has values
+		"""
+		return any(self.values())
+
 	def to_dict(self):
 		"""
 		returns a copy of the row as dict
@@ -1374,6 +1485,19 @@ class _PickleTRow(dict):
 		self.source.raise_source(self.CC)
 
 		self.source.del_row_id(self.id)
+
+	def __eq__(self, other):
+		try:
+			for k in self.source.column_names:
+				if self[k] != other[k]:
+					return False
+			return True
+		except KeyError:
+			return False
+
+	def __ne__(self, other):
+		return not self.__eq__(other)
+		
 
 
 class _PickleTColumn(list):
@@ -1471,7 +1595,6 @@ class _PickleTColumn(list):
 		"""
 		for i in self:
 			if i == value:
-				print(i)
 				i.clear()
 				n_times -= 1
 				if n_times==0:
@@ -1506,6 +1629,14 @@ class _PickleTColumn(list):
 		self.source.raise_source(self.CC)
 
 		self.source.del_column(self.name)
+
+
+	def apply(self, func):
+		"""
+		Apply a function to all cells in the column
+		"""
+		for i in range(self.source.height):
+			self[i] = func(self[i])
 
 
 
@@ -1579,7 +1710,7 @@ if __name__ == "__main__":
 				{
 					"x": random.randint(1, 100),
 					"m": Lower_string(100),
-					"Y": "💪🍎"
+					"Y": "💪Hello🍎"
 				}, AD=False)
 
 		et = time.perf_counter()
