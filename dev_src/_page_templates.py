@@ -1,7 +1,7 @@
 from data_types import Template
 __all__ = [
 	"directory_explorer_header",
-	"global_script",
+	"script_global",
 	"upload_form",
 	"file_list_script",
 	"video_page",
@@ -58,7 +58,7 @@ def style_css():
 
 
 
-def global_script():
+def script_global():
 	return get_template("script_global.js")
 
 def assets_script():

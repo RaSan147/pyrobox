@@ -163,7 +163,20 @@ const public_url = "${PY_PUBLIC_URL}";
 		<h3 id="zip-perc"></h3>
 	</div>
 
-	<div id="admin_page" class="page">
+	<div id="text-editor-page" class="page">
+		<h1>Text Editor</h1>
+		<!--add a button to toggle readonly  -->
+		<div>
+			<span class="fa fa-sharp fa-solid fa-pen-slash" id="toggle-readOnly"
+				onclick="code_editor.toggle_readOnly()">🔏</span>
+			<span class="fa fa-sharp fa-solid fa-pen" id="toggle-writeAllowed"
+				onclick="code_editor.toggle_writeAllowed()">🖋️</span>
+		</div>
+		<hr>
+		<div id="editor"></div>
+	</div>
+
+	<div id="admin-page" class="page">
 
 		<h1 style="text-align: center;">Admin Page</h1>
 		<hr>
@@ -207,7 +220,7 @@ const public_url = "${PY_PUBLIC_URL}";
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
 
-<script src="/?global_script"></script>
+<script src="/?script_global"></script>
 <script src="/?asset_script"></script>
 
 <script src="/?file_list_script"></script>

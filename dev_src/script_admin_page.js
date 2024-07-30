@@ -1,6 +1,6 @@
 class Admin_page {
 	constructor(){
-		this.my_part = byId("admin_page")
+		this.my_part = byId("admin-page")
 	}
 
 	initialize(){

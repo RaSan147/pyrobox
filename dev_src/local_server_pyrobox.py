@@ -747,6 +747,8 @@ def send_video_data(self: SH, *args, **kwargs):
 	vid_source = url_path
 
 	content_type = self.guess_type(os_path)
+	if content_type == self.guess_type(".mov"):
+		content_type = self.guess_type(".mp4") # add chrome support for .mov
 
 	if not content_type.startswith('video/'):
 		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
@@ -842,10 +844,10 @@ def send_style(self: SH, *args, **kwargs):
 	"""Send style sheet"""
 	return self.send_css(pt.style_css())
 
-@SH.on_req('HEAD', hasQ="global_script")
-def send_global_script(self: SH, *args, **kwargs):
+@SH.on_req('HEAD', hasQ="script_global")
+def send_script_global(self: SH, *args, **kwargs):
 	"""Send global script"""
-	return self.send_script(pt.global_script(), content_type="text/javascript")
+	return self.send_script(pt.script_global(), content_type="text/javascript")
 
 @SH.on_req('HEAD', hasQ="asset_script")
 def send_script(self: SH, *args, **kwargs):
