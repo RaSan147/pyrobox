@@ -10,7 +10,7 @@ const log = console.log,
 	createElement = document.createElement.bind(document);
 
 
-String.prototype.toHtmlEntities = function() {
+String.prototype.toHtmlEntities = function () {
 	return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
 };
 
@@ -31,7 +31,7 @@ function safeJSONParse(str, propArray, maxLen) {
 				safeObj = parsedObj;
 			} else {
 				// copy only expected properties to the safeObj
-				propArray.forEach(function(prop) {
+				propArray.forEach(function (prop) {
 					if (parsedObj.hasOwnProperty(prop)) {
 						safeObj[prop] = parsedObj[prop];
 					}
@@ -39,7 +39,7 @@ function safeJSONParse(str, propArray, maxLen) {
 			}
 			return safeObj;
 		}
-	} catch(e) {
+	} catch (e) {
 		return null;
 
 	}
@@ -134,8 +134,7 @@ class Tools {
 	 * @see {@link https://stackoverflow.com/questions/60207534/new-date-gettimezoneoffset-returns-the-wrong-time-zone}
 	 */
 	time_offset() {
-
-	// for the reason of negative sign
+		// for the reason of negative sign
 		return new Date().getTimezoneOffset() * 60 * 1000 * -1;
 	}
 
@@ -145,7 +144,7 @@ class Tools {
 	 * @param {string|HTMLElement} elm - The element or its ID to remove child nodes from.
 	 */
 	del_child(elm) {
-		if (typeof(elm) == "string") {
+		if (typeof (elm) == "string") {
 			elm = byId(elm);
 		}
 		if (elm == null) {
@@ -206,12 +205,33 @@ class Tools {
 	 * @param {string} url - The URL of the script to add.
 	 * @returns {HTMLScriptElement} The newly created script element.
 	 */
-	add_script(url){
+	add_script(src, { crossorigin = null, referrerpolicy = null, asyncLoad = null, integrity = null } = {}) {
 		var script = createElement('script');
-		script.src = url;
-		document.body.appendChild(script);
+		script.src = src;
+		if (crossorigin != null) script.crossorigin = crossorigin;
+		if (referrerpolicy != null) script.referrerpolicy = referrerpolicy;
+		if (asyncLoad != null) script.async = asyncLoad;
+		if (integrity != null) script.integrity = integrity;
+
+
+		if (typeof (document.body) === "undefined" || document.body === null) document.head.appendChild(script);
+		else document.body.appendChild(script)
 
 		return script;
+	}
+
+	add_css(href, { crossorigin = null, referrerpolicy = null, integrity = null } = {}) {
+		var cssFile = createElement('link');
+		cssFile.setAttribute("rel", "stylesheet")
+		cssFile.href = href;
+		if (crossorigin != null) cssFile.crossorigin = crossorigin;
+		if (referrerpolicy != null) cssFile.referrerpolicy = referrerpolicy;
+		if (integrity != null) cssFile.integrity = integrity;
+
+		if (typeof (document.body) === "undefined") document.head.appendChild(cssFile);
+		else document.body.appendChild(cssFile)
+
+		return cssFile;
 	}
 
 	/**
@@ -228,8 +248,8 @@ class Tools {
 		}
 		config.Debugging = true;
 		var script = this.add_script("//cdn.jsdelivr.net/npm/eruda");
-		script.onload = function() {
-			if(that.is_touch_device()){
+		script.onload = function () {
+			if (that.is_touch_device()) {
 				eruda.init()
 			}
 		};
@@ -253,7 +273,7 @@ class Tools {
 	 * @returns {boolean} - Returns `true` if the object is defined, `false` otherwise.
 	 */
 	is_defined(obj) {
-		return typeof(obj) !== "undefined"
+		return typeof (obj) !== "undefined"
 	}
 
 	/**
@@ -261,7 +281,7 @@ class Tools {
 	 * @param {number} [allow=2] - Determines whether to allow scrolling. `0`: no scrolling, `1`: scrolling allowed, `2`: toggle scrolling.
 	 * @param {string} [by="someone"] - The name of the function toggling the scroll.
 	 */
-	toggle_scroll(allow = 2, by = "someone") {
+	toggle_scroll(allow = 2) {
 		if (allow == 0) {
 			document.body.classList.add('overflowHidden');
 		} else if (allow == 1) {
@@ -278,11 +298,11 @@ class Tools {
 	 * @param {string|null} [filename=null] - The name to give the downloaded file. If null, the file will be named "download".
 	 * @param {boolean} [new_tab=false] - Whether to open the download in a new tab.
 	 */
-	download(dataurl, filename = null, new_tab=false) {
+	download(dataurl, filename = null, new_tab = false) {
 		const link = createElement("a");
 		link.href = dataurl;
 		link.download = filename;
-		if(new_tab){
+		if (new_tab) {
 			link.target = "_blank";
 		}
 		link.click();
@@ -293,7 +313,7 @@ class Tools {
 	 * Pushes a new state object onto the history stack with a fake URL.
 	 * Used to prevent the browser from navigating to a new page when a link is clicked.
 	 */
-	fake_push(state={}){
+	fake_push(state = {}) {
 		history.pushState({
 			url: window.location.href,
 			state: state
@@ -305,7 +325,7 @@ class Tools {
 	 * @param {string} rel_path - The relative path to convert to a full URL path.
 	 * @returns {string} - The full URL path for the given relative path.
 	 */
-	full_path(rel_path){
+	full_path(rel_path) {
 		let fake_a = createElement("a")
 		fake_a.href = rel_path;
 		return fake_a.href;
@@ -322,8 +342,9 @@ class Tools {
 	 * @param {string} [value=''] - The value of the query parameter to add.
 	 * @returns {string} The updated URL with the added query parameter.
 	 */
-	add_query(url, query, value=''){
-		const url_obj = new URL(url);
+	add_query(url, query, value = '') {
+		var url_ = this.full_path(url);
+		const url_obj = new URL(url_);
 		url_obj.searchParams.set(query, value);
 
 		return url_obj.href;
@@ -335,7 +356,7 @@ class Tools {
 	 * @param {string} [value=''] - The value of the query parameter. Defaults to an empty string.
 	 * @returns {string} The modified URL with the added query parameter.
 	 */
-	add_query_here(query, value=''){
+	add_query_here(query, value = '') {
 		return this.add_query(window.location.href, query, value);
 	}
 
@@ -366,9 +387,9 @@ class Tools {
 			textArea.focus();
 			textArea.select();
 
-			let ok=0;
-				// here the magic happens
-				if(document.execCommand('copy')) ok = 1
+			let ok = 0;
+			// here the magic happens
+			if (document.execCommand('copy')) ok = 1
 
 			textArea.remove();
 			return ok
@@ -376,8 +397,12 @@ class Tools {
 		}
 	}
 
-	async fetch_json(url){
-		return fetch(url).then(r => r.json()).catch(e => {console.log(e); return null;})
+	async fetch_json(url) {
+		return fetch(url)
+			.then(r => r.json())
+			.catch(e => {
+				console.log(e); return null;
+			})
 	}
 
 	/**
@@ -385,7 +410,7 @@ class Tools {
 	 *
 	 * @returns {boolean} - `true` if the app is running in standalone mode, `false` otherwise.
 	 */
-	is_standalone(){
+	is_standalone() {
 		const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
 		if (document.referrer.startsWith('android-app://')) {
 			return true; // twa-pwa
@@ -400,25 +425,25 @@ class Tools {
 	 *
 	 * @returns {boolean} - `true` if the device has touch capabilities, `false` otherwise.
 	 */
-	is_touch_device(){
+	is_touch_device() {
 		return 'ontouchstart' in document.documentElement;
 	}
 
 
-	async is_installed(){
+	async is_installed() {
 		var listOfInstalledApps = []
-		if("getInstalledRelatedApps" in navigator){
-			listOfInstalledApps  = await navigator.getInstalledRelatedApps();
+		if ("getInstalledRelatedApps" in navigator) {
+			listOfInstalledApps = await navigator.getInstalledRelatedApps();
 		}
 		// console.log(listOfInstalledApps)
 		for (const app of listOfInstalledApps) {
-		// These fields are specified by the Web App Manifest spec.
-		console.log('platform:', app.platform);
-		console.log('url:', app.url);
-		console.log('id:', app.id);
+			// These fields are specified by the Web App Manifest spec.
+			console.log('platform:', app.platform);
+			console.log('url:', app.url);
+			console.log('id:', app.id);
 
-		// This field is provided by the UA.
-		console.log('version:', app.version);
+			// This field is provided by the UA.
+			console.log('version:', app.version);
 		}
 
 		return listOfInstalledApps
@@ -431,7 +456,7 @@ class Tools {
 		var ampm = hours >= 12 ? 'pm' : 'am';
 		hours = hours % 12;
 		hours = hours ? hours : 12; // the hour '0' should be '12'
-		minutes = minutes < 10 ? '0'+minutes : minutes;
+		minutes = minutes < 10 ? '0' + minutes : minutes;
 		var strTime = hours + ':' + minutes + ' ' + ampm;
 		return strTime;
 	}
@@ -444,10 +469,10 @@ class Tools {
 	 * @param {string} cvalue - The value of the cookie.
 	 * @param {number} [exdays=365] - The number of days until the cookie expires.
 	 */
-	setCookie(cname, cvalue, exdays=365) {
+	setCookie(cname, cvalue, exdays = 365) {
 		const d = new Date();
 		d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
-		let expires = "expires="+d.toUTCString();
+		let expires = "expires=" + d.toUTCString();
 		document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
 	}
 
@@ -461,14 +486,14 @@ class Tools {
 		let name = cname + "=";
 		let decodedCookie = decodeURIComponent(document.cookie);
 		let ca = decodedCookie.split(';');
-		for(let i = 0; i <ca.length; i++) {
-		let c = ca[i];
-		while (c.charAt(0) == ' ') {
-			c = c.substring(1);
-		}
-		if (c.indexOf(name) == 0) {
-			return c.substring(name.length, c.length);
-		}
+		for (let i = 0; i < ca.length; i++) {
+			let c = ca[i];
+			while (c.charAt(0) == ' ') {
+				c = c.substring(1);
+			}
+			if (c.indexOf(name) == 0) {
+				return c.substring(name.length, c.length);
+			}
 		}
 		return "";
 	}
@@ -478,8 +503,8 @@ class Tools {
 	 */
 	clear_cookie() {
 		document.cookie.split(";").forEach(c => {
-				document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-			}
+			document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+		}
 		);
 	}
 }
@@ -679,7 +704,7 @@ class Popup_Msg {
 		await this.dismiss();
 		config.popup_msg_open = false;
 		this.init();
-		console.log("Popup closed");
+		console.debug("Popup closed");
 	}
 
 	/**
@@ -818,9 +843,9 @@ class Toaster {
 	 * @param {string} [bgcolor=''] - The background color of the toast. If not provided, the default background color will be used.
 	 * @returns {Promise<void>}
 	 */
-	async toast(msg, time, bgcolor='') {
+	async toast(msg, time, bgcolor = '') {
 		// toaster is not safe as popup by design
-				var sleep = 3000;
+		var sleep = 3000;
 
 		while (this.queue.length > 2) {
 			await tools.sleep(100)
@@ -839,7 +864,7 @@ class Toaster {
 
 		toastBody.innerText = msg;
 		toastBody.classList.add("visible")
-		if(tools.is_defined(time)) sleep = time;
+		if (tools.is_defined(time)) sleep = time;
 		await tools.sleep(sleep)
 		toastBody.classList.remove("visible")
 		await tools.sleep(500)
@@ -864,7 +889,7 @@ var toaster = new Toaster()
  * @param {string} [options.y_msg="Yes"] - The text to display on the "yes" button.
  * @param {string} [options.n_msg="No"] - The text to display on the "no" button.
  */
-function r_u_sure({y=null_func, n=null, head="Are you sure", body="", y_msg="Yes",n_msg ="No"}={}) {
+function r_u_sure({ y = null_func, n = null, head = "Are you sure", body = "", y_msg = "Yes", n_msg = "No" } = {}) {
 	// popup_msg.close()
 	var box = createElement("div")
 	var msggg = createElement("p")
@@ -879,11 +904,11 @@ function r_u_sure({y=null_func, n=null, head="Are you sure", body="", y_msg="Yes
 	var n_btn = createElement("div");
 	n_btn.innerText = n_msg;//"Cancel"
 	n_btn.className = "pagination center";
-	n_btn.onclick = () => {return (n===null) ? popup_msg.close() : n()};
+	n_btn.onclick = () => { return (n === null) ? popup_msg.close() : n() };
 	box.appendChild(y_btn);
 	box.appendChild(line_break());
 	box.appendChild(n_btn);
-	popup_msg.createPopup(head, box) ; //"Are you sure?"
+	popup_msg.createPopup(head, box); //"Are you sure?"
 	popup_msg.open_popup();
 }
 
@@ -920,7 +945,7 @@ if (window.history && "pushState" in history) {
 		// guard against popstate event on chrome init
 		//log(evt.state)
 
-		if(HISTORY_ACTION.length){
+		if (HISTORY_ACTION.length) {
 			let action = HISTORY_ACTION.pop()
 			action()
 
@@ -928,11 +953,11 @@ if (window.history && "pushState" in history) {
 		}
 
 		const x = evt
-		if (x.state && x.state.url==window.location.href){
+		if (x.state && x.state.url == window.location.href) {
 			return false
 		}
 		location.reload(true);
-};
+	};
 
 }
 
