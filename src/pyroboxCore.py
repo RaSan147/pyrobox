@@ -30,7 +30,9 @@ import logging
 import atexit
 import os
 
-__version__ = "0.9.5"
+from typing import Type
+
+__version__ = "0.9.6"
 enc = "utf-8"
 DEV_MODE = False
 
@@ -57,8 +59,11 @@ F = f = false = False  # too lazy to type
 
 class Config:
 	def __init__(self):
+		self.server_init = False # if server is initialized
+		self.server_runner = None # server runner
 		# DEFAULT DIRECTORY TO LAUNCH SERVER
 		self.ftp_dir = "."  # DEFAULT DIRECTORY TO LAUNCH SERVER
+		self.bind = None # DEFAULT BIND ADDRESS
 
 		self.IP = None  # will be assigned by checking
 		self.protocol = "http"  # DEFAULT PROTOCOL TO LAUNCH SERVER
@@ -188,7 +193,7 @@ class Config:
 								help=('[Option] show this help message and exit'))
 
 
-		parser.add_argument('--no-extra-log',
+		parser.add_argument('--no-extra-log', '-nxl',
 							action='store_true',
 							default=False,
 							help="[Flag] Disable file path and [= + - #] based logs (default: %(default)s)")
@@ -237,6 +242,14 @@ class Tools:
 		"""
 		letters = string.ascii_lowercase
 		return ''.join(random.choice(letters) for i in range(length))
+
+	@staticmethod
+	def xpath(*path):
+		path:str = os.path.join(*path)
+		path = path.replace("\\", "/")
+		path = re.sub(r"/+", "/", path)
+
+		return path
 
 
 tools = Tools()
@@ -411,9 +424,6 @@ def URL_MANAGER(url: str):
 
 	return (path, dict_result, parse_result.fragment)
 
-if __name__ == "__main__":
-	print(URL_MANAGER('https://www.google.com'))
-	print(URL_MANAGER('https://www.google.com/store?page=10&limit=15&price=ASC#dskjfhs'))
 
 
 class HTTPServer(socketserver.TCPServer):
@@ -481,6 +491,41 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 	# Most web servers default to HTTP 0.9, i.e. don't send a status line.
 	default_request_version = "HTTP/0.9"
 
+	allow_star_CORS = dict() # list of methods that can be accessed by any origin
+	# {
+	# 	"GET": '*',
+	# 	"POST": '/',
+	# }
+	# ALL will be used for all methods (not defaults)
+	# use allow_CORS to add a method to the list (and Override ALL)
+	# DEFAULT: None
+
+
+
+	@staticmethod
+	def allowed_CORS(method) -> Union[str, None]:
+		"""Check if the method is allowed by the server"""
+		self = __class__
+		cors = self.allow_star_CORS.get(method.upper(), None)
+
+		return cors or self.allow_star_CORS.get("ALL", None)
+
+
+	@staticmethod
+	def allow_CORS(method, origin):
+		"""Add a method to the allowed list"""
+		self = __class__
+		method = method.upper()
+		self.allow_star_CORS[method] = origin
+
+		if method == "HEAD":
+			self.allow_star_CORS["GET"] = origin
+
+		if method == "GET":
+			self.allow_star_CORS["HEAD"] = origin
+
+
+
 	def parse_request(self):
 		"""Parse a request (internal).
 
@@ -493,6 +538,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		"""
 		self.command = ''  # set in case of error on the first line
+		self.method = ''  # set in case of error on the first line
 		self.request_version = version = self.default_request_version
 		self.close_connection = True
 		self.header_flushed = False # true when headers are flushed by self.flush_headers()
@@ -641,6 +687,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				# An error code has been sent, just exit
 				return
 			mname = 'do_' + self.command
+			self.method = self.command
+
 			if not hasattr(self, mname):
 				self.send_error(
 					HTTPStatus.NOT_IMPLEMENTED,
@@ -740,7 +788,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			message = shortmsg
 		if explain is None:
 			explain = longmsg
-		self.log_error("code", code, "message", message)
+		self.log_error("code", code, "message", message, "\n\n", "URL", self.path, "\nquery", self.query, "\nfragment", self.fragment, "\nmethod", self.method)
 		self.send_response(code, message)
 
 		self._send_cookie(cookie=cookie)
@@ -766,6 +814,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			body = content.encode('UTF-8', 'replace')
 			self.send_header("Content-Type", error_content_type)
 			self.send_header('Content-Length', str(len(body)))
+
+			# if user Overides the CORS policy
+			self.method = "ERROR"
+
 		self.end_headers()
 
 		if self.command != 'HEAD' and body:
@@ -840,6 +892,11 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 	def end_headers(self):
 		"""Send the blank line ending the MIME headers."""
+		
+		CORS_POLICY = self.allowed_CORS(self.method)
+		if self.allowed_CORS(self.method):
+			self.send_header('Access-Control-Allow-Origin', CORS_POLICY)
+
 		if self.request_version != 'HTTP/0.9':
 			self._headers_buffer.append(b"\r\n")
 			self.flush_headers()
@@ -1022,7 +1079,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			'.ogv': 'video/ogg',
 			'.ogg': 'application/ogg',
-			'm4a': 'audio/mp4',
+			'.m4a': 'audio/mp4',
 	})
 
 	handlers = {
@@ -1095,6 +1152,29 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.handlers[type].append((to_check, func))
 			return func
 		return decorator
+
+
+	@staticmethod
+	def alt_directory(dir, type='', url='', hasQ=(), QV={}, fragent='', url_regex='', func=null):
+		"""
+		alternative directory handler
+		"""
+		self = __class__
+		
+		@self.on_req(type, url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+		def alt_dir_function(self: Type[__class__], *args, **kwargs):
+			"""
+			re-direct request to specific directory
+			"""
+
+			file = self.url_path.split("/")[-1]
+			
+			if not os.path.exists(tools.xpath(dir, file)):
+				self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+				return None
+
+			return self.send_file(tools.xpath(dir, file))
+
 
 	def test_req(self, url='', hasQ=(), QV={}, fragent='', url_regex=''):
 		'''test if request is matched'
@@ -1187,7 +1267,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def redirect(self, location, cookie:Union[SimpleCookie, str]=None):
 		'''redirect to location'''
-		print("REDIRECT ", location)
+		self.log_info("REDIRECT ", location)
 		self.send_response(302)
 		self.send_header("Location", location)
 		self._send_cookie(cookie)
@@ -1273,8 +1353,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		C_encoding = None
 
+		filename = filename or os.path.basename(path)
+
 		try:
-			ctype = self.guess_type(path)
+			ctype = self.guess_type(filename)
 
 			# make sure texts are sent as utf-8
 			if ctype.startswith("text/"):
@@ -1356,8 +1438,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			if C_encoding:
 				self.send_header("Content-Encoding", C_encoding)
 
-			self.send_header("Content-Disposition", is_attachment+' filename="%s"' %
-							(os.path.basename(path) if filename is None else filename))
+			self.send_header("Content-Disposition", f'{is_attachment} filename="{filename}"')
 			self.end_headers()
 
 			return file
@@ -1379,6 +1460,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def send_file(self, path, filename=None, download=False, cache_control='', cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
 		file = self.return_file(path, filename, download, cache_control, cookie=cookie)
+		if not file: 
+			return # already flushed (with error/unchanged)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		try:
@@ -2014,7 +2097,7 @@ def get_ip(bind=None):
 	s.settimeout(0)
 	try:
 		# doesn't even have to be reachable
-		s.connect(('10.255.255.255', 1))
+		s.connect(('255.255.255.255', 1))
 		IP = s.getsockname()[0]
 	except:
 		try:
@@ -2029,7 +2112,70 @@ def get_ip(bind=None):
 	return IP
 
 
-def test(HandlerClass=BaseHTTPRequestHandler,
+
+_bind = None
+
+
+def _get_details():
+	if not config.server_init:
+		logger.warning("Server not initialized")
+		return
+
+	device_ip = _bind or "127.0.0.1"
+	# bind can be None (=> 127.0.0.1) or a string (=> 127.0.0.DDD)
+
+	# host, port = httpd.socket.getsockname()[:2]
+	# url_host = f'[{host}]' if ':' in host else host
+	hostname = socket.gethostname()
+	local_ip = config.IP if config.IP else get_ip(device_ip)
+	config.IP = local_ip
+
+	on_network = local_ip != (device_ip)
+
+	data = {
+		'port': config.port,
+		'hostname': hostname,
+		'local_ip': device_ip,
+		'on_network': on_network,
+		'network_address': config.address() # f"http://{IP}:{port}"
+	}
+
+	return data
+
+
+
+def _log_details(force):	
+	data = _get_details()
+
+	port = data['port'] # same as config.port
+	hostname = data['hostname']
+	local_ip = data['local_ip']
+	on_network = data['on_network']
+	network_address = data['network_address'] # f"http://{IP}:{port}" or config.address()
+
+
+	if force:
+		func = print
+	else:
+		func = logger.info
+
+	func(tools.text_box(
+		# TODO: need to check since the output is "Serving HTTP on :: port 6969"
+		# f"Serving HTTP on {host} port {port} \n",
+		# TODO: need to check since the output is "(http://[::]:6969/) ..."
+		# f"(http://{url_host}:{port}/) ...\n",
+		f"Serving HTTP on port {port} \n",
+		f"Server is probably running on\n",
+		(f"[over NETWORK] {network_address}\n" if on_network else ""),
+		f"[on DEVICE] http://localhost:{port} & http://{local_ip}:{port}", 
+		
+		style="star", sep=""
+	)
+	)
+
+
+
+def build(HandlerClass=BaseHTTPRequestHandler,
 		 ServerClass=ThreadingHTTPServer,
 		 protocol="HTTP/1.0", port=8000, bind=None):
 	"""Test the HTTP request handler class.
@@ -2038,45 +2184,15 @@ def test(HandlerClass=BaseHTTPRequestHandler,
 
 	"""
 
-	global httpd
 	if sys.version_info >= (3, 8):  # BACKWARD COMPATIBILITY
 		ServerClass.address_family, addr = _get_best_family(bind, port)
 	else:
 		addr = (bind if bind != None else '', port)
 
-	device_ip = bind or "127.0.0.1"
-	# bind can be None (=> 127.0.0.1) or a string (=> 127.0.0.DDD)
-
 	HandlerClass.protocol_version = protocol
 	httpd = ServerClass(addr, HandlerClass)
-	host, port = httpd.socket.getsockname()[:2]
-	url_host = f'[{host}]' if ':' in host else host
-	hostname = socket.gethostname()
-	local_ip = config.IP if config.IP else get_ip(device_ip)
-	config.IP = local_ip
 
-	on_network = local_ip != (device_ip)
-
-	logger.info(tools.text_box(
-		# TODO: need to check since the output is "Serving HTTP on :: port 6969"
-		f"Serving HTTP on {host} port {port} \n",
-		# TODO: need to check since the output is "(http://[::]:6969/) ..."
-		f"(http://{url_host}:{port}/) ...\n",
-		f"Server is probably running on\n",
-		(f"[over NETWORK] {config.address()}\n" if on_network else ""),
-		f"[on DEVICE] http://localhost:{config.port} & http://127.0.0.1:{config.port}", style="star", sep=""
-	)
-	)
-	try:
-		httpd.serve_forever(poll_interval=0.1)
-	except KeyboardInterrupt:
-		logger.info("\nKeyboard interrupt received, exiting.")
-
-	except OSError:
-		logger.info("\nOSError received, exiting.")
-	finally:
-		if not config.reload:
-			sys.exit(0)
+	return httpd
 
 
 class DualStackServer(ThreadingHTTPServer):  # UNSUPPORTED IN PYTHON 3.7
@@ -2096,7 +2212,11 @@ class DualStackServer(ThreadingHTTPServer):  # UNSUPPORTED IN PYTHON 3.7
 								 directory=config.ftp_dir)
 
 
-def run(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler):
+def init_server(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler):
+	global _bind
+
+	if config.server_init:
+		return config.server_runner
 
 	if arg_parse:
 		args = config.parse_default_args(
@@ -2106,9 +2226,10 @@ def run(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequest
 		directory = args.directory
 		bind = args.bind
 
+
 	logger.info(tools.text_box("Running pyroboxCore: ",
 				config.MAIN_FILE, "Version: ", __version__))
-
+	directory = directory.strip()
 	if directory == config.ftp_dir and not os.path.isdir(config.ftp_dir):
 		logger.warning(
 			config.ftp_dir, "not found!\nReseting directory to current directory")
@@ -2117,31 +2238,80 @@ def run(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequest
 	handler_class = partial(handler,
 							directory=directory)
 
-	config.port = port
 	if port > 65535 or port < 0:
 		raise ValueError("Port must be between 0 and 65535")
 
+	config.port = port
 	config.ftp_dir = directory
+	config.bind = bind
 
-	if not config.reload:
-		if sys.version_info > (3, 8):
-			test(
-				HandlerClass=handler_class,
-				ServerClass=DualStackServer,
-				port=port,
-				bind=bind,
-			)
-		else:  # BACKWARD COMPATIBILITY
-			test(
-				HandlerClass=handler_class,
-				ServerClass=ThreadingHTTPServer,
-				port=port,
-				bind=bind,
-			)
+	if sys.version_info > (3, 8):
+		return build(
+			HandlerClass=handler_class,
+			ServerClass=DualStackServer,
+			port=port,
+			bind=bind,
+		)
+	else:  # BACKWARD COMPATIBILITY
+		return build(
+			HandlerClass=handler_class,
+			ServerClass=ThreadingHTTPServer,
+			port=port,
+			bind=bind,
+		)
 
-	if config.reload == True:
-		reload_server()
+
+class EasyServerRunner:
+	def __init__(self, port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler):
+		self.httpd = init_server(
+			port=port,
+			directory=directory,
+			bind=bind,
+			arg_parse=arg_parse,
+			handler=handler
+		)
+
+	def run(self, poll_interval=0.1):
+		try:
+			self.httpd.serve_forever(poll_interval=poll_interval)
+		except KeyboardInterrupt:
+			logger.info("\nKeyboard interrupt received, exiting.")
+
+		except OSError:
+			logger.info("\nOSError received, exiting.")
+
+		except Exception as e:
+			logger.error(str(e ) + "\n" + traceback.format_exc())
+
+		finally:
+			self.stop()
+
+
+
+	def stop(self):
+		if self.httpd:
+			self.httpd.shutdown()
+			self.httpd.server_close()
+			logger.info("Server stopped")
+
+
+
+def runner(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler, force_log_server_details=False) -> EasyServerRunner:
+	
+	EasyServer = EasyServerRunner(
+		port=port,
+		directory=directory,
+		bind=bind,
+		arg_parse=arg_parse,
+		handler=handler
+	)
+	config.server_init = True
+	config.server_runner = EasyServer.httpd
+
+	_log_details(force_log_server_details)
+
+	return EasyServer
 
 
 if __name__ == '__main__':
-	run()
+	runner().run()

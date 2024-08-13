@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+
+
+
+	<noscript>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/material.min.css"
+			integrity="sha512-jA21084nir3cN96YuzJ1DbtDn30kxhxqQToAzCEGZcuRAswWfYirpUu8HVm8wRNoWDCYtA4iavd2Rb1bQSLv7g=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/mode/simple.js"
+			integrity="sha512-XVXmeKXwCPr9QCgdbZ6cyCU3oFMxapqhHBXHhK12Qj4x60NgwKdOLAU/khSaIqd8XMO9Ll+sUk68qHsGVKV0Dg=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/comment/comment.js"
+			integrity="sha512-0bMvrRMLo3lXLGa1Kg7mhVrcECel+u+IlEgO8tAGr+2JpRdhVyn1HzG2ownObRHgyo6jqWHL5drAgguYLXvwdA=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/edit/closebrackets.js"
+			integrity="sha512-33UpQMWsdyx6OY34VXpeFGBvg3Qs5RQJtPM+KzS9f5jPCeWYRHG1imKDZ9tHKeKh0Nsrjif5ApjECfiRvaf7WA=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/edit/matchtags.min.js"
+			integrity="sha512-wZDyiYRCXczD+UFYLUfsEag3MxJW/ev0CZ0rCTPt3Qcwr4J7LZHJM3XWa2VSEI0s3nGUjPmJRFhrPhgr/Z3Auw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/show-hint.js"
+			integrity="sha512-pjhQkESWQCP08lFbib1SNiOWyirUf6r5eNvAxTK4Ra3bVz3omuZW5+5kaFYNJy8R3DortMYLMXWwl0FegS3pKQ=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/show-hint.css"
+			integrity="sha512-8MR8AFnfQwZW7Ta4AhsbUdyipTivUNe+gFULBYDX6u7k7ER4R9K50kcOd88lq3OCUBKrkAW3jJ1+ooxhagkytw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true" />
+
+
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/edit/matchbrackets.min.js"
+			integrity="sha512-GSYCbN/le5gNmfAWVEjg1tKnOH7ilK6xCLgA7c48IReoIR2g2vldxTM6kZlN6o3VtWIe6fHu/qhwxIt11J8EBA=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/edit/matchtags.min.js"
+			integrity="sha512-wZDyiYRCXczD+UFYLUfsEag3MxJW/ev0CZ0rCTPt3Qcwr4J7LZHJM3XWa2VSEI0s3nGUjPmJRFhrPhgr/Z3Auw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/brace-fold.js"
+			integrity="sha512-jqVsoWMKldvELJpPPpZ8RAXHGwqD+CgkkwJyG3iR56q6evJmvRGn+j/Pc05WbMn2aSHny3BNibmaDlXeUOxbQw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/comment-fold.js"
+			integrity="sha512-2gjaUnSgU1c98mJSqoPLdjGRjmAvE1/c/f1gGCKrZj7NmICWBxTryXoemSm5XwJJGij4dpu0FnASJLXFe6PXWQ=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/foldcode.js"
+			integrity="sha512-xqeWt3lU4JbN8WVx2KJAmlwsUlV23EZIsmF2Vq+H4y2K6QyiSpLtQUy/9nfkQxryEuLtawV9OOgbFV8NsVU/jw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/foldgutter.css"
+			integrity="sha512-HNaL8iFjZj0wunEk3HwsjZ9gxJi5YScB+ENZHrh9F83gizg0Q4qu5GuPVjt6sUca1mZTZlPNLRNkjO9JdItYzA=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true" />
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/foldgutter.js"
+			integrity="sha512-gGVSfQt645mKt5f3nb9JzcdEaHXJP4St5zLxezQ1lG1wBNF4wen9WRGQpgBAEvSMl+mmxO98aVZ729Uky0ez6g=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/indent-fold.js"
+			integrity="sha512-xJQhpgTmfO1JqFvtRrtj70TA2P8/a7q4edAAOHf0D1Ge50lT8FiDS8JbQZWEz3RMQj+kk+WPdqj+4aQ35k9aFQ=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/markdown-fold.js"
+			integrity="sha512-8v0lwTfApI1tJLNkhZ77InRp27fVQJ5wiWuJPsNn2TBEZ261PgHyo+MRnJ7F97z2RKT4ZtPLPg4tklhYzEZ2ew=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/xml-fold.js"
+			integrity="sha512-an7xDlxso2K3iQvLTb/FRkv/prVGZ03MbpHgSGBUwCaheAZFgNqucSOX8iHbxclzbuDK9AgyFKiKZiXcfuNkdA=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- HTML/CSS/JS -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/xml/xml.js"
+			integrity="sha512-zWiFnvx+BKIYp7HwMXQRKR3SC8AiS6wQchjjjtAV9bt34F54fwJMB//7hVm0C+kQywyStbJ00u9i07Qw9ARuqQ=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/htmlmixed/htmlmixed.js"
+			integrity="sha512-ooMFWcVphTl+L7BsQk/PRDyUyFYH7f2QHjJ0kFvkTxJgMJS8XXPDJBZIrBtM0P7TCDOPjfQcnbx3s8hp27vraw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/javascript/javascript.js"
+			integrity="sha512-9bZKsY+97AQthWWS54sUIWxo0GkS0yPvSXStcMshHDVj9lCfLgzhSTr9xa+Ho0WKkRTKMm2yy8M+EG10n9u0iQ=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/css/css.js"
+			integrity="sha512-kbf0gMc1+KPTTDWkjkGwf3h2Nx4djnWBVtcCKJcwLQpQ/TIMAjRBKM9f0ZDgj9kT5WTs1Qzsq+5Si2p7j9whkg=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/css-hint.js"
+			integrity="sha512-jVhR8P9qIOgHv8Qzp48VW9ikWBbRNlnUMF3RwGg2v5qt7fMFkqC++0BPLqAVqphYugzPw97fN3ucA4y5VHQwNw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/html-hint.js"
+			integrity="sha512-IcVl8LCpYxYbuxd22+YC6FUZ+63sgfbUIBq1ED7KfttvDshDdA6ppRZuPQ015ZCqKuMHlFhyfAHmCAPiNHinLA=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/javascript-hint.js"
+			integrity="sha512-ycEaVez7l05b3OtpMnHx4vw4VBkUilkXqA7yQxURqLCfD3BrWM2iECJYMnJhEtbhfCOKVwI63F7IkBO1KNBzeQ=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/xml-hint.min.js"
+			integrity="sha512-+ysdToUF7KWua+mgbRPZ5hw0goAzopoVILQ4tejOckvVZV7/7a+Coqo2cTAXAaqkOemp+gz3P6hIzO5Jtys/Jg=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- C -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/clike/clike.js"
+			integrity="sha512-8BriEp3cRkqmcBqIT7n59KpFSZLoLbsELo15jhB0EKac1OwlHaPBbhKcmAIpdX78n64SewuBBt3YQ3nm/6f56Q=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+
+		<!-- Go -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/go/go.js"
+			integrity="sha512-SWijS33K0gw29/UIUJc393I2lgy5Zqcx5GO1I3KkFklMdNSYGyUd6kMY7fNTe4+TXYXmhVS3FYFc9LowMzYVSA=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- Markdown -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/markdown/markdown.js"
+			integrity="sha512-HO6T6BeQvqVauqK9yn7/pkoiaaowmxIbN0Q15kjsM/8oJJ3seJI0/DlEqlEosGrpNkhPowUkV9hvrVtB+rqoDw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- PHP -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/php/php.js"
+			integrity="sha512-tNEzfcTh693YiIdHguYBFneKkK0rr1nZ67QdknTOdFnnEtqvRUXwfnFg8bXijXk++3S3ZyG+ieVZE6ZySFHfTg=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- PowerShell -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/powershell/powershell.js"
+			integrity="sha512-S394ESqjej8wCXJgndF8N6DhUhBtevjyZisxO50XFQrtp/FiET76RlD9EHb/9I3Zcy6fWVzPb90G70XwcGipFw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- Python -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/python/python.js"
+			integrity="sha512-VxDG2s9lxlgx5vNBupiqqU6iL94CxGSnJ+wjRMz0Xu1Q8pjvcDTZsXVjxFwdY92ka47MTzqy0s4M19y+634i8g=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- R -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/r/r.js"
+			integrity="sha512-/nRUT37oaG2JpwUfwoKe/dSbeK8FY85TdXlPeqlLJbUvyjh5Qq6lk3indMhjNlN32pRXRfAqirCYk6SFXqpJ7g=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- Ruby -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/ruby/ruby.js"
+			integrity="sha512-Z8VTVG7cb2CQo+fKCt2zKhAnr0qRHdcPuUe7c2t1hlN5tFYe83D6MhAV1WhLdbuxAtmsjdNVBbkCeXV+DLYxYQ=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- Rust -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/rust/rust.js"
+			integrity="sha512-3qv2oWTO8qiBm6AGipwmsltv9VoKeE90C8Qrcmmb2zjZ5S2SJGFvRnMMtTr5tyApGAmgnbqIKylUu9Dq5zmOUA=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- TOML -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/toml/toml.js"
+			integrity="sha512-sn+huA26g3cle9G9IglLmhAQv/Xi8pKuMVbOonJg3Bw7FyYBPN6ezUO0hOFMuD3WTFFqWCop9wFPQglSfhJMiw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+
+		<!-- Yaml -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/yaml/yaml.js"
+			integrity="sha512-ZiOO/9fZCQ3JXFOb8idEuGVm//lSwSMTQj1zeIysULUf50MCwZbCThvwusF9HvoR3OBZVrWua0a7c9viUCUeiw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" async="true"></script>
+	</noscript>
+
+
+
+
+</head>
+
+<body>
+	<!--add a button to toggle readonly  -->
+	<button id="EditorROToggle">Toggle Readonly</button> <span id="EditorROStatus">Read Only</span>
+
+
+	<div id="editor">
+		<textarea name="RawText" id="RawTextBox" style="display: none;">Fun test</textarea>
+	</div>
+	
+	<div class="editorOptions">
+		<div class="textDownloadBTN">Download</div>
+		<div class="saveNupload">Save and Upload it</div>
+	</div>
+
+
+
+	<script src="/?script_global"></script>
+
+	
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.js"
+		integrity="sha512-4i/wqLBUQRN1JXTwHTYjnZXUVi57tiOAMehaWWLqCXJpaIz9tgtOKJuEPUuBZ0+G7Bh/XJIsU/+gTCHBOWlFTw=="
+		crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.css"
+		integrity="sha512-7vaQ4LLdaXd2IuMd4MUQ6LRFIGbEwJI1aq6KYqL3RjbdQyUkRFhwZKmqmkBXurTFdGlx687lTN8FSJfX6Df8Gw=="
+		crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+
+
+	<script>
+
+		class Editor_Init {
+
+			constructor() {
+
+				this.addons_loaded = false;
+				this.editor;
+				this.textAreaEditor = document.getElementById("RawTextBox");
+
+				this.readOnly_toggle = document.getElementById('EditorROToggle');
+				this.readOnly_status = document.getElementById('EditorROStatus');
+				this.is_readOnly = true
+				this.CodeMirror = !(typeof (CodeMirror) === "undefined" || CodeMirror === null)
+
+				this.initialize()
+			}
+
+			get readOnly() {
+				return this.is_readOnly;
+			}
+
+			set readOnly(boolVal) {
+				if (boolVal) {
+					this.readOnly_status.innerText = "Read Only"
+				} else {
+					this.readOnly_status.innerText = "Write Allowed"
+				}
+				this.is_readOnly = boolVal
+			}
+
+			initialize() {
+				if (this.CodeMirror) {
+					this.init_CodeMirror()
+				} else {
+					this.init_textArea()
+				}
+			}
+
+			async init_CodeMirror() {
+				this.textAreaEditor.style.display = "none";
+
+				await this.load_addons()
+				toaster.toast("Loading", "skyblue")
+				await tools.sleep(1500)
+
+				this.editor = CodeMirror(document.getElementById('editor'), {
+					value: '<h1>Hello, World!</h1>',
+					mode: 'htmlmixed',
+					theme: 'material',
+					lineNumbers: true,
+					lineWrapping: true,
+				});
+
+				// Set readonly as default behavior
+				this.editor.setOption('readOnly', true)
+
+				// Read only setter
+				this.readOnly_toggle.addEventListener('click', () => {
+					if (this.editor.getOption('readOnly')){
+						this.readOnly = false;
+					} else {
+						this.readOnly = true
+					}
+					this.editor.setOption('readOnly', !this.editor.getOption('readOnly'));
+				});
+			}
+
+			async init_textArea() {
+				this.textAreaEditor.style.display = "block"
+				this.editor = this.textAreaEditor;
+
+				console.log(this.editor.value)
+
+
+				// Set readonly as default behavior
+				this.editor.setAttribute("readonly", 'true')
+
+				// Read only setter
+				this.readOnly_toggle.addEventListener('click', () => {
+					if (this.editor.hasAttribute("readonly")) {
+						this.editor.removeAttribute("readonly")
+						this.readOnly = false
+					} else {
+						this.editor.setAttribute("readonly", 'true')
+						this.readOnly = true
+					}
+				});
+			}
+
+			async load_addons() {
+
+				if (this.addons_loaded) return true;
+
+				tools.add_css(href = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/material.min.css", { integrity: "sha512-jA21084nir3cN96YuzJ1DbtDn30kxhxqQToAzCEGZcuRAswWfYirpUu8HVm8wRNoWDCYtA4iavd2Rb1bQSLv7g==", crossorigin: "anonymous", referrerpolicy: "no-referrer" })
+
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/mode/simple.js", { integrity: "sha512-XVXmeKXwCPr9QCgdbZ6cyCU3oFMxapqhHBXHhK12Qj4x60NgwKdOLAU/khSaIqd8XMO9Ll+sUk68qHsGVKV0Dg==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/comment/comment.js", { integrity: "sha512-0bMvrRMLo3lXLGa1Kg7mhVrcECel+u+IlEgO8tAGr+2JpRdhVyn1HzG2ownObRHgyo6jqWHL5drAgguYLXvwdA==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/edit/closebrackets.js", { integrity: "sha512-33UpQMWsdyx6OY34VXpeFGBvg3Qs5RQJtPM+KzS9f5jPCeWYRHG1imKDZ9tHKeKh0Nsrjif5ApjECfiRvaf7WA==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/edit/matchtags.min.js", { integrity: "sha512-wZDyiYRCXczD+UFYLUfsEag3MxJW/ev0CZ0rCTPt3Qcwr4J7LZHJM3XWa2VSEI0s3nGUjPmJRFhrPhgr/Z3Auw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/show-hint.js", { integrity: "sha512-pjhQkESWQCP08lFbib1SNiOWyirUf6r5eNvAxTK4Ra3bVz3omuZW5+5kaFYNJy8R3DortMYLMXWwl0FegS3pKQ==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_css(href = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/show-hint.css", { integrity: "sha512-8MR8AFnfQwZW7Ta4AhsbUdyipTivUNe+gFULBYDX6u7k7ER4R9K50kcOd88lq3OCUBKrkAW3jJ1+ooxhagkytw==", crossorigin: "anonymous", referrerpolicy: "no-referrer" })
+
+
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/edit/matchbrackets.min.js", { integrity: "sha512-GSYCbN/le5gNmfAWVEjg1tKnOH7ilK6xCLgA7c48IReoIR2g2vldxTM6kZlN6o3VtWIe6fHu/qhwxIt11J8EBA==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/edit/matchtags.min.js", { integrity: "sha512-wZDyiYRCXczD+UFYLUfsEag3MxJW/ev0CZ0rCTPt3Qcwr4J7LZHJM3XWa2VSEI0s3nGUjPmJRFhrPhgr/Z3Auw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/brace-fold.js", { integrity: "sha512-jqVsoWMKldvELJpPPpZ8RAXHGwqD+CgkkwJyG3iR56q6evJmvRGn+j/Pc05WbMn2aSHny3BNibmaDlXeUOxbQw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/comment-fold.js", { integrity: "sha512-2gjaUnSgU1c98mJSqoPLdjGRjmAvE1/c/f1gGCKrZj7NmICWBxTryXoemSm5XwJJGij4dpu0FnASJLXFe6PXWQ==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/foldcode.js", { integrity: "sha512-xqeWt3lU4JbN8WVx2KJAmlwsUlV23EZIsmF2Vq+H4y2K6QyiSpLtQUy/9nfkQxryEuLtawV9OOgbFV8NsVU/jw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_css(href = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/foldgutter.css", { integrity: "sha512-HNaL8iFjZj0wunEk3HwsjZ9gxJi5YScB+ENZHrh9F83gizg0Q4qu5GuPVjt6sUca1mZTZlPNLRNkjO9JdItYzA==", crossorigin: "anonymous", referrerpolicy: "no-referrer" })
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/foldgutter.js", { integrity: "sha512-gGVSfQt645mKt5f3nb9JzcdEaHXJP4St5zLxezQ1lG1wBNF4wen9WRGQpgBAEvSMl+mmxO98aVZ729Uky0ez6g==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/indent-fold.js", { integrity: "sha512-xJQhpgTmfO1JqFvtRrtj70TA2P8/a7q4edAAOHf0D1Ge50lT8FiDS8JbQZWEz3RMQj+kk+WPdqj+4aQ35k9aFQ==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/markdown-fold.js", { integrity: "sha512-8v0lwTfApI1tJLNkhZ77InRp27fVQJ5wiWuJPsNn2TBEZ261PgHyo+MRnJ7F97z2RKT4ZtPLPg4tklhYzEZ2ew==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/fold/xml-fold.js", { integrity: "sha512-an7xDlxso2K3iQvLTb/FRkv/prVGZ03MbpHgSGBUwCaheAZFgNqucSOX8iHbxclzbuDK9AgyFKiKZiXcfuNkdA==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+
+				// <!-- HTML/CSS/JS -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/xml/xml.js", { integrity: "sha512-zWiFnvx+BKIYp7HwMXQRKR3SC8AiS6wQchjjjtAV9bt34F54fwJMB//7hVm0C+kQywyStbJ00u9i07Qw9ARuqQ==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/htmlmixed/htmlmixed.js", { integrity: "sha512-ooMFWcVphTl+L7BsQk/PRDyUyFYH7f2QHjJ0kFvkTxJgMJS8XXPDJBZIrBtM0P7TCDOPjfQcnbx3s8hp27vraw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/javascript/javascript.js", { integrity: "sha512-9bZKsY+97AQthWWS54sUIWxo0GkS0yPvSXStcMshHDVj9lCfLgzhSTr9xa+Ho0WKkRTKMm2yy8M+EG10n9u0iQ==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/css/css.js", { integrity: "sha512-kbf0gMc1+KPTTDWkjkGwf3h2Nx4djnWBVtcCKJcwLQpQ/TIMAjRBKM9f0ZDgj9kT5WTs1Qzsq+5Si2p7j9whkg==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/css-hint.js", { integrity: "sha512-jVhR8P9qIOgHv8Qzp48VW9ikWBbRNlnUMF3RwGg2v5qt7fMFkqC++0BPLqAVqphYugzPw97fN3ucA4y5VHQwNw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/html-hint.js", { integrity: "sha512-IcVl8LCpYxYbuxd22+YC6FUZ+63sgfbUIBq1ED7KfttvDshDdA6ppRZuPQ015ZCqKuMHlFhyfAHmCAPiNHinLA==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/javascript-hint.js", { integrity: "sha512-ycEaVez7l05b3OtpMnHx4vw4VBkUilkXqA7yQxURqLCfD3BrWM2iECJYMnJhEtbhfCOKVwI63F7IkBO1KNBzeQ==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/hint/xml-hint.min.js", { integrity: "sha512-+ysdToUF7KWua+mgbRPZ5hw0goAzopoVILQ4tejOckvVZV7/7a+Coqo2cTAXAaqkOemp+gz3P6hIzO5Jtys/Jg==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+
+				// <!-- C -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/clike/clike.js", { integrity: "sha512-8BriEp3cRkqmcBqIT7n59KpFSZLoLbsELo15jhB0EKac1OwlHaPBbhKcmAIpdX78n64SewuBBt3YQ3nm/6f56Q==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+
+
+				// <!-- Go -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/go/go.js", { integrity: "sha512-SWijS33K0gw29/UIUJc393I2lgy5Zqcx5GO1I3KkFklMdNSYGyUd6kMY7fNTe4+TXYXmhVS3FYFc9LowMzYVSA==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+
+				// <!-- Markdown -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/markdown/markdown.js", { integrity: "sha512-HO6T6BeQvqVauqK9yn7/pkoiaaowmxIbN0Q15kjsM/8oJJ3seJI0/DlEqlEosGrpNkhPowUkV9hvrVtB+rqoDw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoad: "true" });
+
+				// <!-- PHP -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/php/php.js", { integrity: "sha512-tNEzfcTh693YiIdHguYBFneKkK0rr1nZ67QdknTOdFnnEtqvRUXwfnFg8bXijXk++3S3ZyG+ieVZE6ZySFHfTg==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoadLoad: "true" });
+
+				// <!-- PowerShell -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/powershell/powershell.js", { integrity: "sha512-S394ESqjej8wCXJgndF8N6DhUhBtevjyZisxO50XFQrtp/FiET76RlD9EHb/9I3Zcy6fWVzPb90G70XwcGipFw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoadLoad: "true" });
+
+				// <!-- Python -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/python/python.js", { integrity: "sha512-VxDG2s9lxlgx5vNBupiqqU6iL94CxGSnJ+wjRMz0Xu1Q8pjvcDTZsXVjxFwdY92ka47MTzqy0s4M19y+634i8g==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoadLoad: "true" });
+
+				// <!-- R -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/r/r.js", { integrity: "sha512-/nRUT37oaG2JpwUfwoKe/dSbeK8FY85TdXlPeqlLJbUvyjh5Qq6lk3indMhjNlN32pRXRfAqirCYk6SFXqpJ7g==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoadLoad: "true" });
+
+				// <!-- Ruby -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/ruby/ruby.js", { integrity: "sha512-Z8VTVG7cb2CQo+fKCt2zKhAnr0qRHdcPuUe7c2t1hlN5tFYe83D6MhAV1WhLdbuxAtmsjdNVBbkCeXV+DLYxYQ==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoadLoad: "true" });
+
+				// <!-- Rust -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/rust/rust.js", { integrity: "sha512-3qv2oWTO8qiBm6AGipwmsltv9VoKeE90C8Qrcmmb2zjZ5S2SJGFvRnMMtTr5tyApGAmgnbqIKylUu9Dq5zmOUA==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoadLoad: "true" });
+
+				// <!-- TOML -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/toml/toml.js", { integrity: "sha512-sn+huA26g3cle9G9IglLmhAQv/Xi8pKuMVbOonJg3Bw7FyYBPN6ezUO0hOFMuD3WTFFqWCop9wFPQglSfhJMiw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoadLoad: "true" });
+
+				// <!-- Yaml -->
+				tools.add_script(src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/yaml/yaml.js", { integrity: "sha512-ZiOO/9fZCQ3JXFOb8idEuGVm//lSwSMTQj1zeIysULUf50MCwZbCThvwusF9HvoR3OBZVrWua0a7c9viUCUeiw==", crossorigin: "anonymous", referrerpolicy: "no-referrer", asyncLoadLoad: "true" });
+
+
+				this.addons_loaded = true;
+
+			}
+		}
+
+		var text_editor = new Editor_Init();
+	</script>
+
+</body>
+
+</html>
