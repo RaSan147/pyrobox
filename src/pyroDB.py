@@ -172,11 +172,11 @@ class PickleDB(object):
 		self.in_memory = True
 		return
 
-	def rescan(self):
+	def rescan(self, rescan=True):
 		"""
 		Rescan the file for changes
 		"""
-		if self.in_memory:
+		if self.in_memory or not rescan:
 			return
 		if os.path.exists(self.location):
 			m_time = os.stat(self.location).st_mtime
@@ -291,7 +291,7 @@ class PickleDB(object):
 		self.validate_key(key)
 
 		self.db[key] = value
-		self.auto_dump(AD=AD)
+		self._autodumpdb(AD=AD)
 		return True
 
 
@@ -664,8 +664,7 @@ class PickleTable(dict):
 		"""
 		Rescan the file for changes
 		"""
-		if rescan:
-			self._pk.rescan()
+		self._pk.rescan(rescan=rescan)
 
 	def unlink(self):
 		"""
@@ -916,11 +915,13 @@ class PickleTable(dict):
 		"""
 		return self.row(self.ids.index(row_id), _columns=_columns, rescan=rescan)
 
-	def row_obj(self, row):
+	def row_obj(self, row, loop_back=False):
 		"""
 		Return a row object `_PickleTRow` in db
 		- row: row index
 		"""
+		if loop_back:
+			row = row % self.height
 		return _PickleTRow(source=self,
 			uid=self.ids[row],
 			CC=self.CC)
@@ -943,6 +944,9 @@ class PickleTable(dict):
 
 		if sep == 0:
 			raise ValueError("sep cannot be zero")
+
+		if self.height==0:
+			return []
 
 		if end is None: # end of the table
 			end = self.height
@@ -1059,7 +1063,7 @@ class PickleTable(dict):
 					if check(kw, i):
 						yield ret(col=col, row=r)
 
-	def search_iter_row(self, kw, column=None , row=None, full_match=False, return_obj=True) -> Generator["_PickleTRow", None, None]:
+	def search_iter_row(self, kw, column=None , row=None, full_match=False, return_obj=True, rescan=True) -> Generator["_PickleTRow", None, None]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the row object in loop
 		- kw: keyword to search
@@ -1075,17 +1079,22 @@ class PickleTable(dict):
 			print(row)
 		```
 		"""
-		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=True):
-			yield cell.row_obj()
+		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=True, rescan=rescan):
+			row_ = cell.row_obj()
+			if return_obj:
+				yield row_
+			else:
+				yield row_.to_dict()
 
-	def search(self, kw, column=None , row=None, full_match=False, return_obj=True, return_row=False) -> list[Union["_PickleTCell", "_PickleTRow"]]:
+	def search(self, kw, column=None , row=None, full_match=False, return_obj=True, return_row=False, rescan=True) -> list[Union["_PickleTCell", "_PickleTRow"]]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the cell object in loop
 		- kw: keyword to search
 		- column: column name
 		- row: row index
 		- full_match: search for full match (default: `False`)
-		- return_obj: return cell object instead of value (default: `True`)
+		- return_obj: return cell/row object instead of value (default: `True`)
+		- return_row: return row object instead of cell object (default: `False`)
 		- return: cell object
 
 		ie: 
@@ -1095,16 +1104,21 @@ class PickleTable(dict):
 		```
 		"""
 		ret = []
-		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=True):
+		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=True, rescan=rescan):
 			if return_row:
-				ret.append(cell.row_obj())
+				row_ = cell.row_obj()
+				if return_obj:
+					ret.append(row_)
+				else:
+					ret.append(row_.to_dict())
+
 			else:
 				ret.append(cell if return_obj else cell.value)
 
 		return ret
 
 
-	def find_1st(self, kw, column=None , row=None, full_match=False, return_obj=True) -> Union["_PickleTCell", None]:
+	def find_1st(self, kw, column=None , row=None, full_match=False, return_obj=True, rescan=True) -> Union["_PickleTCell", None]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the 1st matched cell object
 		- kw: keyword to search
@@ -1124,10 +1138,10 @@ class PickleTable(dict):
 		if column and column not in column_names:
 			raise KeyError("Invalid column name:", column, '\nAvailable columns:', column_names)
 
-		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=return_obj):
+		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=return_obj, rescan=rescan):
 			return cell
 		
-	def find_1st_row(self, kw, column=None , row=None, full_match=False, return_obj=True) -> Union["_PickleTRow", None]:
+	def find_1st_row(self, kw, column=None , row=None, full_match=False, return_obj=True, rescan=True) -> Union["_PickleTRow", None]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the 1st matched row object
 
@@ -1148,8 +1162,8 @@ class PickleTable(dict):
 		if column and column not in column_names:
 			raise KeyError("Invalid column name:", column, '\nAvailable columns:', column_names)
 
-		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=True):
-			return cell.row_obj() if return_obj else cell.row
+		for row in self.search_iter_row(kw, column=column , row=row, full_match=full_match, return_obj=return_obj, rescan=rescan):
+			return row
 
 
 	def set_cell(self, col, row, val, AD=True, rescan=True):
@@ -1233,6 +1247,8 @@ class PickleTable(dict):
 		"""
 
 		if row>-1:
+			if row>=self.height:
+				raise IndexError(f"Invalid row index. [expected: 0 to {self.height-1}] [got: {row}]")
 			return _PickleTCell(self, column=col, row_id=self.ids[row], CC=self.CC)
 		if row_id>-1:
 			return _PickleTCell(self, column=col, row_id=row_id, CC=self.CC)
@@ -1493,21 +1509,32 @@ class PickleTable(dict):
 		def get_next(row: "_PickleTRow"):
 			try:
 				return row.next()
-			except Exception:
+			except IndexError:
 				return None
 
 		row = self.row_obj(0)
-		while row is not None:
-			next = get_next(row)
-			while next is not None:
-				if any(next[col]!=row[col] for col in columns):
-					next = get_next(next)
-				else:
-					_next = get_next(next)
-					next.del_row()
-					next = _next
+		# while row is not None:
+		# 	next = get_next(row)
+		# 	while next is not None:
+		# 		if any(next[col]!=row[col] for col in columns):
+		# 			next = get_next(next)
+		# 		else:
+		# 			_next = get_next(next)
+		# 			next.del_row()
+		# 			next = _next
 
-			row = get_next(row)
+		# 	row = get_next(row)
+
+		seen_rows = set()
+		while row is not None:
+			row_key = tuple(row[col] for col in columns)
+			if row_key in seen_rows:
+				next_row = get_next(row)
+				row.del_row()
+				row = next_row
+			else:
+				seen_rows.add(row_key)
+				row = get_next(row)
 
 		self.auto_dump(AD=AD)
 
@@ -1611,8 +1638,10 @@ class PickleTable(dict):
 			if ignore_none and all(v is None for v in row):
 				return
 
+			new_row = {k: v for k, v in zip(self.column_names_func(rescan=False), row)}
+			
+			self.add_row(new_row, AD=False)
 
-			self.add_row({k: v for k, v in zip(columns_names, row)}, AD=False)
 
 		self.clear(AD=False)
 
@@ -1625,13 +1654,13 @@ class PickleTable(dict):
 					if col is None:
 						col = f"Unnamed-{len(updated_columns)+1}"
 					updated_columns.append(col)
-				self.add_column(updated_columns, exist_ok=True, AD=False)
+				self.add_column(updated_columns, exist_ok=True, AD=False, rescan=False)
 
 			elif isinstance(header, str) and header.lower() == "auto":
 				row = next(reader)
 				columns = [_int_to_alpha(i) for i in range(len(row))]
 				
-				self.add_column(columns, exist_ok=True, AD=False)		
+				self.add_column(columns, exist_ok=True, AD=False, rescan=False)	
 				add_row(row)
 			else:
 				columns = columns_names
@@ -1937,11 +1966,14 @@ class _PickleTRow(dict):
 	def items(self):
 		return list(self.items_iter())
 
-	def next(self):
+	def next(self, loop_back=False):
 		"""
 		returns the next row object
 		"""
-		return self.source.row_obj(self.index()+1)
+		pos = self.index()+1
+		if loop_back:
+			pos = pos%self.source.height
+		return self.source.row_obj(pos)
 
 	def del_row(self):
 		"""
