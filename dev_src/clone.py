@@ -234,12 +234,41 @@ def clone(url, path = "./", overwrite = False, check_exist = "date", delete_extr
 
 
 if __name__ == "__main__":
-	clone(
-		url="http://192.168.0.108:6969/7%2C%2CVP%20%20424-425/", 
-		path="./", 
-		overwrite=False, 
-		check_exist="date+", 
-		delete_extras=False
+	url = input("URL: ")
+	path = input("Save to: ")
+
+	overwrite = False
+	o = input("Overwrite? (y/n) [Default: n]: ")
+	if o.lower() == "y":
+		overwrite = True
+
+	check_exist = "date+"
+	o = None
+	while not o:
+		o = input("Check exist? (date/date+/size) [Default: date+]: ")
+		if o in ["date", "date+", "size"]:
+			check_exist = o
+		else:
+			o = None
+
+	delete_extras = False
+	o = input("Delete extras? (y/n) [Default: n]: ")
+	if o.lower() == "y":
+		delete_extras = True
+
+	# clone(
+	# 	url="http://192.168.0.108:6969/7%2C%2CVP%20%20424-425/", 
+	# 	path="./", 
+	# 	overwrite=False, 
+	# 	check_exist="date+", 
+	# 	delete_extras=False
+	# )
+
+	clone(url=url,
+		path=path,
+		overwrite=overwrite,
+		check_exist=check_exist,
+		delete_extras=delete_extras
 	)
 
 	for future in as_completed(futures):
