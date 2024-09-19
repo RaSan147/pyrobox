@@ -38,7 +38,7 @@
 * 🧨 RELOAD SERVER FROM REMOTE [DEBUG PURPOSE]
 * 🆕 FOLDER CREATION
 * 💬 Pop-up messages UI(from my Web leach repo)
-* 🌐 (Didn't test yet) If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (also vulnerable, since you can't control access *yet*)
+* 🌐 (If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (you must use port forwarding from Router)
 * 🧬 Clone entire directory from Host to Client with least changes (last modified preserved)
 * 🔜 More comming soon
 * All of these without the need of any internet connection (having connection will provide better experience)
@@ -105,7 +105,7 @@ https://github.com/RaSan147/pyrobox/assets/34002411/eb2ac313-f95a-4334-a265-c3fe
 
 1. Optional configurations
 
-usage: `local_server_pyrobox.py [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--no-delete] [--no-download] [--read-only] [--view-only] [--bind ADDRESS] [--directory DIRECTORY] [--version] [-h] [port]`
+usage: `pyrobox [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--no-delete] [--no-download] [--read-only] [--view-only] [--bind ADDRESS] [--directory DIRECTORY] [--version] [-h] [port]`
 
 ## Positional Arguments
 
