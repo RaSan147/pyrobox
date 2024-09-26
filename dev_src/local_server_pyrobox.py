@@ -1620,6 +1620,8 @@ def default_post(self: SH, *args, **kwargs):
 
 # proxy for old versions
 def run(*args, **kwargs):
+	SH.allow_CORS(method='GET', origin='*')
+
 	runner = pyroboxRunner(handler=SH, *args, **kwargs)
 
 	url = CoreConfig.address()

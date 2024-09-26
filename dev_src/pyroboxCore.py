@@ -502,8 +502,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 
 
-	@staticmethod
-	def allowed_CORS(method) -> Union[str, None]:
+	@classmethod
+	def allowed_CORS(self, method) -> Union[str, None]:
 		"""Check if the method is allowed by the server"""
 		self = __class__
 		cors = self.allow_star_CORS.get(method.upper(), None)
@@ -511,9 +511,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		return cors or self.allow_star_CORS.get("ALL", None)
 
 
-	@staticmethod
-	def allow_CORS(method, origin):
-		"""Add a method to the allowed list"""
+	@classmethod
+	def allow_CORS(self, method, origin):
+		"""Add a method to the allowed list
+		
+		`method` = `GET`, `POST`, `PUT`, `DELETE`, `HEAD`, `OPTIONS`, `PATCH`\n
+		`origin` = `*`, `http://example.com`, `https://example.com`, `http://example.com:8080`, `https://example.com:8080`
+		"""
 		self = __class__
 		method = method.upper()
 		self.allow_star_CORS[method] = origin
@@ -523,8 +527,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 		if method == "GET":
 			self.allow_star_CORS["HEAD"] = origin
-
-
 
 	def parse_request(self):
 		"""Parse a request (internal).

@@ -2265,7 +2265,7 @@ if __name__ == "__main__":
 		dt = time.perf_counter()
 		tb.dump()
 		tt = time.perf_counter()
-		print(f"dump time: {tt-dt}s")
+		print(f"⏱️ DUMP time: {tt-dt}s")
 
 		dt = time.perf_counter()
 		# col = tb.column_obj("x")
@@ -2274,7 +2274,7 @@ if __name__ == "__main__":
 
 		tb.find_1st(20, column="x").set(1000)
 		tt = time.perf_counter()
-		print(f"remove time: {tt-dt}s")
+		print(f"⏱️ REMOVE time: {tt-dt}s")
 
 
 		print(tb)
@@ -2303,12 +2303,12 @@ if __name__ == "__main__":
 
 		et = time.perf_counter()
 
-		print(f"Assigned test in {et - st}s")
+		print(f"⏱️ Assigned test in {et - st}s")
 		# print(tb)
 		dt = time.perf_counter()
 		tb.dump()
 		tt = time.perf_counter()
-		print(f"dump time: {tt-dt}s")
+		print(f"⏱️ DUMP time: {tt-dt}s")
 
 		print("="*50)
 
@@ -2322,13 +2322,20 @@ if __name__ == "__main__":
 
 		et = time.perf_counter()
 
-		print(f"Search 'abc' test in {et - st}s in {tb.height} rows")
+		print(f"⏱️🔍 Search 'abc' test in {et - st}s in {tb.height} rows")
 
 		# for cell in cells:
 		# 	print(cell.row_obj())
 		print(tabulate(cells, headers="keys", tablefmt="simple_grid"))
 
-		tb.to_csv("test.csv")
+
+		print("="*50)
+		print("\n\n Convert to csv test")
+		st = time.perf_counter()
+		tb.to_csv(f"test{st}.csv")
+		et = time.perf_counter()
+		print(f"⏱️ Convert to csv test in {et - st}s")
+		os.remove(f"test{st}.csv")
 
 
 		print("="*50)

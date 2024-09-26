@@ -6,6 +6,7 @@ setup(
         'natsort',
         "send2trash",
         "msgpack",
+        "tabulate2",
         "pyqrcode",
     ],
     entry_points='''
