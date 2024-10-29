@@ -24,7 +24,7 @@ import email.utils
 import datetime
 import argparse
 from string import Template
-from typing import Union
+from typing import List, Union
 from queue import Queue
 import logging
 import atexit
@@ -573,21 +573,21 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			except (ValueError, IndexError):
 				self.send_error(
 					HTTPStatus.BAD_REQUEST,
-					"Bad request version (%r)" % version)
+					message="Bad request version (%r)" % version)
 				return False
 			if version_number >= (1, 1) and self.protocol_version >= "HTTP/1.1":
 				self.close_connection = False
 			if version_number >= (2, 0):
 				self.send_error(
 					HTTPStatus.HTTP_VERSION_NOT_SUPPORTED,
-					"Invalid HTTP version (%s)" % base_version_number)
+					message="Invalid HTTP version (%s)" % base_version_number)
 				return False
 			self.request_version = version
 
 		if not 2 <= len(words) <= 3:
 			self.send_error(
 				HTTPStatus.BAD_REQUEST,
-				"Bad request syntax (%r)" % requestline)
+				message="Bad request syntax (%r)" % requestline)
 			return False
 		command, path = words[:2]
 		if len(words) == 2:
@@ -595,7 +595,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			if command != 'GET':
 				self.send_error(
 					HTTPStatus.BAD_REQUEST,
-					"Bad HTTP/0.9 request type (%r)" % command)
+					message="Bad HTTP/0.9 request type (%r)" % command)
 				return False
 		self.command, self.path = command, path
 
@@ -614,14 +614,14 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		except http.client.LineTooLong as err:
 			self.send_error(
 				HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
-				"Line too long",
-				str(err))
+				message="Line too long",
+				explain=str(err))
 			return False
 		except http.client.HTTPException as err:
 			self.send_error(
 				HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
-				"Too many headers",
-				str(err)
+				message="Too many headers",
+				explain=str(err)
 			)
 			return False
 
@@ -694,7 +694,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			if not hasattr(self, mname):
 				self.send_error(
 					HTTPStatus.NOT_IMPLEMENTED,
-					"Unsupported method (%r)" % self.command)
+					message="Unsupported method (%r)" % self.command)
 				return
 			method = getattr(self, mname)
 
@@ -1082,6 +1082,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			'.ogv': 'video/ogg',
 			'.ogg': 'application/ogg',
 			'.m4a': 'audio/mp4',
+
+			'.br': 'application/x-brotli',
 	})
 
 	handlers = {
@@ -1277,7 +1279,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 
-	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
+	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None, cache_control=""):
 		'''returns only the head to client
 		and returns a file object to be used by copyfile'''
 		self.log_debug(f'[RETURNED] {code} to client')
@@ -1301,16 +1303,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		self._send_cookie(cookie)
 
-
-
 		self.send_header("Content-Type", content_type)
 		self.send_header("Content-Length", str(len(encoded)))
+
+		if cache_control:
+			self.send_header("Cache-Control", cache_control)
 		self.end_headers()
 		return box
 
 	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
-		file = self.return_txt(msg, code, content_type, cookie)
+		file = self.return_txt(msg, code, content_type, cookie, cache_control="no-cache")
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
@@ -1368,6 +1371,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			if ctype == "application/gzip" and "gzip" in self.headers.get("Accept-Encoding", ""):
 				C_encoding = "gzip"
 
+			if ctype == "application/x-brotli" and "br" in self.headers.get("Accept-Encoding", ""):
+				C_encoding = "br"
+
 			file = open(path, 'rb')
 			fs = os.fstat(file.fileno())
 
@@ -1396,6 +1402,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 						if last_modif <= ims:
 							self.send_response(HTTPStatus.NOT_MODIFIED)
+							self._send_cookie(cookie=cookie)
+							if C_encoding:
+								self.send_header("Content-Encoding", C_encoding)
+
 							self.end_headers()
 							file.close()
 
@@ -1410,11 +1420,16 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					last = file_len - 1
 
 				if first >= file_len:  # PAUSE AND RESUME SUPPORT
-					self.send_error(416, 'Requested Range Not Satisfiable', cookie=cookie)
+					self.send_error(416, message='Requested Range Not Satisfiable', cookie=cookie)
 					return None
 
 				self.send_response(206)
 				self._send_cookie(cookie=cookie)
+
+				if cache_control:
+					self.send_header("Cache-Control", cache_control)
+
+				
 
 				self.send_header('Accept-Ranges', 'bytes')
 
@@ -1440,17 +1455,18 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			if C_encoding:
 				self.send_header("Content-Encoding", C_encoding)
 
+
 			self.send_header("Content-Disposition", f'{is_attachment} filename="{filename}"')
 			self.end_headers()
 
 			return file
 
 		except PermissionError:
-			self.send_error(HTTPStatus.FORBIDDEN, "Permission denied", cookie)
+			self.send_error(HTTPStatus.FORBIDDEN, message="Permission denied", cookie=cookie)
 			return None
 
 		except OSError:
-			self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie)
+			self.send_error(HTTPStatus.NOT_FOUND, message="File not found", cookie=cookie)
 			return None
 
 		except Exception:
@@ -1494,7 +1510,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				first, last = self.range
 				self.use_range = True
 			except ValueError as e:
-				self.send_error(400, 'Invalid byte range')
+				self.send_error(400, message='Invalid byte range')
 				return None
 
 		path = self.translate_path(self.path)
@@ -1509,7 +1525,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			if self.test_req(*case):
 				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
 
-		return self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+		return self.send_error(HTTPStatus.NOT_FOUND, message="File not found")
 
 	def get_displaypath(self, url_path):
 		"""
@@ -1533,7 +1549,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		"""replace current directory with /"""
 		return path.replace(self.directory, "/", times)
 	
-	def path_safety_check(self, paths:Union[str, list], *more_paths:Union[str, list]):
+	def path_safety_check(self, paths:Union[str, List], *more_paths:Union[str, List]):
 		"""check if path is safe
 		paths: list of paths to check"""
 		if isinstance(paths, str):
@@ -2099,7 +2115,7 @@ def get_ip(bind=None):
 	s.settimeout(0)
 	try:
 		# doesn't even have to be reachable
-		s.connect(('255.255.255.255', 1))
+		s.connect(('10.255.255.255', 1))
 		IP = s.getsockname()[0]
 	except:
 		try:
