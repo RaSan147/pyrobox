@@ -17,7 +17,8 @@ const public_url = "${PY_PUBLIC_URL}";
 
 <style>
 	#content_container {
-		display: none; /* hide content until page is loaded */
+		/* hide content until page is loaded */
+			display: none;
 	}
 </style>
 
@@ -29,7 +30,8 @@ const public_url = "${PY_PUBLIC_URL}";
 		}
 
 		#content_container {
-			display: block; /* making sure its visible */
+			/* making sure its visible */
+			display: block; 
 		}
 
 		#fm_page {
@@ -67,8 +69,7 @@ const public_url = "${PY_PUBLIC_URL}";
 <div id="mySidebarR" class="sidebar sidebarR theme-tools">
 
 	<span style='right:0; text-align:right;margin-right: 20px;' class="close-sidebar disable_selection"
-
-		id="close-sidebarR" onclick = "sidebar_control.closeNavR()">&times;</span> <!-- × -->
+			id="close-sidebarR" onclick="sidebar_control.closeNavR()">&times;</span> <!-- × -->
 
 	<div>
 		<div id="preference_button" class="accordion accordion-button debug_only" onclick="appConfig.show_help_note()">Preference</div>
@@ -131,13 +132,15 @@ const public_url = "${PY_PUBLIC_URL}";
 	</div>
 
 	<div id="error-page" class="page ${PY_ERROR_PAGE}">
-		<script>var ERROR_PAGE = "${PY_ERROR_PAGE}"</script>
+			<script>
+				var ERROR_PAGE = "${PY_ERROR_PAGE}"
+			</script>
 		<h1><u>Error response</u></h1>
 		<p><u>Error code:</u> <span id="error_code">${code}</span></p>
 		<p><u>Message:</u> <span id="error_message">${message}</span></p>
 		<p><u>Error code explanation:</u> <span id="error_code2">${code}</span> - <span id="error_explain">${explain}</span></p>
 		<hr>
-		<center><img src = "https://http.cat/${code}" style="max-width: 95vw;" alt="Error Image"/></center>
+			<center><img src="https://http.cat/${code}" style="max-width: 95vw;" alt="Error Image" /></center>
 	</div>
 
 
@@ -153,7 +156,7 @@ const public_url = "${PY_PUBLIC_URL}";
 			</video>
 		</div>
 
-		<a id="video_dl_url"  download class='pagination'>Download</a>
+		<a id="video_dl_url" download class='pagination'>Download</a>
 
 	</div>
 
@@ -204,7 +207,9 @@ const public_url = "${PY_PUBLIC_URL}";
 
 
 			<div class='pagination jsonly' onclick="admin_tools.request_reload()">RELOAD SERVER 🧹</div>
-			<noscript><a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br></noscript>
+				<noscript>
+					<a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br>
+				</noscript>
 			<hr>
 
 			<div class='pagination jsonly' onclick="admin_tools.request_shutdown()">Shut down 🔻</div>
@@ -216,9 +221,7 @@ const public_url = "${PY_PUBLIC_URL}";
 	</div>
 </div>
 
-
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
+	<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
 
 <script src="/?script_global"></script>
 <script src="/?asset_script"></script>
@@ -239,3 +242,7 @@ const public_url = "${PY_PUBLIC_URL}";
 
 
 <link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />
+
+</body>
+
+</html>

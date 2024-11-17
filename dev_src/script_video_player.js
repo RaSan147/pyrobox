@@ -70,10 +70,14 @@ class Video_Page {
 				sources: [
 					{
 						src: video,
-						type: content_type,
+						// type: content_type,
 					},
 				],
-				poster: 'https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg' // to keep preview hidden
+				poster: 'https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg', // to keep preview hidden
+				keyboard: {
+					global: true,
+					focused: false,
+				}
 			};
 
 			this.init_online_player() // Add double click to skip
