@@ -1498,6 +1498,11 @@ class PickleTable(dict):
 		return db
 
 	def remove_duplicates(self, columns=None, AD=True):
+		"""
+		Remove duplicate rows (keep the 1st occurrence)
+		- columns: columns to check for duplicates (default: all columns) (if None, all columns are checked) (if string, only that column is checked) (if list, all the mentioned columns are checked)
+		- AD: auto dump
+		"""
 		if columns is None:
 			columns = self.column_names
 		if isinstance(columns, str):
