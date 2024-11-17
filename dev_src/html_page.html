@@ -1,247 +1,248 @@
 <!DOCTYPE HTML>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
-<title>${PY_PAGE_TITLE}</title>
 
-<link rel="stylesheet" href="?style">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
+	<title>${PY_PAGE_TITLE}</title>
+
+	<link rel="stylesheet" href="?style">
 </head>
 
 <body>
-<script>
-const public_url = "${PY_PUBLIC_URL}";
-</script>
+	<script>
+		const public_url = "${PY_PUBLIC_URL}";
+	</script>
 
 
-<style>
-	#content_container {
-		/* hide content until page is loaded */
-			display: none;
-	}
-</style>
-
-
-<noscript>
 	<style>
-		.jsonly {
-			display: none !important
-		}
-
 		#content_container {
-			/* making sure its visible */
-			display: block; 
-		}
-
-		#fm_page {
-			display: block;
-		}
-
-		#content_list {
-			/* making sure its visible */
-			display: block;
+			/* hide content until page is loaded */
+			display: none;
 		}
 	</style>
-</noscript>
-
-<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
 
 
+	<noscript>
+		<style>
+			.jsonly {
+				display: none !important
+			}
 
-<div id="popup-container"></div>
+			#content_container {
+				/* making sure its visible */
+				display: block;
+			}
 
-<div id='TopBar' class='top_bar'>
+			#fm_page {
+				display: block;
+			}
 
-	<span id="dir-tree">${PY_DIR_TREE_NO_JS}</span>
+			#content_list {
+				/* making sure its visible */
+				display: block;
+			}
+		</style>
+	</noscript>
 
-
-	<button class="open-sidebar-btn" onclick="sidebar_control.toggleNavR()" style='float: right;'><span>
-		<span class='nav-btn-text'>Menu</span> <span class="fa fa-thin fa-ellipsis-stroke-vertical">&vellip;</span></span>
-	</button>
-
-</div>
-
-<div id="sidebar_bg"></div> <!-- trigger to close Sidebar-->
+	<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
 
 
 
-<div id="mySidebarR" class="sidebar sidebarR theme-tools">
+	<div id="popup-container"></div>
 
-	<span style='right:0; text-align:right;margin-right: 20px;' class="close-sidebar disable_selection"
-			id="close-sidebarR" onclick="sidebar_control.closeNavR()">&times;</span> <!-- × -->
+	<div id='TopBar' class='top_bar'>
 
-	<div>
-		<div id="preference_button" class="accordion accordion-button debug_only" onclick="appConfig.show_help_note()">Preference</div>
-		<div class="member_only">
-			<div id="user_panel_button" class="accordion accordion-button debug_only" onclick="appConfig.show_author_note()">User Panel</div>
-			<div id="admin_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
-			<div id="logout_button" class="accordion accordion-button" onclick="goto('./?logout')">Logout</div>
+		<span id="dir-tree">${PY_DIR_TREE_NO_JS}</span>
+
+
+		<button class="open-sidebar-btn" onclick="sidebar_control.toggleNavR()" style='float: right;'><span>
+				<span class='nav-btn-text'>Menu</span> <span class="fa fa-thin fa-ellipsis-stroke-vertical">&vellip;</span></span>
+		</button>
+
+	</div>
+
+	<div id="sidebar_bg"></div> <!-- trigger to close Sidebar-->
+
+
+
+	<div id="mySidebarR" class="sidebar sidebarR theme-tools">
+
+		<span style='right:0; text-align:right;margin-right: 20px;' class="close-sidebar disable_selection"
+			  id="close-sidebarR" onclick="sidebar_control.closeNavR()">&times;</span> <!-- × -->
+
+		<div>
+			<div id="preference_button" class="accordion accordion-button debug_only" onclick="appConfig.show_help_note()">Preference</div>
+			<div class="member_only">
+				<div id="user_panel_button" class="accordion accordion-button debug_only" onclick="appConfig.show_author_note()">User Panel</div>
+				<div id="admin_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
+				<div id="logout_button" class="accordion accordion-button" onclick="goto('./?logout')">Logout</div>
+			</div>
+			<div class="guest_only named_server">
+				<div id="login_button" class="accordion accordion-button" onclick="goto('./?login')">Login</div>
+				<div id="signup_button" class="accordion accordion-button" onclick="goto('./?signup')">Signup</div>
+			</div>
 		</div>
-		<div class="guest_only named_server">
-			<div id="login_button" class="accordion accordion-button" onclick="goto('./?login')">Login</div>
-			<div id="signup_button" class="accordion accordion-button" onclick="goto('./?signup')">Signup</div>
-		</div>
+
+
+		<div class='sidebar-end'></div>
+
+
+
 	</div>
 
 
-	<div class='sidebar-end'></div>
+	<div id="actions-btn" class="disable_selection jsonly" onclick="page.on_action_button()">
+		<div id="actions-btn-text">More&nbsp;</div>
+		<span class="fa fa-solid fa-plus" id="actions-btn-icon"><b>+</b></span>
+		<span class="fa fa-duotone fa-spinner fa-spin" id="actions-loading-icon"><span class='spin'>⚉</span></span>
+	</div>
+	<div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
+		<span id="progress-uploads">Running Uploads
+			<span id="progress-uploads-count">(0/0)</span></span>
 
+		<br>
 
-
-</div>
-
-
-<div id="actions-btn" class="disable_selection jsonly" onclick="page.on_action_button()">
-	<div id="actions-btn-text">More&nbsp;</div>
-	<span class="fa fa-solid fa-plus" id="actions-btn-icon"><b>+</b></span>
-	<span class="fa fa-duotone fa-spinner fa-spin" id="actions-loading-icon"><span class='spin'>⚉</span></span>
-</div>
-<div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
-	<span id="progress-uploads">Running Uploads
-	<span id="progress-uploads-count">(0/0)</span></span>
-
-	<br>
-
-	<span id="progress-zips">Running Zips
-	<span id="progress-zips-count">(0/0)</span></span>
-</div>
-
-<hr>
-
-<div id="content_container">
-
-	<!-- Contains all the files -->
-
-	<div id="fm_page" class="page">
-		<div id="content_list">
-
-			<ul id="linkss">
-				<!-- CONTENT LIST (NO JS) -->
-
-				<!-- ${PY_NO_JS_FILE_LIST} -->
-
-
-			</ul>
-			<!-- ${PY_UPLOAD_FORM} -->
-		</div>
-
-		<div id="js-content_list" class="jsonly">
-			<!-- CONTENT LIST (JS) -->
-		</div>
+		<span id="progress-zips">Running Zips
+			<span id="progress-zips-count">(0/0)</span></span>
 	</div>
 
-	<div id="error-page" class="page ${PY_ERROR_PAGE}">
+	<hr>
+
+	<div id="content_container">
+
+		<!-- Contains all the files -->
+
+		<div id="fm_page" class="page">
+			<div id="content_list">
+
+				<ul id="linkss">
+					<!-- CONTENT LIST (NO JS) -->
+
+					<!-- ${PY_NO_JS_FILE_LIST} -->
+
+
+				</ul>
+				<!-- ${PY_UPLOAD_FORM} -->
+			</div>
+
+			<div id="js-content_list" class="jsonly">
+				<!-- CONTENT LIST (JS) -->
+			</div>
+		</div>
+
+		<div id="error-page" class="page ${PY_ERROR_PAGE}">
 			<script>
 				var ERROR_PAGE = "${PY_ERROR_PAGE}"
 			</script>
-		<h1><u>Error response</u></h1>
-		<p><u>Error code:</u> <span id="error_code">${code}</span></p>
-		<p><u>Message:</u> <span id="error_message">${message}</span></p>
-		<p><u>Error code explanation:</u> <span id="error_code2">${code}</span> - <span id="error_explain">${explain}</span></p>
-		<hr>
+			<h1><u>Error response</u></h1>
+			<p><u>Error code:</u> <span id="error_code">${code}</span></p>
+			<p><u>Message:</u> <span id="error_message">${message}</span></p>
+			<p><u>Error code explanation:</u> <span id="error_code2">${code}</span> - <span id="error_explain">${explain}</span></p>
+			<hr>
 			<center><img src="https://http.cat/${code}" style="max-width: 95vw;" alt="Error Image" /></center>
-	</div>
-
-
-	<div id="video-page" class="page">
-		<p><b>Watching:</b> <span id="player_title"></span></p>
-
-		<h2 id="player-warning"></h2>
-
-		<div id="container">
-			<video controls crossorigin playsinline id="player">
-
-				<source id="player_source" />
-			</video>
 		</div>
 
-		<a id="video_dl_url" download class='pagination'>Download</a>
 
-	</div>
+		<div id="video-page" class="page">
+			<p><b>Watching:</b> <span id="player_title"></span></p>
 
-	<div id="zip-page" class="page">
-		<h2>ZIPPING FOLDER</h2>
-		<h3 id="zip-prog">Progress</h3>
-		<h3 id="zip-perc"></h3>
-	</div>
+			<h2 id="player-warning"></h2>
 
-	<div id="text-editor-page" class="page">
-		<h1>Text Editor</h1>
-		<!--add a button to toggle readonly  -->
-		<div>
-			<span class="fa fa-sharp fa-solid fa-pen-slash" id="toggle-readOnly"
-				onclick="code_editor.toggle_readOnly()">🔏</span>
-			<span class="fa fa-sharp fa-solid fa-pen" id="toggle-writeAllowed"
-				onclick="code_editor.toggle_writeAllowed()">🖋️</span>
+			<div id="container">
+				<video controls crossorigin playsinline id="player">
+
+					<source id="player_source" />
+				</video>
+			</div>
+
+			<a id="video_dl_url" download class='pagination'>Download</a>
+
 		</div>
-		<hr>
-		<div id="editor"></div>
-	</div>
 
-	<div id="admin-page" class="page">
+		<div id="zip-page" class="page">
+			<h2>ZIPPING FOLDER</h2>
+			<h3 id="zip-prog">Progress</h3>
+			<h3 id="zip-perc"></h3>
+		</div>
 
-		<h1 style="text-align: center;">Admin Page</h1>
-		<hr>
-
-
-		<div class="jsonly">
-
-			<!-- check if update available -->
-
+		<div id="text-editor-page" class="page">
+			<h1>Text Editor</h1>
+			<!--add a button to toggle readonly  -->
 			<div>
-				<p class="update_text" id="update_text">Checking for Update...</p>
-				<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
-				<br><br>
+				<span class="fa fa-sharp fa-solid fa-pen-slash" id="toggle-readOnly"
+					  onclick="code_editor.toggle_readOnly()">🔏</span>
+				<span class="fa fa-sharp fa-solid fa-pen" id="toggle-writeAllowed"
+					  onclick="code_editor.toggle_writeAllowed()">🖋️</span>
 			</div>
+			<hr>
+			<div id="editor"></div>
+		</div>
 
-			<div>
-				<table class="users_list">
-					<tr>
-						<th>Username</th>
-						<th>Manager</th>
-					</tr>
-				</table>
-			</div>
+		<div id="admin-page" class="page">
 
+			<h1 style="text-align: center;">Admin Page</h1>
+			<hr>
 
 
-			<div class='pagination jsonly' onclick="admin_tools.request_reload()">RELOAD SERVER 🧹</div>
+			<div class="jsonly">
+
+				<!-- check if update available -->
+
+				<div>
+					<p class="update_text" id="update_text">Checking for Update...</p>
+					<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
+					<br><br>
+				</div>
+
+				<div>
+					<table class="users_list">
+						<tr>
+							<th>Username</th>
+							<th>Manager</th>
+						</tr>
+					</table>
+				</div>
+
+
+
+				<div class='pagination jsonly' onclick="admin_tools.request_reload()">RELOAD SERVER 🧹</div>
 				<noscript>
 					<a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br>
 				</noscript>
-			<hr>
+				<hr>
 
-			<div class='pagination jsonly' onclick="admin_tools.request_shutdown()">Shut down 🔻</div>
+				<div class='pagination jsonly' onclick="admin_tools.request_shutdown()">Shut down 🔻</div>
+			</div>
+
+			<noscript>
+				<h2>This page requires JS enabled</h2>
+			</noscript>
 		</div>
-
-		<noscript>
-			<h2>This page requires JS enabled</h2>
-		</noscript>
 	</div>
-</div>
 
 	<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
 
-<script src="/?script_global"></script>
-<script src="/?asset_script"></script>
+	<script src="/?script_global"></script>
+	<script src="/?asset_script"></script>
 
-<script src="/?file_list_script"></script>
-<script src="/?theme_script"></script>
-<script src="/?video_page_script"></script>
-<script src="/?admin_page_script"></script>
-<script src="/?error_page_script"></script>
-<script src="/?zip_page_script"></script>
-
-
-<script src="/?page_handler_script"></script>
+	<script src="/?file_list_script"></script>
+	<script src="/?theme_script"></script>
+	<script src="/?video_page_script"></script>
+	<script src="/?admin_page_script"></script>
+	<script src="/?error_page_script"></script>
+	<script src="/?zip_page_script"></script>
 
 
-<!-- ASSET_SCRIPT will load at the end with all the classes defined -->
+	<script src="/?page_handler_script"></script>
+
+
+	<!-- ASSET_SCRIPT will load at the end with all the classes defined -->
 
 
 
-<link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />
+	<link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />
 
 </body>
 

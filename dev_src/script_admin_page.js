@@ -1,21 +1,21 @@
 class Admin_page {
-	constructor(){
+	constructor() {
 		this.my_part = byId("admin-page")
 	}
 
-	initialize(){
+	initialize() {
 		this.show()
 		page.set_actions_button_text("Add User&nbsp;");
 		page.show_actions_button();
 	}
 
-	show(){
+	show() {
 		this.my_part.classList.add("active");
 		updater.check_update();
 		admin_tools.get_users();
 	}
 
-	hide(){
+	hide() {
 		this.my_part.classList.remove("active");
 	}
 
@@ -35,27 +35,27 @@ class Admin_page {
 var admin_page = new Admin_page()
 
 
-class Updater{
+class Updater {
 	async check_update() {
 		fetch('/?update')
-		.then(response => {
-			// console.log(response);
-			return response.json()
-		}).then(data => {
-			if (data.update_available) {
-				byId("update_text").innerText = "Update Available! 🎉 Latest Version: " + data.latest_version ;
-				byId("update_text").style.backgroundColor = "#00cc0033";
+			.then(response => {
+				// console.log(response);
+				return response.json()
+			}).then(data => {
+				if (data.update_available) {
+					byId("update_text").innerText = "Update Available! 🎉 Latest Version: " + data.latest_version;
+					byId("update_text").style.backgroundColor = "#00cc0033";
 
-				byId("run_update").style.display = "block";
-			} else {
-				byId("update_text").innerText = "No Update Available";
-				byId("update_text").style.backgroundColor = "#888";
-			}
-		})
-		.catch(async err => {
-			byId("update_text").innerText = "Update Error: " + "Invalid Response";
-			byId("update_text").style.backgroundColor = "#CC000033";
-		});
+					byId("run_update").style.display = "block";
+				} else {
+					byId("update_text").innerText = "No Update Available";
+					byId("update_text").style.backgroundColor = "#888";
+				}
+			})
+			.catch(async err => {
+				byId("update_text").innerText = "Update Error: " + "Invalid Response";
+				byId("update_text").style.backgroundColor = "#CC000033";
+			});
 	}
 
 	// run_update() {
@@ -88,20 +88,20 @@ var updater = new Updater();
 
 
 class Admin_tools {
-	constructor(){
+	constructor() {
 		this.user_list = [];
 	}
 
 	async get_users() {
 		fetch('/?get_users')
-		.then(response => response.json())
-		.then(data => {
-			this.user_list = data;
-			this.display_users();
-		})
-		.catch(err => {
-			console.log(err);
-		})
+			.then(response => response.json())
+			.then(data => {
+				this.user_list = data;
+				this.display_users();
+			})
+			.catch(err => {
+				console.log(err);
+			})
 	}
 
 	display_users() {
@@ -351,46 +351,52 @@ keep the submit button in center, modernize the button UI-->
 
 	delete_user(index) {
 		var username = this.user_list[index];
-		r_u_sure({y:()=>{
-			fetch('/?delete_user&username=' + username)
-			.then(response => response.json())
-			.then(data => {
-				if (data.status) {
-					popup_msg.createPopup("Success", data["message"]);
-				} else {
-					popup_msg.createPopup("Error", data["message"]);
-				}
-				popup_msg.open_popup();
-				this.get_users();
-			})
-			.catch(err => {
-				console.log(err);
-			})
-		}});
+		r_u_sure({
+			y: () => {
+				fetch('/?delete_user&username=' + username)
+					.then(response => response.json())
+					.then(data => {
+						if (data.status) {
+							popup_msg.createPopup("Success", data["message"]);
+						} else {
+							popup_msg.createPopup("Error", data["message"]);
+						}
+						popup_msg.open_popup();
+						this.get_users();
+					})
+					.catch(err => {
+						console.log(err);
+					})
+			}
+		});
 	}
 
 	request_reload() {
-		r_u_sure({y:()=>{
-			fetch('/?reload')
-			.then(response => response.text())
-			.then(data => {
-				popup_msg.createPopup(data)
-				popup_msg.open_popup();
-			})
+		r_u_sure({
+			y: () => {
+				fetch('/?reload')
+					.then(response => response.text())
+					.then(data => {
+						popup_msg.createPopup(data)
+						popup_msg.open_popup();
+					})
 
-		}});
+			}
+		});
 	}
 
 	request_shutdown() {
-		r_u_sure({y:()=>{
-			fetch('/?shutdown')
-			.then(response => response.text())
-			.then(data => {
-				popup_msg.createPopup(data)
-				popup_msg.open_popup();
-			})
+		r_u_sure({
+			y: () => {
+				fetch('/?shutdown')
+					.then(response => response.text())
+					.then(data => {
+						popup_msg.createPopup(data)
+						popup_msg.open_popup();
+					})
 
-		}});
+			}
+		});
 	}
 
 	add_user() {

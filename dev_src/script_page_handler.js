@@ -1,6 +1,6 @@
 
-class Page{
-	constructor(){
+class Page {
+	constructor() {
 		this.container = byId('content_container')
 		this.type = null;
 		this.handler = fm_page; // default handler
@@ -13,7 +13,7 @@ class Page{
 
 		this.dir_tree.scrollLeft = this.dir_tree.scrollWidth;
 		// convert scroll to horizontal
-		this.dir_tree.onwheel = function(event) {
+		this.dir_tree.onwheel = function (event) {
 			event.preventDefault();
 			// scroll to left
 			event.target.scrollBy({
@@ -37,31 +37,31 @@ class Page{
 		this.initialize()
 	}
 
-	get actions_loading_icon(){
+	get actions_loading_icon() {
 		return byId("actions-loading-icon")
 	}
 
-	get actions_button_icon(){
+	get actions_button_icon() {
 		return byId("actions-btn-icon")
 	}
 
-	get_type(){
+	get_type() {
 		const url = tools.add_query_here('type', '');
 		return fetch(url)
-					.then(data => {return data.text()})
+			.then(data => { return data.text() })
 	}
 
-	hide_all(){
-		for (let handler of Object.values(this.handlers)){
+	hide_all() {
+		for (let handler of Object.values(this.handlers)) {
 			handler.hide();
 		}
 	}
 
-	clear(){
+	clear() {
 		this.handler.clear()
 	}
 
-	async initialize(){
+	async initialize() {
 		/*for(let t=3; t>0; t--){
 			console.log("Loading page in " + t)
 			await tools.sleep (1000)
@@ -94,7 +94,7 @@ class Page{
 			this.handler = zip_page;
 		}
 
-		if (this.handler){
+		if (this.handler) {
 			this.handler.initialize();
 			this.handler.show();
 		} else {
@@ -109,24 +109,24 @@ class Page{
 
 	}
 
-	show_loading(){
+	show_loading() {
 		this.actions_loading_icon.classList.remove("hidden");
 		this.actions_button_icon.classList.add("hidden");
 		this.actions_button_text.classList.add("hidden");
 	}
 
-	hide_loading(){
+	hide_loading() {
 		this.actions_loading_icon.classList.add("hidden");
 		this.actions_button_icon.classList.remove("hidden");
 		this.actions_button_text.classList.remove("hidden");
 	}
 
 
-	show_actions_button(){
+	show_actions_button() {
 		this.actions_button.style.display = "flex";
 	}
 
-	hide_actions_button(){
+	hide_actions_button() {
 		this.actions_button.style.display = "none";
 	}
 
@@ -168,9 +168,9 @@ class Page{
 		this.set_diplaypath(r.join('<span class="dir_arrow">&#10151;</span>'));
 	}
 
-	refresh_dir(){
+	refresh_dir() {
 		console.log(this)
-		if (this.type == "dir"){
+		if (this.type == "dir") {
 			fm_page.initialize(true); // refresh the page
 		}
 	}

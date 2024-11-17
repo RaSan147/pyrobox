@@ -6,13 +6,13 @@ class Text_Editor_Page {
 
 		this.player_source = document.getElementById("player_source")
 		this.player_title = byId("player_title")
-			this.player_warning = byId("player-warning")
-			this.video_dl_url = byId("video_dl_url")
+		this.player_warning = byId("player-warning")
+		this.video_dl_url = byId("video_dl_url")
 
 
 		this.player = null;
 
-		if (typeof(Plyr) !== "undefined"){
+		if (typeof (Plyr) !== "undefined") {
 			this.player = new Plyr('#player', {
 				controls: this.controls
 			});
@@ -26,8 +26,8 @@ class Text_Editor_Page {
 		var url = tools.add_query_here("vid-data")
 
 		var data = await fetch(url)
-					.then(data => {return data.json()})
-					.catch(err => {console.error(err)})
+			.then(data => { return data.json() })
+			.catch(err => { console.error(err) })
 
 		var video = data.video
 		var title = data.title
@@ -41,7 +41,7 @@ class Text_Editor_Page {
 
 		page.set_title(title)
 
-		if (this.player){
+		if (this.player) {
 			this.player.source = {
 				type: 'video',
 				title: 'Example title',
@@ -82,7 +82,7 @@ class Text_Editor_Page {
 
 	init_online_player() {
 		var player = this.player;
-		player.eventListeners.forEach(function(eventListener) {
+		player.eventListeners.forEach(function (eventListener) {
 			if (eventListener.type === 'dblclick') {
 				eventListener.element.removeEventListener(eventListener.type, eventListener.callback, eventListener
 					.options);
@@ -130,7 +130,7 @@ class Text_Editor_Page {
 		}
 		var counter = new multiclick_counter();
 		const poster = byClass("plyr__poster")[0]
-		poster.onclick = function(e) {
+		poster.onclick = function (e) {
 			const count = counter.clicked()
 			if (count < 2) {
 				return
@@ -142,7 +142,7 @@ class Text_Editor_Page {
 			const width = e.target.offsetWidth;
 			const perc = x * 100 / width;
 			var panic = true;
-			var change=10;
+			var change = 10;
 			var last_click = counter.last_side
 			if (last_click == null) {
 				panic = false
@@ -163,7 +163,7 @@ class Text_Editor_Page {
 				}
 				skip_ol.style.opacity = "0.9";
 				player.rewind(change)
-				if(change==10){
+				if (change == 10) {
 					change = ((count - 1) * 10)
 				} else {
 					change = change.toFixed(1);
@@ -178,13 +178,13 @@ class Text_Editor_Page {
 					counter.reset_count(1)
 					return
 				}
-				if (player.currentTime > (player.duration-10)) {
+				if (player.currentTime > (player.duration - 10)) {
 					change = player.duration - player.currentTime;
 				}
 				skip_ol.style.opacity = "0.9";
 				last_click = "R"
 				player.forward(change)
-				if(change==10){
+				if (change == 10) {
 					change = ((count - 1) * 10)
 				} else {
 					change = change.toFixed(1);

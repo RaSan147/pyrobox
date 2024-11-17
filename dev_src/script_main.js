@@ -28,10 +28,10 @@ class ContextMenu {
 		let that = this
 		popup_msg.close()
 
-		let url = ".?"+action;
+		let url = ".?" + action;
 		let xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
-		xhr.onreadystatechange = function() {
+		xhr.onreadystatechange = function () {
 			if (this.readyState === 4) {
 				that.on_result(this)
 				if (callback) {
@@ -48,7 +48,7 @@ class ContextMenu {
 	rename_data() {
 		let new_name = byId("input_rename").value;
 
-		this.menu_click("rename", this.old_name, new_name, null, () => {page.refresh_dir()});
+		this.menu_click("rename", this.old_name, new_name, null, () => { page.refresh_dir() });
 		// popup_msg.createPopup("Done!", "New name: "+new_name)
 		// popup_msg.open_popup()
 	}
@@ -56,7 +56,7 @@ class ContextMenu {
 		await popup_msg.close()
 		popup_msg.createPopup("Rename",
 			"Enter new name: <input id='input_rename' type='text'><br><br><div class='pagination center' onclick='context_menu.rename_data()'>Change!</div>"
-			);
+		);
 		console.log(popup_msg.content)
 		popup_msg.open_popup()
 		this.old_name = link;
@@ -73,22 +73,22 @@ class ContextMenu {
 		}
 
 		let new_tab = createElement("div")
-			new_tab.innerText = "↗️" + " New tab"
-			new_tab.className = "disable_selection popup-btn menu_options"
-			new_tab.onclick = function() {
-				window.open(file, '_blank');
-				popup_msg.close()
-			}
-			menu.appendChild(new_tab)
+		new_tab.innerText = "↗️" + " New tab"
+		new_tab.className = "disable_selection popup-btn menu_options"
+		new_tab.onclick = function () {
+			window.open(file, '_blank');
+			popup_msg.close()
+		}
+		menu.appendChild(new_tab)
 		if (type != "folder") {
 			let download = createElement("div")
 			download.innerText = "📥" + " Download"
 			download.className = "disable_selection popup-btn menu_options"
-			download.onclick = function() {
+			download.onclick = function () {
 				tools.download(file, name);
 				popup_msg.close()
 			}
-			if(user.permissions.DOWNLOAD){
+			if (user.permissions.DOWNLOAD) {
 				menu.appendChild(download)
 			}
 		}
@@ -96,12 +96,12 @@ class ContextMenu {
 			let dl_zip = createElement("div")
 			dl_zip.innerText = "📦" + " Download as Zip"
 			dl_zip.className = "disable_selection popup-btn menu_options"
-			dl_zip.onclick = function() {
+			dl_zip.onclick = function () {
 				popup_msg.close()
 				window.open(go_link('czip', file), '_blank');
 				// czip = "Create Zip"
 			}
-			if(user.permissions.ZIP){
+			if (user.permissions.ZIP) {
 				menu.appendChild(dl_zip)
 			}
 		}
@@ -109,13 +109,13 @@ class ContextMenu {
 		let copy = createElement("div")
 		copy.innerText = "📋" + " Copy link"
 		copy.className = "disable_selection popup-btn menu_options"
-		copy.onclick = async function(ev) {
+		copy.onclick = async function (ev) {
 			popup_msg.close()
 
 			let success = await tools.copy_2(ev, tools.full_path(file))
-			if(success){
+			if (success) {
 				toaster.toast("Link Copied!")
-			}else{
+			} else {
 				toaster.toast("Failed to copy!")
 			}
 		}
@@ -124,7 +124,7 @@ class ContextMenu {
 		let rename = createElement("div")
 		rename.innerText = "✏️" + " Rename"
 		rename.className = "disable_selection popup-btn menu_options"
-		rename.onclick = function() {
+		rename.onclick = function () {
 			that.rename(file, name)
 		}
 
@@ -139,7 +139,7 @@ class ContextMenu {
 		if (type == "folder") {
 			xxx = 'D'
 		}
-		del.onclick = function() {
+		del.onclick = function () {
 			that.menu_click('del-f', file, null, refresh);
 		};
 
@@ -153,9 +153,11 @@ class ContextMenu {
 
 
 		del_P.onclick = () => {
-			r_u_sure({y:()=>{
-				that.menu_click('del-p', file, null, refresh);
-			}, head:"Are you sure?", body:"This can't be undone!!!", y_msg:"Continue", n_msg:"Cancel"})
+			r_u_sure({
+				y: () => {
+					that.menu_click('del-p', file, null, refresh);
+				}, head: "Are you sure?", body: "This can't be undone!!!", y_msg: "Continue", n_msg: "Cancel"
+			})
 		}
 
 		if (user.permissions.DELETE) {
@@ -165,7 +167,7 @@ class ContextMenu {
 		let property = createElement("div")
 		property.innerText = "📅" + " Properties"
 		property.className = "disable_selection popup-btn menu_options"
-		property.onclick = function() {
+		property.onclick = function () {
 			that.menu_click('info', file);
 		};
 
@@ -178,7 +180,7 @@ class ContextMenu {
 	}
 	create_folder() {
 		let folder_name = byId('folder-name').value;
-		this.menu_click('new_folder', folder_name, null, () => {page.refresh_dir()});
+		this.menu_click('new_folder', folder_name, null, () => { page.refresh_dir() });
 	}
 }
 var context_menu = new ContextMenu()
@@ -186,7 +188,7 @@ var context_menu = new ContextMenu()
 
 function show_response(url, add_reload_btn = true) {
 	let xhr = new XMLHttpRequest();
-	xhr.onreadystatechange = function() {
+	xhr.onreadystatechange = function () {
 		if (xhr.readyState == XMLHttpRequest.DONE) {
 			let msg = xhr.responseText;
 			if (add_reload_btn) {
@@ -213,27 +215,32 @@ function insertAfter(newNode, existingNode) {
 function fmbytes(B) {
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
 	let KB = 1024,
-	MB = (KB ** 2),
-	GB = (KB ** 3),
-	TB = (KB ** 4)
+		MB = (KB ** 2),
+		GB = (KB ** 3),
+		TB = (KB ** 4)
 
-	var unit="byte", val=B;
+	var unit = "byte", val = B;
 
-	if (B>1){
-		unit="bytes"
-		val = B}
-	if (B/KB>1){
-		val = (B/KB)
-		unit="KB"}
-	if (B/MB>1){
-		val = (B/MB)
-		unit="MB"}
-	if (B/GB>1){
-		val = (B/GB)
-		unit="GB"}
-	if (B/TB>1){
-		val = (B/TB)
-		unit="TB"}
+	if (B > 1) {
+		unit = "bytes"
+		val = B
+	}
+	if (B / KB > 1) {
+		val = (B / KB)
+		unit = "KB"
+	}
+	if (B / MB > 1) {
+		val = (B / MB)
+		unit = "MB"
+	}
+	if (B / GB > 1) {
+		val = (B / GB)
+		unit = "GB"
+	}
+	if (B / TB > 1) {
+		val = (B / TB)
+		unit = "TB"
+	}
 
 	val = val.toFixed(2)
 
@@ -292,13 +299,13 @@ class ProgressBars {
 		bar_head.className = "progress_bar_heading"
 
 		let bar_head_text = createElement("div")
-		bar_head_text.className ="progress_bar_heading_text"
-		if(type=="upload"){
+		bar_head_text.className = "progress_bar_heading_text"
+		if (type == "upload") {
 			bar_head_text.innerText = "Uploading"
-		} else if(type=="zip"){
+		} else if (type == "zip") {
 			bar_head_text.innerText = "Zipping"
 		}
-		bar_head_text.style.float ="left"
+		bar_head_text.style.float = "left"
 		bar_head.appendChild(bar_head_text)
 
 		let bar_status = createElement("div")
@@ -330,7 +337,7 @@ class ProgressBars {
 		let bar_cancel = createElement("span")
 		bar_cancel.className = "progress_bar_cancel"
 		bar_cancel.innerHTML = "&#9888; Delete Task"
-		bar_cancel.onclick = function(e){
+		bar_cancel.onclick = function (e) {
 			e.stopPropagation() // stop the click event from propagating to the bar element
 			if (type == "upload") {
 				upload_man.remove(id)
@@ -342,10 +349,10 @@ class ProgressBars {
 		}
 		bar_element.appendChild(bar_cancel)
 
-		bar_element.onclick = ()=>{
-			if(type=="upload") {
+		bar_element.onclick = () => {
+			if (type == "upload") {
 				upload_man.show(id)
-			} else if(type=="zip") {
+			} else if (type == "zip") {
 				zip_man.show(id)
 			}
 		}
@@ -379,20 +386,20 @@ class ProgressBars {
 		}
 
 		this.island_bar.style.display = "block"
-		if (!(up_count||zip_count)){
+		if (!(up_count || zip_count)) {
 			this.island_bar.style.display = "None"
 			return
 		}
 
 
-		if (up_count){
+		if (up_count) {
 			this.island_up_text.style.display = "block"
 			this.island_up_count.innerText = "(" + up_done_count + '/' + up_count + ')'
 		} else {
 			this.island_up_text.style.display = "none"
 		}
 
-		if (zip_count){
+		if (zip_count) {
 			this.island_zip_text.style.display = "block"
 			this.island_zip_count.innerText = "(" + zip_done_count + '/' + zip_count + ')'
 		} else {
@@ -401,7 +408,7 @@ class ProgressBars {
 	}
 
 
-	update(index, datas={}) {
+	update(index, datas = {}) {
 		let bar = this.bars[index]
 		for (let key in datas) {
 			bar[key] = datas[key]
@@ -409,7 +416,7 @@ class ProgressBars {
 		this.update_bar(index)
 	}
 
-	update_bar(index){
+	update_bar(index) {
 		let bar = this.bars[index]
 		let bar_element = this.bar_elements[index]
 		let type = bar.type
@@ -417,9 +424,9 @@ class ProgressBars {
 
 
 		let bar_head_text = bar_element.getElementsByClassName("progress_bar_heading_text")[0]
-		if(type=="upload"){
+		if (type == "upload") {
 			bar_head_text.innerText = "Uploading"
-		} else if(type=="zip"){
+		} else if (type == "zip") {
 			bar_head_text.innerText = "Zipping"
 		}
 
@@ -493,7 +500,7 @@ progress_bars.update_island()
 
 
 class User {
-	constructor(){
+	constructor() {
 		this.user = null;
 		this.token = null;
 		this.permissions_code = null;
@@ -511,7 +518,7 @@ class User {
 		];
 	}
 
-	get_user(){
+	get_user() {
 		this.user = tools.getCookie("user");
 		this.token = tools.getCookie("token");
 		this.permissions_code = tools.getCookie("permissions") || 0;
@@ -530,7 +537,7 @@ class User {
 		this.extract_permissions();
 	}
 
-	extract_permissions(){
+	extract_permissions() {
 		// this function extracts the permissions from the permissions_code
 		let permissions = this.all_permissions;
 		this.permissions = {}
@@ -538,7 +545,7 @@ class User {
 			this.permissions[permission] = this.permissions_code >> i & 1;
 		}, this);
 		// if none of permission is true, add nopermission to the permissions
-		if(!Object.values(this.permissions).some(x => !!x)){
+		if (!Object.values(this.permissions).some(x => !!x)) {
 			this.permissions['NOPERMISSION'] = true;
 		} else {
 			this.permissions['NOPERMISSION'] = false;
@@ -549,7 +556,7 @@ class User {
 
 	}
 
-	pack_permissions(){
+	pack_permissions() {
 		// this function packs the permissions into permissions_code
 		let permissions = this.all_permissions;
 
@@ -574,7 +581,7 @@ user.get_user();
 // /////////////////////////////
 
 {
-	if(user.permissions.ADMIN){
+	if (user.permissions.ADMIN) {
 		let css = document.createElement("style");
 		css.innerHTML = `
 		.admin_only {
@@ -584,7 +591,7 @@ user.get_user();
 		document.body.appendChild(css);
 	}
 
-	if(user.permissions.MEMBER){
+	if (user.permissions.MEMBER) {
 		let css = document.createElement("style");
 		css.innerHTML = `
 		.member_only {

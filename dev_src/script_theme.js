@@ -87,7 +87,7 @@ class Theme_Controller {
 
 	async del_fa_alt() {
 		if (this.fa_ok) {
-			document.querySelectorAll(".fa").forEach(e => e.parentNode.replaceChild(Object.assign(document.createElement("i"), { className: e.className, style: e.style , id: e.id}), e));
+			document.querySelectorAll(".fa").forEach(e => e.parentNode.replaceChild(Object.assign(document.createElement("i"), { className: e.className, style: e.style, id: e.id }), e));
 		}
 	}
 
@@ -132,7 +132,7 @@ theme_controller.load_fa()
 const MAIN_JS = true;
 const V = "0.0.1";
 
-if (typeof datas === "undefined") {window["datas"] = {}} // if datas is not defined
+if (typeof datas === "undefined") { window["datas"] = {} } // if datas is not defined
 
 class Local_Data_Manager {
 	// local data manager, UNUSED
@@ -314,7 +314,7 @@ class Top_Bar {
 		this.profile_pic.src = url;
 	}
 	show() {
-		if (! this.top_bar) return false;
+		if (!this.top_bar) return false;
 
 		this.top_bar.style.top = "0";
 		document.body.style.top = "50px";
@@ -322,7 +322,7 @@ class Top_Bar {
 	}
 
 	hide() {
-		if (! this.top_bar) return false;
+		if (!this.top_bar) return false;
 
 		this.top_bar.style.top = "-50px";
 		document.body.style.top = "0";
@@ -355,7 +355,7 @@ window.addEventListener('touchstart', (e) => {
 	// Cache the client X/Y coordinates
 	clientX = e.touches[0].clientX;
 	clientY = e.touches[0].clientY;
-  }, false);
+}, false);
 
 window.addEventListener('touchend', (e) => {
 	let deltaX;
@@ -374,21 +374,21 @@ window.addEventListener('touchend', (e) => {
 	if (deltaY > 15) {
 		top_bar.show();
 	}
-  }, false);
+}, false);
 
 
 // r_u_sure()
 
 
 { // why bracket? To make is isolated, coz I don't want variable names conflict with these mini functions or things
-const resizer = () => {
-	theme_controller.getViewportSize();
-	document.body.style.minHeight = vh + "px";
-}
+	const resizer = () => {
+		theme_controller.getViewportSize();
+		document.body.style.minHeight = vh + "px";
+	}
 
-window.addEventListener("resize", (_e) => resizer());
+	window.addEventListener("resize", (_e) => resizer());
 
-document.addEventListener("DOMContentLoaded", (_e) => resizer());
+	document.addEventListener("DOMContentLoaded", (_e) => resizer());
 }
 
 
@@ -443,7 +443,7 @@ class SidebarControl {
 		this.openNavR()
 	}
 
-	_closeNavR(){
+	_closeNavR() {
 		this.right_bar.classList.remove("mySidebar-active");
 		this.right_bar.classList.add("mySidebar-inactive");
 

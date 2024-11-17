@@ -46,7 +46,8 @@
 body {
 	position: relative;
 	overflow-x: hidden;
-	top: 50px; /* Height of navbar */
+	top: 50px;
+	/* Height of navbar */
 }
 
 #content_container {
@@ -74,7 +75,8 @@ button {
 	margin: auto;
 }
 
-.disable_selection, .no_select {
+.disable_selection,
+.no_select {
 	-webkit-touch-callout: none;
 	/* iOS Safari */
 	-webkit-user-select: none;
@@ -112,18 +114,19 @@ a {
 }
 
 .upload-file-item {
-display: block;
-border: 1px solid #ddd;
-margin-top: -1px; /* Prevent double borders */
-background-color: #8c8c8c5b;
-padding: 12px;
-text-decoration: none;
-font-size: 18px;
-color: white;
-position: relative;
-border-radius: 5px;
+	display: block;
+	border: 1px solid #ddd;
+	margin-top: -1px;
+	/* Prevent double borders */
+	background-color: #8c8c8c5b;
+	padding: 12px;
+	text-decoration: none;
+	font-size: 18px;
+	color: white;
+	position: relative;
+	border-radius: 5px;
 
-max-width: 100%;
+	max-width: 100%;
 }
 
 
@@ -168,7 +171,8 @@ max-width: 100%;
 	padding: 6px;
 }
 
-.file-size, .link_size {
+.file-size,
+.link_size {
 	font-size: .6em;
 	font-weight: 600;
 	background-color: #19a6c979;
@@ -179,7 +183,9 @@ max-width: 100%;
 
 }
 
-.file-size, .file-remove, .link_icon {
+.file-size,
+.file-remove,
+.link_icon {
 	white-space: nowrap;
 
 	position: absolute;
@@ -189,7 +195,8 @@ max-width: 100%;
 
 
 
-.file-name, .link_name {
+.file-name,
+.link_name {
 	display: inline-block;
 	word-wrap: break-all;
 	overflow-wrap: anywhere;
@@ -203,16 +210,16 @@ max-width: 100%;
 
 
 .file-remove {
-padding: 5px 7px;
-margin: 0 5px;
-margin-right: 10px;
-cursor: pointer;
-font-size: 23px;
-color: #fff;
-background-color: #505050;
-border-radius: 5px;
-font-weight: 900;
-right: 0%;
+	padding: 5px 7px;
+	margin: 0 5px;
+	margin-right: 10px;
+	cursor: pointer;
+	font-size: 23px;
+	color: #fff;
+	background-color: #505050;
+	border-radius: 5px;
+	font-weight: 900;
+	right: 0%;
 
 }
 
@@ -298,7 +305,8 @@ right: 0%;
 	border-radius: 6px;
 }
 
-.popup-btn:hover, .popup-btn:active {
+.popup-btn:hover,
+.popup-btn:active {
 	background: var(--popup-btn-bg-active);
 
 }
@@ -331,7 +339,7 @@ right: 0%;
 .pagination {
 	cursor: pointer;
 	width: 150px;
-	max-width: min(800px , 70%)
+	max-width: min(800px, 70%)
 }
 
 .pagination {
@@ -390,8 +398,9 @@ right: 0%;
 }
 
 
-ul{
-	list-style-type: none; /* Remove bullets */
+ul {
+	list-style-type: none;
+	/* Remove bullets */
 	padding-left: 5px;
 	margin: 0;
 }
@@ -406,7 +415,8 @@ ul{
 .upload-pass-box {
 	/* make text field larger */
 	font-size: 1.5em;
-	border: #aa00ff solid 2px;;
+	border: #aa00ff solid 2px;
+	;
 	border-radius: 4px;
 	background-color: #0f0f0f;
 	max-width: 90%;
@@ -418,7 +428,8 @@ ul{
 	align-items: center;
 	justify-content: center;
 }
-.drag-area{
+
+.drag-area {
 	border: 2px dashed #fff;
 	height: 300px;
 	width: 95%;
@@ -428,25 +439,31 @@ ul{
 	justify-content: center;
 	flex-direction: column;
 }
-.drag-area.active{
+
+.drag-area.active {
 	border: 2px solid #fff;
 }
-.drag-area .drag-icon{
+
+.drag-area .drag-icon {
 	font-size: 100px;
 	color: #fff;
 }
-.drag-area header{
+
+.drag-area header {
 	font-size: 25px;
 	font-weight: 500;
 	color: #fff;
 }
-.drag-area span{
+
+.drag-area span {
 	font-size: 20px;
 	font-weight: 500;
 	color: #fff;
 	margin: 10px 0 15px 0;
 }
-.drag-browse, #submit-btn{
+
+.drag-browse,
+#submit-btn {
 	padding: 10px 25px;
 	font-size: 20px;
 	font-weight: 500;
@@ -633,6 +650,7 @@ ul{
 :root {
 	--sb-width: 300px;
 }
+
 .sidebar {
 	display: block;
 	opacity: 0.8;
@@ -664,7 +682,8 @@ ul{
 }
 
 .sidebarR {
-	right: calc(var(--sb-width) * -1);;
+	right: calc(var(--sb-width) * -1);
+	;
 }
 
 
@@ -672,13 +691,13 @@ ul{
 	transition: all 0.3s;
 }
 
-.mySidebar-active{
+.mySidebar-active {
 	display: block;
 	opacity: 1;
 	transition: all 0.3s;
 }
 
-.mySidebar-active.sidebarR{
+.mySidebar-active.sidebarR {
 	right: 0;
 }
 
@@ -763,6 +782,7 @@ ul{
 	.nav-btn-text {
 		display: none;
 	}
+
 	#dir-tree {
 		width: calc(100% - 50px);
 	}
@@ -782,8 +802,8 @@ ul{
 
 
 
-  /* ************************************ */
- /* **        Action Btn + Island     ** */
+/* ************************************ */
+/* **        Action Btn + Island     ** */
 /* ************************************ */
 
 #progress-island {
@@ -818,9 +838,10 @@ ul{
 	padding: 5px 10px;
 
 	border-style: solid;
-border-width: 2px 1px; /* 5px top and bottom, 20px on the sides */
-border-radius: 4px;
-box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
+	border-width: 2px 1px;
+	/* 5px top and bottom, 20px on the sides */
+	border-radius: 4px;
+	box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 }
 
 .progress_bar_heading {
@@ -838,6 +859,7 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 .progress_bar_heading_text {
 	font-size: 1em;
 }
+
 .progress_bar_status {
 	font-size: 1.2em;
 }
@@ -894,7 +916,8 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 	align-items: center;
 }
 
-#actions-btn:hover, #actions-btn:active {
+#actions-btn:hover,
+#actions-btn:active {
 	background-color: var(--popup-btn-bg-active);
 	color: var(--theme-color-text2);
 	box-shadow: 0 2px 3px 1px #0c2de6;
@@ -913,6 +936,7 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 	#actions-btn-text {
 		display: block;
 	}
+
 	#actions-btn {
 		border-radius: 20px;
 		padding: 0 10px;
@@ -945,16 +969,33 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 }
 
 @-moz-keyframes spin {
-    from { -moz-transform: rotate(0deg); }
-    to { -moz-transform: rotate(360deg); }
+	from {
+		-moz-transform: rotate(0deg);
+	}
+
+	to {
+		-moz-transform: rotate(360deg);
+	}
 }
+
 @-webkit-keyframes spin {
-    from { -webkit-transform: rotate(0deg); }
-    to { -webkit-transform: rotate(360deg); }
+	from {
+		-webkit-transform: rotate(0deg);
+	}
+
+	to {
+		-webkit-transform: rotate(360deg);
+	}
 }
+
 @keyframes spin {
-    from {transform:rotate(0deg);}
-    to {transform:rotate(360deg);}
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 
@@ -962,8 +1003,8 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 
 
 
-  /* ********************** */
- /* Make Dir input element */
+/* ********************** */
+/* Make Dir input element */
 /* ********************** */
 
 input#folder-name {
@@ -980,7 +1021,8 @@ input#folder-name {
 
 
 
-.all_link, #linkss a {
+.all_link,
+#linkss a {
 	display: block;
 	white-space: wrap;
 	overflow-wrap: anywhere;
@@ -993,7 +1035,9 @@ input#folder-name {
 	color: red;
 }
 
-.dir_item:active .all_link, .dir_item:hover .all_link , #linkss a:hover {
+.dir_item:active .all_link,
+.dir_item:hover .all_link,
+#linkss a:hover {
 	background-color: #25a2c222;
 }
 
@@ -1009,7 +1053,7 @@ input#folder-name {
 .link_icon {
 	display: inline-block;
 	font-size: 2em;
-	left:0%;
+	left: 0%;
 	width: 40px;
 }
 
@@ -1103,8 +1147,8 @@ input#folder-name {
 
 
 
-  /* ************************************ */
- /* **          Page segments         ** */
+/* ************************************ */
+/* **          Page segments         ** */
 /* ************************************ */
 
 .page {
@@ -1117,8 +1161,8 @@ input#folder-name {
 
 
 
-  /* ************************************ */
- /* **           All Page             ** */
+/* ************************************ */
+/* **           All Page             ** */
 /* ************************************ */
 
 
@@ -1144,8 +1188,8 @@ input#folder-name {
 
 
 
-  /* ************************************ */
- /* **           Admin Page           ** */
+/* ************************************ */
+/* **           Admin Page           ** */
 /* ************************************ */
 
 .users_list {
@@ -1174,4 +1218,3 @@ input#folder-name {
 .users_list td {
 	padding: 12px;
 }
-
