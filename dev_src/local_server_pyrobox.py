@@ -34,7 +34,8 @@ import _page_templates as pt
 from _exceptions import LimitExceed
 from _zipfly_manager import ZIP_Manager
 from _list_maker import list_directory, list_directory_json, list_directory_html
-
+from _sub_extractor import extract_subtitles_from_file
+from tools import xpath, EXT, make_dir, os_scan_walk, is_file, Text_Box
 
 from pyrobox_ServerHost import ServerConfig, ServerHost as SH
 
@@ -80,9 +81,11 @@ CoreConfig.disabled_func.update({
 			"rename": False,
 })
 
+
+
 ########## ZIP MANAGER ################################
 # max_zip_size = 6*1024*1024*1024
-zip_manager = ZIP_Manager(CoreConfig, size_limit=Sconfig.max_zip_size)
+zip_manager = ZIP_Manager(CoreConfig, size_limit=Sconfig.max_zip_size, zip_temp_dir=Sconfig.zip_dir)
 
 #######################################################
 
@@ -116,8 +119,6 @@ if not CoreConfig.disabled_func["send2trash"]:
 	except Exception:
 		CoreConfig.disabled_func["send2trash"] = True
 		logger.warning("send2trash module not found, send2trash function disabled")
-
-
 
 
 
@@ -264,6 +265,15 @@ def get_page_type(self: SH, *args, **kwargs):
 	elif self.query("vid"):
 		result = "vid"
 
+	elif self.query("logout"):
+		result = "logout"
+
+	elif self.query("vid-data"):
+		result = "vid-data"
+
+	elif self.query("style"):
+		result = "style-assets"
+
 	elif self.query("czip"):
 		result = "zip"
 
@@ -274,7 +284,7 @@ def get_page_type(self: SH, *args, **kwargs):
 
 	elif os.path.isdir(os_path):
 		for index in "index.html", "index.htm":
-			index = os.path.join(os_path, index)
+			index = xpath(os_path, index)
 			if os.path.exists(index):
 				result = "html"
 				break
@@ -759,6 +769,8 @@ def send_video_data(self: SH, *args, **kwargs):
 
 	title = get_titles(displaypath, file=True)
 
+	subtitles = extract_subtitles_from_file(os_path, output_format="vtt", output_dir=Sconfig.subtitles_dir)
+
 
 	warning = ""
 
@@ -915,6 +927,18 @@ def signup_page(self: SH, *args, **kwargs):
 	return self.send_text(pt.signup_page())
 
 
+@SH.on_req('HEAD', hasQ="logout")
+def logout(self: SH, *args, **kwargs):
+	"""Logout user"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.redirect("/")
+
+	cookie = clear_user_cookie()
+	return self.send_text(pt.login_page(), cookie=cookie)
+
+
 
 
 
@@ -994,8 +1018,8 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 			self.end_headers()
 			return None
 		for index in "index.html", "index.htm":
-			index = os.path.join(os_path, index)
-			if os.path.exists(index):
+			index = xpath(os_path, index)
+			if is_file(index):
 				os_path = index
 				break
 		else:
@@ -1182,16 +1206,16 @@ def upload(self: SH, *args, **kwargs):
 			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...", cookie=cookie)
 
 
-		rltv_path = posixpath.join(url_path, fn)
+		rltv_path = xpath(url_path, fn) # relative path (must be url path with / separator)
 		
 		if not self.path_safety_check(fn, rltv_path):
 			return self.send_txt("Invalid Path:  " + rltv_path, HTTPStatus.BAD_REQUEST, cookie=cookie)
 
-		temp_fn = os.path.join(os_path, ".LStemp-"+fn +'.tmp')
+		temp_fn = xpath(os_path, ".LStemp-"+fn +'.tmp')
 		CoreConfig.temp_file.add(temp_fn)
 
 
-		os_f_path = os.path.join(os_path, fn)
+		os_f_path = xpath(os_path, fn)
 
 
 
@@ -1281,7 +1305,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	if not self.path_safety_check(filename, rel_path):
 		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
 	
-	os_f_path = self.translate_path(posixpath.join(url_path, filename))
+	os_f_path = self.translate_path(xpath(url_path, filename))
 
 	self.log_warning(f'<-send2trash-> {os_f_path} by {[uid]}')
 
@@ -1337,7 +1361,7 @@ def del_permanently(self: SH, *args, **kwargs):
 	if not self.path_safety_check(filename, rel_path):
 		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
 
-	os_f_path = self.translate_path(posixpath.join(url_path, filename))
+	os_f_path = self.translate_path(xpath(url_path, filename))
 
 	self.log_warning(f'Perm. DELETED {os_f_path} by {[uid]}')
 
@@ -1392,8 +1416,8 @@ def rename_content(self: SH, *args, **kwargs):
 	if not self.path_safety_check(filename, new_name, rel_path, new_rel_path):
 		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
 
-	os_f_path = self.translate_path(posixpath.join(url_path, filename))
-	os_new_f_path = self.translate_path(posixpath.join(url_path, new_name))
+	os_f_path = self.translate_path(xpath(url_path, filename))
+	os_new_f_path = self.translate_path(xpath(url_path, new_name))
 
 	self.log_warning(f'Renamed "{os_f_path}" to "{os_new_f_path}" by {[uid]}')
 
