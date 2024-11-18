@@ -29,13 +29,6 @@ import uuid
 
 from pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, runner as pyroboxRunner, tools, reload_server, __version__
 
-from _fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes, UploadHandler
-from _arg_parser import main as arg_parser
-import _page_templates as pt
-from _exceptions import LimitExceed
-from _zipfly_manager import ZIP_Manager
-from _list_maker import list_directory, list_directory_json, list_directory_html
-from _sub_extractor import extract_subtitles_from_file
 from tools import xpath, EXT, make_dir, os_scan_walk, is_file, Text_Box
 
 from pyrobox_ServerHost import ServerConfig, ServerHost as SH
@@ -50,6 +43,7 @@ enc = "utf-8"
 ###########################################
 # ADD COMMAND LINE ARGUMENTS
 ###########################################
+from _arg_parser import main as arg_parser
 arg_parser(CoreConfig)
 cli_args = CoreConfig.parser.parse_known_args()[0]
 CoreConfig.PASSWORD = cli_args.password
@@ -65,7 +59,6 @@ Sconfig = ServerConfig(cli_args=cli_args)
 
 ###########################################
 # CoreConfig.dev_mode = False
-pt.pt_config.dev_mode = CoreConfig.dev_mode
 
 CoreConfig.MAIN_FILE = os.path.abspath(__file__)
 
@@ -84,23 +77,10 @@ CoreConfig.disabled_func.update({
 
 
 
-########## ZIP MANAGER ################################
-# max_zip_size = 6*1024*1024*1024
-zip_manager = ZIP_Manager(CoreConfig, size_limit=Sconfig.max_zip_size, zip_temp_dir=Sconfig.zip_dir)
-
-#######################################################
-
 
 
 # INSTALL REQUIRED PACKAGES
 REQUIREMENTS= ['send2trash', 'natsort', 'pyqrcode']
-
-
-
-
-
-
-
 
 
 
@@ -111,31 +91,59 @@ if not os.path.isdir(CoreConfig.log_location):
 	except Exception:
 		CoreConfig.log_location ="./"
 
-
-
-
-if not CoreConfig.disabled_func["send2trash"]:
+if not CoreConfig.disabled_func.get("send2trash"):
 	try:
 		from send2trash import send2trash, TrashPermissionError
 	except Exception:
 		CoreConfig.disabled_func["send2trash"] = True
-		logger.warning("send2trash module not found, send2trash function disabled")
+		logger.warning("send2trash module not found, send2trash function disabled. Install it using `pip install send2trash`")
+
+
+if not CoreConfig.disabled_func.get("natsort"):
+	try:
+		import natsort
+	except Exception:
+		CoreConfig.disabled_func["natsort"] = True
+		logger.warning("natsort not found, falling back to default sorting. Install it using `pip install natsort`")
+
+if not CoreConfig.disabled_func.get("pyqrcode"):
+	try:
+		import pyqrcode
+	except ImportError:
+		CoreConfig.disabled_func["pyqrcode"] = True
+		logger.warning("pyqrcode module not found, QR code generation disabled. Install it using `pip install pyqrcode`")
 
 
 
 
 
+   #############################################
+  #				 HANDLER UTILS                #
+ # Need to be loaded after CoreConfig is set #
+#############################################
+
+from _fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes, UploadHandler
+import _page_templates as pt
+from _exceptions import LimitExceed
+from _zipfly_manager import ZIP_Manager
+from _list_maker import list_directory, list_directory_json, list_directory_html
+from _sub_extractor import extract_subtitles_from_file
 
 
 
 
+########## ZIP MANAGER ################################
+# max_zip_size = 6*1024*1024*1024
+zip_manager = ZIP_Manager(CoreConfig, size_limit=Sconfig.max_zip_size, zip_temp_dir=Sconfig.zip_dir)
+
+#######################################################
 
 
 
+########## PAGE TEMPLATES ###############################
+pt.pt_config.dev_mode = CoreConfig.dev_mode
 
-
-
-
+#########################################################
 
 
 
@@ -1208,8 +1216,8 @@ def upload(self: SH, *args, **kwargs):
 			pass
 
 		finally:
-			if temp_fn in CoreConfig.temp_file:
-				CoreConfig.temp_file.remove(temp_fn)
+			if temp_fn in CoreConfig.temp_files:
+				CoreConfig.temp_files.remove(temp_fn)
 
 
 
@@ -1234,8 +1242,8 @@ def upload(self: SH, *args, **kwargs):
 		if not self.path_safety_check(fn, rltv_path):
 			return self.send_txt("Invalid Path:  " + rltv_path, HTTPStatus.BAD_REQUEST, cookie=cookie)
 
-		temp_fn = xpath(os_path, ".LStemp-"+fn +'.tmp')
-		CoreConfig.temp_file.add(temp_fn)
+		temp_fn = xpath(os_path, ".LStemp-"+ fn +'.tmp')
+		CoreConfig.temp_files.add(temp_fn)
 
 
 		os_f_path = xpath(os_path, fn)
@@ -1337,7 +1345,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 		if CoreConfig.OS == 'Android':
 			raise InterruptedError
 		send2trash(os_f_path)
-		msg = "Successfully Moved To Recycle bin"+ post.refresh
+		msg = "Successfully Moved To Recycle bin" + post.refresh
 		head = "Success"
 	except TrashPermissionError:
 		msg = "Recycling unavailable! Try deleting permanently..."
@@ -1672,19 +1680,15 @@ def run(*args, **kwargs):
 	runner = pyroboxRunner(handler=SH, *args, **kwargs)
 
 	url = CoreConfig.address()
+
 	if cli_args.qr and not CoreConfig.disabled_func["pyqrcode"]:
+		# Create a QR code on terminal
 		try:
-			import pyqrcode
-			# Create a QR code on terminal
 			url = pyqrcode.create(url, error='L')
 			print(url.terminal('black', 'white', quiet_zone=1))
-		except ImportError:
-			CoreConfig.disabled_func["pyqrcode"] = True
-			logger.warning("pyqrcode module not found, QR code generation disabled. Install it using `pip install pyqrcode`")
 		except Exception as e:
 			logger.error(f"Error generating QR code: {e}")
-
-
+			
 
 	runner.run()
 

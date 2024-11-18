@@ -1,3 +1,4 @@
+import argparse
 from http import HTTPStatus
 import os
 import tempfile
@@ -21,7 +22,7 @@ import _page_templates as pt
 
 
 class ServerConfig():
-	def __init__(self, cli_args):
+	def __init__(self, cli_args:Union[dict, argparse.Namespace]):
 		self.name = cli_args.name
 		self.admin_username = cli_args.admin_id
 		self.admin_password = cli_args.admin_pass

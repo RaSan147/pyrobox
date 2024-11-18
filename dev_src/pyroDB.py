@@ -55,13 +55,13 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
 
 import traceback
-from typing import Any, Generator, Union
+from typing import Any, Generator, List, Union
 
 try:
 	from tabulate2 import tabulate # pip install tabulate2
 	TABLE = True
 except ImportError:
-	logger.error("tabulate not found, install it using `pip install tabulate2`\n * Printing table will not be in tabular format")
+	logger.warning("tabulate not found, install it using `pip install tabulate2`\n * Printing table will not be in tabular format")
 	# raise ImportError("tabulate not found, install it using `pip install tabulate2`")
 	TABLE = False
 
@@ -69,7 +69,7 @@ try:
 	import msgpack # pip install msgpack
 	SAVE_LOAD = True
 except ImportError:
-	logger.warn("msgpack not found, install it using `pip install msgpack`\n * Save and Load will not work")
+	logger.warning("msgpack not found, install it using `pip install msgpack`\n * Save and Load will not work")
 	SAVE_LOAD = False
 	# raise ImportError("msgpack not found, install it using `pip install msgpack`")
 
@@ -1088,7 +1088,7 @@ class PickleTable(dict):
 			else:
 				yield row_.to_dict()
 
-	def search(self, kw, column=None , row=None, full_match=False, return_obj=True, return_row=False, rescan=True) -> list[Union["_PickleTCell", "_PickleTRow"]]:
+	def search(self, kw, column=None , row=None, full_match=False, return_obj=True, return_row=False, rescan=True) -> List[Union["_PickleTCell", "_PickleTRow"]]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the cell object in loop
 		- kw: keyword to search

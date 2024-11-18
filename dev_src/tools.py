@@ -3,7 +3,7 @@ import re
 import shutil
 import subprocess
 import sys
-from typing import List, Union
+from typing import Generator, List, Union
 
 
 def get_codec():
@@ -59,7 +59,7 @@ def open_explorar(path):
 	elif sys.platform.startswith('darwin'):
 		subprocess.Popen(["open", path])
 
-def xpath(*path: Union[str, bytes], realpath=False, posix=True):
+def xpath(*path: Union[str, bytes], realpath=False, posix=True, win=False):
 	"""
 	Join path and normalize it.
 	* path: list of strings
@@ -70,8 +70,9 @@ def xpath(*path: Union[str, bytes], realpath=False, posix=True):
 	if d_type:
 		path = [p.decode() for p in path]
 	path:str = os.path.join(*path)
-	path = path.replace("\\", "/") if posix else path
-	path = re.sub(r"/+", "/", path) if posix else re.sub(r"\\+", "\\", path)
+	path = path.replace("\\", "/") if posix else path.replace("/", "\\") if win else path
+	path = re.sub(r"/+", "/", path)
+	path = re.sub(r"[\\]+", r"\\", path)
 
 	out_path = path if not realpath else os.path.realpath(path)
 	return out_path.encode('utf-8') if d_type else out_path
@@ -91,16 +92,37 @@ def make_dir(*path):
 
 	return path
 
-def os_scan_walk(*path) -> List[os.DirEntry]:
-	"""Scan a directory and return a list of files"""
+def os_scan_walk(*path, allow_dir=False, return_list=True) -> Union[List[os.DirEntry], Generator[os.DirEntry, None, None]]:
+	"""
+	Iterate through a directory and its subdirectories
+	and `yield` the filePath object of each Files and Folders*.
+
+	path: path to the directory
+	allow_dir: if True, will also yield directories
+	return_list: if True, will return a list of all files and directories. If False, will yield each file and directory.
+	"""
 	files = []
 	for f in os.scandir(xpath(*path)):
 		if f.is_file():
-			files.append(f)
+			if return_list:
+				files.append(f)
+			else:
+				yield f
 		elif f.is_dir():
-			files.extend(os_scan_walk(f.path))
+			if allow_dir:
+				if return_list:
+					files.append(f)
+				else:
+					yield f
 
-	return files
+			if return_list:
+				files.extend(os_scan_walk(f.path))
+			else:
+				for i in os_scan_walk(f.path):
+					yield i
+
+	if return_list:
+		return files
 
 
 def is_file(*path):
