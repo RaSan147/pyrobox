@@ -44,6 +44,9 @@ class ServerConfig():
 		# Max size a zip file will be made
 		self.max_zip_size = 6*1024*1024*1024 # 6GB
 
+		# Max Buffer size for writing files
+		self.max_buffer_size = 1024*1024 # 1MB
+
 		
 		self.temp_dir = CoreConfig.temp_dir
 		self.subtitles_dir = xpath(self.temp_dir, "subtitles")

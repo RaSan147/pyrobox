@@ -148,10 +148,11 @@ def fetch_url(url, file = None):
 	try:
 		with urllib.request.urlopen(url, timeout=5) as response:
 			data = response.read() # a `bytes` object
-			if not file:
-				return data
 
-		with open(file, 'wb') as f:
+		if not file:
+			return data
+
+		with open(file, 'wb', buffering=Sconfig.max_buffer_size) as f:
 			f.write(data)
 		return data
 	except Exception:
@@ -1248,7 +1249,7 @@ def upload(self: SH, *args, **kwargs):
 
 		# ORIGINAL FILE STARTS FROM HERE
 		try:
-			out = open(temp_fn, 'wb')
+			out = open(temp_fn, 'wb', buffering=Sconfig.max_buffer_size)
 			preline = post.get()
 			while post.remainbytes > 0 and not upload_handler.error:
 				line = post.get()
