@@ -48,7 +48,7 @@ class ServerConfig():
 		self.temp_dir = CoreConfig.temp_dir
 		self.subtitles_dir = xpath(self.temp_dir, "subtitles")
 		self.allow_subtitle = True
-		self.assets_dir = xpath(CoreConfig.MAIN_FILE_dir, "assets")
+		self.assets_dir = xpath(CoreConfig.MAIN_FILE_dir, '..', "assets", realpath=True)
 		self.zip_dir = xpath(self.temp_dir, "zip")
 
 	def init_config(self):
