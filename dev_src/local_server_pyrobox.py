@@ -866,33 +866,12 @@ def send_video_page(self: SH, *args, **kwargs):
 
 
 
-
-
-
-# @SH.on_req('HEAD', url_regex="/@assets/.*")
-# def send_assets(self: SH, *args, **kwargs):
-# 	"""Send assets"""
-# 	user = Authorize_user(self)
-
-# 	if not user: # guest or not will be handled in Authentication
-# 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED)
-
-# 	if not CoreConfig.ASSETS:
-# 		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
-# 		return None
-
-
-# 	path = kwargs.get('path')
-# 	spathsplit = kwargs.get('spathsplit')
-
-# 	path = CoreConfig.ASSETS_dir + "/".join(spathsplit[2:])
-# 	#	print("USING ASSETS", path)
-
-# 	if not os.path.isfile(path):
-# 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-# 		return None
-
-# 	return self.return_file(path)
+if CoreConfig.dev_mode:
+	SH.alt_directory(
+		dir = Sconfig.assets_dir,
+		method='HEAD',
+		url_regex="/@assets/.*"
+	)
 
 @SH.on_req('HEAD', hasQ="style")
 def send_style(self: SH, *args, **kwargs):

@@ -18,30 +18,32 @@
 
 
 
-audio,
+/* audio,
 video {
 	display: inline-block
-}
+} */
 
-audio:not([controls]) {
+/* audio:not([controls]) {
 	display: none;
 	height: 0
-}
+} */
 
-body {
+/* body {
 	align-items: center;
 	flex-direction: column;
 	min-height: 100%;
 	max-width: 100%;
-}
+} */
 
+/* For Video poster images */
+/* 
 audio,
-.plyr img, /* For Video poster images */
+.plyr img,
 video {
 	max-width: 95vh;
 	max-height: 90vh;
 	vertical-align: middle
-}
+} */
 
 .plyr {
 	border-radius: 6px;
@@ -206,18 +208,16 @@ video {
 	display: none
 }
 
-@media(min-width:480px) {
+@media (min-width:480px) {
 	.plyr__captions {
 		font-size: 15px;
 		font-size: var(--plyr-font-size-base, 15px);
 		padding: 20px;
 		padding: calc(var(--plyr-control-spacing, 10px)*2)
 	}
-
 }
 
-
-@media(min-width:768px) {
+@media (min-width:768px) {
 	.plyr__captions {
 		font-size: 18px;
 		font-size: var(--plyr-font-size-large, 18px)
@@ -234,8 +234,8 @@ video {
 }
 
 .plyr__caption {
-	background: rgba(0, 0, 0, .8);
-	background: var(--plyr-captions-background, rgba(0, 0, 0, .8));
+	background: #000c;
+	background: var(--plyr-captions-background, #000c);
 	border-radius: 2px;
 	-webkit-box-decoration-break: clone;
 	box-decoration-break: clone;
@@ -251,10 +251,10 @@ video {
 }
 
 .plyr__control {
-	background: 0 0;
+	background: #0000;
 	border: 0;
-	border-radius: 3px;
-	border-radius: var(--plyr-control-radius, 3px);
+	border-radius: 4px;
+	border-radius: var(--plyr-control-radius, 4px);
 	color: inherit;
 	cursor: pointer;
 	flex-shrink: 0;
@@ -279,9 +279,9 @@ video {
 	outline: 0
 }
 
-.plyr__control.plyr__tab-focus {
-	outline: 3px dotted #00b2ff;
-	outline: var(--plyr-tab-focus-color, var(--plyr-color-main, var(--plyr-color-main, #00b2ff))) dotted 3px;
+.plyr__control:focus-visible {
+	outline: 2px dashed #00b2ff;
+	outline: 2px dashed var(--plyr-focus-visible-color, var(--plyr-color-main, var(--plyr-color-main, #00b2ff)));
 	outline-offset: 2px
 }
 
@@ -374,12 +374,13 @@ a.plyr__control:before {
 
 .plyr__menu__container {
 	animation: plyr-popup .2s ease;
-	background: hsla(0, 0%, 100%, .9);
-	background: var(--plyr-menu-background, hsla(0, 0%, 100%, .9));
-	border-radius: 4px;
+	background: #ffffffe6;
+	background: var(--plyr-menu-background, #ffffffe6);
+	border-radius: 8px;
+	border-radius: var(--plyr-menu-radius, 8px);
 	bottom: 100%;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
-	box-shadow: var(--plyr-menu-shadow, 0 1px 2px rgba(0, 0, 0, .15));
+	box-shadow: 0 1px 2px #00000026;
+	box-shadow: var(--plyr-menu-shadow, 0 1px 2px #00000026);
 	color: #4a5464;
 	color: var(--plyr-menu-color, #4a5464);
 	font-size: 15px;
@@ -398,10 +399,10 @@ a.plyr__control:before {
 }
 
 .plyr__menu__container:after {
-	border: 4px solid transparent;
-	border-top-color: hsla(0, 0%, 100%, .9);
-	border: var(--plyr-menu-arrow-size, 4px) solid transparent;
-	border-top-color: var(--plyr-menu-background, hsla(0, 0%, 100%, .9));
+	border: 4px solid #0000;
+	border-top-color: #ffffffe6;
+	border: var(--plyr-menu-arrow-size, 4px) solid #0000;
+	border-top-color: var(--plyr-menu-background, #ffffffe6);
 	content: "";
 	height: 0;
 	position: absolute;
@@ -447,8 +448,8 @@ a.plyr__control:before {
 }
 
 .plyr__menu__container .plyr__control:after {
-	border: 4px solid transparent;
-	border: var(--plyr-menu-item-arrow-size, 4px) solid transparent;
+	border: 4px solid #0000;
+	border: var(--plyr-menu-item-arrow-size, 4px) solid #0000;
 	content: "";
 	position: absolute;
 	top: 50%;
@@ -467,9 +468,9 @@ a.plyr__control:before {
 	right: calc(var(--plyr-control-spacing, 10px)*.7*1.5 - var(--plyr-menu-item-arrow-size, 4px))
 }
 
-.plyr__menu__container .plyr__control--forward.plyr__tab-focus:after,
+.plyr__menu__container .plyr__control--forward:focus-visible:after,
 .plyr__menu__container .plyr__control--forward:hover:after {
-	border-left-color: currentColor
+	border-left-color: initial
 }
 
 .plyr__menu__container .plyr__control--back {
@@ -509,9 +510,9 @@ a.plyr__control:before {
 	top: 100%
 }
 
-.plyr__menu__container .plyr__control--back.plyr__tab-focus:after,
+.plyr__menu__container .plyr__control--back:focus-visible:after,
 .plyr__menu__container .plyr__control--back:hover:after {
-	border-right-color: currentColor
+	border-right-color: initial
 }
 
 .plyr__menu__container .plyr__control[role=menuitemradio] {
@@ -525,7 +526,7 @@ a.plyr__control:before {
 }
 
 .plyr__menu__container .plyr__control[role=menuitemradio]:before {
-	background: rgba(0, 0, 0, .1);
+	background: #0000001a;
 	content: "";
 	display: block;
 	flex-shrink: 0;
@@ -558,17 +559,17 @@ a.plyr__control:before {
 	transform: translateY(-50%) scale(1)
 }
 
-.plyr__menu__container .plyr__control[role=menuitemradio].plyr__tab-focus:before,
+.plyr__menu__container .plyr__control[role=menuitemradio]:focus-visible:before,
 .plyr__menu__container .plyr__control[role=menuitemradio]:hover:before {
-	background: rgba(35, 40, 47, .1)
+	background: #23282f1a
 }
 
 .plyr__menu__container .plyr__menu__value {
 	align-items: center;
 	display: flex;
 	margin-left: auto;
-	margin-right: calc(-7px - -2);
-	margin-right: calc(var(--plyr-control-spacing, 10px)*.7*-1 - -2);
+	margin-right: -5px;
+	margin-right: calc(var(--plyr-control-spacing, 10px)*.7*-1 - -2px);
 	overflow: hidden;
 	padding-left: 24.5px;
 	padding-left: calc(var(--plyr-control-spacing, 10px)*.7*3.5);
@@ -578,7 +579,7 @@ a.plyr__control:before {
 .plyr--full-ui input[type=range] {
 	-webkit-appearance: none;
 	appearance: none;
-	background: 0 0;
+	background: #0000;
 	border: 0;
 	border-radius: 26px;
 	border-radius: calc(var(--plyr-range-thumb-height, 13px)*2);
@@ -595,9 +596,9 @@ a.plyr__control:before {
 }
 
 .plyr--full-ui input[type=range]::-webkit-slider-runnable-track {
-	background: 0 0;
-	background-image: linear-gradient(90deg, currentColor 0, transparent 0);
-	background-image: linear-gradient(to right, currentColor var(--value, 0), transparent var(--value, 0));
+	background: #0000;
+	background-image: linear-gradient(90deg, currentColor 0, #0000 0);
+	background-image: linear-gradient(to right, currentColor var(--value, 0), #0000 var(--value, 0));
 	border: 0;
 	border-radius: 2.5px;
 	border-radius: calc(var(--plyr-range-track-height, 5px)/2);
@@ -616,8 +617,8 @@ a.plyr__control:before {
 	background: var(--plyr-range-thumb-background, #fff);
 	border: 0;
 	border-radius: 100%;
-	box-shadow: 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2);
-	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2));
+	box-shadow: 0 1px 1px #23282f26, 0 0 0 1px #23282f33;
+	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px #23282f26, 0 0 0 1px #23282f33);
 	height: 13px;
 	height: var(--plyr-range-thumb-height, 13px);
 	margin-top: -4px;
@@ -630,7 +631,7 @@ a.plyr__control:before {
 }
 
 .plyr--full-ui input[type=range]::-moz-range-track {
-	background: 0 0;
+	background: #0000;
 	border: 0;
 	border-radius: 2.5px;
 	border-radius: calc(var(--plyr-range-track-height, 5px)/2);
@@ -647,8 +648,8 @@ a.plyr__control:before {
 	background: var(--plyr-range-thumb-background, #fff);
 	border: 0;
 	border-radius: 100%;
-	box-shadow: 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2);
-	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2));
+	box-shadow: 0 1px 1px #23282f26, 0 0 0 1px #23282f33;
+	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px #23282f26, 0 0 0 1px #23282f33);
 	height: 13px;
 	height: var(--plyr-range-thumb-height, 13px);
 	position: relative;
@@ -667,12 +668,12 @@ a.plyr__control:before {
 }
 
 .plyr--full-ui input[type=range]::-ms-track {
-	color: transparent
+	color: #0000
 }
 
 .plyr--full-ui input[type=range]::-ms-fill-upper,
 .plyr--full-ui input[type=range]::-ms-track {
-	background: 0 0;
+	background: #0000;
 	border: 0;
 	border-radius: 2.5px;
 	border-radius: calc(var(--plyr-range-track-height, 5px)/2);
@@ -685,7 +686,7 @@ a.plyr__control:before {
 }
 
 .plyr--full-ui input[type=range]::-ms-fill-lower {
-	background: 0 0;
+	background: #0000;
 	background: currentColor;
 	border: 0;
 	border-radius: 2.5px;
@@ -703,8 +704,8 @@ a.plyr__control:before {
 	background: var(--plyr-range-thumb-background, #fff);
 	border: 0;
 	border-radius: 100%;
-	box-shadow: 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2);
-	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2));
+	box-shadow: 0 1px 1px #23282f26, 0 0 0 1px #23282f33;
+	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px #23282f26, 0 0 0 1px #23282f33);
 	height: 13px;
 	height: var(--plyr-range-thumb-height, 13px);
 	margin-top: 0;
@@ -727,21 +728,21 @@ a.plyr__control:before {
 	outline: 0
 }
 
-.plyr--full-ui input[type=range].plyr__tab-focus::-webkit-slider-runnable-track {
-	outline: 3px dotted #00b2ff;
-	outline: var(--plyr-tab-focus-color, var(--plyr-color-main, var(--plyr-color-main, #00b2ff))) dotted 3px;
+.plyr--full-ui input[type=range]:focus-visible::-webkit-slider-runnable-track {
+	outline: 2px dashed #00b2ff;
+	outline: 2px dashed var(--plyr-focus-visible-color, var(--plyr-color-main, var(--plyr-color-main, #00b2ff)));
 	outline-offset: 2px
 }
 
-.plyr--full-ui input[type=range].plyr__tab-focus::-moz-range-track {
-	outline: 3px dotted #00b2ff;
-	outline: var(--plyr-tab-focus-color, var(--plyr-color-main, var(--plyr-color-main, #00b2ff))) dotted 3px;
+.plyr--full-ui input[type=range]:focus-visible::-moz-range-track {
+	outline: 2px dashed #00b2ff;
+	outline: 2px dashed var(--plyr-focus-visible-color, var(--plyr-color-main, var(--plyr-color-main, #00b2ff)));
 	outline-offset: 2px
 }
 
-.plyr--full-ui input[type=range].plyr__tab-focus::-ms-track {
-	outline: 3px dotted #00b2ff;
-	outline: var(--plyr-tab-focus-color, var(--plyr-color-main, var(--plyr-color-main, #00b2ff))) dotted 3px;
+.plyr--full-ui input[type=range]:focus-visible::-ms-track {
+	outline: 2px dashed #00b2ff;
+	outline: 2px dashed var(--plyr-focus-visible-color, var(--plyr-color-main, var(--plyr-color-main, #00b2ff)));
 	outline-offset: 2px
 }
 
@@ -802,13 +803,13 @@ a.plyr__control:before {
 }
 
 .plyr__tooltip {
-	background: hsla(0, 0%, 100%, .9);
-	background: var(--plyr-tooltip-background, hsla(0, 0%, 100%, .9));
+	background: #fff;
+	background: var(--plyr-tooltip-background, #fff);
 	border-radius: 5px;
 	border-radius: var(--plyr-tooltip-radius, 5px);
 	bottom: 100%;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
-	box-shadow: var(--plyr-tooltip-shadow, 0 1px 2px rgba(0, 0, 0, .15));
+	box-shadow: 0 1px 2px #00000026;
+	box-shadow: var(--plyr-tooltip-shadow, 0 1px 2px #00000026);
 	color: #4a5464;
 	color: var(--plyr-tooltip-color, #4a5464);
 	font-size: 13px;
@@ -832,12 +833,12 @@ a.plyr__control:before {
 }
 
 .plyr__tooltip:before {
-	border-left: 4px solid transparent;
-	border-left: var(--plyr-tooltip-arrow-size, 4px) solid transparent;
-	border-right: 4px solid transparent;
-	border-right: var(--plyr-tooltip-arrow-size, 4px) solid transparent;
-	border-top: 4px solid hsla(0, 0%, 100%, .9);
-	border-top: var(--plyr-tooltip-arrow-size, 4px) solid var(--plyr-tooltip-background, hsla(0, 0%, 100%, .9));
+	border-left: 4px solid #0000;
+	border-left: var(--plyr-tooltip-arrow-size, 4px) solid #0000;
+	border-right: 4px solid #0000;
+	border-right: var(--plyr-tooltip-arrow-size, 4px) solid #0000;
+	border-top: 4px solid #fff;
+	border-top: var(--plyr-tooltip-arrow-size, 4px) solid var(--plyr-tooltip-background, #fff);
 	bottom: -4px;
 	bottom: calc(var(--plyr-tooltip-arrow-size, 4px)*-1);
 	content: "";
@@ -849,7 +850,7 @@ a.plyr__control:before {
 	z-index: 2
 }
 
-.plyr .plyr__control.plyr__tab-focus .plyr__tooltip,
+.plyr .plyr__control:focus-visible .plyr__tooltip,
 .plyr .plyr__control:hover .plyr__tooltip,
 .plyr__tooltip--visible {
 	opacity: 1;
@@ -889,12 +890,12 @@ a.plyr__control:before {
 
 .plyr__controls>.plyr__control:first-child .plyr__tooltip--visible,
 .plyr__controls>.plyr__control:first-child+.plyr__control .plyr__tooltip--visible,
-.plyr__controls>.plyr__control:first-child+.plyr__control.plyr__tab-focus .plyr__tooltip,
+.plyr__controls>.plyr__control:first-child+.plyr__control:focus-visible .plyr__tooltip,
 .plyr__controls>.plyr__control:first-child+.plyr__control:hover .plyr__tooltip,
-.plyr__controls>.plyr__control:first-child.plyr__tab-focus .plyr__tooltip,
+.plyr__controls>.plyr__control:first-child:focus-visible .plyr__tooltip,
 .plyr__controls>.plyr__control:first-child:hover .plyr__tooltip,
 .plyr__controls>.plyr__control:last-child .plyr__tooltip--visible,
-.plyr__controls>.plyr__control:last-child.plyr__tab-focus .plyr__tooltip,
+.plyr__controls>.plyr__control:last-child:focus-visible .plyr__tooltip,
 .plyr__controls>.plyr__control:last-child:hover .plyr__tooltip {
 	transform: translate(0) scale(1)
 }
@@ -925,14 +926,12 @@ a.plyr__control:before {
 .plyr__progress .plyr__tooltip {
 	left: 0;
 	max-width: 120px;
-	overflow-wrap: break-word;
-	white-space: normal
+	overflow-wrap: break-word
 }
 
 .plyr__progress__buffer {
 	-webkit-appearance: none;
-	appearance: none;
-	background: 0 0;
+	background: #0000;
 	border: 0;
 	border-radius: 100px;
 	height: 5px;
@@ -946,7 +945,7 @@ a.plyr__control:before {
 }
 
 .plyr__progress__buffer::-webkit-progress-bar {
-	background: 0 0
+	background: #0000
 }
 
 .plyr__progress__buffer::-webkit-progress-value {
@@ -975,22 +974,22 @@ a.plyr__control:before {
 
 .plyr--loading .plyr__progress__buffer {
 	animation: plyr-progress 1s linear infinite;
-	background-image: linear-gradient(-45deg, rgba(35, 40, 47, .6) 25%, transparent 0, transparent 50%, rgba(35, 40, 47, .6) 0, rgba(35, 40, 47, .6) 75%, transparent 0, transparent);
-	background-image: linear-gradient(-45deg, var(--plyr-progress-loading-background, rgba(35, 40, 47, .6)) 25%, transparent 25%, transparent 50%, var(--plyr-progress-loading-background, rgba(35, 40, 47, .6)) 50%, var(--plyr-progress-loading-background, rgba(35, 40, 47, .6)) 75%, transparent 75%, transparent);
+	background-image: linear-gradient(-45deg, #23282f99 25%, #0000 0, #0000 50%, #23282f99 0, #23282f99 75%, #0000 0, #0000);
+	background-image: linear-gradient(-45deg, var(--plyr-progress-loading-background, #23282f99) 25%, #0000 25%, #0000 50%, var(--plyr-progress-loading-background, #23282f99) 50%, var(--plyr-progress-loading-background, #23282f99) 75%, #0000 75%, #0000);
 	background-repeat: repeat-x;
 	background-size: 25px 25px;
 	background-size: var(--plyr-progress-loading-size, 25px) var(--plyr-progress-loading-size, 25px);
-	color: transparent
+	color: #0000
 }
 
 .plyr--video.plyr--loading .plyr__progress__buffer {
-	background-color: hsla(0, 0%, 100%, .25);
-	background-color: var(--plyr-video-progress-buffered-background, hsla(0, 0%, 100%, .25))
+	background-color: #ffffff40;
+	background-color: var(--plyr-video-progress-buffered-background, #ffffff40)
 }
 
 .plyr--audio.plyr--loading .plyr__progress__buffer {
-	background-color: rgba(193, 200, 209, .6);
-	background-color: var(--plyr-audio-progress-buffered-background, rgba(193, 200, 209, .6))
+	background-color: #c1c8d199;
+	background-color: var(--plyr-audio-progress-buffered-background, #c1c8d199)
 }
 
 .plyr__progress__marker {
@@ -1010,10 +1009,7 @@ a.plyr__control:before {
 .plyr__volume {
 	align-items: center;
 	display: flex;
-	max-width: 110px;
-	min-width: 80px;
-	position: relative;
-	width: 20%
+	position: relative
 }
 
 .plyr__volume input[type=range] {
@@ -1021,13 +1017,10 @@ a.plyr__control:before {
 	margin-left: calc(var(--plyr-control-spacing, 10px)/2);
 	margin-right: 5px;
 	margin-right: calc(var(--plyr-control-spacing, 10px)/2);
+	max-width: 90px;
+	min-width: 60px;
 	position: relative;
 	z-index: 2
-}
-
-.plyr--is-ios .plyr__volume {
-	min-width: 0;
-	width: auto
 }
 
 .plyr--audio {
@@ -1044,7 +1037,7 @@ a.plyr__control:before {
 	padding: var(--plyr-control-spacing, 10px)
 }
 
-.plyr--audio .plyr__control.plyr__tab-focus,
+.plyr--audio .plyr__control:focus-visible,
 .plyr--audio .plyr__control:hover,
 .plyr--audio .plyr__control[aria-expanded=true] {
 	background: #00b2ff;
@@ -1054,43 +1047,41 @@ a.plyr__control:before {
 }
 
 .plyr--full-ui.plyr--audio input[type=range]::-webkit-slider-runnable-track {
-	background-color: rgba(193, 200, 209, .6);
-	background-color: var(--plyr-audio-range-track-background, var(--plyr-audio-progress-buffered-background, rgba(193, 200, 209, .6)))
+	background-color: #c1c8d199;
+	background-color: var(--plyr-audio-range-track-background, var(--plyr-audio-progress-buffered-background, #c1c8d199))
 }
 
 .plyr--full-ui.plyr--audio input[type=range]::-moz-range-track {
-	background-color: rgba(193, 200, 209, .6);
-	background-color: var(--plyr-audio-range-track-background, var(--plyr-audio-progress-buffered-background, rgba(193, 200, 209, .6)))
+	background-color: #c1c8d199;
+	background-color: var(--plyr-audio-range-track-background, var(--plyr-audio-progress-buffered-background, #c1c8d199))
 }
 
 .plyr--full-ui.plyr--audio input[type=range]::-ms-track {
-	background-color: rgba(193, 200, 209, .6);
-	background-color: var(--plyr-audio-range-track-background, var(--plyr-audio-progress-buffered-background, rgba(193, 200, 209, .6)))
+	background-color: #c1c8d199;
+	background-color: var(--plyr-audio-range-track-background, var(--plyr-audio-progress-buffered-background, #c1c8d199))
 }
 
 .plyr--full-ui.plyr--audio input[type=range]:active::-webkit-slider-thumb {
-	box-shadow: 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2), 0 0 0 3px rgba(35, 40, 47, .1);
-	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2)), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, rgba(35, 40, 47, .1))
+	box-shadow: 0 1px 1px #23282f26, 0 0 0 1px #23282f33, 0 0 0 3px #23282f1a;
+	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px #23282f26, 0 0 0 1px #23282f33), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, #23282f1a)
 }
 
 .plyr--full-ui.plyr--audio input[type=range]:active::-moz-range-thumb {
-	box-shadow: 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2), 0 0 0 3px rgba(35, 40, 47, .1);
-	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2)), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, rgba(35, 40, 47, .1))
+	box-shadow: 0 1px 1px #23282f26, 0 0 0 1px #23282f33, 0 0 0 3px #23282f1a;
+	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px #23282f26, 0 0 0 1px #23282f33), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, #23282f1a)
 }
 
 .plyr--full-ui.plyr--audio input[type=range]:active::-ms-thumb {
-	box-shadow: 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2), 0 0 0 3px rgba(35, 40, 47, .1);
-	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2)), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, rgba(35, 40, 47, .1))
+	box-shadow: 0 1px 1px #23282f26, 0 0 0 1px #23282f33, 0 0 0 3px #23282f1a;
+	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px #23282f26, 0 0 0 1px #23282f33), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, #23282f1a)
 }
 
 .plyr--audio .plyr__progress__buffer {
-	color: rgba(193, 200, 209, .6);
-	color: var(--plyr-audio-progress-buffered-background, rgba(193, 200, 209, .6))
+	color: #c1c8d199;
+	color: var(--plyr-audio-progress-buffered-background, #c1c8d199)
 }
 
 .plyr--video {
-	background: #000;
-	background: var(--plyr-video-background, var(--plyr-video-background, #000));
 	overflow: hidden
 }
 
@@ -1101,6 +1092,7 @@ a.plyr__control:before {
 .plyr__video-wrapper {
 	background: #000;
 	background: var(--plyr-video-background, var(--plyr-video-background, #000));
+	border-radius: inherit;
 	height: 100%;
 	margin: auto;
 	overflow: hidden;
@@ -1140,8 +1132,8 @@ a.plyr__control:before {
 }
 
 .plyr--video .plyr__controls {
-	background: linear-gradient(transparent, rgba(0, 0, 0, .75));
-	background: var(--plyr-video-controls-background, linear-gradient(transparent, rgba(0, 0, 0, .75)));
+	background: linear-gradient(#0000, #000000bf);
+	background: var(--plyr-video-controls-background, linear-gradient(#0000, #000000bf));
 	border-bottom-left-radius: inherit;
 	border-bottom-right-radius: inherit;
 	bottom: 0;
@@ -1158,7 +1150,7 @@ a.plyr__control:before {
 	z-index: 3
 }
 
-@media(min-width:480px) {
+@media (min-width:480px) {
 	.plyr--video .plyr__controls {
 		padding: 10px;
 		padding: var(--plyr-control-spacing, 10px);
@@ -1173,7 +1165,7 @@ a.plyr__control:before {
 	transform: translateY(100%)
 }
 
-.plyr--video .plyr__control.plyr__tab-focus,
+.plyr--video .plyr__control:focus-visible,
 .plyr--video .plyr__control:hover,
 .plyr--video .plyr__control[aria-expanded=true] {
 	background: #00b2ff;
@@ -1221,38 +1213,38 @@ a.plyr__control:before {
 }
 
 .plyr--full-ui.plyr--video input[type=range]::-webkit-slider-runnable-track {
-	background-color: hsla(0, 0%, 100%, .25);
-	background-color: var(--plyr-video-range-track-background, var(--plyr-video-progress-buffered-background, hsla(0, 0%, 100%, .25)))
+	background-color: #ffffff40;
+	background-color: var(--plyr-video-range-track-background, var(--plyr-video-progress-buffered-background, #ffffff40))
 }
 
 .plyr--full-ui.plyr--video input[type=range]::-moz-range-track {
-	background-color: hsla(0, 0%, 100%, .25);
-	background-color: var(--plyr-video-range-track-background, var(--plyr-video-progress-buffered-background, hsla(0, 0%, 100%, .25)))
+	background-color: #ffffff40;
+	background-color: var(--plyr-video-range-track-background, var(--plyr-video-progress-buffered-background, #ffffff40))
 }
 
 .plyr--full-ui.plyr--video input[type=range]::-ms-track {
-	background-color: hsla(0, 0%, 100%, .25);
-	background-color: var(--plyr-video-range-track-background, var(--plyr-video-progress-buffered-background, hsla(0, 0%, 100%, .25)))
+	background-color: #ffffff40;
+	background-color: var(--plyr-video-range-track-background, var(--plyr-video-progress-buffered-background, #ffffff40))
 }
 
 .plyr--full-ui.plyr--video input[type=range]:active::-webkit-slider-thumb {
-	box-shadow: 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2), 0 0 0 3px hsla(0, 0%, 100%, .5);
-	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2)), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, hsla(0, 0%, 100%, .5))
+	box-shadow: 0 1px 1px #23282f26, 0 0 0 1px #23282f33, 0 0 0 3px #ffffff80;
+	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px #23282f26, 0 0 0 1px #23282f33), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, #ffffff80)
 }
 
 .plyr--full-ui.plyr--video input[type=range]:active::-moz-range-thumb {
-	box-shadow: 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2), 0 0 0 3px hsla(0, 0%, 100%, .5);
-	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2)), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, hsla(0, 0%, 100%, .5))
+	box-shadow: 0 1px 1px #23282f26, 0 0 0 1px #23282f33, 0 0 0 3px #ffffff80;
+	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px #23282f26, 0 0 0 1px #23282f33), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, #ffffff80)
 }
 
 .plyr--full-ui.plyr--video input[type=range]:active::-ms-thumb {
-	box-shadow: 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2), 0 0 0 3px hsla(0, 0%, 100%, .5);
-	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px rgba(35, 40, 47, .15), 0 0 0 1px rgba(35, 40, 47, .2)), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, hsla(0, 0%, 100%, .5))
+	box-shadow: 0 1px 1px #23282f26, 0 0 0 1px #23282f33, 0 0 0 3px #ffffff80;
+	box-shadow: var(--plyr-range-thumb-shadow, 0 1px 1px #23282f26, 0 0 0 1px #23282f33), 0 0 0 var(--plyr-range-thumb-active-shadow-width, 3px) var(--plyr-audio-range-thumb-active-shadow-color, #ffffff80)
 }
 
 .plyr--video .plyr__progress__buffer {
-	color: hsla(0, 0%, 100%, .25);
-	color: var(--plyr-video-progress-buffered-background, hsla(0, 0%, 100%, .25))
+	color: #ffffff40;
+	color: var(--plyr-video-progress-buffered-background, #ffffff40)
 }
 
 .plyr:fullscreen {
@@ -1279,7 +1271,7 @@ a.plyr__control:before {
 	cursor: none
 }
 
-@media(min-width:1024px) {
+@media (min-width:1024px) {
 	.plyr:fullscreen .plyr__captions {
 		font-size: 21px;
 		font-size: var(--plyr-font-size-xlarge, 21px)
@@ -1290,7 +1282,6 @@ a.plyr__control:before {
 	background: #000;
 	border-radius: 0 !important;
 	bottom: 0;
-	display: block;
 	height: 100%;
 	left: 0;
 	margin: 0;
@@ -1317,7 +1308,7 @@ a.plyr__control:before {
 	cursor: none
 }
 
-@media(min-width:1024px) {
+@media (min-width:1024px) {
 	.plyr--fullscreen-fallback .plyr__captions {
 		font-size: 21px;
 		font-size: var(--plyr-font-size-xlarge, 21px)
@@ -1378,13 +1369,13 @@ a.plyr__control:before {
 }
 
 .plyr__preview-thumb {
-	background-color: hsla(0, 0%, 100%, .9);
-	background-color: var(--plyr-tooltip-background, hsla(0, 0%, 100%, .9));
-	border-radius: 5px;
-	border-radius: var(--plyr-tooltip-radius, 5px);
+	background-color: #fff;
+	background-color: var(--plyr-tooltip-background, #fff);
+	border-radius: 8px;
+	border-radius: var(--plyr-menu-radius, 8px);
 	bottom: 100%;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
-	box-shadow: var(--plyr-tooltip-shadow, 0 1px 2px rgba(0, 0, 0, .15));
+	box-shadow: 0 1px 2px #00000026;
+	box-shadow: var(--plyr-tooltip-shadow, 0 1px 2px #00000026);
 	margin-bottom: 10px;
 	margin-bottom: calc(var(--plyr-control-spacing, 10px)/2*2);
 	opacity: 0;
@@ -1403,12 +1394,12 @@ a.plyr__control:before {
 }
 
 .plyr__preview-thumb:before {
-	border-left: 4px solid transparent;
-	border-left: var(--plyr-tooltip-arrow-size, 4px) solid transparent;
-	border-right: 4px solid transparent;
-	border-right: var(--plyr-tooltip-arrow-size, 4px) solid transparent;
-	border-top: 4px solid hsla(0, 0%, 100%, .9);
-	border-top: var(--plyr-tooltip-arrow-size, 4px) solid var(--plyr-tooltip-background, hsla(0, 0%, 100%, .9));
+	border-left: 4px solid #0000;
+	border-left: var(--plyr-tooltip-arrow-size, 4px) solid #0000;
+	border-right: 4px solid #0000;
+	border-right: var(--plyr-tooltip-arrow-size, 4px) solid #0000;
+	border-top: 4px solid #fff;
+	border-top: var(--plyr-tooltip-arrow-size, 4px) solid var(--plyr-tooltip-background, #fff);
 	bottom: -4px;
 	bottom: calc(var(--plyr-tooltip-arrow-size, 4px)*-1);
 	content: "";
@@ -1422,8 +1413,8 @@ a.plyr__control:before {
 
 .plyr__preview-thumb__image-container {
 	background: #c1c8d1;
-	border-radius: 4px;
-	border-radius: calc(var(--plyr-tooltip-radius, 5px) - 1px);
+	border-radius: 7px;
+	border-radius: calc(var(--plyr-menu-radius, 8px) - 1px);
 	overflow: hidden;
 	position: relative;
 	z-index: 0
@@ -1440,7 +1431,7 @@ a.plyr__control:before {
 
 .plyr__preview-thumb__image-container:after {
 	border-radius: inherit;
-	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15);
+	box-shadow: inset 0 0 0 1px #00000026;
 	content: "";
 	pointer-events: none
 }
@@ -1451,12 +1442,12 @@ a.plyr__control:before {
 }
 
 .plyr__preview-thumb__time-container {
-	background: linear-gradient(transparent, rgba(0, 0, 0, .75));
-	background: var(--plyr-video-controls-background, linear-gradient(transparent, rgba(0, 0, 0, .75)));
-	border-bottom-left-radius: 4px;
-	border-bottom-left-radius: calc(var(--plyr-tooltip-radius, 5px) - 1px);
-	border-bottom-right-radius: 4px;
-	border-bottom-right-radius: calc(var(--plyr-tooltip-radius, 5px) - 1px);
+	background: linear-gradient(#0000, #000000bf);
+	background: var(--plyr-video-controls-background, linear-gradient(#0000, #000000bf));
+	border-bottom-left-radius: 7px;
+	border-bottom-left-radius: calc(var(--plyr-menu-radius, 8px) - 1px);
+	border-bottom-right-radius: 7px;
+	border-bottom-right-radius: calc(var(--plyr-menu-radius, 8px) - 1px);
 	bottom: 0;
 	left: 0;
 	line-height: 1.1;

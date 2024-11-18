@@ -79,7 +79,8 @@ class Video_Page {
 					global: true,
 					focused: false,
 				},
-				tracks: subtitles
+				tracks: subtitles,
+				volume: 1
 			};
 
 			this.init_online_player() // Add double click to skip
