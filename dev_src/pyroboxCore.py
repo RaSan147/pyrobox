@@ -1123,7 +1123,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.send_error(HTTPStatus.BAD_REQUEST, "Bad request.")
 
 	@staticmethod
-	def on_req(type='', url='', hasQ=(), QV={}, fragent='', url_regex='', func=null):
+	def on_req(method='', url='', hasQ=(), QV={}, fragent='', url_regex='', func=null):
 		'''called when request is received
 		type: GET, POST, HEAD, ...
 		url: url (must start with /)
@@ -1137,12 +1137,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'''
 		self = __class__
 
-		type = type.upper()
-		if type == 'GET':
-			type = 'HEAD'
+		method = method.upper()
+		if method == 'GET':
+			method = 'HEAD'
 
-		if type not in self.handlers:
-			self.handlers[type] = []
+		if method not in self.handlers:
+			self.handlers[method] = []
 
 		# FIXING TYPE ISSUE
 		if isinstance(hasQ, str):
@@ -1154,19 +1154,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		to_check = (url, hasQ, QV, fragent, url_regex)
 
 		def decorator(func):
-			self.handlers[type].append((to_check, func))
+			self.handlers[method].append((to_check, func))
 			return func
 		return decorator
 
 
 	@staticmethod
-	def alt_directory(dir, type='', url='', hasQ=(), QV={}, fragent='', url_regex='', func=null):
+	def alt_directory(dir, method='', url='', hasQ=(), QV={}, fragent='', url_regex=''):
 		"""
-		alternative directory handler
+		alternative directory handler (only handles GET and HEAD request for files)
 		"""
 		self = __class__
 		
-		@self.on_req(type, url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+		@self.on_req(method=method, url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
 		def alt_dir_function(self: Type[__class__], *args, **kwargs):
 			"""
 			re-direct request to specific directory
