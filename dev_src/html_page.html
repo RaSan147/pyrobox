@@ -73,9 +73,9 @@
 			  id="close-sidebarR" onclick="sidebar_control.closeNavR()">&times;</span> <!-- × -->
 
 		<div>
-			<div id="preference_button" class="accordion accordion-button debug_only" onclick="appConfig.show_help_note()">Preference</div>
+			<div id="preference_button" class="accordion accordion-button debug_only" onclick="popup_msg.createPopup('Preference', 'Still Under Construction🏗️');popup_msg.open_popup()">Preference</div>
 			<div class="member_only">
-				<div id="user_panel_button" class="accordion accordion-button debug_only" onclick="appConfig.show_author_note()">User Panel</div>
+				<div id="user_panel_button" class="accordion accordion-button debug_only" onclick="popup_msg.createPopup('User Panel', 'Still Under Construction🏗️');popup_msg.open_popup()">User Panel</div>
 				<div id="admin_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
 				<div id="logout_button" class="accordion accordion-button" onclick="goto('./?logout')">Logout</div>
 			</div>
@@ -167,7 +167,8 @@
 			<h3 id="zip-perc"></h3>
 		</div>
 
-		<div id="text-editor-page" class="page">
+		<div id="text-editor-page" class="page hidden">
+			<!-- Still under development -->
 			<h1>Text Editor</h1>
 			<!--add a button to toggle readonly  -->
 			<div>
@@ -234,7 +235,6 @@
 	<script src="/?error_page_script"></script>
 	<script src="/?zip_page_script"></script>
 
-
 	<script src="/?page_handler_script"></script>
 
 
@@ -242,8 +242,8 @@
 
 
 
-	<!-- <link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" /> -->
-	<link rel="stylesheet" href="/@assets/video.css" />
+	<link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />
+	<!-- <link rel="stylesheet" href="/@assets/video.css" /> -->
 	<!-- <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" /> -->
 
 </body>
