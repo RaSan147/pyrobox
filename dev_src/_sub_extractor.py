@@ -4,9 +4,9 @@ import re
 
 import shutil
 
-def is_ffmpeg_installed():
-	path = shutil.which("ffmpeg")
-	return path is not None
+from tools import get_exe_location
+
+FFMPEG = get_exe_location("ffmpeg")
 
 def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None, default_output_name_prefix=None):
 	"""
@@ -23,14 +23,14 @@ def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None
 	if not os.path.isfile(input_file):
 		raise FileNotFoundError(f"The file '{input_file}' does not exist.")
 
-	if not is_ffmpeg_installed():
+	if not FFMPEG:
 		# we don't want to raise an exception here, just return an empty list
 		return []
 	
 	try:
 		# Run ffmpeg to analyze the file
 		process = subprocess.run(
-			["ffmpeg", "-i", input_file],
+			[FFMPEG, "-i", input_file],
 			stderr=subprocess.PIPE,
 			stdout=subprocess.PIPE,
 			text=True
@@ -63,6 +63,9 @@ def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None
 				file_name = os.path.splitext(os.path.basename(input_file))[0]
 				output_filename = f"{file_name}_{sub_name}.{output_format}"
 
+			# remove any invalid characters from the filename
+			output_filename = re.sub(r'[<>:"/\\|?*]', '', output_filename)
+
 			if output_dir:
 				output_filename = os.path.join(output_dir, output_filename)
 
@@ -71,6 +74,8 @@ def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None
 				output_dir = os.path.dirname(input_file)
 				output_filename = os.path.join(output_dir, output_filename)
 
+			os.makedirs(output_dir, exist_ok=True) # Create the output directory if it doesn't exist
+
 			output_filename = f"{os.path.splitext(input_file)[0]}_{sub_name}.{output_format}"
 			
 			# Generate output path
@@ -78,7 +83,7 @@ def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None
 			
 			# Use ffmpeg to extract the audio stream
 			subprocess.run(
-				["ffmpeg", "-i", input_file, "-map", stream_index, output_filename],
+				[FFMPEG, "-i", input_file, "-map", stream_index, output_filename],
 				check=True
 			)
 		

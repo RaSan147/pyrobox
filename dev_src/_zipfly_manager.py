@@ -369,11 +369,11 @@ class ZIP_Manager:
 		calculation_cache (FixSizeOrderedDict): Cache for storing calculation results.
 	"""
 
-	def __init__(self, zip_allowed, size_limit=-1) -> None:
+	def __init__(self, zip_allowed, size_limit=-1, zip_temp_dir=None):
 		self.zip_allowed = zip_allowed
 		self.size_limit = size_limit
 
-		self.zip_temp_dir = tempfile.gettempdir() + '/zip_temp/'
+		self.zip_temp_dir = tempfile.TemporaryDirectory().name + '/zip_temp/' if zip_temp_dir is None else zip_temp_dir
 		self.zip_ids = Callable_dict()
 		self.zip_path_ids = Callable_dict()
 		self.zip_in_progress = Callable_dict()

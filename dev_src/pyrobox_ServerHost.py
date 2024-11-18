@@ -1,8 +1,10 @@
 from http import HTTPStatus
 import os
+import tempfile
 from typing import Union
 
 from _fs_utils import get_titles, dir_navigator
+from tools import xpath
 from pyroDB import PickleTable
 import user_mgmt as u_mgmt
 from user_mgmt import User
@@ -41,6 +43,13 @@ class ServerConfig():
 
 		# Max size a zip file will be made
 		self.max_zip_size = 6*1024*1024*1024 # 6GB
+
+		
+		self.temp_dir = CoreConfig.temp_dir
+		self.subtitles_dir = xpath(self.temp_dir, "subtitles")
+		self.allow_subtitle = True
+		self.assets_dir = xpath(CoreConfig.MAIN_FILE_dir, "assets")
+		self.zip_dir = xpath(self.temp_dir, "zip")
 
 	def init_config(self):
 		if self.name:

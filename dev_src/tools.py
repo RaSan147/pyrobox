@@ -1,11 +1,9 @@
-import math
 import os
 import re
 import shutil
 import subprocess
 import sys
-import time
-from typing import List
+from typing import List, Union
 
 
 def get_codec():
@@ -25,11 +23,6 @@ def get_codec():
 	elif sys.platform.startswith('darwin'):
 		return "videotoolbox"
 
-
-
-
-
-	# print(data)
 
 	if "nvidia" in data:
 		# return "libx265"
@@ -66,12 +59,22 @@ def open_explorar(path):
 	elif sys.platform.startswith('darwin'):
 		subprocess.Popen(["open", path])
 
-def xpath(*path, realpath=False):
+def xpath(*path: Union[str, bytes], realpath=False, posix=True):
+	"""
+	Join path and normalize it.
+	* path: list of strings
+	* realpath: return real path
+	* posix: use posix path separator
+	"""
+	d_type = isinstance(path[0], bytes) # detect if path is bytes
+	if d_type:
+		path = [p.decode() for p in path]
 	path:str = os.path.join(*path)
-	path = path.replace("\\", "/")
-	path = re.sub(r"/+", "/", path)
+	path = path.replace("\\", "/") if posix else path
+	path = re.sub(r"/+", "/", path) if posix else re.sub(r"\\+", "\\", path)
 
-	return path if not realpath else os.path.realpath(path)
+	out_path = path if not realpath else os.path.realpath(path)
+	return out_path.encode('utf-8') if d_type else out_path
 
 def EXT(path):
 	"""

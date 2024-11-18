@@ -1,3 +1,4 @@
+import tempfile
 import traceback
 import json
 import string
@@ -98,8 +99,6 @@ class Config:
 		# RUNNING SERVER STATS
 		self.ftp_dir = self.get_default_dir()
 		self.dev_mode = DEV_MODE
-		self.ASSETS = False  # if you want to use assets folder, set this to True
-		self.ASSETS_dir = os.path.join(self.MAIN_FILE_dir, "/../assets/")
 		self.reload = False
 
 		self.disabled_func = {
@@ -107,7 +106,9 @@ class Config:
 		}
 
 		# TEMP FILE MAPPING
-		self.temp_file = set()
+		self.temp_files = set()
+		self.temp_dir_obj = tempfile.TemporaryDirectory()
+		self.temp_dir = self.temp_dir_obj.name
 
 		# CLEAN TEMP FILES ON EXIT
 		atexit.register(self.clear_temp)
@@ -140,7 +141,7 @@ class Config:
 		self.DEFAULT_ERROR_CONTENT_TYPE = "text/html;charset=utf-8"
 
 	def clear_temp(self):
-		for i in self.temp_file:
+		for i in self.temp_files:
 			try:
 				os.remove(i)
 			except OSError:
