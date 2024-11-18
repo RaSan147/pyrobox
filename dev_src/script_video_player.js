@@ -74,7 +74,7 @@ class Video_Page {
 						// type: content_type,
 					},
 				],
-				poster: 'https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg', // to keep preview hidden
+				poster: 'https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@9fb9f51/assets/youtube-logo.webp', // to keep preview hidden
 				keyboard: {
 					global: true,
 					focused: false,
