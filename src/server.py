@@ -6,6 +6,7 @@
 # * ADD MORE FILE TYPES
 # * ADD SEARCH
 
+import hashlib
 import os
 #import sys
 import posixpath
@@ -25,22 +26,17 @@ from http.cookies import SimpleCookie
 
 
 import traceback
+import uuid
 
-from .pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, run as run_server, tools, reload_server, __version__
+from .pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, runner as pyroboxRunner, tools, reload_server, __version__ as pyroboxCore_version
 
-from ._fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes, UploadHandler
-from ._arg_parser import main as arg_parser
-from . import _page_templates as pt
-from ._exceptions import LimitExceed
-from ._zipfly_manager import ZIP_Manager
-from ._list_maker import list_directory, list_directory_json, list_directory_html
-
+from .tools import xpath, EXT, make_dir, os_scan_walk, is_file, Text_Box
 
 from .pyrobox_ServerHost import ServerConfig, ServerHost as SH
 
 
 
-__version__ = __version__
+__version__ = pyroboxCore_version
 true = T = True
 false = F = False
 enc = "utf-8"
@@ -48,6 +44,7 @@ enc = "utf-8"
 ###########################################
 # ADD COMMAND LINE ARGUMENTS
 ###########################################
+from ._arg_parser import main as arg_parser
 arg_parser(CoreConfig)
 cli_args = CoreConfig.parser.parse_known_args()[0]
 CoreConfig.PASSWORD = cli_args.password
@@ -63,13 +60,13 @@ Sconfig = ServerConfig(cli_args=cli_args)
 
 ###########################################
 # CoreConfig.dev_mode = False
-pt.pt_config.dev_mode = CoreConfig.dev_mode
 
 CoreConfig.MAIN_FILE = os.path.abspath(__file__)
 
 CoreConfig.disabled_func.update({
 			"send2trash": False,
 			"natsort": False,
+			"pyqrcode": False,
 			"zip": False,
 			"update": False,
 			"delete": False,
@@ -79,23 +76,12 @@ CoreConfig.disabled_func.update({
 			"rename": False,
 })
 
-########## ZIP MANAGER ################################
-# max_zip_size = 6*1024*1024*1024
-zip_manager = ZIP_Manager(CoreConfig, size_limit=Sconfig.max_zip_size)
 
-#######################################################
 
 
 
 # INSTALL REQUIRED PACKAGES
-REQUIREMENTS= ['send2trash', 'natsort']
-
-
-
-
-
-
-
+REQUIREMENTS= ['send2trash', 'natsort', 'pyqrcode']
 
 
 
@@ -106,34 +92,59 @@ if not os.path.isdir(CoreConfig.log_location):
 	except Exception:
 		CoreConfig.log_location ="./"
 
-
-
-
-if not CoreConfig.disabled_func["send2trash"]:
+if not CoreConfig.disabled_func.get("send2trash"):
 	try:
 		from send2trash import send2trash, TrashPermissionError
 	except Exception:
 		CoreConfig.disabled_func["send2trash"] = True
-		logger.warning("send2trash module not found, send2trash function disabled")
+		logger.warning("send2trash module not found, send2trash function disabled. Install it using `pip install send2trash`")
+
+
+if not CoreConfig.disabled_func.get("natsort"):
+	try:
+		import natsort
+	except Exception:
+		CoreConfig.disabled_func["natsort"] = True
+		logger.warning("natsort not found, falling back to default sorting. Install it using `pip install natsort`")
+
+if not CoreConfig.disabled_func.get("pyqrcode"):
+	try:
+		import pyqrcode
+	except ImportError:
+		CoreConfig.disabled_func["pyqrcode"] = True
+		logger.warning("pyqrcode module not found, QR code generation disabled. Install it using `pip install pyqrcode`")
 
 
 
 
 
+   #############################################
+  #				 HANDLER UTILS                #
+ # Need to be loaded after CoreConfig is set #
+#############################################
+
+from ._fs_utils import get_titles, dir_navigator, get_dir_size, get_stat, get_tree_count_n_size, fmbytes, humanbytes, UploadHandler
+from . import _page_templates as pt
+from ._exceptions import LimitExceed
+from ._zipfly_manager import ZIP_Manager
+from ._list_maker import list_directory, list_directory_json, list_directory_html
+from ._sub_extractor import extract_subtitles_from_file
 
 
 
 
+########## ZIP MANAGER ################################
+# max_zip_size = 6*1024*1024*1024
+zip_manager = ZIP_Manager(CoreConfig, size_limit=Sconfig.max_zip_size, zip_temp_dir=Sconfig.zip_dir)
+
+#######################################################
 
 
 
+########## PAGE TEMPLATES ###############################
+pt.pt_config.dev_mode = CoreConfig.dev_mode
 
-
-
-
-
-
-
+#########################################################
 
 
 
@@ -146,10 +157,11 @@ def fetch_url(url, file = None):
 	try:
 		with urllib.request.urlopen(url, timeout=5) as response:
 			data = response.read() # a `bytes` object
-			if not file:
-				return data
 
-		with open(file, 'wb') as f:
+		if not file:
+			return data
+
+		with open(file, 'wb', buffering=Sconfig.max_buffer_size) as f:
 			f.write(data)
 		return data
 	except Exception:
@@ -246,8 +258,8 @@ def get_page_type(self: SH, *args, **kwargs):
 
 
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 
 	result= "unknown"
@@ -264,6 +276,9 @@ def get_page_type(self: SH, *args, **kwargs):
 	elif self.query("vid"):
 		result = "vid"
 
+	elif self.query("logout"):
+		result = "logout"
+
 	elif self.query("czip"):
 		result = "zip"
 
@@ -274,7 +289,7 @@ def get_page_type(self: SH, *args, **kwargs):
 
 	elif os.path.isdir(os_path):
 		for index in "index.html", "index.htm":
-			index = os.path.join(os_path, index)
+			index = xpath(os_path, index)
 			if os.path.exists(index):
 				result = "html"
 				break
@@ -296,6 +311,43 @@ def get_page_type(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', '/favicon.ico')
 def send_favicon(self: SH, *args, **kwargs):
 	self.redirect('https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.ico')
+
+
+@SH.on_req('HEAD', hasQ="about")
+def get_version(self: SH, *args, **kwargs):
+	"""Return version of the server"""
+	return self.send_text(f"Pyrobox Server v{__version__} (pyroboxCore v{pyroboxCore_version}) by RaSan147 (https://github.com/RaSan147/pyrobox)")
+
+@SH.on_req('HEAD', hasQ="version")
+def get_version(self: SH, *args, **kwargs):
+	"""Return version of the server"""
+	return self.send_text(f"{__version__}")
+
+@SH.on_req('HEAD', hasQ="qr")
+def get_qr(self: SH, *args, **kwargs):
+	"""Return QR code for easy access"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if CoreConfig.disabled_func["pyqrcode"]:
+		return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "QR code generation is disabled", cookie=cookie)
+
+	query = self.query.get("qr", [None])[0]
+	url = query or CoreConfig.address()
+
+	if len(url) > 2048:
+		return self.send_error(HTTPStatus.BAD_REQUEST, "URL too long", cookie=cookie)
+
+	md5_url = hashlib.md5(url.encode()).hexdigest() + hashlib.sha256(url.encode()).hexdigest()
+	qr_path = xpath(CoreConfig.temp_dir, f"QR-{md5_url}.svg")
+
+	if not os.path.exists(qr_path):
+		pyqrcode.create(url).svg(file=qr_path, scale=5)
+
+	return self.send_file(qr_path, cookie=cookie)
+
 
 @SH.on_req('HEAD', hasQ="reload")
 def reload(self: SH, *args, **kwargs):
@@ -571,8 +623,8 @@ def get_zip_id(self: SH, *args, **kwargs):
 		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 	
 	
-	os_path = kwargs.get('path')
-	spathsplit = kwargs.get('spathsplit')
+	os_path = kwargs.get('path', '')
+	spathsplit = kwargs.get('spathsplit', '')
 	filename = spathsplit[-2] + ".zip"
 
 	zid = None
@@ -664,8 +716,8 @@ def get_zip(self: SH, *args, **kwargs):
 
 
 
-	os_path = kwargs.get('path')
-	spathsplit = kwargs.get('spathsplit')
+	os_path = kwargs.get('path', '')
+	spathsplit = kwargs.get('spathsplit', '')
 
 	query = self.query
 	msg = False
@@ -729,7 +781,7 @@ def send_ls_json(self: SH, *args, **kwargs):
 	return list_directory_json(self)
 
 
-
+subtitle_location_map = {}
 
 @SH.on_req('HEAD', hasQ=("vid", "vid-data"))
 def send_video_data(self: SH, *args, **kwargs):
@@ -739,14 +791,16 @@ def send_video_data(self: SH, *args, **kwargs):
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 
 
 	vid_source = url_path
 
 	content_type = self.guess_type(os_path)
+	if content_type == self.guess_type(".mov"):
+		content_type = self.guess_type(".mp4") # add chrome support for .mov
 
 	if not content_type.startswith('video/'):
 		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
@@ -756,6 +810,34 @@ def send_video_data(self: SH, *args, **kwargs):
 	displaypath = self.get_displaypath(url_path)
 
 	title = get_titles(displaypath, file=True)
+
+	subtitles = []
+	if Sconfig.allow_subtitle:
+		subtitles = extract_subtitles_from_file(os_path, output_format="vtt", output_dir=Sconfig.subtitles_dir)
+
+	updated_subtitles = []
+	default_ = True
+	for label, sub_path in subtitles:
+		random_uuid = uuid.uuid4().hex
+		subtitle_location_map[random_uuid] = sub_path
+
+		"""{
+			kind: 'captions',
+			label: 'English',
+			srclang: 'en',
+			src: '/path/to/captions.en.vtt',
+			default: true,
+		}"""
+		updated_subtitles.append(
+			{
+				"kind": "captions",
+				"label": label,
+				"srclang": label,
+				"src": f"/?sub={random_uuid}",
+				"default": default_,
+			}
+		)
+		default_ = False
 
 
 	warning = ""
@@ -769,7 +851,26 @@ def send_video_data(self: SH, *args, **kwargs):
 		"video": vid_source,
 		"title": displaypath.split("/")[-1],
 		"content_type": content_type,
+		"subtitles": updated_subtitles
 	}, cookie=cookie)
+
+
+@SH.on_req('HEAD', hasQ="sub")
+def send_subtitle(self: SH, *args, **kwargs):
+	# SEND SUBTITLE
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	sub_id = self.query.get('sub', [None])[0]
+	if sub_id not in subtitle_location_map:
+		return self.send_error(HTTPStatus.NOT_FOUND, "Subtitle not found", cookie=cookie)
+
+	sub_path = subtitle_location_map[sub_id]
+
+	return self.return_file(sub_path, cookie=cookie)
+
 
 
 
@@ -782,8 +883,8 @@ def send_video_page(self: SH, *args, **kwargs):
 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 	# vid_source = url_path
 	content_type = self.guess_type(os_path)
@@ -809,43 +910,22 @@ def send_video_page(self: SH, *args, **kwargs):
 
 
 
-
-
-
-# @SH.on_req('HEAD', url_regex="/@assets/.*")
-# def send_assets(self: SH, *args, **kwargs):
-# 	"""Send assets"""
-# 	user = Authorize_user(self)
-
-# 	if not user: # guest or not will be handled in Authentication
-# 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED)
-
-# 	if not CoreConfig.ASSETS:
-# 		self.send_error(HTTPStatus.NOT_FOUND, "Assets not available")
-# 		return None
-
-
-# 	path = kwargs.get('path')
-# 	spathsplit = kwargs.get('spathsplit')
-
-# 	path = CoreConfig.ASSETS_dir + "/".join(spathsplit[2:])
-# 	#	print("USING ASSETS", path)
-
-# 	if not os.path.isfile(path):
-# 		self.send_error(HTTPStatus.NOT_FOUND, "File not found")
-# 		return None
-
-# 	return self.return_file(path)
+if CoreConfig.dev_mode:
+	SH.alt_directory(
+		dir = Sconfig.assets_dir,
+		method='HEAD',
+		url_regex="/@assets/.*"
+	)
 
 @SH.on_req('HEAD', hasQ="style")
 def send_style(self: SH, *args, **kwargs):
 	"""Send style sheet"""
 	return self.send_css(pt.style_css())
 
-@SH.on_req('HEAD', hasQ="global_script")
-def send_global_script(self: SH, *args, **kwargs):
+@SH.on_req('HEAD', hasQ="script_global")
+def send_script_global(self: SH, *args, **kwargs):
 	"""Send global script"""
-	return self.send_script(pt.global_script(), content_type="text/javascript")
+	return self.send_script(pt.script_global(), content_type="text/javascript")
 
 @SH.on_req('HEAD', hasQ="asset_script")
 def send_script(self: SH, *args, **kwargs):
@@ -913,6 +993,18 @@ def signup_page(self: SH, *args, **kwargs):
 	return self.send_text(pt.signup_page())
 
 
+@SH.on_req('HEAD', hasQ="logout")
+def logout(self: SH, *args, **kwargs):
+	"""Logout user"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.redirect("/")
+
+	cookie = clear_user_cookie()
+	return self.send_text(pt.login_page(), cookie=cookie)
+
+
 
 
 
@@ -933,7 +1025,7 @@ def get_folder_data(self: SH, *args, **kwargs):
 
 		}, cookie=cookie)
 
-	os_path = kwargs.get('path')
+	os_path = kwargs.get('path', '')
 
 	if not user.VIEW:
 		return self.send_json({
@@ -977,7 +1069,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 		return self.redirect("?login")
 
 
-	os_path = kwargs.get('path')
+	os_path = kwargs.get('path', '')
 
 	if os.path.isdir(os_path):
 		parts = urllib.parse.urlsplit(self.path)
@@ -992,8 +1084,8 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 			self.end_headers()
 			return None
 		for index in "index.html", "index.htm":
-			index = os.path.join(os_path, index)
-			if os.path.exists(index):
+			index = xpath(os_path, index)
+			if is_file(index):
 				os_path = index
 				break
 		else:
@@ -1062,8 +1154,16 @@ def handle_login_post(self: SH, *args, **kwargs):
 
 	username = form.get_multi_field(verify_name='username', decode=T)[1]
 
+	if not username or not username.strip():
+		return self.send_json({"status": "failed", "message": "Username not provided"}, cookie=cookie)
+
+	username = username.strip()
+
 	# GET PASSWORD
 	password = form.get_multi_field(verify_name='password', decode=T)[1]
+
+	if not password:
+		return self.send_json({"status": "failed", "message": "Password not provided"}, cookie=cookie)
 
 	user = Sconfig.user_handler.get_user(username)
 	if not user:
@@ -1097,8 +1197,16 @@ def handle_signup_post(self: SH, *args, **kwargs):
 
 	username = form.get_multi_field(verify_name='username', decode=T)[1]
 
+	if not username or not username.strip():
+		return self.send_json({"status": "failed", "message": "Username not provided"}, cookie=cookie)
+
+	username = username.strip()
+
 	# GET PASSWORD
 	password = form.get_multi_field(verify_name='password', decode=T)[1]
+
+	if not password:
+		return self.send_json({"status": "failed", "message": "Password not provided"}, cookie=cookie)
 
 	user = Sconfig.user_handler.get_user(username)
 	if user:
@@ -1129,8 +1237,8 @@ def upload(self: SH, *args, **kwargs):
 		return self.send_txt("Upload not allowed", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 
 	post = DPD(self)
@@ -1159,13 +1267,14 @@ def upload(self: SH, *args, **kwargs):
 			pass
 
 		finally:
-			if temp_fn in CoreConfig.temp_file:
-				CoreConfig.temp_file.remove(temp_fn)
+			if temp_fn in CoreConfig.temp_files:
+				CoreConfig.temp_files.remove(temp_fn)
 
 
 
 	# PASSWORD SYSTEM
 	password = form.get_multi_field(verify_name='password', decode=T)[1]
+
 
 	self.log_debug(f'post password: {[password]} by client')
 
@@ -1180,16 +1289,16 @@ def upload(self: SH, *args, **kwargs):
 			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...", cookie=cookie)
 
 
-		rltv_path = posixpath.join(url_path, fn)
+		rltv_path = xpath(url_path, fn) # relative path (must be url path with / separator)
 		
 		if not self.path_safety_check(fn, rltv_path):
 			return self.send_txt("Invalid Path:  " + rltv_path, HTTPStatus.BAD_REQUEST, cookie=cookie)
 
-		temp_fn = os.path.join(os_path, ".LStemp-"+fn +'.tmp')
-		CoreConfig.temp_file.add(temp_fn)
+		temp_fn = xpath(os_path, ".LStemp-"+ fn +'.tmp')
+		CoreConfig.temp_files.add(temp_fn)
 
 
-		os_f_path = os.path.join(os_path, fn)
+		os_f_path = xpath(os_path, fn)
 
 
 
@@ -1200,7 +1309,7 @@ def upload(self: SH, *args, **kwargs):
 
 		# ORIGINAL FILE STARTS FROM HERE
 		try:
-			out = open(temp_fn, 'wb')
+			out = open(temp_fn, 'wb', buffering=Sconfig.max_buffer_size)
 			preline = post.get()
 			while post.remainbytes > 0 and not upload_handler.error:
 				line = post.get()
@@ -1257,7 +1366,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	if user.NOPERMISSION or (not user.DELETE):
 		return self.send_json({"head": "Failed", "body": "You have no permission to delete."}, cookie=cookie)
 
-	url_path = kwargs.get('url_path')
+	url_path = kwargs.get('url_path', '')
 
 
 	post = DPD(self)
@@ -1272,14 +1381,20 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 
 	# File link to move to recycle bin
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
+
 
 	rel_path = self.get_rel_path(filename)
 	
 	if not self.path_safety_check(filename, rel_path):
 		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
 	
-	os_f_path = self.translate_path(posixpath.join(url_path, filename))
+	os_f_path = self.translate_path(xpath(url_path, filename))
 
 	self.log_warning(f'<-send2trash-> {os_f_path} by {[uid]}')
 
@@ -1288,7 +1403,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 		if CoreConfig.OS == 'Android':
 			raise InterruptedError
 		send2trash(os_f_path)
-		msg = "Successfully Moved To Recycle bin"+ post.refresh
+		msg = "Successfully Moved To Recycle bin " + post.refresh
 		head = "Success"
 	except TrashPermissionError:
 		msg = "Recycling unavailable! Try deleting permanently..."
@@ -1316,7 +1431,7 @@ def del_permanently(self: SH, *args, **kwargs):
 	if user.NOPERMISSION or (not user.DELETE):
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."}, cookie=cookie)
 
-	url_path = kwargs.get('url_path')
+	url_path = kwargs.get('url_path', '')
 
 
 	post = DPD(self)
@@ -1328,14 +1443,19 @@ def del_permanently(self: SH, *args, **kwargs):
 
 
 	# File link to move to recycle bin
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
 
 	rel_path = self.get_rel_path(filename)
 
 	if not self.path_safety_check(filename, rel_path):
 		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
 
-	os_f_path = self.translate_path(posixpath.join(url_path, filename))
+	os_f_path = self.translate_path(xpath(url_path, filename))
 
 	self.log_warning(f'Perm. DELETED {os_f_path} by {[uid]}')
 
@@ -1368,7 +1488,7 @@ def rename_content(self: SH, *args, **kwargs):
 		return self.send_json({"head": "Failed", "body": "Renaming is disabled."}, cookie=cookie)
 
 
-	url_path = kwargs.get('url_path')
+	url_path = kwargs.get('url_path', '')
 
 
 	post = DPD(self)
@@ -1380,9 +1500,20 @@ def rename_content(self: SH, *args, **kwargs):
 
 
 	# File link to move to recycle bin
-	
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
-	new_name = form.get_multi_field(verify_name='data', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
+
+
+	new_name = form.get_multi_field(verify_name='data', decode=T)[1]
+
+	if not new_name or not new_name.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + new_name}, cookie=cookie)
+
+	new_name = new_name.strip()
 
 	rel_path = self.get_rel_path(filename)
 	new_rel_path = self.get_rel_path(new_name)
@@ -1390,8 +1521,8 @@ def rename_content(self: SH, *args, **kwargs):
 	if not self.path_safety_check(filename, new_name, rel_path, new_rel_path):
 		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
 
-	os_f_path = self.translate_path(posixpath.join(url_path, filename))
-	os_new_f_path = self.translate_path(posixpath.join(url_path, new_name))
+	os_f_path = self.translate_path(xpath(url_path, filename))
+	os_new_f_path = self.translate_path(xpath(url_path, new_name))
 
 	self.log_warning(f'Renamed "{os_f_path}" to "{os_new_f_path}" by {[uid]}')
 
@@ -1418,8 +1549,8 @@ def get_info(self: SH, *args, **kwargs):
 	if user.NOPERMISSION:
 		return self.send_json({"head": "Failed", "body": "You have no permission to view."}, cookie=cookie)
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 	script = None
 
@@ -1433,7 +1564,12 @@ def get_info(self: SH, *args, **kwargs):
 
 	# File link to move to check info
 
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
 
 	rel_path = self.get_rel_path(filename)
 
@@ -1540,8 +1676,8 @@ def new_folder(self: SH, *args, **kwargs):
 		return self.send_json({"head": "Failed", "body": "Permission denied."}, cookie=cookie)
 
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 	post = DPD(self)
 
@@ -1549,7 +1685,12 @@ def new_folder(self: SH, *args, **kwargs):
 	uid = AUTHORIZE_POST(self, post, 'new_folder')
 	form = post.form
 
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
 
 	rel_path = self.get_rel_path(filename)
 
@@ -1618,7 +1759,22 @@ def default_post(self: SH, *args, **kwargs):
 
 # proxy for old versions
 def run(*args, **kwargs):
-	run_server(handler=SH, *args, **kwargs)
+	SH.allow_CORS(method='GET', origin='*')
+
+	runner = pyroboxRunner(handler=SH, *args, **kwargs)
+
+	url = CoreConfig.address()
+
+	if cli_args.qr and not CoreConfig.disabled_func["pyqrcode"]:
+		# Create a QR code on terminal
+		try:
+			url = pyqrcode.create(url, error='L')
+			print(url.terminal('black', 'white', quiet_zone=1))
+		except Exception as e:
+			logger.error(f"Error generating QR code: {e}")
+			
+
+	runner.run()
 
 if __name__ == '__main__':
 	run(port = 45454)

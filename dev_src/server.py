@@ -6,6 +6,7 @@
 # * ADD MORE FILE TYPES
 # * ADD SEARCH
 
+import hashlib
 import os
 #import sys
 import posixpath
@@ -27,7 +28,7 @@ from http.cookies import SimpleCookie
 import traceback
 import uuid
 
-from pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, runner as pyroboxRunner, tools, reload_server, __version__
+from pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, runner as pyroboxRunner, tools, reload_server, __version__ as pyroboxCore_version
 
 from tools import xpath, EXT, make_dir, os_scan_walk, is_file, Text_Box
 
@@ -35,7 +36,7 @@ from pyrobox_ServerHost import ServerConfig, ServerHost as SH
 
 
 
-__version__ = __version__
+__version__ = pyroboxCore_version
 true = T = True
 false = F = False
 enc = "utf-8"
@@ -257,8 +258,8 @@ def get_page_type(self: SH, *args, **kwargs):
 
 
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 
 	result= "unknown"
@@ -277,9 +278,6 @@ def get_page_type(self: SH, *args, **kwargs):
 
 	elif self.query("logout"):
 		result = "logout"
-
-	elif self.query("style"):
-		result = "style-assets"
 
 	elif self.query("czip"):
 		result = "zip"
@@ -313,6 +311,43 @@ def get_page_type(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', '/favicon.ico')
 def send_favicon(self: SH, *args, **kwargs):
 	self.redirect('https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.ico')
+
+
+@SH.on_req('HEAD', hasQ="about")
+def get_version(self: SH, *args, **kwargs):
+	"""Return version of the server"""
+	return self.send_text(f"Pyrobox Server v{__version__} (pyroboxCore v{pyroboxCore_version}) by RaSan147 (https://github.com/RaSan147/pyrobox)")
+
+@SH.on_req('HEAD', hasQ="version")
+def get_version(self: SH, *args, **kwargs):
+	"""Return version of the server"""
+	return self.send_text(f"{__version__}")
+
+@SH.on_req('HEAD', hasQ="qr")
+def get_qr(self: SH, *args, **kwargs):
+	"""Return QR code for easy access"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	if CoreConfig.disabled_func["pyqrcode"]:
+		return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "QR code generation is disabled", cookie=cookie)
+
+	query = self.query.get("qr", [None])[0]
+	url = query or CoreConfig.address()
+
+	if len(url) > 2048:
+		return self.send_error(HTTPStatus.BAD_REQUEST, "URL too long", cookie=cookie)
+
+	md5_url = hashlib.md5(url.encode()).hexdigest() + hashlib.sha256(url.encode()).hexdigest()
+	qr_path = xpath(CoreConfig.temp_dir, f"QR-{md5_url}.svg")
+
+	if not os.path.exists(qr_path):
+		pyqrcode.create(url).svg(file=qr_path, scale=5)
+
+	return self.send_file(qr_path, cookie=cookie)
+
 
 @SH.on_req('HEAD', hasQ="reload")
 def reload(self: SH, *args, **kwargs):
@@ -588,8 +623,8 @@ def get_zip_id(self: SH, *args, **kwargs):
 		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 	
 	
-	os_path = kwargs.get('path')
-	spathsplit = kwargs.get('spathsplit')
+	os_path = kwargs.get('path', '')
+	spathsplit = kwargs.get('spathsplit', '')
 	filename = spathsplit[-2] + ".zip"
 
 	zid = None
@@ -681,8 +716,8 @@ def get_zip(self: SH, *args, **kwargs):
 
 
 
-	os_path = kwargs.get('path')
-	spathsplit = kwargs.get('spathsplit')
+	os_path = kwargs.get('path', '')
+	spathsplit = kwargs.get('spathsplit', '')
 
 	query = self.query
 	msg = False
@@ -756,8 +791,8 @@ def send_video_data(self: SH, *args, **kwargs):
 	if not user: # guest or not will be handled in Authentication
 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 
 
@@ -848,8 +883,8 @@ def send_video_page(self: SH, *args, **kwargs):
 		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 	# vid_source = url_path
 	content_type = self.guess_type(os_path)
@@ -990,7 +1025,7 @@ def get_folder_data(self: SH, *args, **kwargs):
 
 		}, cookie=cookie)
 
-	os_path = kwargs.get('path')
+	os_path = kwargs.get('path', '')
 
 	if not user.VIEW:
 		return self.send_json({
@@ -1034,7 +1069,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 		return self.redirect("?login")
 
 
-	os_path = kwargs.get('path')
+	os_path = kwargs.get('path', '')
 
 	if os.path.isdir(os_path):
 		parts = urllib.parse.urlsplit(self.path)
@@ -1119,8 +1154,16 @@ def handle_login_post(self: SH, *args, **kwargs):
 
 	username = form.get_multi_field(verify_name='username', decode=T)[1]
 
+	if not username or not username.strip():
+		return self.send_json({"status": "failed", "message": "Username not provided"}, cookie=cookie)
+
+	username = username.strip()
+
 	# GET PASSWORD
 	password = form.get_multi_field(verify_name='password', decode=T)[1]
+
+	if not password:
+		return self.send_json({"status": "failed", "message": "Password not provided"}, cookie=cookie)
 
 	user = Sconfig.user_handler.get_user(username)
 	if not user:
@@ -1154,8 +1197,16 @@ def handle_signup_post(self: SH, *args, **kwargs):
 
 	username = form.get_multi_field(verify_name='username', decode=T)[1]
 
+	if not username or not username.strip():
+		return self.send_json({"status": "failed", "message": "Username not provided"}, cookie=cookie)
+
+	username = username.strip()
+
 	# GET PASSWORD
 	password = form.get_multi_field(verify_name='password', decode=T)[1]
+
+	if not password:
+		return self.send_json({"status": "failed", "message": "Password not provided"}, cookie=cookie)
 
 	user = Sconfig.user_handler.get_user(username)
 	if user:
@@ -1186,8 +1237,8 @@ def upload(self: SH, *args, **kwargs):
 		return self.send_txt("Upload not allowed", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 
 	post = DPD(self)
@@ -1223,6 +1274,7 @@ def upload(self: SH, *args, **kwargs):
 
 	# PASSWORD SYSTEM
 	password = form.get_multi_field(verify_name='password', decode=T)[1]
+
 
 	self.log_debug(f'post password: {[password]} by client')
 
@@ -1314,7 +1366,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	if user.NOPERMISSION or (not user.DELETE):
 		return self.send_json({"head": "Failed", "body": "You have no permission to delete."}, cookie=cookie)
 
-	url_path = kwargs.get('url_path')
+	url_path = kwargs.get('url_path', '')
 
 
 	post = DPD(self)
@@ -1329,7 +1381,13 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 
 	# File link to move to recycle bin
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
+
 
 	rel_path = self.get_rel_path(filename)
 	
@@ -1345,7 +1403,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 		if CoreConfig.OS == 'Android':
 			raise InterruptedError
 		send2trash(os_f_path)
-		msg = "Successfully Moved To Recycle bin" + post.refresh
+		msg = "Successfully Moved To Recycle bin " + post.refresh
 		head = "Success"
 	except TrashPermissionError:
 		msg = "Recycling unavailable! Try deleting permanently..."
@@ -1373,7 +1431,7 @@ def del_permanently(self: SH, *args, **kwargs):
 	if user.NOPERMISSION or (not user.DELETE):
 		return self.send_json({"head": "Failed", "body": "Recycling unavailable! Try deleting permanently..."}, cookie=cookie)
 
-	url_path = kwargs.get('url_path')
+	url_path = kwargs.get('url_path', '')
 
 
 	post = DPD(self)
@@ -1385,7 +1443,12 @@ def del_permanently(self: SH, *args, **kwargs):
 
 
 	# File link to move to recycle bin
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
 
 	rel_path = self.get_rel_path(filename)
 
@@ -1425,7 +1488,7 @@ def rename_content(self: SH, *args, **kwargs):
 		return self.send_json({"head": "Failed", "body": "Renaming is disabled."}, cookie=cookie)
 
 
-	url_path = kwargs.get('url_path')
+	url_path = kwargs.get('url_path', '')
 
 
 	post = DPD(self)
@@ -1437,9 +1500,20 @@ def rename_content(self: SH, *args, **kwargs):
 
 
 	# File link to move to recycle bin
-	
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
-	new_name = form.get_multi_field(verify_name='data', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
+
+
+	new_name = form.get_multi_field(verify_name='data', decode=T)[1]
+
+	if not new_name or not new_name.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + new_name}, cookie=cookie)
+
+	new_name = new_name.strip()
 
 	rel_path = self.get_rel_path(filename)
 	new_rel_path = self.get_rel_path(new_name)
@@ -1475,8 +1549,8 @@ def get_info(self: SH, *args, **kwargs):
 	if user.NOPERMISSION:
 		return self.send_json({"head": "Failed", "body": "You have no permission to view."}, cookie=cookie)
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 	script = None
 
@@ -1490,7 +1564,12 @@ def get_info(self: SH, *args, **kwargs):
 
 	# File link to move to check info
 
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
 
 	rel_path = self.get_rel_path(filename)
 
@@ -1597,8 +1676,8 @@ def new_folder(self: SH, *args, **kwargs):
 		return self.send_json({"head": "Failed", "body": "Permission denied."}, cookie=cookie)
 
 
-	os_path = kwargs.get('path')
-	url_path = kwargs.get('url_path')
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
 
 	post = DPD(self)
 
@@ -1606,7 +1685,12 @@ def new_folder(self: SH, *args, **kwargs):
 	uid = AUTHORIZE_POST(self, post, 'new_folder')
 	form = post.form
 
-	filename = form.get_multi_field(verify_name='name', decode=T)[1].strip()
+	filename = form.get_multi_field(verify_name='name', decode=T)[1]
+
+	if not filename or not filename.strip():
+		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + filename}, cookie=cookie)
+
+	filename = filename.strip()
 
 	rel_path = self.get_rel_path(filename)
 

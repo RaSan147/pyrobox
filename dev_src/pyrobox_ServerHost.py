@@ -1,7 +1,6 @@
 import argparse
 from http import HTTPStatus
 import os
-import tempfile
 from typing import Union
 
 from _fs_utils import get_titles, dir_navigator

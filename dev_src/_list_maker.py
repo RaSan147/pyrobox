@@ -66,10 +66,6 @@ def humansorted(li):
 	if not config.disabled_func["natsort"]:
 		return natsort.humansorted(li)
 
-	# if natsort is disabled
-
-		
-
 	return sorted(li, key=custom_sort)
 
 def scansort(li):

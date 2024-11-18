@@ -16,19 +16,47 @@ from . import _page_templates as pt
 
 from ._fs_utils import get_titles, dir_navigator, fmbytes
 
-
+if not config.disabled_func.get("natsort"):
+	try:
+		import natsort
+	except ImportError:
+		config.disabled_func["natsort"] = True
+		logger.warning("natsort not found, falling back to default sorting. Install it using `pip install natsort`")
 
 
 def check_installed(pkg):
 	return bool(importlib.util.find_spec(pkg))
 
+def custom_sort(item):
+	if isinstance(item, str):
+		out_parts = []
+		parts = item.split()
+		for n, part in enumerate(parts):
+			part = part.lower()
+			try:
+				parts[n] = float(part)
+			except ValueError:
+				part = part.replace(".", " . ")
+				parts_ = part.split()
+				for n_, part_ in enumerate(parts_):
+					try:
+						parts_[n_] = float(part_)
+					except ValueError:
+						pass
+				parts[n] = parts_
 
+		for part in parts:
+			if isinstance(part, list):
+				out_parts.extend(part)
+			else:
+				out_parts.append(part)
 
-try:
-	import natsort
-except Exception:
-	config.disabled_func["natsort"] = True
-	logger.warning("natsort module not found, natsort function disabled")
+		out = out_parts
+	else:
+		out = [item]
+
+	return out
+
 
 def humansorted(li):
 	"""
@@ -38,7 +66,7 @@ def humansorted(li):
 	if not config.disabled_func["natsort"]:
 		return natsort.humansorted(li)
 
-	return sorted(li, key=lambda x: x.lower())
+	return sorted(li, key=custom_sort)
 
 def scansort(li):
 	"""
@@ -48,7 +76,7 @@ def scansort(li):
 	if not config.disabled_func["natsort"]:
 		return natsort.humansorted(li, key=lambda x:x.name)
 
-	return sorted(li, key=lambda x: x.name.lower())
+	return sorted(li, key=lambda x: custom_sort(x.name))
 
 def listsort(li):
 	"""

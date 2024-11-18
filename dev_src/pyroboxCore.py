@@ -1,4 +1,3 @@
-import tempfile
 import traceback
 import json
 import string
@@ -30,6 +29,7 @@ from queue import Queue
 import logging
 import atexit
 import os
+import tempfile
 
 from typing import Type
 

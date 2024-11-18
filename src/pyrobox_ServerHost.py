@@ -1,9 +1,11 @@
+import argparse
 from http import HTTPStatus
 import os
 from typing import Union
 
 from ._fs_utils import get_titles, dir_navigator
 from .pyroDB import PickleTable
+from .tools import xpath
 from . import user_mgmt as u_mgmt
 from .user_mgmt import User
 
@@ -19,7 +21,7 @@ from . import _page_templates as pt
 
 
 class ServerConfig():
-	def __init__(self, cli_args):
+	def __init__(self, cli_args:Union[dict, argparse.Namespace]):
 		self.name = cli_args.name
 		self.admin_username = cli_args.admin_id
 		self.admin_password = cli_args.admin_pass
@@ -41,6 +43,16 @@ class ServerConfig():
 
 		# Max size a zip file will be made
 		self.max_zip_size = 6*1024*1024*1024 # 6GB
+
+		# Max Buffer size for writing files
+		self.max_buffer_size = 1024*1024 # 1MB
+
+		
+		self.temp_dir = CoreConfig.temp_dir
+		self.subtitles_dir = xpath(self.temp_dir, "subtitles")
+		self.allow_subtitle = True
+		self.assets_dir = xpath(CoreConfig.MAIN_FILE_dir, '..', "assets", realpath=True)
+		self.zip_dir = xpath(self.temp_dir, "zip")
 
 	def init_config(self):
 		if self.name:

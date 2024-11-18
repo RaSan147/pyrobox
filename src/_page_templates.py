@@ -1,7 +1,7 @@
 from .data_types import Template
 __all__ = [
 	"directory_explorer_header",
-	"global_script",
+	"script_global",
 	"upload_form",
 	"file_list_script",
 	"video_page",
@@ -58,7 +58,7 @@ def style_css():
 
 
 
-def global_script():
+def script_global():
 	return get_template("script_global.js")
 
 def assets_script():
@@ -114,233 +114,255 @@ def signup_page():
 pt_config.file_list["html_page.html"] = r"""
 <!DOCTYPE HTML>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
-<title>${PY_PAGE_TITLE}</title>
 
-<link rel="stylesheet" href="?style">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
+	<title>${PY_PAGE_TITLE}</title>
+
+	<link rel="stylesheet" href="?style">
 </head>
 
 <body>
-<script>
-const public_url = "${PY_PUBLIC_URL}";
-</script>
+	<script>
+		const public_url = "${PY_PUBLIC_URL}";
+	</script>
 
 
-<style>
-	#content_container {
-		display: none; /* hide content until page is loaded */
-	}
-</style>
-
-
-<noscript>
 	<style>
-		.jsonly {
-			display: none !important
-		}
-
 		#content_container {
-			display: block; /* making sure its visible */
-		}
-
-		#fm_page {
-			display: block;
-		}
-
-		#content_list {
-			/* making sure its visible */
-			display: block;
+			/* hide content until page is loaded */
+			display: none;
 		}
 	</style>
-</noscript>
-
-<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
 
 
+	<noscript>
+		<style>
+			.jsonly {
+				display: none !important
+			}
 
-<div id="popup-container"></div>
+			#content_container {
+				/* making sure its visible */
+				display: block;
+			}
 
-<div id='TopBar' class='top_bar'>
+			#fm_page {
+				display: block;
+			}
 
-	<span id="dir-tree">${PY_DIR_TREE_NO_JS}</span>
+			#content_list {
+				/* making sure its visible */
+				display: block;
+			}
+		</style>
+	</noscript>
 
-
-	<button class="open-sidebar-btn" onclick="sidebar_control.toggleNavR()" style='float: right;'><span>
-		<span class='nav-btn-text'>Menu</span> <span class="fa fa-thin fa-ellipsis-stroke-vertical">&vellip;</span></span>
-	</button>
-
-</div>
-
-<div id="sidebar_bg"></div> <!-- trigger to close Sidebar-->
-
-
-
-<div id="mySidebarR" class="sidebar sidebarR theme-tools">
-
-	<span style='right:0; text-align:right;margin-right: 20px;' class="close-sidebar disable_selection"
-
-		id="close-sidebarR" onclick = "sidebar_control.closeNavR()">&times;</span> <!-- × -->
-
-	<div>
-		<div id="preference_button" class="accordion accordion-button debug_only" onclick="appConfig.show_help_note()">Preference</div>
-		<div class="member_only">
-			<div id="user_panel_button" class="accordion accordion-button debug_only" onclick="appConfig.show_author_note()">User Panel</div>
-			<div id="admin_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
-			<div id="logout_button" class="accordion accordion-button" onclick="goto('./?logout')">Logout</div>
-		</div>
-		<div class="guest_only named_server">
-			<div id="login_button" class="accordion accordion-button" onclick="goto('./?login')">Login</div>
-			<div id="signup_button" class="accordion accordion-button" onclick="goto('./?signup')">Signup</div>
-		</div>
-	</div>
-
-
-	<div class='sidebar-end'></div>
+	<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
 
 
 
-</div>
+	<div id="popup-container"></div>
+
+	<div id='TopBar' class='top_bar'>
+
+		<span id="dir-tree">${PY_DIR_TREE_NO_JS}</span>
 
 
-<div id="actions-btn" class="disable_selection jsonly" onclick="page.on_action_button()">
-	<div id="actions-btn-text">More&nbsp;</div>
-	<span class="fa fa-solid fa-plus" id="actions-btn-icon"><b>+</b></span>
-	<span class="fa fa-duotone fa-spinner fa-spin" id="actions-loading-icon"><span class='spin'>⚉</span></span>
-</div>
-<div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
-	<span id="progress-uploads">Running Uploads
-	<span id="progress-uploads-count">(0/0)</span></span>
-
-	<br>
-
-	<span id="progress-zips">Running Zips
-	<span id="progress-zips-count">(0/0)</span></span>
-</div>
-
-<hr>
-
-<div id="content_container">
-
-	<!-- Contains all the files -->
-
-	<div id="fm_page" class="page">
-		<div id="content_list">
-
-			<ul id="linkss">
-				<!-- CONTENT LIST (NO JS) -->
-
-				<!-- ${PY_NO_JS_FILE_LIST} -->
-
-
-			</ul>
-			<!-- ${PY_UPLOAD_FORM} -->
-		</div>
-
-		<div id="js-content_list" class="jsonly">
-			<!-- CONTENT LIST (JS) -->
-		</div>
-	</div>
-
-	<div id="error-page" class="page ${PY_ERROR_PAGE}">
-		<script>var ERROR_PAGE = "${PY_ERROR_PAGE}"</script>
-		<h1><u>Error response</u></h1>
-		<p><u>Error code:</u> <span id="error_code">${code}</span></p>
-		<p><u>Message:</u> <span id="error_message">${message}</span></p>
-		<p><u>Error code explanation:</u> <span id="error_code2">${code}</span> - <span id="error_explain">${explain}</span></p>
-		<hr>
-		<center><img src = "https://http.cat/${code}" style="max-width: 95vw;" alt="Error Image"/></center>
-	</div>
-
-
-	<div id="video-page" class="page">
-		<p><b>Watching:</b> <span id="player_title"></span></p>
-
-		<h2 id="player-warning"></h2>
-
-		<div id="container">
-			<video controls crossorigin playsinline id="player">
-
-				<source id="player_source" />
-			</video>
-		</div>
-
-		<a id="video_dl_url"  download class='pagination'>Download</a>
+		<button class="open-sidebar-btn" onclick="sidebar_control.toggleNavR()" style='float: right;'><span>
+				<span class='nav-btn-text'>Menu</span> <span class="fa fa-thin fa-ellipsis-stroke-vertical">&vellip;</span></span>
+		</button>
 
 	</div>
 
-	<div id="zip-page" class="page">
-		<h2>ZIPPING FOLDER</h2>
-		<h3 id="zip-prog">Progress</h3>
-		<h3 id="zip-perc"></h3>
+	<div id="sidebar_bg"></div> <!-- trigger to close Sidebar-->
+
+
+
+	<div id="mySidebarR" class="sidebar sidebarR theme-tools">
+
+		<span style='right:0; text-align:right;margin-right: 20px;' class="close-sidebar disable_selection"
+			  id="close-sidebarR" onclick="sidebar_control.closeNavR()">&times;</span> <!-- × -->
+
+		<div>
+			<div id="preference_button" class="accordion accordion-button debug_only" onclick="popup_msg.createPopup('Preference', 'Still Under Construction🏗️');popup_msg.open_popup()">Preference</div>
+			<div class="member_only">
+				<div id="user_panel_button" class="accordion accordion-button debug_only" onclick="popup_msg.createPopup('User Panel', 'Still Under Construction🏗️');popup_msg.open_popup()">User Panel</div>
+				<div id="admin_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
+				<div id="logout_button" class="accordion accordion-button" onclick="goto('./?logout')">Logout</div>
+			</div>
+			<div class="guest_only named_server">
+				<div id="login_button" class="accordion accordion-button" onclick="goto('./?login')">Login</div>
+				<div id="signup_button" class="accordion accordion-button" onclick="goto('./?signup')">Signup</div>
+			</div>
+		</div>
+
+
+		<div class='sidebar-end'></div>
+
+
+
 	</div>
 
-	<div id="admin_page" class="page">
 
-		<h1 style="text-align: center;">Admin Page</h1>
-		<hr>
+	<div id="actions-btn" class="disable_selection jsonly" onclick="page.on_action_button()">
+		<div id="actions-btn-text">More&nbsp;</div>
+		<span class="fa fa-solid fa-plus" id="actions-btn-icon"><b>+</b></span>
+		<span class="fa fa-duotone fa-spinner fa-spin" id="actions-loading-icon"><span class='spin'>⚉</span></span>
+	</div>
+	<div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
+		<span id="progress-uploads">Running Uploads
+			<span id="progress-uploads-count">(0/0)</span></span>
+
+		<br>
+
+		<span id="progress-zips">Running Zips
+			<span id="progress-zips-count">(0/0)</span></span>
+	</div>
+
+	<hr>
+
+	<div id="content_container">
+
+		<!-- Contains all the files -->
+
+		<div id="fm_page" class="page">
+			<div id="content_list">
+
+				<ul id="linkss">
+					<!-- CONTENT LIST (NO JS) -->
+
+					<!-- ${PY_NO_JS_FILE_LIST} -->
 
 
-		<div class="jsonly">
-
-			<!-- check if update available -->
-
-			<div>
-				<p class="update_text" id="update_text">Checking for Update...</p>
-				<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
-				<br><br>
+				</ul>
+				<!-- ${PY_UPLOAD_FORM} -->
 			</div>
 
-			<div>
-				<table class="users_list">
-					<tr>
-						<th>Username</th>
-						<th>Manager</th>
-					</tr>
-				</table>
+			<div id="js-content_list" class="jsonly">
+				<!-- CONTENT LIST (JS) -->
+			</div>
+		</div>
+
+		<div id="error-page" class="page ${PY_ERROR_PAGE}">
+			<script>
+				var ERROR_PAGE = "${PY_ERROR_PAGE}"
+			</script>
+			<h1><u>Error response</u></h1>
+			<p><u>Error code:</u> <span id="error_code">${code}</span></p>
+			<p><u>Message:</u> <span id="error_message">${message}</span></p>
+			<p><u>Error code explanation:</u> <span id="error_code2">${code}</span> - <span id="error_explain">${explain}</span></p>
+			<hr>
+			<center><img src="https://http.cat/${code}" style="max-width: 95vw;" alt="Error Image" /></center>
+		</div>
+
+
+		<div id="video-page" class="page">
+			<p><b>Watching:</b> <span id="player_title"></span></p>
+
+			<h2 id="player-warning"></h2>
+
+			<div id="container">
+				<video controls crossorigin playsinline id="player">
+
+					<source id="player_source" />
+				</video>
 			</div>
 
+			<a id="video_dl_url" download class='pagination'>Download</a>
 
+		</div>
 
-			<div class='pagination jsonly' onclick="admin_tools.request_reload()">RELOAD SERVER 🧹</div>
-			<noscript><a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br></noscript>
+		<div id="zip-page" class="page">
+			<h2>ZIPPING FOLDER</h2>
+			<h3 id="zip-prog">Progress</h3>
+			<h3 id="zip-perc"></h3>
+		</div>
+
+		<div id="text-editor-page" class="page hidden">
+			<!-- Still under development -->
+			<h1>Text Editor</h1>
+			<!--add a button to toggle readonly  -->
+			<div>
+				<span class="fa fa-sharp fa-solid fa-pen-slash" id="toggle-readOnly"
+					  onclick="code_editor.toggle_readOnly()">🔏</span>
+				<span class="fa fa-sharp fa-solid fa-pen" id="toggle-writeAllowed"
+					  onclick="code_editor.toggle_writeAllowed()">🖋️</span>
+			</div>
+			<hr>
+			<div id="editor"></div>
+		</div>
+
+		<div id="admin-page" class="page">
+
+			<h1 style="text-align: center;">Admin Page</h1>
 			<hr>
 
-			<div class='pagination jsonly' onclick="admin_tools.request_shutdown()">Shut down 🔻</div>
+
+			<div class="jsonly">
+
+				<!-- check if update available -->
+
+				<div>
+					<p class="update_text" id="update_text">Checking for Update...</p>
+					<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
+					<br><br>
+				</div>
+
+				<div>
+					<table class="users_list">
+						<tr>
+							<th>Username</th>
+							<th>Manager</th>
+						</tr>
+					</table>
+				</div>
+
+
+
+				<div class='pagination jsonly' onclick="admin_tools.request_reload()">RELOAD SERVER 🧹</div>
+				<noscript>
+					<a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br>
+				</noscript>
+				<hr>
+
+				<div class='pagination jsonly' onclick="admin_tools.request_shutdown()">Shut down 🔻</div>
+			</div>
+
+			<noscript>
+				<h2>This page requires JS enabled</h2>
+			</noscript>
 		</div>
-
-		<noscript>
-			<h2>This page requires JS enabled</h2>
-		</noscript>
 	</div>
-</div>
+
+	<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
+
+	<script src="/?script_global"></script>
+	<script src="/?asset_script"></script>
+
+	<script src="/?file_list_script"></script>
+	<script src="/?theme_script"></script>
+	<script src="/?video_page_script"></script>
+	<script src="/?admin_page_script"></script>
+	<script src="/?error_page_script"></script>
+	<script src="/?zip_page_script"></script>
+
+	<script src="/?page_handler_script"></script>
+
+
+	<!-- ASSET_SCRIPT will load at the end with all the classes defined -->
 
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.0/plyr.min.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
+	<link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />
+	<!-- <link rel="stylesheet" href="/@assets/video.css" /> -->
+	<!-- <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" /> -->
 
-<script src="/?global_script"></script>
-<script src="/?asset_script"></script>
+</body>
 
-<script src="/?file_list_script"></script>
-<script src="/?theme_script"></script>
-<script src="/?video_page_script"></script>
-<script src="/?admin_page_script"></script>
-<script src="/?error_page_script"></script>
-<script src="/?zip_page_script"></script>
-
-
-<script src="/?page_handler_script"></script>
-
-
-<!-- ASSET_SCRIPT will load at the end with all the classes defined -->
-
-
-
-<link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />
-
+</html>
 """
 
 
@@ -393,7 +415,8 @@ pt_config.file_list["style_main.css"] = r"""
 body {
 	position: relative;
 	overflow-x: hidden;
-	top: 50px; /* Height of navbar */
+	top: 50px;
+	/* Height of navbar */
 }
 
 #content_container {
@@ -421,7 +444,8 @@ button {
 	margin: auto;
 }
 
-.disable_selection, .no_select {
+.disable_selection,
+.no_select {
 	-webkit-touch-callout: none;
 	/* iOS Safari */
 	-webkit-user-select: none;
@@ -459,18 +483,19 @@ a {
 }
 
 .upload-file-item {
-display: block;
-border: 1px solid #ddd;
-margin-top: -1px; /* Prevent double borders */
-background-color: #8c8c8c5b;
-padding: 12px;
-text-decoration: none;
-font-size: 18px;
-color: white;
-position: relative;
-border-radius: 5px;
+	display: block;
+	border: 1px solid #ddd;
+	margin-top: -1px;
+	/* Prevent double borders */
+	background-color: #8c8c8c5b;
+	padding: 12px;
+	text-decoration: none;
+	font-size: 18px;
+	color: white;
+	position: relative;
+	border-radius: 5px;
 
-max-width: 100%;
+	max-width: 100%;
 }
 
 
@@ -515,7 +540,8 @@ max-width: 100%;
 	padding: 6px;
 }
 
-.file-size, .link_size {
+.file-size,
+.link_size {
 	font-size: .6em;
 	font-weight: 600;
 	background-color: #19a6c979;
@@ -526,7 +552,9 @@ max-width: 100%;
 
 }
 
-.file-size, .file-remove, .link_icon {
+.file-size,
+.file-remove,
+.link_icon {
 	white-space: nowrap;
 
 	position: absolute;
@@ -536,7 +564,8 @@ max-width: 100%;
 
 
 
-.file-name, .link_name {
+.file-name,
+.link_name {
 	display: inline-block;
 	word-wrap: break-all;
 	overflow-wrap: anywhere;
@@ -550,16 +579,16 @@ max-width: 100%;
 
 
 .file-remove {
-padding: 5px 7px;
-margin: 0 5px;
-margin-right: 10px;
-cursor: pointer;
-font-size: 23px;
-color: #fff;
-background-color: #505050;
-border-radius: 5px;
-font-weight: 900;
-right: 0%;
+	padding: 5px 7px;
+	margin: 0 5px;
+	margin-right: 10px;
+	cursor: pointer;
+	font-size: 23px;
+	color: #fff;
+	background-color: #505050;
+	border-radius: 5px;
+	font-weight: 900;
+	right: 0%;
 
 }
 
@@ -645,7 +674,8 @@ right: 0%;
 	border-radius: 6px;
 }
 
-.popup-btn:hover, .popup-btn:active {
+.popup-btn:hover,
+.popup-btn:active {
 	background: var(--popup-btn-bg-active);
 
 }
@@ -678,7 +708,7 @@ right: 0%;
 .pagination {
 	cursor: pointer;
 	width: 150px;
-	max-width: min(800px , 70%)
+	max-width: min(800px, 70%)
 }
 
 .pagination {
@@ -737,8 +767,9 @@ right: 0%;
 }
 
 
-ul{
-	list-style-type: none; /* Remove bullets */
+ul {
+	list-style-type: none;
+	/* Remove bullets */
 	padding-left: 5px;
 	margin: 0;
 }
@@ -753,7 +784,8 @@ ul{
 .upload-pass-box {
 	/* make text field larger */
 	font-size: 1.5em;
-	border: #aa00ff solid 2px;;
+	border: #aa00ff solid 2px;
+	;
 	border-radius: 4px;
 	background-color: #0f0f0f;
 	max-width: 90%;
@@ -765,7 +797,8 @@ ul{
 	align-items: center;
 	justify-content: center;
 }
-.drag-area{
+
+.drag-area {
 	border: 2px dashed #fff;
 	height: 300px;
 	width: 95%;
@@ -775,25 +808,31 @@ ul{
 	justify-content: center;
 	flex-direction: column;
 }
-.drag-area.active{
+
+.drag-area.active {
 	border: 2px solid #fff;
 }
-.drag-area .drag-icon{
+
+.drag-area .drag-icon {
 	font-size: 100px;
 	color: #fff;
 }
-.drag-area header{
+
+.drag-area header {
 	font-size: 25px;
 	font-weight: 500;
 	color: #fff;
 }
-.drag-area span{
+
+.drag-area span {
 	font-size: 20px;
 	font-weight: 500;
 	color: #fff;
 	margin: 10px 0 15px 0;
 }
-.drag-browse, #submit-btn{
+
+.drag-browse,
+#submit-btn {
 	padding: 10px 25px;
 	font-size: 20px;
 	font-weight: 500;
@@ -980,6 +1019,7 @@ ul{
 :root {
 	--sb-width: 300px;
 }
+
 .sidebar {
 	display: block;
 	opacity: 0.8;
@@ -1011,7 +1051,8 @@ ul{
 }
 
 .sidebarR {
-	right: calc(var(--sb-width) * -1);;
+	right: calc(var(--sb-width) * -1);
+	;
 }
 
 
@@ -1019,13 +1060,13 @@ ul{
 	transition: all 0.3s;
 }
 
-.mySidebar-active{
+.mySidebar-active {
 	display: block;
 	opacity: 1;
 	transition: all 0.3s;
 }
 
-.mySidebar-active.sidebarR{
+.mySidebar-active.sidebarR {
 	right: 0;
 }
 
@@ -1110,6 +1151,7 @@ ul{
 	.nav-btn-text {
 		display: none;
 	}
+
 	#dir-tree {
 		width: calc(100% - 50px);
 	}
@@ -1129,8 +1171,8 @@ ul{
 
 
 
-  /* ************************************ */
- /* **        Action Btn + Island     ** */
+/* ************************************ */
+/* **        Action Btn + Island     ** */
 /* ************************************ */
 
 #progress-island {
@@ -1165,9 +1207,10 @@ ul{
 	padding: 5px 10px;
 
 	border-style: solid;
-border-width: 2px 1px; /* 5px top and bottom, 20px on the sides */
-border-radius: 4px;
-box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
+	border-width: 2px 1px;
+	/* 5px top and bottom, 20px on the sides */
+	border-radius: 4px;
+	box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 }
 
 .progress_bar_heading {
@@ -1185,6 +1228,7 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 .progress_bar_heading_text {
 	font-size: 1em;
 }
+
 .progress_bar_status {
 	font-size: 1.2em;
 }
@@ -1241,7 +1285,8 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 	align-items: center;
 }
 
-#actions-btn:hover, #actions-btn:active {
+#actions-btn:hover,
+#actions-btn:active {
 	background-color: var(--popup-btn-bg-active);
 	color: var(--theme-color-text2);
 	box-shadow: 0 2px 3px 1px #0c2de6;
@@ -1260,6 +1305,7 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 	#actions-btn-text {
 		display: block;
 	}
+
 	#actions-btn {
 		border-radius: 20px;
 		padding: 0 10px;
@@ -1292,16 +1338,33 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 }
 
 @-moz-keyframes spin {
-    from { -moz-transform: rotate(0deg); }
-    to { -moz-transform: rotate(360deg); }
+	from {
+		-moz-transform: rotate(0deg);
+	}
+
+	to {
+		-moz-transform: rotate(360deg);
+	}
 }
+
 @-webkit-keyframes spin {
-    from { -webkit-transform: rotate(0deg); }
-    to { -webkit-transform: rotate(360deg); }
+	from {
+		-webkit-transform: rotate(0deg);
+	}
+
+	to {
+		-webkit-transform: rotate(360deg);
+	}
 }
+
 @keyframes spin {
-    from {transform:rotate(0deg);}
-    to {transform:rotate(360deg);}
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 
@@ -1309,8 +1372,8 @@ box-shadow: 0px 5px 5px -3px var(--popup-btn-bg-active);
 
 
 
-  /* ********************** */
- /* Make Dir input element */
+/* ********************** */
+/* Make Dir input element */
 /* ********************** */
 
 input#folder-name {
@@ -1327,7 +1390,8 @@ input#folder-name {
 
 
 
-.all_link, #linkss a {
+.all_link,
+#linkss a {
 	display: block;
 	white-space: wrap;
 	overflow-wrap: anywhere;
@@ -1340,7 +1404,9 @@ input#folder-name {
 	color: red;
 }
 
-.dir_item:active .all_link, .dir_item:hover .all_link , #linkss a:hover {
+.dir_item:active .all_link,
+.dir_item:hover .all_link,
+#linkss a:hover {
 	background-color: #25a2c222;
 }
 
@@ -1356,7 +1422,7 @@ input#folder-name {
 .link_icon {
 	display: inline-block;
 	font-size: 2em;
-	left:0%;
+	left: 0%;
 	width: 40px;
 }
 
@@ -1450,8 +1516,8 @@ input#folder-name {
 
 
 
-  /* ************************************ */
- /* **          Page segments         ** */
+/* ************************************ */
+/* **          Page segments         ** */
 /* ************************************ */
 
 .page {
@@ -1464,8 +1530,8 @@ input#folder-name {
 
 
 
-  /* ************************************ */
- /* **           All Page             ** */
+/* ************************************ */
+/* **           All Page             ** */
 /* ************************************ */
 
 
@@ -1491,8 +1557,8 @@ input#folder-name {
 
 
 
-  /* ************************************ */
- /* **           Admin Page           ** */
+/* ************************************ */
+/* **           Admin Page           ** */
 /* ************************************ */
 
 .users_list {
@@ -1521,7 +1587,6 @@ input#folder-name {
 .users_list td {
 	padding: 12px;
 }
-
 """
 
 
@@ -1538,7 +1603,7 @@ const log = console.log,
 	createElement = document.createElement.bind(document);
 
 
-String.prototype.toHtmlEntities = function() {
+String.prototype.toHtmlEntities = function () {
 	return this.replace(/./ugm, s => s.match(/[a-z0-9\s]+/i) ? s : "&#" + s.codePointAt(0) + ";");
 };
 
@@ -1559,7 +1624,7 @@ function safeJSONParse(str, propArray, maxLen) {
 				safeObj = parsedObj;
 			} else {
 				// copy only expected properties to the safeObj
-				propArray.forEach(function(prop) {
+				propArray.forEach(function (prop) {
 					if (parsedObj.hasOwnProperty(prop)) {
 						safeObj[prop] = parsedObj[prop];
 					}
@@ -1567,7 +1632,7 @@ function safeJSONParse(str, propArray, maxLen) {
 			}
 			return safeObj;
 		}
-	} catch(e) {
+	} catch (e) {
 		return null;
 
 	}
@@ -1662,8 +1727,7 @@ class Tools {
 	 * @see {@link https://stackoverflow.com/questions/60207534/new-date-gettimezoneoffset-returns-the-wrong-time-zone}
 	 */
 	time_offset() {
-
-	// for the reason of negative sign
+		// for the reason of negative sign
 		return new Date().getTimezoneOffset() * 60 * 1000 * -1;
 	}
 
@@ -1673,7 +1737,7 @@ class Tools {
 	 * @param {string|HTMLElement} elm - The element or its ID to remove child nodes from.
 	 */
 	del_child(elm) {
-		if (typeof(elm) == "string") {
+		if (typeof (elm) == "string") {
 			elm = byId(elm);
 		}
 		if (elm == null) {
@@ -1734,12 +1798,33 @@ class Tools {
 	 * @param {string} url - The URL of the script to add.
 	 * @returns {HTMLScriptElement} The newly created script element.
 	 */
-	add_script(url){
+	add_script(src, { crossorigin = null, referrerpolicy = null, asyncLoad = null, integrity = null } = {}) {
 		var script = createElement('script');
-		script.src = url;
-		document.body.appendChild(script);
+		script.src = src;
+		if (crossorigin != null) script.crossorigin = crossorigin;
+		if (referrerpolicy != null) script.referrerpolicy = referrerpolicy;
+		if (asyncLoad != null) script.async = asyncLoad;
+		if (integrity != null) script.integrity = integrity;
+
+
+		if (typeof (document.body) === "undefined" || document.body === null) document.head.appendChild(script);
+		else document.body.appendChild(script)
 
 		return script;
+	}
+
+	add_css(href, { crossorigin = null, referrerpolicy = null, integrity = null } = {}) {
+		var cssFile = createElement('link');
+		cssFile.setAttribute("rel", "stylesheet")
+		cssFile.href = href;
+		if (crossorigin != null) cssFile.crossorigin = crossorigin;
+		if (referrerpolicy != null) cssFile.referrerpolicy = referrerpolicy;
+		if (integrity != null) cssFile.integrity = integrity;
+
+		if (typeof (document.body) === "undefined") document.head.appendChild(cssFile);
+		else document.body.appendChild(cssFile)
+
+		return cssFile;
 	}
 
 	/**
@@ -1756,8 +1841,8 @@ class Tools {
 		}
 		config.Debugging = true;
 		var script = this.add_script("//cdn.jsdelivr.net/npm/eruda");
-		script.onload = function() {
-			if(that.is_touch_device()){
+		script.onload = function () {
+			if (that.is_touch_device()) {
 				eruda.init()
 			}
 		};
@@ -1781,7 +1866,7 @@ class Tools {
 	 * @returns {boolean} - Returns `true` if the object is defined, `false` otherwise.
 	 */
 	is_defined(obj) {
-		return typeof(obj) !== "undefined"
+		return typeof (obj) !== "undefined"
 	}
 
 	/**
@@ -1789,7 +1874,7 @@ class Tools {
 	 * @param {number} [allow=2] - Determines whether to allow scrolling. `0`: no scrolling, `1`: scrolling allowed, `2`: toggle scrolling.
 	 * @param {string} [by="someone"] - The name of the function toggling the scroll.
 	 */
-	toggle_scroll(allow = 2, by = "someone") {
+	toggle_scroll(allow = 2) {
 		if (allow == 0) {
 			document.body.classList.add('overflowHidden');
 		} else if (allow == 1) {
@@ -1806,11 +1891,11 @@ class Tools {
 	 * @param {string|null} [filename=null] - The name to give the downloaded file. If null, the file will be named "download".
 	 * @param {boolean} [new_tab=false] - Whether to open the download in a new tab.
 	 */
-	download(dataurl, filename = null, new_tab=false) {
+	download(dataurl, filename = null, new_tab = false) {
 		const link = createElement("a");
 		link.href = dataurl;
 		link.download = filename;
-		if(new_tab){
+		if (new_tab) {
 			link.target = "_blank";
 		}
 		link.click();
@@ -1821,7 +1906,7 @@ class Tools {
 	 * Pushes a new state object onto the history stack with a fake URL.
 	 * Used to prevent the browser from navigating to a new page when a link is clicked.
 	 */
-	fake_push(state={}){
+	fake_push(state = {}) {
 		history.pushState({
 			url: window.location.href,
 			state: state
@@ -1833,7 +1918,7 @@ class Tools {
 	 * @param {string} rel_path - The relative path to convert to a full URL path.
 	 * @returns {string} - The full URL path for the given relative path.
 	 */
-	full_path(rel_path){
+	full_path(rel_path) {
 		let fake_a = createElement("a")
 		fake_a.href = rel_path;
 		return fake_a.href;
@@ -1850,8 +1935,9 @@ class Tools {
 	 * @param {string} [value=''] - The value of the query parameter to add.
 	 * @returns {string} The updated URL with the added query parameter.
 	 */
-	add_query(url, query, value=''){
-		const url_obj = new URL(url);
+	add_query(url, query, value = '') {
+		var url_ = this.full_path(url);
+		const url_obj = new URL(url_);
 		url_obj.searchParams.set(query, value);
 
 		return url_obj.href;
@@ -1863,7 +1949,7 @@ class Tools {
 	 * @param {string} [value=''] - The value of the query parameter. Defaults to an empty string.
 	 * @returns {string} The modified URL with the added query parameter.
 	 */
-	add_query_here(query, value=''){
+	add_query_here(query, value = '') {
 		return this.add_query(window.location.href, query, value);
 	}
 
@@ -1894,9 +1980,9 @@ class Tools {
 			textArea.focus();
 			textArea.select();
 
-			let ok=0;
-				// here the magic happens
-				if(document.execCommand('copy')) ok = 1
+			let ok = 0;
+			// here the magic happens
+			if (document.execCommand('copy')) ok = 1
 
 			textArea.remove();
 			return ok
@@ -1904,8 +1990,12 @@ class Tools {
 		}
 	}
 
-	async fetch_json(url){
-		return fetch(url).then(r => r.json()).catch(e => {console.log(e); return null;})
+	async fetch_json(url) {
+		return fetch(url)
+			.then(r => r.json())
+			.catch(e => {
+				console.log(e); return null;
+			})
 	}
 
 	/**
@@ -1913,7 +2003,7 @@ class Tools {
 	 *
 	 * @returns {boolean} - `true` if the app is running in standalone mode, `false` otherwise.
 	 */
-	is_standalone(){
+	is_standalone() {
 		const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
 		if (document.referrer.startsWith('android-app://')) {
 			return true; // twa-pwa
@@ -1928,25 +2018,25 @@ class Tools {
 	 *
 	 * @returns {boolean} - `true` if the device has touch capabilities, `false` otherwise.
 	 */
-	is_touch_device(){
+	is_touch_device() {
 		return 'ontouchstart' in document.documentElement;
 	}
 
 
-	async is_installed(){
+	async is_installed() {
 		var listOfInstalledApps = []
-		if("getInstalledRelatedApps" in navigator){
-			listOfInstalledApps  = await navigator.getInstalledRelatedApps();
+		if ("getInstalledRelatedApps" in navigator) {
+			listOfInstalledApps = await navigator.getInstalledRelatedApps();
 		}
 		// console.log(listOfInstalledApps)
 		for (const app of listOfInstalledApps) {
-		// These fields are specified by the Web App Manifest spec.
-		console.log('platform:', app.platform);
-		console.log('url:', app.url);
-		console.log('id:', app.id);
+			// These fields are specified by the Web App Manifest spec.
+			console.log('platform:', app.platform);
+			console.log('url:', app.url);
+			console.log('id:', app.id);
 
-		// This field is provided by the UA.
-		console.log('version:', app.version);
+			// This field is provided by the UA.
+			console.log('version:', app.version);
 		}
 
 		return listOfInstalledApps
@@ -1959,7 +2049,7 @@ class Tools {
 		var ampm = hours >= 12 ? 'pm' : 'am';
 		hours = hours % 12;
 		hours = hours ? hours : 12; // the hour '0' should be '12'
-		minutes = minutes < 10 ? '0'+minutes : minutes;
+		minutes = minutes < 10 ? '0' + minutes : minutes;
 		var strTime = hours + ':' + minutes + ' ' + ampm;
 		return strTime;
 	}
@@ -1972,10 +2062,10 @@ class Tools {
 	 * @param {string} cvalue - The value of the cookie.
 	 * @param {number} [exdays=365] - The number of days until the cookie expires.
 	 */
-	setCookie(cname, cvalue, exdays=365) {
+	setCookie(cname, cvalue, exdays = 365) {
 		const d = new Date();
 		d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
-		let expires = "expires="+d.toUTCString();
+		let expires = "expires=" + d.toUTCString();
 		document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
 	}
 
@@ -1989,14 +2079,14 @@ class Tools {
 		let name = cname + "=";
 		let decodedCookie = decodeURIComponent(document.cookie);
 		let ca = decodedCookie.split(';');
-		for(let i = 0; i <ca.length; i++) {
-		let c = ca[i];
-		while (c.charAt(0) == ' ') {
-			c = c.substring(1);
-		}
-		if (c.indexOf(name) == 0) {
-			return c.substring(name.length, c.length);
-		}
+		for (let i = 0; i < ca.length; i++) {
+			let c = ca[i];
+			while (c.charAt(0) == ' ') {
+				c = c.substring(1);
+			}
+			if (c.indexOf(name) == 0) {
+				return c.substring(name.length, c.length);
+			}
 		}
 		return "";
 	}
@@ -2006,8 +2096,8 @@ class Tools {
 	 */
 	clear_cookie() {
 		document.cookie.split(";").forEach(c => {
-				document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-			}
+			document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+		}
 		);
 	}
 }
@@ -2207,7 +2297,7 @@ class Popup_Msg {
 		await this.dismiss();
 		config.popup_msg_open = false;
 		this.init();
-		console.log("Popup closed");
+		console.debug("Popup closed");
 	}
 
 	/**
@@ -2346,9 +2436,9 @@ class Toaster {
 	 * @param {string} [bgcolor=''] - The background color of the toast. If not provided, the default background color will be used.
 	 * @returns {Promise<void>}
 	 */
-	async toast(msg, time, bgcolor='') {
+	async toast(msg, time, bgcolor = '') {
 		// toaster is not safe as popup by design
-				var sleep = 3000;
+		var sleep = 3000;
 
 		while (this.queue.length > 2) {
 			await tools.sleep(100)
@@ -2367,7 +2457,7 @@ class Toaster {
 
 		toastBody.innerText = msg;
 		toastBody.classList.add("visible")
-		if(tools.is_defined(time)) sleep = time;
+		if (tools.is_defined(time)) sleep = time;
 		await tools.sleep(sleep)
 		toastBody.classList.remove("visible")
 		await tools.sleep(500)
@@ -2392,7 +2482,7 @@ var toaster = new Toaster()
  * @param {string} [options.y_msg="Yes"] - The text to display on the "yes" button.
  * @param {string} [options.n_msg="No"] - The text to display on the "no" button.
  */
-function r_u_sure({y=null_func, n=null, head="Are you sure", body="", y_msg="Yes",n_msg ="No"}={}) {
+function r_u_sure({ y = null_func, n = null, head = "Are you sure", body = "", y_msg = "Yes", n_msg = "No" } = {}) {
 	// popup_msg.close()
 	var box = createElement("div")
 	var msggg = createElement("p")
@@ -2407,11 +2497,11 @@ function r_u_sure({y=null_func, n=null, head="Are you sure", body="", y_msg="Yes
 	var n_btn = createElement("div");
 	n_btn.innerText = n_msg;//"Cancel"
 	n_btn.className = "pagination center";
-	n_btn.onclick = () => {return (n===null) ? popup_msg.close() : n()};
+	n_btn.onclick = () => { return (n === null) ? popup_msg.close() : n() };
 	box.appendChild(y_btn);
 	box.appendChild(line_break());
 	box.appendChild(n_btn);
-	popup_msg.createPopup(head, box) ; //"Are you sure?"
+	popup_msg.createPopup(head, box); //"Are you sure?"
 	popup_msg.open_popup();
 }
 
@@ -2448,7 +2538,7 @@ if (window.history && "pushState" in history) {
 		// guard against popstate event on chrome init
 		//log(evt.state)
 
-		if(HISTORY_ACTION.length){
+		if (HISTORY_ACTION.length) {
 			let action = HISTORY_ACTION.pop()
 			action()
 
@@ -2456,13 +2546,14 @@ if (window.history && "pushState" in history) {
 		}
 
 		const x = evt
-		if (x.state && x.state.url==window.location.href){
+		if (x.state && x.state.url == window.location.href) {
 			return false
 		}
 		location.reload(true);
-};
+	};
 
 }
+
 
 """
 
@@ -2499,10 +2590,10 @@ class ContextMenu {
 		let that = this
 		popup_msg.close()
 
-		let url = ".?"+action;
+		let url = ".?" + action;
 		let xhr = new XMLHttpRequest();
 		xhr.open("POST", url);
-		xhr.onreadystatechange = function() {
+		xhr.onreadystatechange = function () {
 			if (this.readyState === 4) {
 				that.on_result(this)
 				if (callback) {
@@ -2519,7 +2610,7 @@ class ContextMenu {
 	rename_data() {
 		let new_name = byId("input_rename").value;
 
-		this.menu_click("rename", this.old_name, new_name, null, () => {page.refresh_dir()});
+		this.menu_click("rename", this.old_name, new_name, null, () => { page.refresh_dir() });
 		// popup_msg.createPopup("Done!", "New name: "+new_name)
 		// popup_msg.open_popup()
 	}
@@ -2527,7 +2618,7 @@ class ContextMenu {
 		await popup_msg.close()
 		popup_msg.createPopup("Rename",
 			"Enter new name: <input id='input_rename' type='text'><br><br><div class='pagination center' onclick='context_menu.rename_data()'>Change!</div>"
-			);
+		);
 		console.log(popup_msg.content)
 		popup_msg.open_popup()
 		this.old_name = link;
@@ -2544,22 +2635,22 @@ class ContextMenu {
 		}
 
 		let new_tab = createElement("div")
-			new_tab.innerText = "↗️" + " New tab"
-			new_tab.className = "disable_selection popup-btn menu_options"
-			new_tab.onclick = function() {
-				window.open(file, '_blank');
-				popup_msg.close()
-			}
-			menu.appendChild(new_tab)
+		new_tab.innerText = "↗️" + " New tab"
+		new_tab.className = "disable_selection popup-btn menu_options"
+		new_tab.onclick = function () {
+			window.open(file, '_blank');
+			popup_msg.close()
+		}
+		menu.appendChild(new_tab)
 		if (type != "folder") {
 			let download = createElement("div")
 			download.innerText = "📥" + " Download"
 			download.className = "disable_selection popup-btn menu_options"
-			download.onclick = function() {
+			download.onclick = function () {
 				tools.download(file, name);
 				popup_msg.close()
 			}
-			if(user.permissions.DOWNLOAD){
+			if (user.permissions.DOWNLOAD) {
 				menu.appendChild(download)
 			}
 		}
@@ -2567,12 +2658,12 @@ class ContextMenu {
 			let dl_zip = createElement("div")
 			dl_zip.innerText = "📦" + " Download as Zip"
 			dl_zip.className = "disable_selection popup-btn menu_options"
-			dl_zip.onclick = function() {
+			dl_zip.onclick = function () {
 				popup_msg.close()
 				window.open(go_link('czip', file), '_blank');
 				// czip = "Create Zip"
 			}
-			if(user.permissions.ZIP){
+			if (user.permissions.ZIP) {
 				menu.appendChild(dl_zip)
 			}
 		}
@@ -2580,13 +2671,13 @@ class ContextMenu {
 		let copy = createElement("div")
 		copy.innerText = "📋" + " Copy link"
 		copy.className = "disable_selection popup-btn menu_options"
-		copy.onclick = async function(ev) {
+		copy.onclick = async function (ev) {
 			popup_msg.close()
 
 			let success = await tools.copy_2(ev, tools.full_path(file))
-			if(success){
+			if (success) {
 				toaster.toast("Link Copied!")
-			}else{
+			} else {
 				toaster.toast("Failed to copy!")
 			}
 		}
@@ -2595,7 +2686,7 @@ class ContextMenu {
 		let rename = createElement("div")
 		rename.innerText = "✏️" + " Rename"
 		rename.className = "disable_selection popup-btn menu_options"
-		rename.onclick = function() {
+		rename.onclick = function () {
 			that.rename(file, name)
 		}
 
@@ -2610,7 +2701,7 @@ class ContextMenu {
 		if (type == "folder") {
 			xxx = 'D'
 		}
-		del.onclick = function() {
+		del.onclick = function () {
 			that.menu_click('del-f', file, null, refresh);
 		};
 
@@ -2624,9 +2715,11 @@ class ContextMenu {
 
 
 		del_P.onclick = () => {
-			r_u_sure({y:()=>{
-				that.menu_click('del-p', file, null, refresh);
-			}, head:"Are you sure?", body:"This can't be undone!!!", y_msg:"Continue", n_msg:"Cancel"})
+			r_u_sure({
+				y: () => {
+					that.menu_click('del-p', file, null, refresh);
+				}, head: "Are you sure?", body: "This can't be undone!!!", y_msg: "Continue", n_msg: "Cancel"
+			})
 		}
 
 		if (user.permissions.DELETE) {
@@ -2636,7 +2729,7 @@ class ContextMenu {
 		let property = createElement("div")
 		property.innerText = "📅" + " Properties"
 		property.className = "disable_selection popup-btn menu_options"
-		property.onclick = function() {
+		property.onclick = function () {
 			that.menu_click('info', file);
 		};
 
@@ -2649,7 +2742,7 @@ class ContextMenu {
 	}
 	create_folder() {
 		let folder_name = byId('folder-name').value;
-		this.menu_click('new_folder', folder_name, null, () => {page.refresh_dir()});
+		this.menu_click('new_folder', folder_name, null, () => { page.refresh_dir() });
 	}
 }
 var context_menu = new ContextMenu()
@@ -2657,7 +2750,7 @@ var context_menu = new ContextMenu()
 
 function show_response(url, add_reload_btn = true) {
 	let xhr = new XMLHttpRequest();
-	xhr.onreadystatechange = function() {
+	xhr.onreadystatechange = function () {
 		if (xhr.readyState == XMLHttpRequest.DONE) {
 			let msg = xhr.responseText;
 			if (add_reload_btn) {
@@ -2684,27 +2777,32 @@ function insertAfter(newNode, existingNode) {
 function fmbytes(B) {
 	'Return the given bytes as a file manager friendly KB, MB, GB, or TB string'
 	let KB = 1024,
-	MB = (KB ** 2),
-	GB = (KB ** 3),
-	TB = (KB ** 4)
+		MB = (KB ** 2),
+		GB = (KB ** 3),
+		TB = (KB ** 4)
 
-	var unit="byte", val=B;
+	var unit = "byte", val = B;
 
-	if (B>1){
-		unit="bytes"
-		val = B}
-	if (B/KB>1){
-		val = (B/KB)
-		unit="KB"}
-	if (B/MB>1){
-		val = (B/MB)
-		unit="MB"}
-	if (B/GB>1){
-		val = (B/GB)
-		unit="GB"}
-	if (B/TB>1){
-		val = (B/TB)
-		unit="TB"}
+	if (B > 1) {
+		unit = "bytes"
+		val = B
+	}
+	if (B / KB > 1) {
+		val = (B / KB)
+		unit = "KB"
+	}
+	if (B / MB > 1) {
+		val = (B / MB)
+		unit = "MB"
+	}
+	if (B / GB > 1) {
+		val = (B / GB)
+		unit = "GB"
+	}
+	if (B / TB > 1) {
+		val = (B / TB)
+		unit = "TB"
+	}
 
 	val = val.toFixed(2)
 
@@ -2763,13 +2861,13 @@ class ProgressBars {
 		bar_head.className = "progress_bar_heading"
 
 		let bar_head_text = createElement("div")
-		bar_head_text.className ="progress_bar_heading_text"
-		if(type=="upload"){
+		bar_head_text.className = "progress_bar_heading_text"
+		if (type == "upload") {
 			bar_head_text.innerText = "Uploading"
-		} else if(type=="zip"){
+		} else if (type == "zip") {
 			bar_head_text.innerText = "Zipping"
 		}
-		bar_head_text.style.float ="left"
+		bar_head_text.style.float = "left"
 		bar_head.appendChild(bar_head_text)
 
 		let bar_status = createElement("div")
@@ -2801,7 +2899,7 @@ class ProgressBars {
 		let bar_cancel = createElement("span")
 		bar_cancel.className = "progress_bar_cancel"
 		bar_cancel.innerHTML = "&#9888; Delete Task"
-		bar_cancel.onclick = function(e){
+		bar_cancel.onclick = function (e) {
 			e.stopPropagation() // stop the click event from propagating to the bar element
 			if (type == "upload") {
 				upload_man.remove(id)
@@ -2813,10 +2911,10 @@ class ProgressBars {
 		}
 		bar_element.appendChild(bar_cancel)
 
-		bar_element.onclick = ()=>{
-			if(type=="upload") {
+		bar_element.onclick = () => {
+			if (type == "upload") {
 				upload_man.show(id)
-			} else if(type=="zip") {
+			} else if (type == "zip") {
 				zip_man.show(id)
 			}
 		}
@@ -2850,20 +2948,20 @@ class ProgressBars {
 		}
 
 		this.island_bar.style.display = "block"
-		if (!(up_count||zip_count)){
+		if (!(up_count || zip_count)) {
 			this.island_bar.style.display = "None"
 			return
 		}
 
 
-		if (up_count){
+		if (up_count) {
 			this.island_up_text.style.display = "block"
 			this.island_up_count.innerText = "(" + up_done_count + '/' + up_count + ')'
 		} else {
 			this.island_up_text.style.display = "none"
 		}
 
-		if (zip_count){
+		if (zip_count) {
 			this.island_zip_text.style.display = "block"
 			this.island_zip_count.innerText = "(" + zip_done_count + '/' + zip_count + ')'
 		} else {
@@ -2872,7 +2970,7 @@ class ProgressBars {
 	}
 
 
-	update(index, datas={}) {
+	update(index, datas = {}) {
 		let bar = this.bars[index]
 		for (let key in datas) {
 			bar[key] = datas[key]
@@ -2880,7 +2978,7 @@ class ProgressBars {
 		this.update_bar(index)
 	}
 
-	update_bar(index){
+	update_bar(index) {
 		let bar = this.bars[index]
 		let bar_element = this.bar_elements[index]
 		let type = bar.type
@@ -2888,9 +2986,9 @@ class ProgressBars {
 
 
 		let bar_head_text = bar_element.getElementsByClassName("progress_bar_heading_text")[0]
-		if(type=="upload"){
+		if (type == "upload") {
 			bar_head_text.innerText = "Uploading"
-		} else if(type=="zip"){
+		} else if (type == "zip") {
 			bar_head_text.innerText = "Zipping"
 		}
 
@@ -2964,7 +3062,7 @@ progress_bars.update_island()
 
 
 class User {
-	constructor(){
+	constructor() {
 		this.user = null;
 		this.token = null;
 		this.permissions_code = null;
@@ -2982,7 +3080,7 @@ class User {
 		];
 	}
 
-	get_user(){
+	get_user() {
 		this.user = tools.getCookie("user");
 		this.token = tools.getCookie("token");
 		this.permissions_code = tools.getCookie("permissions") || 0;
@@ -3001,7 +3099,7 @@ class User {
 		this.extract_permissions();
 	}
 
-	extract_permissions(){
+	extract_permissions() {
 		// this function extracts the permissions from the permissions_code
 		let permissions = this.all_permissions;
 		this.permissions = {}
@@ -3009,7 +3107,7 @@ class User {
 			this.permissions[permission] = this.permissions_code >> i & 1;
 		}, this);
 		// if none of permission is true, add nopermission to the permissions
-		if(!Object.values(this.permissions).some(x => !!x)){
+		if (!Object.values(this.permissions).some(x => !!x)) {
 			this.permissions['NOPERMISSION'] = true;
 		} else {
 			this.permissions['NOPERMISSION'] = false;
@@ -3020,7 +3118,7 @@ class User {
 
 	}
 
-	pack_permissions(){
+	pack_permissions() {
 		// this function packs the permissions into permissions_code
 		let permissions = this.all_permissions;
 
@@ -3045,7 +3143,7 @@ user.get_user();
 // /////////////////////////////
 
 {
-	if(user.permissions.ADMIN){
+	if (user.permissions.ADMIN) {
 		let css = document.createElement("style");
 		css.innerHTML = `
 		.admin_only {
@@ -3055,7 +3153,7 @@ user.get_user();
 		document.body.appendChild(css);
 	}
 
-	if(user.permissions.MEMBER){
+	if (user.permissions.MEMBER) {
 		let css = document.createElement("style");
 		css.innerHTML = `
 		.member_only {
@@ -3083,6 +3181,7 @@ user.get_user();
 		document.body.appendChild(css);
 	}
 }
+
 """
 
 
@@ -3099,21 +3198,21 @@ function clear_file_list() {
 }
 
 
-class FM_Page{
-	constructor(){
+class FM_Page {
+	constructor() {
 		this.type = "dir"
 
 		this.my_part = document.getElementById("fm_page")
 
 	}
 
-	on_action_button(){
+	on_action_button() {
 		// show add folder, sort, etc
 		fm.show_more_menu()
 	}
 
-	async initialize(lazyload=false){
-		if (!lazyload){
+	async initialize(lazyload = false) {
+		if (!lazyload) {
 			page.clear();
 		}
 
@@ -3121,7 +3220,7 @@ class FM_Page{
 		page.set_actions_button_text("New&nbsp;")
 		page.show_actions_button()
 
-		if (user.permissions.NOPERMISSION || !user.permissions.VIEW){
+		if (user.permissions.NOPERMISSION || !user.permissions.VIEW) {
 			page.set_title("No Permission")
 
 			const container = byId("js-content_list")
@@ -3133,12 +3232,12 @@ class FM_Page{
 		}
 
 		var folder_data = await fetch(tools.add_query_here("folder_data"))
-								.then(response => response.json())
-								.catch(error => {
-									console.error('There has been a problem with your fetch operation:', error); // TODO: Show error in page
-								});
+			.then(response => response.json())
+			.catch(error => {
+				console.error('There has been a problem with your fetch operation:', error); // TODO: Show error in page
+			});
 
-		if (!folder_data || !folder_data["status"] || folder_data.status == "error"){
+		if (!folder_data || !folder_data["status"] || folder_data.status == "error") {
 			console.error("Error getting folder data") // TODO: Show error in page
 			return
 		}
@@ -3155,15 +3254,15 @@ class FM_Page{
 		show_file_list();
 	}
 
-	hide(){
+	hide() {
 		this.my_part.classList.remove("active");
 	}
 
-	show(){
+	show() {
 		this.my_part.classList.add("active");
 	}
 
-	clear(){
+	clear() {
 		tools.del_child("linkss");
 	}
 
@@ -3187,29 +3286,29 @@ class UploadManager {
 		let file_list = byId("content_container")
 		this.drag_pop_open = false;
 
-		file_list.ondragover = async (event)=>{
+		file_list.ondragover = async (event) => {
 			event.preventDefault(); //preventing from default behaviour
-			if(that.drag_pop_open){
+			if (that.drag_pop_open) {
 				return;
 			}
 			that.drag_pop_open = true;
 
 			form = await upload_man.new()
-			popup_msg.createPopup("Upload Files", form, true, onclose=()=>{
+			popup_msg.createPopup("Upload Files", form, true, onclose = () => {
 				that.drag_pop_open = false;
 			})
 			popup_msg.open_popup();
 
 		};
 
-			//If user leave dragged File from DropArea
-		file_list.ondragleave = (event)=>{
+		//If user leave dragged File from DropArea
+		file_list.ondragleave = (event) => {
 			event.preventDefault(); //preventing from default behavior
 			// form.remove();
 		};
 
-			//If user drop File on DropArea
-		file_list.ondrop = (event)=>{
+		//If user drop File on DropArea
+		file_list.ondrop = (event) => {
 			event.preventDefault(); //preventing from default behavior
 		};
 	}
@@ -3257,7 +3356,7 @@ class UploadManager {
 		up_files.name = "file";
 		up_files.multiple = true
 		up_files.hidden = true;
-		up_files.onchange = (e)=>{
+		up_files.onchange = (e) => {
 			// USING THE BROWSE BUTTON
 			let f = e.target.files; // this.files = [file1, file2,...];
 			addFiles(f);
@@ -3271,55 +3370,55 @@ class UploadManager {
 		let uploader_box = createElement("div")
 		uploader_box.className = "upload-box";
 
-			let uploader_dragArea = createElement("div")
-			uploader_dragArea.className = "drag-area";
-			uploader_dragArea.id = "drag-area";
+		let uploader_dragArea = createElement("div")
+		uploader_dragArea.className = "drag-area";
+		uploader_dragArea.id = "drag-area";
 
-			let up_icon = createElement("div")
-			up_icon.className = "drag-icon";
-			up_icon.innerText = "⬆️";
-			uploader_dragArea.appendChild(up_icon)
+		let up_icon = createElement("div")
+		up_icon.className = "drag-icon";
+		up_icon.innerText = "⬆️";
+		uploader_dragArea.appendChild(up_icon)
 
-			let up_text = createElement("header")
+		let up_text = createElement("header")
+		up_text.innerText = "Drag & Drop to Upload File";
+		uploader_dragArea.appendChild(up_text)
+
+		let or_text = createElement("span")
+		or_text.innerText = "OR"
+		uploader_dragArea.appendChild(or_text)
+
+		let up_button = createElement("button")
+		up_button.type = "button";
+		up_button.innerText = "Browse File";
+		up_button.className = "drag-browse";
+		up_button.onclick = (e) => {
+			e.preventDefault();
+			up_files.click(); //if user click on the button then the input also clicked
+		}
+		uploader_dragArea.appendChild(up_button)
+
+		uploader_dragArea.ondragover = (event) => {
+			event.preventDefault(); //preventing from default behavior
+			uploader_dragArea.classList.add("active");
+			up_text.innerText = "Release to Upload File";
+		};
+
+		//If user leave dragged File from DropArea
+		uploader_dragArea.ondragleave = () => {
+			uploader_dragArea.classList.remove("active");
 			up_text.innerText = "Drag & Drop to Upload File";
-			uploader_dragArea.appendChild(up_text)
+		};
 
-			let or_text = createElement("span")
-			or_text.innerText = "OR"
-			uploader_dragArea.appendChild(or_text)
+		//If user drop File on DropArea
+		uploader_dragArea.ondrop = (event) => {
+			event.preventDefault(); //preventing from default behavior
+			//getting user select file and [0] this means if user select multiple files then we'll select only the first one
+			uploader_dragArea.classList.remove("active");
+			up_text.innerText = "Drag & Drop to Upload File";
 
-			let up_button = createElement("button")
-			up_button.type = "button";
-			up_button.innerText = "Browse File";
-			up_button.className = "drag-browse";
-			up_button.onclick = (e)=>{
-				e.preventDefault();
-				up_files.click(); //if user click on the button then the input also clicked
-			}
-			uploader_dragArea.appendChild(up_button)
-
-			uploader_dragArea.ondragover = (event)=>{
-				event.preventDefault(); //preventing from default behavior
-				uploader_dragArea.classList.add("active");
-				up_text.innerText = "Release to Upload File";
-			};
-
-			//If user leave dragged File from DropArea
-			uploader_dragArea.ondragleave = ()=>{
-				uploader_dragArea.classList.remove("active");
-				up_text.innerText = "Drag & Drop to Upload File";
-			};
-
-			//If user drop File on DropArea
-			uploader_dragArea.ondrop = (event)=>{
-				event.preventDefault(); //preventing from default behavior
-				//getting user select file and [0] this means if user select multiple files then we'll select only the first one
-				uploader_dragArea.classList.remove("active");
-				up_text.innerText = "Drag & Drop to Upload File";
-
-				addFiles(event.dataTransfer.files);
-				// uploader_showFiles(); //calling function
-			};
+			addFiles(event.dataTransfer.files);
+			// uploader_showFiles(); //calling function
+		};
 
 		uploader_box.appendChild(uploader_dragArea)
 		center.appendChild(uploader_box)
@@ -3375,13 +3474,13 @@ class UploadManager {
 		Form.onsubmit = (e) => {
 			e.preventDefault();
 
-			if(that.status[index]){
+			if (that.status[index]) {
 				that.cancel(index);
 				show_status("Upload cancelled");
 				return;
 			}
 
-			if(selected_files.files.length == 0){
+			if (selected_files.files.length == 0) {
 				toaster.toast("No files selected");
 				return;
 			}
@@ -3409,16 +3508,17 @@ class UploadManager {
 
 
 			var prog = 0,
-			msg = "",
-			color = "green",
-			upload_status = "waiting";
+				msg = "",
+				color = "green",
+				upload_status = "waiting";
 
 
 			progress_bars.update(prog_id, {
-						"status_text": "Waiting",
-						"status_color": color,
-						"status": "waiting",
-						"percent": 0});
+				"status_text": "Waiting",
+				"status_color": color,
+				"status": "waiting",
+				"percent": 0
+			});
 
 
 			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
@@ -3431,7 +3531,7 @@ class UploadManager {
 					upload_status = "error";
 					color = "red";
 					prog = 0;
-					if (request.status === 401){
+					if (request.status === 401) {
 						msg = 'Incorrect password';
 					} else if (request.status == 503) {
 						msg = 'Upload is disabled';
@@ -3451,10 +3551,11 @@ class UploadManager {
 						"status_text": msg,
 						"status_color": color,
 						"status": upload_status,
-						"percent": prog});
+						"percent": prog
+					});
 
 					submit_button.innerText = "➾ Re-upload";
-					if (!that.status[index]){
+					if (!that.status[index]) {
 						return; // needs to check this.status[index] because the user might have cancelled the upload but its still called. On cancel already a toast is shown
 					}
 					show_status(msg);
@@ -3471,24 +3572,25 @@ class UploadManager {
 				}
 			}
 			request.upload.onprogress = e => {
-				prog = Math.floor(100*e.loaded/e.total);
-				if(e.loaded === e.total){
-					msg ='Saving...';
+				prog = Math.floor(100 * e.loaded / e.total);
+				if (e.loaded === e.total) {
+					msg = 'Saving...';
 					show_status(msg);
-				}else{
+				} else {
 					msg = `Progress`;
 					show_status(msg + " " + prog + "%");
 				}
 
 
 				progress_bars.update(prog_id, {
-						"status_text": msg,
-						"status_color": "green",
-						"status": "running",
-						"percent": prog});
+					"status_text": msg,
+					"status_color": "green",
+					"status": "running",
+					"percent": prog
+				});
 			}
-			
-			request.setRequestHeader('Cache-Control','no-cache');
+
+			request.setRequestHeader('Cache-Control', 'no-cache');
 			request.setRequestHeader("Connection", "close");
 			request.send(formData);
 		}
@@ -3503,8 +3605,8 @@ class UploadManager {
 		 * @param {string} msg - The message to display.
 		 * @param {boolean} [hide=false] - Whether to hide the status message or not.
 		 */
-		function show_status(msg, hide=false){
-			if(hide){
+		function show_status(msg, hide = false) {
+			if (hide) {
 				upload_pop_status_label.style.display = "none";
 				return;
 			}
@@ -3512,9 +3614,9 @@ class UploadManager {
 			upload_pop_status.innerText = msg;
 		}
 
-		function truncate_file_name(name){
+		function truncate_file_name(name) {
 			// if bigger than 20, truncate, veryvery...last6chars
-			if(name.length > 20){
+			if (name.length > 20) {
 				return name.slice(0, 7) + "..." + name.slice(-6);
 			}
 			return name;
@@ -3524,7 +3626,7 @@ class UploadManager {
 			for (let i = 0; i < files.length; i++) {
 				var selected_fnames = [];
 				const file = files[i];
-				
+
 				let exist = [...selected_files.files].findIndex(f => f.name === file.name);
 
 				if (exist > -1) {
@@ -3534,7 +3636,7 @@ class UploadManager {
 					// last file will remain in host server,
 					// so we need to replace it with new one
 					toaster.toast(truncate_file_name(file.name) + " already selected", 1500);
-					selected_files.items.remove(exist-1);
+					selected_files.items.remove(exist - 1);
 				}
 				selected_files.items.add(file);
 			};
@@ -3548,9 +3650,9 @@ class UploadManager {
 		function addFiles(files) {
 
 			remove_duplicates(files);
-			
 
-			log("selected "+ selected_files.items.length+ " files");
+
+			log("selected " + selected_files.items.length + " files");
 			uploader_showFiles();
 		}
 
@@ -3574,19 +3676,19 @@ class UploadManager {
 		function uploader_showFiles() {
 			tools.del_child(uploader_file_display)
 
-			if(selected_files.files.length){
+			if (selected_files.files.length) {
 				uploader_file_container.style.display = "contents"
 			} else {
 				uploader_file_container.style.display = "none"
 			}
 
-			for (let i = 0; i <selected_files.files.length; i++) {
+			for (let i = 0; i < selected_files.files.length; i++) {
 				uploader_showFile(selected_files.files[i], i);
 			};
 		}
 
 
-		function uploader_showFile(file, index){
+		function uploader_showFile(file, index) {
 			let filename = file.name;
 			let size = fmbytes(file.size);
 
@@ -3609,7 +3711,7 @@ class UploadManager {
 			fremove.className = "ufremove";
 			let fremove_icon = createElement("span");
 			fremove_icon.innerHTML = "&times;";
-			fremove_icon.onclick = function(){
+			fremove_icon.onclick = function () {
 				uploader_removeFileFromFileList(index)
 			}
 			fremove.appendChild(fremove_icon);
@@ -3626,40 +3728,41 @@ class UploadManager {
 
 	}
 
-	up_stat(form, stat=null) {
-		if(stat===null){
+	up_stat(form, stat = null) {
+		if (stat === null) {
 			return form.getAttribute("uploading");
 		}
 		form.setAttribute("uploading", stat);
 	}
 
-	show(index){
+	show(index) {
 		let form = this.uploaders[index];
 		popup_msg.createPopup("Upload Files", form);
 		popup_msg.show();
 	}
 
-	cancel(index, remove=false){
+	cancel(index, remove = false) {
 		let request = this.requests[index];
 		let form = this.uploaders[index];
 		let prog_id = form.prog_id;
 
-		if(form){
+		if (form) {
 			form.querySelector(".upload-button").innerText = "➾ Upload";
 		}
 		progress_bars.update(prog_id, {
 			"status_text": "Upload Canceled",
 			"status_color": "red",
 			"status": "error",
-			"percent": 0})
+			"percent": 0
+		})
 
 
-		if(this.status[index]){
+		if (this.status[index]) {
 			this.status[index] = false;
-			if(request){
+			if (request) {
 				request.abort();
 			}
-			if(!remove) toaster.toast("Upload Canceled");
+			if (!remove) toaster.toast("Upload Canceled");
 
 			return true;
 		}
@@ -3667,11 +3770,11 @@ class UploadManager {
 		return false;
 	}
 
-	remove(index){
+	remove(index) {
 		this.cancel(index, true); //cancel the upload (true to make sure it doesn't show toast)
 		let form = this.uploaders[index];
 		let prog_id = form.prog_id;
-		if (prog_id){
+		if (prog_id) {
 			progress_bars.remove(prog_id);
 		}
 		this.uploaders[index].remove(); //remove the form from DOM
@@ -3688,21 +3791,21 @@ class FileManager {
 	constructor() {
 	}
 
-	show_more_menu(){
+	show_more_menu() {
 		let that = this;
 		let menu = createElement("div")
 
 		let sort_by = createElement("div")
 		sort_by.innerText = "Sort By"
 		sort_by.className = "disable_selection popup-btn menu_options debug_only"
-		sort_by.onclick = function(){
+		sort_by.onclick = function () {
 			that.Show_sort_by()
 		}
 		menu.appendChild(sort_by)
 
 		let new_folder = createElement("div")
 		new_folder.innerText = "New Folder"
-		new_folder.onclick = function(){
+		new_folder.onclick = function () {
 			that.Show_folder_maker()
 		}
 		new_folder.className = "disable_selection popup-btn menu_options"
@@ -3711,10 +3814,10 @@ class FileManager {
 		let upload = createElement("div")
 		upload.innerText = "Upload Files"
 		upload.className = "disable_selection popup-btn menu_options"
-		if (user.permissions.NOPERMISSION || !user.permissions.UPLOAD){
+		if (user.permissions.NOPERMISSION || !user.permissions.UPLOAD) {
 			upload.className += " disabled"
 		} else {
-			upload.onclick = function(){
+			upload.onclick = function () {
 				that.Show_upload_files()
 			}
 		}
@@ -3729,7 +3832,7 @@ class FileManager {
 	Show_folder_maker() {
 		popup_msg.createPopup("Create Folder",
 			"Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='context_menu.create_folder()'>Create</div>"
-			);
+		);
 		popup_msg.open_popup();
 	}
 
@@ -3817,18 +3920,18 @@ function show_file_list() {
 
 		l_box.innerText = " " + name;
 
-		if(s_li[i]){
+		if (s_li[i]) {
 			l_box.appendChild(createElement("br"))
 
 			let s = createElement("span")
-			s.className= "link_size"
+			s.className = "link_size"
 			s.innerText = s_li[i]
 			l_box.appendChild(s)
 		}
 		link.appendChild(l_box)
 
 
-		link.oncontextmenu = function(ev) {
+		link.oncontextmenu = function (ev) {
 			ev.preventDefault()
 
 			context_menu.show_menus(r_, name, type);
@@ -3896,13 +3999,13 @@ class Video_Page {
 
 		this.player_source = document.getElementById("player_source")
 		this.player_title = byId("player_title")
-			this.player_warning = byId("player-warning")
-			this.video_dl_url = byId("video_dl_url")
+		this.player_warning = byId("player-warning")
+		this.video_dl_url = byId("video_dl_url")
 
 
 		this.player = null;
 
-		if (typeof(Plyr) !== "undefined"){
+		if (typeof (Plyr) !== "undefined") {
 			this.player = new Plyr('#player', {
 				controls: this.controls
 			});
@@ -3916,14 +4019,15 @@ class Video_Page {
 		var url = tools.add_query_here("vid-data")
 
 		var data = await fetch(url)
-					.then(data => {return data.json()})
-					.catch(err => {console.error(err)})
+			.then(data => { return data.json() })
+			.catch(err => { console.error(err) })
 
 		var video = data.video
 		var title = data.title
 		var content_type = data.content_type
 		var warning = data.warning
 
+		var subtitles = data.subtitles
 
 		this.player_title.innerText = title
 		this.player_warning.innerHTML = warning
@@ -3931,17 +4035,23 @@ class Video_Page {
 
 		page.set_title(title)
 
-		if (this.player){
+		if (this.player) {
 			this.player.source = {
 				type: 'video',
 				title: 'Example title',
 				sources: [
 					{
 						src: video,
-						type: content_type,
+						// type: content_type,
 					},
 				],
-				poster: 'https://i.ibb.co/dLq2FDv/jQZ5DoV.jpg' // to keep preview hidden
+				poster: 'https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@9fb9f51/assets/youtube-logo.webp', // to keep preview hidden
+				keyboard: {
+					global: true,
+					focused: false,
+				},
+				tracks: subtitles,
+				volume: 1
 			};
 
 			this.init_online_player() // Add double click to skip
@@ -3949,9 +4059,6 @@ class Video_Page {
 			this.player_source.src = video;
 			this.player_source.type = content_type;
 		}
-
-
-
 	}
 
 	hide() {
@@ -3970,9 +4077,12 @@ class Video_Page {
 		this.video_dl_url.href = ""
 	}
 
+
+
+
 	init_online_player() {
 		var player = this.player;
-		player.eventListeners.forEach(function(eventListener) {
+		player.eventListeners.forEach(function (eventListener) {
 			if (eventListener.type === 'dblclick') {
 				eventListener.element.removeEventListener(eventListener.type, eventListener.callback, eventListener
 					.options);
@@ -4020,7 +4130,7 @@ class Video_Page {
 		}
 		var counter = new multiclick_counter();
 		const poster = byClass("plyr__poster")[0]
-		poster.onclick = function(e) {
+		poster.onclick = function (e) {
 			const count = counter.clicked()
 			if (count < 2) {
 				return
@@ -4032,7 +4142,7 @@ class Video_Page {
 			const width = e.target.offsetWidth;
 			const perc = x * 100 / width;
 			var panic = true;
-			var change=10;
+			var change = 10;
 			var last_click = counter.last_side
 			if (last_click == null) {
 				panic = false
@@ -4053,7 +4163,7 @@ class Video_Page {
 				}
 				skip_ol.style.opacity = "0.9";
 				player.rewind(change)
-				if(change==10){
+				if (change == 10) {
 					change = ((count - 1) * 10)
 				} else {
 					change = change.toFixed(1);
@@ -4068,13 +4178,13 @@ class Video_Page {
 					counter.reset_count(1)
 					return
 				}
-				if (player.currentTime > (player.duration-10)) {
+				if (player.currentTime > (player.duration - 10)) {
 					change = player.duration - player.currentTime;
 				}
 				skip_ol.style.opacity = "0.9";
 				last_click = "R"
 				player.forward(change)
-				if(change==10){
+				if (change == 10) {
 					change = ((count - 1) * 10)
 				} else {
 					change = change.toFixed(1);
@@ -4094,8 +4204,8 @@ var video_page = new Video_Page()
 
 pt_config.file_list["script_page_handler.js"] = r"""
 
-class Page{
-	constructor(){
+class Page {
+	constructor() {
 		this.container = byId('content_container')
 		this.type = null;
 		this.handler = fm_page; // default handler
@@ -4108,7 +4218,7 @@ class Page{
 
 		this.dir_tree.scrollLeft = this.dir_tree.scrollWidth;
 		// convert scroll to horizontal
-		this.dir_tree.onwheel = function(event) {
+		this.dir_tree.onwheel = function (event) {
 			event.preventDefault();
 			// scroll to left
 			event.target.scrollBy({
@@ -4132,31 +4242,31 @@ class Page{
 		this.initialize()
 	}
 
-	get actions_loading_icon(){
+	get actions_loading_icon() {
 		return byId("actions-loading-icon")
 	}
 
-	get actions_button_icon(){
+	get actions_button_icon() {
 		return byId("actions-btn-icon")
 	}
 
-	get_type(){
+	get_type() {
 		const url = tools.add_query_here('type', '');
 		return fetch(url)
-					.then(data => {return data.text()})
+			.then(data => { return data.text() })
 	}
 
-	hide_all(){
-		for (let handler of Object.values(this.handlers)){
+	hide_all() {
+		for (let handler of Object.values(this.handlers)) {
 			handler.hide();
 		}
 	}
 
-	clear(){
+	clear() {
 		this.handler.clear()
 	}
 
-	async initialize(){
+	async initialize() {
 		/*for(let t=3; t>0; t--){
 			console.log("Loading page in " + t)
 			await tools.sleep (1000)
@@ -4189,7 +4299,7 @@ class Page{
 			this.handler = zip_page;
 		}
 
-		if (this.handler){
+		if (this.handler) {
 			this.handler.initialize();
 			this.handler.show();
 		} else {
@@ -4204,24 +4314,24 @@ class Page{
 
 	}
 
-	show_loading(){
+	show_loading() {
 		this.actions_loading_icon.classList.remove("hidden");
 		this.actions_button_icon.classList.add("hidden");
 		this.actions_button_text.classList.add("hidden");
 	}
 
-	hide_loading(){
+	hide_loading() {
 		this.actions_loading_icon.classList.add("hidden");
 		this.actions_button_icon.classList.remove("hidden");
 		this.actions_button_text.classList.remove("hidden");
 	}
 
 
-	show_actions_button(){
+	show_actions_button() {
 		this.actions_button.style.display = "flex";
 	}
 
-	hide_actions_button(){
+	hide_actions_button() {
 		this.actions_button.style.display = "none";
 	}
 
@@ -4263,9 +4373,9 @@ class Page{
 		this.set_diplaypath(r.join('<span class="dir_arrow">&#10151;</span>'));
 	}
 
-	refresh_dir(){
+	refresh_dir() {
 		console.log(this)
-		if (this.type == "dir"){
+		if (this.type == "dir") {
 			fm_page.initialize(true); // refresh the page
 		}
 	}
@@ -4278,23 +4388,23 @@ const page = new Page();
 
 pt_config.file_list["script_admin_page.js"] = r"""
 class Admin_page {
-	constructor(){
-		this.my_part = byId("admin_page")
+	constructor() {
+		this.my_part = byId("admin-page")
 	}
 
-	initialize(){
+	initialize() {
 		this.show()
 		page.set_actions_button_text("Add User&nbsp;");
 		page.show_actions_button();
 	}
 
-	show(){
+	show() {
 		this.my_part.classList.add("active");
 		updater.check_update();
 		admin_tools.get_users();
 	}
 
-	hide(){
+	hide() {
 		this.my_part.classList.remove("active");
 	}
 
@@ -4314,27 +4424,27 @@ class Admin_page {
 var admin_page = new Admin_page()
 
 
-class Updater{
+class Updater {
 	async check_update() {
 		fetch('/?update')
-		.then(response => {
-			// console.log(response);
-			return response.json()
-		}).then(data => {
-			if (data.update_available) {
-				byId("update_text").innerText = "Update Available! 🎉 Latest Version: " + data.latest_version ;
-				byId("update_text").style.backgroundColor = "#00cc0033";
+			.then(response => {
+				// console.log(response);
+				return response.json()
+			}).then(data => {
+				if (data.update_available) {
+					byId("update_text").innerText = "Update Available! 🎉 Latest Version: " + data.latest_version;
+					byId("update_text").style.backgroundColor = "#00cc0033";
 
-				byId("run_update").style.display = "block";
-			} else {
-				byId("update_text").innerText = "No Update Available";
-				byId("update_text").style.backgroundColor = "#888";
-			}
-		})
-		.catch(async err => {
-			byId("update_text").innerText = "Update Error: " + "Invalid Response";
-			byId("update_text").style.backgroundColor = "#CC000033";
-		});
+					byId("run_update").style.display = "block";
+				} else {
+					byId("update_text").innerText = "No Update Available";
+					byId("update_text").style.backgroundColor = "#888";
+				}
+			})
+			.catch(async err => {
+				byId("update_text").innerText = "Update Error: " + "Invalid Response";
+				byId("update_text").style.backgroundColor = "#CC000033";
+			});
 	}
 
 	// run_update() {
@@ -4367,20 +4477,20 @@ var updater = new Updater();
 
 
 class Admin_tools {
-	constructor(){
+	constructor() {
 		this.user_list = [];
 	}
 
 	async get_users() {
 		fetch('/?get_users')
-		.then(response => response.json())
-		.then(data => {
-			this.user_list = data;
-			this.display_users();
-		})
-		.catch(err => {
-			console.log(err);
-		})
+			.then(response => response.json())
+			.then(data => {
+				this.user_list = data;
+				this.display_users();
+			})
+			.catch(err => {
+				console.log(err);
+			})
 	}
 
 	display_users() {
@@ -4630,46 +4740,52 @@ keep the submit button in center, modernize the button UI-->
 
 	delete_user(index) {
 		var username = this.user_list[index];
-		r_u_sure({y:()=>{
-			fetch('/?delete_user&username=' + username)
-			.then(response => response.json())
-			.then(data => {
-				if (data.status) {
-					popup_msg.createPopup("Success", data["message"]);
-				} else {
-					popup_msg.createPopup("Error", data["message"]);
-				}
-				popup_msg.open_popup();
-				this.get_users();
-			})
-			.catch(err => {
-				console.log(err);
-			})
-		}});
+		r_u_sure({
+			y: () => {
+				fetch('/?delete_user&username=' + username)
+					.then(response => response.json())
+					.then(data => {
+						if (data.status) {
+							popup_msg.createPopup("Success", data["message"]);
+						} else {
+							popup_msg.createPopup("Error", data["message"]);
+						}
+						popup_msg.open_popup();
+						this.get_users();
+					})
+					.catch(err => {
+						console.log(err);
+					})
+			}
+		});
 	}
 
 	request_reload() {
-		r_u_sure({y:()=>{
-			fetch('/?reload')
-			.then(response => response.text())
-			.then(data => {
-				popup_msg.createPopup(data)
-				popup_msg.open_popup();
-			})
+		r_u_sure({
+			y: () => {
+				fetch('/?reload')
+					.then(response => response.text())
+					.then(data => {
+						popup_msg.createPopup(data)
+						popup_msg.open_popup();
+					})
 
-		}});
+			}
+		});
 	}
 
 	request_shutdown() {
-		r_u_sure({y:()=>{
-			fetch('/?shutdown')
-			.then(response => response.text())
-			.then(data => {
-				popup_msg.createPopup(data)
-				popup_msg.open_popup();
-			})
+		r_u_sure({
+			y: () => {
+				fetch('/?shutdown')
+					.then(response => response.text())
+					.then(data => {
+						popup_msg.createPopup(data)
+						popup_msg.open_popup();
+					})
 
-		}});
+			}
+		});
 	}
 
 	add_user() {
@@ -4834,6 +4950,7 @@ keep the submit button in center, modernize the button UI-->
 var admin_tools = new Admin_tools();
 
 
+
 """
 
 
@@ -4892,7 +5009,6 @@ pt_config.file_list["html_upload.html"] = r"""
 		<center><input class="drag-browse" type="submit" value="&#10174; upload"></center>
 	</form>
 </noscript>
-
 """
 
 
@@ -4919,8 +5035,8 @@ class Zip_Page {
 		var url = tools.add_query_here("zip_id")
 
 		var data = await fetch(url)
-					.then(data => {return data.json()})
-					.catch(err => {console.error(err)})
+			.then(data => { return data.json() })
+			.catch(err => { console.error(err) })
 
 		// {
 		// 	"status": status,
@@ -4937,8 +5053,9 @@ class Zip_Page {
 		const that = this
 
 		if (status) {
-			this.prog_timer = setInterval(function() {
-				that.ping(window.location.pathname + "?zip&zid=" + that.zid + "&progress")}, 500)
+			this.prog_timer = setInterval(function () {
+				that.ping(window.location.pathname + "?zip&zid=" + that.zid + "&progress")
+			}, 500)
 		} else {
 			this.message.innerHTML = "Error";
 			this.percentage.innerText = message;
@@ -4962,17 +5079,17 @@ class Zip_Page {
 		this.check_prog = true
 		this.zid = null
 		this.filename = null
-		if(this.prog_timer){
+		if (this.prog_timer) {
 			clearTimeout(this.prog_timer)
 			this.prog_timer = null
 		}
 	}
 
-	
+
 	ping(url) {
 		const that = this
 		var xhttp = new XMLHttpRequest();
-		xhttp.onreadystatechange = function() {
+		xhttp.onreadystatechange = function () {
 			if (that.dl_now) {
 				return
 			}
@@ -4983,23 +5100,23 @@ class Zip_Page {
 				var resp = safeJSONParse(this.response, ["status", "message"], 5000);
 				// console.log(resp)
 
-				if (resp.status=="SUCCESS"){
+				if (resp.status == "SUCCESS") {
 					that.check_prog = true;
-				} else if (resp.status=="DONE"){
+				} else if (resp.status == "DONE") {
 					that.message.innerHTML = "Downloading";
 					that.percentage.innerText = "";
 					that.dl_now = true;
 					clearTimeout(that.prog_timer)
 					that.run_dl()
-				} else if (resp.status=="ERROR"){
+				} else if (resp.status == "ERROR") {
 					that.message.innerHTML = "Error";
 					that.percentage.innerText = resp.message;
 					clearTimeout(that.prog_timer)
-				} else if (resp.status=="PROGRESS"){
+				} else if (resp.status == "PROGRESS") {
 					that.percentage.innerText = resp.message + "%";
 				} else {
 					that.percentage.innerText = resp.status + ": " + resp.message;
-					if(that.prog_timer){
+					if (that.prog_timer) {
 						clearTimeout(that.prog_timer)
 						that.prog_timer = null
 					}
@@ -5010,7 +5127,7 @@ class Zip_Page {
 		xhttp.send();
 	}
 
-	
+
 	run_dl() {
 		tools.download(window.location.pathname + "?zip&zid=" + this.zid + "&download", this.filename, true)
 	}
@@ -5111,7 +5228,7 @@ class Theme_Controller {
 
 	async del_fa_alt() {
 		if (this.fa_ok) {
-			document.querySelectorAll(".fa").forEach(e => e.parentNode.replaceChild(Object.assign(document.createElement("i"), { className: e.className, style: e.style , id: e.id}), e));
+			document.querySelectorAll(".fa").forEach(e => e.parentNode.replaceChild(Object.assign(document.createElement("i"), { className: e.className, style: e.style, id: e.id }), e));
 		}
 	}
 
@@ -5156,7 +5273,7 @@ theme_controller.load_fa()
 const MAIN_JS = true;
 const V = "0.0.1";
 
-if (typeof datas === "undefined") {window["datas"] = {}} // if datas is not defined
+if (typeof datas === "undefined") { window["datas"] = {} } // if datas is not defined
 
 class Local_Data_Manager {
 	// local data manager, UNUSED
@@ -5338,7 +5455,7 @@ class Top_Bar {
 		this.profile_pic.src = url;
 	}
 	show() {
-		if (! this.top_bar) return false;
+		if (!this.top_bar) return false;
 
 		this.top_bar.style.top = "0";
 		document.body.style.top = "50px";
@@ -5346,7 +5463,7 @@ class Top_Bar {
 	}
 
 	hide() {
-		if (! this.top_bar) return false;
+		if (!this.top_bar) return false;
 
 		this.top_bar.style.top = "-50px";
 		document.body.style.top = "0";
@@ -5379,7 +5496,7 @@ window.addEventListener('touchstart', (e) => {
 	// Cache the client X/Y coordinates
 	clientX = e.touches[0].clientX;
 	clientY = e.touches[0].clientY;
-  }, false);
+}, false);
 
 window.addEventListener('touchend', (e) => {
 	let deltaX;
@@ -5398,21 +5515,21 @@ window.addEventListener('touchend', (e) => {
 	if (deltaY > 15) {
 		top_bar.show();
 	}
-  }, false);
+}, false);
 
 
 // r_u_sure()
 
 
 { // why bracket? To make is isolated, coz I don't want variable names conflict with these mini functions or things
-const resizer = () => {
-	theme_controller.getViewportSize();
-	document.body.style.minHeight = vh + "px";
-}
+	const resizer = () => {
+		theme_controller.getViewportSize();
+		document.body.style.minHeight = vh + "px";
+	}
 
-window.addEventListener("resize", (_e) => resizer());
+	window.addEventListener("resize", (_e) => resizer());
 
-document.addEventListener("DOMContentLoaded", (_e) => resizer());
+	document.addEventListener("DOMContentLoaded", (_e) => resizer());
 }
 
 
@@ -5467,7 +5584,7 @@ class SidebarControl {
 		this.openNavR()
 	}
 
-	_closeNavR(){
+	_closeNavR() {
 		this.right_bar.classList.remove("mySidebar-active");
 		this.right_bar.classList.add("mySidebar-inactive");
 
@@ -5534,6 +5651,7 @@ class SwitchBtn_ {
 }
 
 var switchBtn = new SwitchBtn_();
+
 """
 
 
@@ -5541,211 +5659,215 @@ pt_config.file_list["html_login.html"] = r"""
 <!DOCTYPE HTML>
 <!-- test1 -->
 <html lang="en">
+
 <head>
 
-<meta charset="UTF-8">
-<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
 
-<meta  property="og:title" content="Signup" />
+	<meta property="og:title" content="Signup" />
 
-<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" />
-
-
+	<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" />
 
 
-<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
-
-<title>Login</title>
 
 
-<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
+	<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
+
+	<title>Login</title>
 
 
-<link rel="stylesheet" href="?style">
+	<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
+
+
+	<link rel="stylesheet" href="?style">
 </head>
 
 <body>
 
 
-<div>
-	<div id="login-page">
-		<div id="login-header">
-			<h1>Login</h1>
-		</div>
-		<div id="login-form">
-			<form action="?do_login" method="post" ENCTYPE="multipart/form-data" id="login">
-				<input name="post-type" value="login" hidden>
-				<table>
-					<tr>
-					<th><label for="username">Username</label></th>
-					<td><input type="text" name="username" class="txt_box" id="username" placeholder="Username" maxlength="64" minlength="1"></td>
-					</tr>
-					<tr>
-					<th><label for="password">Password</label></th>
-					<td><input type="password" name="password" class="txt_box" id="password" placeholder="Password" maxlength="512"></td>
-					</tr>
-				</table>
-				<div id="login-submit">
-					<input id="submit_btn" type="submit" value="login">
-				</div>
-			</form>
-		</div>
+	<div>
+		<div id="login-page">
+			<div id="login-header">
+				<h1>Login</h1>
+			</div>
+			<div id="login-form">
+				<form action="?do_login" method="post" ENCTYPE="multipart/form-data" id="login">
+					<input name="post-type" value="login" hidden>
+					<table>
+						<tr>
+							<th><label for="username">Username</label></th>
+							<td><input type="text" name="username" class="txt_box" id="username" placeholder="Username" maxlength="64" minlength="1"></td>
+						</tr>
+						<tr>
+							<th><label for="password">Password</label></th>
+							<td><input type="password" name="password" class="txt_box" id="password" placeholder="Password" maxlength="512"></td>
+						</tr>
+					</table>
+					<div id="login-submit">
+						<input id="submit_btn" type="submit" value="login">
+					</div>
+				</form>
+			</div>
 
-		<p class="status" id="status"></p>
+			<p class="status" id="status"></p>
 
+		</div>
 	</div>
-</div>
 
-<br>
-<div>Don't Have account? <a href="?signup" style="font-size: medium;">SIGNUP</a></div>
-
-
-<style>
-body {
-	padding: 20px;
-}
-
-.status {
-	color: rgb(48, 48, 48);
-	display: none;
-	font-size: 1.5em;
-	padding: 5px;
-	margin: 5px;
-	border: solid 2px;
-	border-radius: 4px;
-}
+	<br>
+	<div>Don't Have account? <a href="?signup" style="font-size: medium;">SIGNUP</a></div>
 
 
-#login-page {
-	width: 100%;
-	height: 100%;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-}
-
-
-#login-form {
-	width: 100%;
-	max-width: 400px;
-}
-
-.txt_box {
-	width: 100%;
-	height: 25px;
-	font-size: 1em;
-}
-
-#submit_btn {
-	width: 200px;
-	height: 50px;
-	font-size: 1.5em;
-}
-
-table {
-	border-color: #00000000;
-	border-spacing: 4px;
-	width: 95%;
-	text-align: left;
-}
-</style>
-
-<script src="/?global_script"></script>
-<script>
-
-function update_note(note='', color="gray"){
-
-	const status = byId('status')
-	status.style.display = 'none';
-	if(note != ''){
-		status.style.display = 'block';
-	}
-	status.style.color = color;
-	status.innerText = note;
-}
-
-
-
-function test_fields(){
-	const note = (msg) => {update_note(msg, "red")}
-
-	const _uname = byId("username").value
-	const _pass = byId("password").value
-	const usernameRegex = /^[a-zA-Z0-9_]+$/g;
-
-
-	if(_uname.length<1){
-		note("Username must have at least 1 character!")
-		return 0;
-	}
-	if (_uname.length>64){
-		note("Username must be less than 64 character long")
-		return 0;
-	}
-	if (_pass.length<4){
-		note("Password must have at least 4 character!")
-		return 0;
-	}
-	if (_pass.length>256){
-		note("Password can't be longer than 256 characters")
-		return 0;
-	}
-	if (!usernameRegex.test(_uname)){
-		note("Username can only have A-Z, a-z, 0-9, _")
-		return 0;
-	}
-	note()
-	return 1;
-}
-
-
-byId("login").onsubmit = (e) => {
-	e.preventDefault()
-
-	const formData = new FormData(e.target)
-
-	if (!test_fields()){
-		return 0
-	}
-	var msg = "";
-	var color = "red"
-
-	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
-	const request = new XMLHttpRequest()
-	request.open(e.target.method, e.target.action)
-	request.timeout = 60*1000;
-	request.onreadystatechange = () => {
-		if (request.readyState === XMLHttpRequest.DONE) {
-			msg = `${request.status}: ${request.statusText}`
-			if (request.status === 0) msg = 'Connection failed'
-			if (request.status === 204 || request.status === 200){
-				var response = JSON.parse(request.responseText);
-				if (response.status == "success"){
-					msg = "Signed up. REDIRECTING...";
-					color = "green"
-
-					setTimeout(function(){goto("./");}, 1000);
-				}
-				else {
-					msg = response.message;
-					if (response.status == "failed"){
-						color = "red";
-					} else {
-						color = "Yellow";
-					}
-				}
-
-			}
-			if (request.status === 401) msg = 'Incorrect password';
-
-			update_note(msg, color)
+	<style>
+		body {
+			padding: 20px;
 		}
-	}
+
+		.status {
+			color: rgb(48, 48, 48);
+			display: none;
+			font-size: 1.5em;
+			padding: 5px;
+			margin: 5px;
+			border: solid 2px;
+			border-radius: 4px;
+		}
 
 
-	request.send(formData)
-}
-</script>
+		#login-page {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+
+		#login-form {
+			width: 100%;
+			max-width: 400px;
+		}
+
+		.txt_box {
+			width: 100%;
+			height: 25px;
+			font-size: 1em;
+		}
+
+		#submit_btn {
+			width: 200px;
+			height: 50px;
+			font-size: 1.5em;
+		}
+
+		table {
+			border-color: #00000000;
+			border-spacing: 4px;
+			width: 95%;
+			text-align: left;
+		}
+	</style>
+
+	<script src="/?script_global"></script>
+	<script>
+
+		function update_note(note = '', color = "gray") {
+
+			const status = byId('status')
+			status.style.display = 'none';
+			if (note != '') {
+				status.style.display = 'block';
+			}
+			status.style.color = color;
+			status.innerText = note;
+		}
+
+
+
+		function test_fields() {
+			const note = (msg) => { update_note(msg, "red") }
+
+			const _uname = byId("username").value
+			const _pass = byId("password").value
+			const usernameRegex = /^[a-zA-Z0-9_]+$/g;
+
+
+			if (_uname.length < 1) {
+				note("Username must have at least 1 character!")
+				return 0;
+			}
+			if (_uname.length > 64) {
+				note("Username must be less than 64 character long")
+				return 0;
+			}
+			if (_pass.length < 4) {
+				note("Password must have at least 4 character!")
+				return 0;
+			}
+			if (_pass.length > 256) {
+				note("Password can't be longer than 256 characters")
+				return 0;
+			}
+			if (!usernameRegex.test(_uname)) {
+				note("Username can only have A-Z, a-z, 0-9, _")
+				return 0;
+			}
+			note()
+			return 1;
+		}
+
+
+		byId("login").onsubmit = (e) => {
+			e.preventDefault()
+
+			const formData = new FormData(e.target)
+
+			if (!test_fields()) {
+				return 0
+			}
+			var msg = "";
+			var color = "red"
+
+			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
+			const request = new XMLHttpRequest()
+			request.open(e.target.method, e.target.action)
+			request.timeout = 60 * 1000;
+			request.onreadystatechange = () => {
+				if (request.readyState === XMLHttpRequest.DONE) {
+					msg = `${request.status}: ${request.statusText}`
+					if (request.status === 0) msg = 'Connection failed'
+					if (request.status === 204 || request.status === 200) {
+						var response = JSON.parse(request.responseText);
+						if (response.status == "success") {
+							msg = "Signed up. REDIRECTING...";
+							color = "green"
+
+							setTimeout(function () { goto("./"); }, 1000);
+						}
+						else {
+							msg = response.message;
+							if (response.status == "failed") {
+								color = "red";
+							} else {
+								color = "Yellow";
+							}
+						}
+
+					}
+					if (request.status === 401) msg = 'Incorrect password';
+
+					update_note(msg, color)
+				}
+			}
+
+
+			request.send(formData)
+		}
+	</script>
+
+</body>
+</html>
 """
 
 
@@ -5753,204 +5875,209 @@ pt_config.file_list["html_signup.html"] = r"""
 <!DOCTYPE HTML>
 <!-- test1 -->
 <html lang="en">
+
 <head>
 
-<meta charset="UTF-8">
-<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
 
-<meta  property="og:title" content="Signup" />
+	<meta property="og:title" content="Signup" />
 
-<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" />
-
-
+	<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" />
 
 
-<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
-
-<title>Signup</title>
 
 
-<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
+	<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
+
+	<title>Signup</title>
 
 
-<link rel="stylesheet" href="?style">
+	<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
+
+
+	<link rel="stylesheet" href="?style">
 </head>
 
 <body>
 
 
-<div>
-	<div id="signup-page">
-		<div id="signup-header">
-			<h1>Signup</h1>
-		</div>
-		<div id="signup-form">
-			<form action="?do_signup" method="post" ENCTYPE="multipart/form-data" id="signup">
-				<input name="post-type" value="signup" hidden>
-				<table>
-					<tr>
-					<th><label for="username">Username</label></th>
-					<td><input type="text" name="username" class="txt_box" id="username" placeholder="Username (can be anything)" maxlength="64" minlength="1"></td>
-					</tr>
-					<tr>
-					<th><label for="password">Password</label></th>
-					<td><input type="password" name="password" class="txt_box" id="password" placeholder="Password" maxlength="512"></td>
-					</tr>
-				</table>
-				<div id="signup-submit">
-					<input id="submit_btn" type="submit" value="Signup">
-				</div>
-			</form>
-		</div>
+	<div>
+		<div id="signup-page">
+			<div id="signup-header">
+				<h1>Signup</h1>
+			</div>
+			<div id="signup-form">
+				<form action="?do_signup" method="post" ENCTYPE="multipart/form-data" id="signup">
+					<input name="post-type" value="signup" hidden>
+					<table>
+						<tr>
+							<th><label for="username">Username</label></th>
+							<td><input type="text" name="username" class="txt_box" id="username" placeholder="Username (can be anything)" maxlength="64" minlength="1"></td>
+						</tr>
+						<tr>
+							<th><label for="password">Password</label></th>
+							<td><input type="password" name="password" class="txt_box" id="password" placeholder="Password" maxlength="512"></td>
+						</tr>
+					</table>
+					<div id="signup-submit">
+						<input id="submit_btn" type="submit" value="Signup">
+					</div>
+				</form>
+			</div>
 
-		<p class="status" id="status"></p>
+			<p class="status" id="status"></p>
 
+		</div>
 	</div>
-</div>
 
-<br>
-<div>Already have an account? <a href="?login" style="font-size: medium;">LOGIN</a></div>
-
-
-<style>
-body {
-	padding: 20px;
-}
-
-.status {
-	color: rgb(48, 48, 48);
-	display: none;
-	font-size: 1.5em;
-	padding: 5px;
-	margin: 5px;
-	border: solid 2px;
-	border-radius: 4px;
-}
+	<br>
+	<div>Already have an account? <a href="?login" style="font-size: medium;">LOGIN</a></div>
 
 
-#signup-page {
-	width: 100%;
-	height: 100%;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-}
-
-#signup-form {
-	width: 100%;
-	max-width: 400px;
-}
-
-.txt_box {
-	width: 100%;
-	height: 25px;
-	font-size: 1em;
-}
-
-#submit_btn {
-	width: 200px;
-	height: 50px;
-	font-size: 1.5em;
-}
-
-table {
-	border-color: #00000000;
-	border-spacing: 4px;
-	width: 95%;
-	text-align: left;
-}
-</style>
-
-<script src="/?global_script"></script>
-<script>
-
-function update_note(note='', color="gray"){
-
-	const status = byId('status')
-	status.style.display = 'none';
-	if(note != ''){
-		status.style.display = 'block';
-	}
-	status.style.color = color;
-	status.innerText = note;
-}
-
-
-
-function test_fields(){
-	const note = (msg) => {update_note(msg, "red")}
-
-	const _uname = byId("username").value
-	const _pass = byId("password").value
-	const usernameRegex = /^[a-zA-Z0-9_]+$/g;
-
-
-	if(_uname.length<1){
-		note("Username must have at least 1 character!")
-	} else if (_uname.length>64){
-		note("Username must be less than 64 character long")
-	} else if (_pass.length<4){
-		note("Password must have at least 4 character!")
-	}else if (_pass.length>256){
-		note("Password can't be longer than 256 characters")
-	} else if (!usernameRegex.test(_uname)){
-		note("Username can only have A-Z, a-z, 0-9, _")
-	} else if (_uname == _pass){
-		note("Username and password can't be the same!")
-	} else {
-		return 1;
-	}
-
-	return 0;
-}
-
-
-byId("signup").onsubmit = (e) => {
-	e.preventDefault()
-
-	const formData = new FormData(e.target)
-
-	if (!test_fields()){
-		return 0
-	}
-	var msg = "";
-	var color = "red"
-
-	// const filenames = formData.getAll('files').map(v => v.name).join(', ')
-	const request = new XMLHttpRequest()
-	request.open(e.target.method, e.target.action)
-	request.timeout = 60*1000;
-	request.onreadystatechange = () => {
-		if (request.readyState === XMLHttpRequest.DONE) {
-			msg = `${request.status}: ${request.statusText}`
-			if (request.status === 0) msg = 'Connection failed'
-			if (request.status === 204 || request.status === 200){
-				var response = JSON.parse(request.responseText);
-				if (response.status == "success"){
-					msg = "Signed up. REDIRECTING...";
-					color = "green"
-
-					setTimeout(function(){goto("./");}, 1000);
-				}
-				else {
-					msg = response.message;
-					if (response.status == "failed"){
-						color = "red";
-					} else {
-						color = "Yellow";
-					}
-				}
-
-			}
-			if (request.status === 401) msg = 'Incorrect password';
-
-			update_note(msg, color)
+	<style>
+		body {
+			padding: 20px;
 		}
-	}
+
+		.status {
+			color: rgb(48, 48, 48);
+			display: none;
+			font-size: 1.5em;
+			padding: 5px;
+			margin: 5px;
+			border: solid 2px;
+			border-radius: 4px;
+		}
 
 
-	request.send(formData)
-}
-</script>
+		#signup-page {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+		#signup-form {
+			width: 100%;
+			max-width: 400px;
+		}
+
+		.txt_box {
+			width: 100%;
+			height: 25px;
+			font-size: 1em;
+		}
+
+		#submit_btn {
+			width: 200px;
+			height: 50px;
+			font-size: 1.5em;
+		}
+
+		table {
+			border-color: #00000000;
+			border-spacing: 4px;
+			width: 95%;
+			text-align: left;
+		}
+	</style>
+
+	<script src="/?script_global"></script>
+	<script>
+
+		function update_note(note = '', color = "gray") {
+
+			const status = byId('status')
+			status.style.display = 'none';
+			if (note != '') {
+				status.style.display = 'block';
+			}
+			status.style.color = color;
+			status.innerText = note;
+		}
+
+
+
+		function test_fields() {
+			const note = (msg) => { update_note(msg, "red") }
+
+			const _uname = byId("username").value
+			const _pass = byId("password").value
+			const usernameRegex = /^[a-zA-Z0-9_]+$/g;
+
+
+			if (_uname.length < 1) {
+				note("Username must have at least 1 character!")
+			} else if (_uname.length > 64) {
+				note("Username must be less than 64 character long")
+			} else if (_pass.length < 4) {
+				note("Password must have at least 4 character!")
+			} else if (_pass.length > 256) {
+				note("Password can't be longer than 256 characters")
+			} else if (!usernameRegex.test(_uname)) {
+				note("Username can only have A-Z, a-z, 0-9, _")
+			} else if (_uname == _pass) {
+				note("Username and password can't be the same!")
+			} else {
+				return 1;
+			}
+
+			return 0;
+		}
+
+
+		byId("signup").onsubmit = (e) => {
+			e.preventDefault()
+
+			const formData = new FormData(e.target)
+
+			if (!test_fields()) {
+				return 0
+			}
+			var msg = "";
+			var color = "red"
+
+			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
+			const request = new XMLHttpRequest()
+			request.open(e.target.method, e.target.action)
+			request.timeout = 60 * 1000;
+			request.onreadystatechange = () => {
+				if (request.readyState === XMLHttpRequest.DONE) {
+					msg = `${request.status}: ${request.statusText}`
+					if (request.status === 0) msg = 'Connection failed'
+					if (request.status === 204 || request.status === 200) {
+						var response = JSON.parse(request.responseText);
+						if (response.status == "success") {
+							msg = "Signed up. REDIRECTING...";
+							color = "green"
+
+							setTimeout(function () { goto("./"); }, 1000);
+						}
+						else {
+							msg = response.message;
+							if (response.status == "failed") {
+								color = "red";
+							} else {
+								color = "Yellow";
+							}
+						}
+
+					}
+					if (request.status === 401) msg = 'Incorrect password';
+
+					update_note(msg, color)
+				}
+			}
+
+
+			request.send(formData)
+		}
+	</script>
+
+</body>
+
+</html>
 """
 

@@ -55,13 +55,13 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARN)
 
 import traceback
-from typing import Any, Generator, Union
+from typing import Any, Generator, List, Union
 
 try:
-	from tabulate import tabulate # pip install tabulate2
+	from tabulate2 import tabulate # pip install tabulate2
 	TABLE = True
 except ImportError:
-	logger.error("tabulate not found, install it using `pip install tabulate2`\n * Printing table will not be in tabular format")
+	logger.warning("tabulate not found, install it using `pip install tabulate2`\n * Printing table will not be in tabular format")
 	# raise ImportError("tabulate not found, install it using `pip install tabulate2`")
 	TABLE = False
 
@@ -69,7 +69,7 @@ try:
 	import msgpack # pip install msgpack
 	SAVE_LOAD = True
 except ImportError:
-	logger.warn("msgpack not found, install it using `pip install msgpack`\n * Save and Load will not work")
+	logger.warning("msgpack not found, install it using `pip install msgpack`\n * Save and Load will not work")
 	SAVE_LOAD = False
 	# raise ImportError("msgpack not found, install it using `pip install msgpack`")
 
@@ -869,6 +869,8 @@ class PickleTable(dict):
 
 			self._pk.db[name].extend([None] * tsize)
 
+
+		# if the 1st argument is a list, unpack it
 		if isinstance(names[0], Iterable) and not isinstance(names[0], str) and not isinstance(names[0], bytes) and len(names) == 1:
 			names = names[0]
 
@@ -1086,7 +1088,7 @@ class PickleTable(dict):
 			else:
 				yield row_.to_dict()
 
-	def search(self, kw, column=None , row=None, full_match=False, return_obj=True, return_row=False, rescan=True) -> list[Union["_PickleTCell", "_PickleTRow"]]:
+	def search(self, kw, column=None , row=None, full_match=False, return_obj=True, return_row=False, rescan=True) -> List[Union["_PickleTCell", "_PickleTRow"]]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the cell object in loop
 		- kw: keyword to search
@@ -1496,6 +1498,11 @@ class PickleTable(dict):
 		return db
 
 	def remove_duplicates(self, columns=None, AD=True):
+		"""
+		Remove duplicate rows (keep the 1st occurrence)
+		- columns: columns to check for duplicates (default: all columns) (if None, all columns are checked) (if string, only that column is checked) (if list, all the mentioned columns are checked)
+		- AD: auto dump
+		"""
 		if columns is None:
 			columns = self.column_names
 		if isinstance(columns, str):
@@ -1622,7 +1629,7 @@ class PickleTable(dict):
 
 		return output.getvalue()
 
-	def load_csv(self, filename, header=True, ignore_none=False, AD=True):
+	def load_csv(self, filename, header=True, ignore_none=False, ignore_new_headers=False, on_file_not_found='error', AD=True):
 		"""
 		Load a csv file to the table
 		- WILL OVERWRITE THE EXISTING DATA (To append, make a new table and extend)
@@ -1631,17 +1638,40 @@ class PickleTable(dict):
 			* if False, the columns will be named as "Unnamed-1", "Unnamed-2", ...
 			* if "auto", the columns will be named as "A", "B", "C", ..., "Z", "AA", "AB", ...
 		- ignore_none: ignore the None rows
+		- ignore_new_headers: ignore new headers if found `[when header=True]` (default: `False`)
+		- on_file_not_found: action to take if the file is not found (default: `'error'`) [options: `error`|`ignore`|`warn`|`no_warning`]
+			* if `error`, raise FileNotFoundError
+			* if `ignore`, ignore the operation (no warning, **no clearing**)
+			* if `no_warning`, ignore the operation, but **clears db**
+			* if `warn`, print warning and ignore the operation, but **clears db**
 		"""
 		columns_names = self.column_names
 
-		def add_row(row):
+		def add_row(row, columns):
 			if ignore_none and all(v is None for v in row):
 				return
 
-			new_row = {k: v for k, v in zip(self.column_names_func(rescan=False), row)}
+			new_row = {k: v for k, v in zip(columns, row)}
+
+			# print(new_row)
 			
 			self.add_row(new_row, AD=False)
 
+
+
+		if not os.path.exists(filename):
+			if on_file_not_found == 'error':
+				raise FileNotFoundError(f"File not found: {filename}")
+			elif on_file_not_found == 'ignore':
+				return
+			else:
+				self.clear(AD=AD)
+				if on_file_not_found == 'warn':
+					print(f"File not found: {filename}")
+				if on_file_not_found == 'no_warning':
+					pass
+
+				return
 
 		self.clear(AD=False)
 
@@ -1650,23 +1680,65 @@ class PickleTable(dict):
 			if header is True:
 				columns = next(reader)
 				updated_columns = []
+				n = len(self.column_names_func(rescan=False))
 				for col in columns:
-					if col is None:
-						col = f"Unnamed-{len(updated_columns)+1}"
+					if (col is None or col == ""):
+						while f"Unnamed-{n}" in columns_names:
+							n += 1
+						col = f"Unnamed-{n}"
+						n += 1
+
+					if col in columns_names or col in updated_columns:
+						if ignore_new_headers:
+							continue
 					updated_columns.append(col)
+
+				columns = updated_columns
+
+				# print(updated_columns)
 				self.add_column(updated_columns, exist_ok=True, AD=False, rescan=False)
 
 			elif isinstance(header, str) and header.lower() == "auto":
 				row = next(reader)
-				columns = [_int_to_alpha(i) for i in range(len(row))]
+				# columns = [_int_to_alpha(i) for i in range(len(row))]
+				new_columns = []
+				n = len(columns_names)
+
+				for _ in range(len(row)):
+					while _int_to_alpha(n) in columns_names:
+						n += 1
+					new_columns.append(_int_to_alpha(n))
+					n += 1
+
+				self.add_column(new_columns, exist_ok=True, AD=False, rescan=False)
+				columns = new_columns
 				
-				self.add_column(columns, exist_ok=True, AD=False, rescan=False)	
-				add_row(row)
+				add_row(row, columns)
 			else:
-				columns = columns_names
+				# count the columns, and name them as "Unnamed-1", "Unnamed-2", ...
+				row = next(reader)
+				col_count = len(row)
+
+				new_columns = []
+				n = len(columns_names)
+
+				for _ in range(col_count):
+					while f"Unnamed-{n}" in columns_names:
+						n += 1
+					new_columns.append(f"Unnamed-{n}")
+					n += 1
+
+				self.add_column(new_columns, exist_ok=True, AD=False, rescan=False)
+				columns = new_columns
+
+				add_row(row, columns)
+
+
+
+
 
 			for row in reader:
-				add_row(row)
+				add_row(row, columns)
 
 		self.auto_dump(AD=AD)
 
@@ -1760,12 +1832,29 @@ class _PickleTCell:
 		self.id = row_id
 		self.column_name = column
 		self.CC = CC
+		self.deleted = False
 
 	@property
 	def value(self):
 		self.source_check()
 
 		return self.source.get_cell_by_id(self.column_name, self.id)
+
+
+	def is_deleted(self):
+		"""
+		return True if the cell is deleted, else False
+		"""
+		self.deleted = self.deleted or (self.id not in self.source.ids) or (self.column_name not in self.source.column_names)
+
+		return self.deleted
+
+	def raise_deleted(self):
+		"""
+		Raise error if the cell is deleted
+		"""
+		if self.is_deleted():
+			raise ValueError(f"Cell has been deleted. Invalid cell object.\n(last known id: {self.id}, column: {self.column_name})")
 
 	def __str__(self):
 		return str({
@@ -1859,6 +1948,22 @@ class _PickleTRow(dict):
 		# self.id: unique id of the row
 		self.id = uid
 		self.CC = CC
+		self.deleted = False
+		
+	def is_deleted(self):
+		"""
+		return True if the row is deleted, else False
+		"""
+		self.deleted = self.deleted or (self.id not in self.source.ids)
+
+		return self.deleted
+
+	def raise_deleted(self):
+		"""
+		Raise error if the row is deleted
+		"""
+		if self.is_deleted():
+			raise ValueError(f"Row has been deleted. Invalid row object (last known id: {self.id})")
 
 	def __getitem__(self, name):
 		self.source.raise_source(self.CC)
@@ -1875,15 +1980,18 @@ class _PickleTRow(dict):
 		"""
 		returns a copy of the row as dict
 		"""
+		self.raise_deleted()
 		return {k: self[k] for k in self.source.column_names}
 
 	def get(self, name, default=None, rescan=True):
+		self.raise_deleted()
 		if name not in self.source.column_names_func(rescan=rescan):
 			return default
 
 		return self[name]
 
 	def get_cell_obj(self, name, default=None, rescan=True):
+		self.raise_deleted()
 		if name not in self.source.column_names_func(rescan=rescan):
 			return default
 
@@ -1896,6 +2004,7 @@ class _PickleTRow(dict):
 		* AD: auto dump
 		"""
 		# Auto dumps
+		self.raise_deleted()
 		self.source.raise_source(self.CC)
 
 		if isinstance(value, _PickleTCell):
@@ -1915,6 +2024,7 @@ class _PickleTRow(dict):
 		* name: column name
 		* AD: auto dump
 		"""
+		self.raise_deleted()
 		self.source.raise_source(self.CC)
 
 		self.source.set_cell_by_id(name, self.id, None, AD=AD)
@@ -1931,6 +2041,7 @@ class _PickleTRow(dict):
 		"""
 		returns the current index of the row
 		"""
+		self.raise_deleted()
 		return self.source.ids.index(self.id)
 
 	def update(self, new:Union[dict, "_PickleTRow"], ignore_extra=False, AD=True):
@@ -1940,6 +2051,7 @@ class _PickleTRow(dict):
 		- ignore_extra: ignore extra keys in new dict
 		- AD: Auto dumps
 		"""
+		self.raise_deleted()
 
 		for k, v in new.items():
 			try:
@@ -1951,9 +2063,13 @@ class _PickleTRow(dict):
 		self.source.auto_dump(AD=AD)
 
 	def __str__(self):
-		return str({k:v for k, v in self.items()})
+		return "<PickleTable._PickleTRow object> " + str(self.to_dict())
+
+	def __repr__(self):
+		return str(self.to_dict())
 
 	def keys(self):
+		self.raise_deleted()
 		return self.source.column_names
 
 	def values(self):
@@ -1982,17 +2098,23 @@ class _PickleTRow(dict):
 		# This will also invalidate this object. Handle with care
 		"""
 		# Auto dumps
+		self.raise_deleted()
 		self.source.raise_source(self.CC)
 
 		self.source.del_row_id(self.id)
+
+		self.deleted = False
 
 	def to_list(self) -> list:
 		"""
 		returns the row as list
 		"""
+		self.raise_deleted()
+
 		return [self[k] for k in self.source.column_names]
 
 	def __eq__(self, other):
+		self.raise_deleted()
 		try:
 			for k in self.source.column_names:
 				if self[k] != other[k]:
@@ -2002,6 +2124,7 @@ class _PickleTRow(dict):
 			return False
 
 	def __ne__(self, other):
+		self.raise_deleted()
 		return not self.__eq__(other)
 		
 
@@ -2011,12 +2134,30 @@ class _PickleTColumn(list):
 		self.source = source
 		self.name = name
 		self.CC = CC
+		self.deleted = False
+
+	def is_deleted(self):
+		"""
+		return True if the column is deleted, else False
+		"""
+		self.deleted = self.deleted or (self.name not in self.source.column_names_func(rescan=False))
+
+		return self.deleted
+
+	def raise_deleted(self):
+		"""
+		Raise error if the column is deleted
+		"""
+		if self.is_deleted():
+			raise ValueError(f"Column has been deleted. Invalid column object (last known name: {self.name})")
+
 
 	def __getitem__(self, row:Union[int, slice]):
 		"""
 		row: the index of row (not id)
 		"""
-		# self.source.raise_source(self.CC)
+		self.raise_deleted()
+
 		if isinstance(row, int):
 			return self.source.get_cell(col=self.name, row=row)
 		elif isinstance(row, slice):
@@ -2025,6 +2166,7 @@ class _PickleTColumn(list):
 			raise TypeError("indices must be integers or slices, not {}".format(type(row).__name__))
 
 	def __len__(self) -> int:
+		self.raise_deleted()
 		return self.source.height
 
 	def re__name(self, new_name, AD=True):
@@ -2034,6 +2176,7 @@ class _PickleTColumn(list):
 		- new_name: new name of the column
 		- AD: auto dump
 		"""
+		self.raise_deleted()
 		self.source.raise_source(self.CC)
 
 		self.source.add_column(new_name, exist_ok=True, AD=False)
@@ -2047,6 +2190,7 @@ class _PickleTColumn(list):
 		"""
 		get the cell value from the column by row index
 		"""
+		self.raise_deleted()
 		if not isinstance(row, int):
 			return default
 		if row > (self.source.height-1):
@@ -2055,6 +2199,7 @@ class _PickleTColumn(list):
 		return self[row]
 
 	def get_cell_obj(self, row:int, default=None):
+		self.raise_deleted()
 		if not isinstance(row, int):
 			return default
 		if row > (self.source.height-1):
@@ -2069,6 +2214,7 @@ class _PickleTColumn(list):
 		* AD: auto dump
 		"""
 
+		self.raise_deleted()
 		# self.source.raise_source(self.CC)
 
 		if isinstance(value, _PickleTCell):
@@ -2091,6 +2237,7 @@ class _PickleTColumn(list):
 		* row: row index (not id)
 		* AD: auto dump
 		"""
+		self.raise_deleted()
 		self.source.set_cell(self.name, row, None, AD=AD)
 
 	def __delitem__(self, row:int):
@@ -2107,16 +2254,19 @@ class _PickleTColumn(list):
 		"""
 		returns the column as list
 		"""
+		self.raise_deleted()
 		return [i.value for i in self]
 
 	def source_list(self):
 		"""
 		returns the column list as a pointer
 		"""
+		self.raise_deleted()
 		return self.source.get_column(self.name)
 
 	def get_cells_obj(self, start:int=0, end:int=None, sep:int=1):
 		"""Return a list of all rows in db"""
+		self.raise_deleted()
 		if end is None:
 			end = self.source.height
 		if end<0:
@@ -2143,6 +2293,7 @@ class _PickleTColumn(list):
 		@ Auto dumps
 		- column: list of values to update
 		"""
+		self.raise_deleted()
 		self.source.raise_source(self.CC)
 
 		if isinstance(column, self.__class__):
@@ -2160,6 +2311,7 @@ class _PickleTColumn(list):
 		- This will remove the occurrences of the value in the column (from top to bottom)
 		- n_times: number of occurrences to remove (0: all)
 		"""
+		self.raise_deleted()
 		for i in self:
 			if i == value:
 				i.clear()
@@ -2174,6 +2326,7 @@ class _PickleTColumn(list):
 		@ Auto dumps
 		# This will Set all cells in column to `None`
 		"""
+		self.raise_deleted()
 
 		self.source.raise_source(self.CC)
 		self.source.rescan(rescan=rescan)
@@ -2186,16 +2339,27 @@ class _PickleTColumn(list):
 
 
 	def __str__(self):
-		return str(self.source.get_column(self.name))
+		self.raise_deleted()
+
+		return "<PickleTable._PickleTColumn object> " + str(self.source.get_column(self.name))
+
+	def __repr__(self):
+		self.raise_deleted()
+		
+		return repr(self.source.get_column(self.name))
 
 	def del_column(self):
 		"""
 		@ Auto dumps
 		# This will also invalidate this object. Handle with care
 		"""
+		self.raise_deleted()
+
 		self.source.raise_source(self.CC)
 
 		self.source.del_column(self.name)
+
+		self.deleted = False
 
 
 	def apply(self, func=None, row_func=False, copy=False, AD=True):
@@ -2203,6 +2367,7 @@ class _PickleTColumn(list):
 		Apply a function to all cells in the column
 		Overwrites the existing values
 		"""
+		self.raise_deleted()
 		ret = []
 		if row_func:
 			for i in range(self.source.height):
@@ -2330,7 +2495,7 @@ if __name__ == "__main__":
 
 
 		print("="*50)
-		print("\n\n Convert to csv test")
+		print("\n\n📝 TEST convert to CSV")
 		st = time.perf_counter()
 		tb.to_csv(f"test{st}.csv")
 		et = time.perf_counter()
@@ -2339,55 +2504,89 @@ if __name__ == "__main__":
 
 
 		print("="*50)
-		print("\n\n Clear test")
+		print("\n\n📝 TEST database clear")
 		tb.clear()
+
+		if tb.height != 0:
+			raise Exception("❌ TEST [CLEAR]: Failed")
+
+		print("✅ TEST [CLEAR]: Passed")
+
+
+		print("="*50)
+		print("\n\n📝 TEST after clear() meta values")
 		print("Columns:", tb.column_names)
 		print("Height:", tb.height)
 		print("Table:")
 		print(tb)
 
+		if tb.height != 0:
+			raise Exception("❌ TEST [CLEAR]: Failed")
+		if not all(col in tb.column_names for col in ["x", "Y", "m"]):
+			raise Exception("❌ TEST [CLEAR]: Failed (Columns mismatch)")
+
+		print("✅ TEST [CLEAR]: Passed")
+
 
 		print("="*50)
-		print("\n\n Add test")
+		print("\n\n📝 STR and REPR test")
+		tb.clear()
+		try:
+			tb.add_row({"x":1, "Y":2, "Z":3})
+			tb.add_row({"x":4, "Y":5, "Z":6})
+			tb.add_row({"x":7, "Y":8, "Z":9})
+
+			print("Row 1 STR:", tb.row_obj(0))
+			print("Row 1 REPR:", repr(tb.row_obj(0)))
+
+			print("Column Y STR:", tb.column_obj("Y"))
+			print("Column Y REPR:", repr(tb.column_obj("Y")))
+
+		except Exception as e:
+			print("❌ TEST [STR and REPR]: Failed")
+			raise e
+
+		print("="*50)
+		print("\n\n📝 Add test")
 
 		# test adding a dict
 		try:
 			tb.add([1,2,3])
-			raise Exception("Must raise error")
+			raise Exception("❌ TEST [ADD] (Raise Exception Invalid type): Failed (Must raise error)")
 		except TypeError as e:
 			print(e) # must raise error
-			print("✅TEST [ADD] (Raise Exception Invalid type): Passed")
+			print("✅ TEST [ADD] (Raise Exception Invalid type): Passed")
 		except Exception as e:
-			print("❌TEST [ADD] (Raise Exception Invalid type): Failed")
+			print("❌ TEST [ADD] (Raise Exception Invalid type): Failed")
 			raise e
 			
 
 		try:
 			tb.add({"x":[1,2,3], "Y":[4,5,6,7], "Z":[1,2,3]})
-			raise Exception("Must raise error")
+			raise Exception("❌ TEST [ADD dict] (Raise Exception extra column) (Must raise error)")
 		except ValueError as e:
 			print(e) # must raise error
-			print("✅TEST [ADD dict] (Raise Exception extra column) (P): Passed")
+			print("✅ TEST [ADD dict] (Raise Exception extra column) (P): Passed")
 		except Exception as e:
-			print("❌TEST [ADD dict] (Raise Exception extra column) (F): Failed")
+			print("❌ TEST [ADD dict] (Raise Exception extra column) (F): Failed")
 			raise e
 
 		
 		try:
 			tb.add({"x":[1,2,3], "Y":[4,5,6,7]}, add_extra_columns=True)
-			print("✅TEST [ADD dict] (Add extra column): Passed")
+			print("✅ TEST [ADD dict] (Add extra column): Passed")
 		except Exception as e:
-			print("❌TEST [ADD dict] (Add extra column): Failed")
+			print("❌ TEST [ADD dict] (Add extra column): Failed")
 			raise e
 
 		try:
 			tb.add({"x":"[1,2,3]", "Y":[4,5,6,7]}, add_extra_columns=False)
-			raise Exception("Must raise error")
+			raise Exception("❌ TEST [ADD dict] (Raise Exception Invalid type): Failed (Must raise error)")
 		except TypeError as e:
 			print(e)
-			print("✅TEST [ADD dict] (Raise Exception Invalid type): Passed")
+			print("✅ TEST [ADD dict] (Raise Exception Invalid type): Passed")
 		except Exception as e:
-			print("❌TEST [ADD dict] (Raise Exception Invalid type): Failed")
+			print("❌ TEST [ADD dict] (Raise Exception Invalid type): Failed")
 			raise e
 
 		print(tb)
@@ -2404,32 +2603,32 @@ if __name__ == "__main__":
 			tb.add_row({"x":5, "Y":6})
 
 
-		print("\n\n Sort test 1 (sort by x)")
+		print("\n\n📝 Sort test 1 (sort by x)")
 		
 		_update_table(tb)
 
 		tb.sort("x")
 
 		if tb.column("x") != [1, 3, 5, 7]:
-			raise Exception("❌TEST [SORT] (sort by x): Failed")
+			raise Exception("❌ TEST [SORT] (sort by x): Failed")
 		
-		print("✅TEST [SORT] (sort by x): Passed")
+		print("✅ TEST [SORT] (sort by x): Passed")
 
 		print("="*50)
 
-		print("\n\n Sort test 2 (sort by Y reverse)")
+		print("\n\n📝 Sort test 2 (sort by Y reverse)")
 		_update_table(tb)
 		
 		tb.sort("Y", reverse=True)
 
 		if tb.column("Y") != [8, 6, 4, 2]:
-			raise Exception("❌TEST [SORT] (sort by Y reverse): Failed")
+			raise Exception("❌ TEST [SORT] (sort by Y reverse): Failed")
 
-		print("✅TEST [SORT] (sort by Y reverse): Passed")
+		print("✅ TEST [SORT] (sort by Y reverse): Passed")
 
 		print("="*50)
 
-		print("\n\n Sort test 3 (sort by key function) {x+y}")
+		print("\n\n📝 Sort test 3 (sort by key function) {x+y}")
 
 		_update_table(tb)
 
@@ -2438,35 +2637,35 @@ if __name__ == "__main__":
 
 		tb.add_column("x+Y", exist_ok=True)
 		
-		print("APPLYING COLUMN FUNCTION with row_func=True")
+		print("📝 APPLYING COLUMN FUNCTION with row_func=True")
 		try:
 			tb["x+Y"].apply(func=lambda x: x["x"]+x["Y"], row_func=True)
-			print("✅TEST [APPLY] (row_func=True): Passed")
+			print("✅ TEST [APPLY] (row_func=True): Passed")
 		except Exception as e:
-			print("❌TEST [APPLY] (row_func=True): Failed")
+			print("❌ TEST [APPLY] (row_func=True): Failed")
 			raise e
 
 		if tb.column("x+Y") != [3, 7, 11, 15]:
-			raise Exception("❌TEST [SORT] (sort by key function) {x+y}: Failed")
+			raise Exception("❌ TEST [SORT] (sort by key function) {x+y}: Failed")
 
-		print("✅TEST [SORT] (sort by key function) {x+y}: Passed")
+		print("✅ TEST [SORT] (sort by key function) {x+y}: Passed")
 		
 		print("="*50)
 
-		print("\n\n Sort test 4 (sort by key function) {x+y} (copy)")
+		print("\n\n📝 Sort test 4 (sort by key function) {x+y} (copy)")
 
 		_update_table(tb)
 
 		new_tb = tb.sort(key=lambda x: x["x"]+x["Y"], copy=True)
 
 		if new_tb.column("x") != [1, 3, 5, 7]:
-			raise Exception("❌TEST [SORT] (sort by x): Failed")
+			raise Exception("❌ TEST [SORT] (sort by x): Failed")
 
-		print("✅TEST [SORT] (sort by x): Passed")
+		print("✅ TEST [SORT] (sort by x): Passed")
 
 		print("="*50)
 
-		print("\n\n Remove duplicates test")
+		print("\n\n📝 Remove duplicates test")
 
 		tb.clear()
 
@@ -2480,14 +2679,14 @@ if __name__ == "__main__":
 		tb.remove_duplicates()
 
 		if tb.height != 3:
-			raise Exception("❌TEST [REMOVE DUPLICATES]: Failed")
+			raise Exception("❌ TEST [REMOVE DUPLICATES]: Failed")
 
-		print("✅TEST [REMOVE DUPLICATES]: Passed")
+		print("✅ TEST [REMOVE DUPLICATES]: Passed")
 
 		print("="*50)
 
 		
-		print("\n\n Remove duplicates test [selective column]")
+		print("\n\n📝 Remove duplicates test [selective column]")
 
 		tb.clear()
 
@@ -2501,11 +2700,192 @@ if __name__ == "__main__":
 		tb.remove_duplicates(columns="Y")
 
 		if tb.height != 2:
-			raise Exception("❌TEST [REMOVE DUPLICATES]: Failed")
+			raise Exception("❌ TEST [REMOVE DUPLICATES]: Failed")
 
-		print("✅TEST [REMOVE DUPLICATES]: Passed")
+		print("✅ TEST [REMOVE DUPLICATES]: Passed")
 
 		print("="*50)
+
+		print("\n\n📝 Row deletion test")
+
+		tb.clear()
+
+		tb.add_row({"x":1, "Y":2})
+		tb.add_row({"x":1, "Y":2})
+
+		_tr = tb.row_obj(0)
+		_tr.del_row()
+		try:
+			_tr["x"]
+			raise Exception("❌ TEST [ROW DEL]: Failed")
+		except ValueError as e:
+			print("✅ TEST [ROW DEL]: Passed")
+			print("Error message = ", e)
+
+		print("="*50)
+
+		print("\n\n📝 Column deletion test")
+
+		tb.clear()
+
+		tb.add_row({"x":1, "Y":2})
+		tb.add_row({"x":1, "Y":2})
+
+		_tc = tb.column_obj("x")
+		_tc.del_column()
+		try:
+			_tc[0]
+			raise Exception("❌ TEST [COL DEL]: Failed")
+		except ValueError as e:
+			print("✅ TEST [COL DEL]: Passed")
+			print("Error message = ", e)
+
+		tb.add_column("x", exist_ok=True) # bring back the column
+		print("="*50)
+
+		print("\n\n📝 Load csv test")
+
+		tb.clear()
+
+		print("Initial table")
+		print(tb)
+		print(tb.column_names)
+
+		# make a csv file
+		with open("test.csv", "w") as f:
+			f.write("x,Y\n1,2\n3,4\n5,6\n")
+
+		print("\t📝 Normal Load")
+		try:
+			tb.load_csv("test.csv")
+		except Exception as e:
+			print("❌ TEST [LOAD CSV]: Failed (Other error)")
+			raise e
+		if tb.height != 3 or tb.column("x") != ['1', '3', '5']:
+			print(tb)
+			print(tb.column("x"), tb.column('x')==[1, 3, 5])
+			print(tb.height, tb.height==3)
+			raise Exception("❌ TEST [LOAD CSV]: Failed")
+
+		print("\t✅ TEST [LOAD CSV][Normal Load]: Passed")
+
+		print("\t📝 NoFile Load ['error']")
+		# 1st error mode on file not found
+		try:
+			tb.load_csv(f"test-{random.random()}.csv", on_file_not_found="error")
+			raise Exception("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='error']: Failed")
+		except FileNotFoundError as e:
+			print("\t✅ TEST [LOAD CSV][NoFile Load]['error'][on_file_not_found='error']: Passed")
+			print("\tError message = ", e)
+
+		print("\t📝 NoFile Load ['ignore']")
+		# 3rd error mode on file not found
+		try:
+			tb.load_csv(f"test-{random.random()}.csv", on_file_not_found="ignore")
+			if tb.height != 3 or tb.column("x") != ['1', '3', '5']:
+				raise Exception("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='ignore']: Failed")
+			print("\t✅ TEST [LOAD CSV][NoFile Load]['ignore'][on_file_not_found='ignore']: Passed")
+
+		except FileNotFoundError as e:
+			print("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='ignore']: Failed (File not found)")
+			raise e
+		except Exception as e:
+			print("\t❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='ignore']: Failed (Other error)")
+			raise e
+
+
+			
+		print("\t📝 NoFile Load ['warn']")
+		# 2nd error mode on file not found
+		try:
+			tb.load_csv(f"test-{random.random()}.csv", on_file_not_found="warn")
+			if tb.height: # must be 0
+				print(tb)
+				raise Exception("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='warn']: Failed")
+			print("\t✅ TEST [LOAD CSV][NoFile Load]['warn'][on_file_not_found='warn']: Passed")
+
+		except FileNotFoundError as e:
+			print("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='warn']: Failed (File not found)")
+			raise e
+		except Exception as e:
+			print("\t❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='warn']: Failed (Other error)")
+			raise e
+
+			
+		print("\t📝 NoFile Load ['no_warning']")
+		# 4th error mode on file not found
+		try:
+			tb.load_csv(f"test-{random.random()}.csv", on_file_not_found="no_warning")
+			if tb.height: # must be 0
+				raise Exception("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='no_warning']: Failed")
+			print("\t✅ TEST [LOAD CSV][NoFile Load]['no_warning'][on_file_not_found='no_warning']: Passed")
+
+		except FileNotFoundError as e:
+			print("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='no_warning']: Failed (File not found)")
+			raise e
+		except Exception as e:
+			print("\t❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='no_warning']: Failed (Other error)")
+			raise e
+
+		os.remove("test.csv")
+
+
+		print("\t📝 Header Load [header=True (use csv headers)]")
+		# create a csv file with header
+		with open("test.csv", "w") as f:
+			f.write("x,Y\n1,2\n3,4\n5,6\n")
+
+		tb.clear()
+		tb.load_csv("test.csv", header=True)
+		if tb.height != 3 or tb.column("x") != ['1', '3', '5']:
+			raise Exception("❌ TEST [LOAD CSV][Header Load][header=True]: Failed")
+
+		print("\t✅ TEST [LOAD CSV][Header Load][header=True]: Passed")
+
+		new_tb = PickleTable()
+		print("\t📝 Header Load [header=True (use csv headers)] [new blank table]")
+		new_tb.load_csv("test.csv", header=True)
+
+		print(new_tb)
+
+
+		print("\t📝 Header Load [header=False (use unnamed headers, Unnamed-1, Unnamed-2, ...)]")
+		# create a csv file without header
+		with open("test.csv", "w") as f:
+			f.write("1,2\n3,4\n5,6\n")
+
+		tb.clear()
+		tb.load_csv("test.csv", header=False)
+
+		print(tb)
+		if tb.height != 3 or tb.column("Unnamed-5") != ['1', '3', '5']:
+			raise Exception("❌TEST [LOAD CSV][Header Load][header=False]: Failed")
+
+		print("\t✅ TEST [LOAD CSV][Header Load][header=False]: Passed")
+
+		print('\t📝 Header Load [header="auto" (use auto headers, A, B, C, ...)]')
+
+		tb.clear()
+
+		tb.load_csv("test.csv", header="auto")
+
+		print(tb)
+
+		if tb.height != 3 or tb.column("H") != ['1', '3', '5']:
+			raise Exception("❌ TEST [LOAD CSV][Header Load][header='auto']: Failed")
+
+		print("\t✅ TEST [LOAD CSV][Header Load][header='auto']: Passed")
+
+		os.remove("test.csv")
+
+		print("="*50)
+
+
+
+
+
+
+
 
 
 

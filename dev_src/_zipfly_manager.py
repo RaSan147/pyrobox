@@ -19,7 +19,7 @@ import re
 
 
 
-from _fs_utils import get_dir_size, get_dir_m_time, _get_tree_path_n_size
+from _fs_utils import get_dir_m_time, _get_tree_path_n_size
 from _exceptions import LimitExceed
 
 
@@ -105,7 +105,7 @@ class ZipFly:
 		self.compresslevel = compresslevel
 		self.storesize = storesize
 		self.encode = encode
-		self.ezs = int('0x8e', 16)  # empty zip size in bytes
+		self.ezs = int('0x8e', 16) # empty zip size in bytes
 
 	def generator(self):
 		"""
@@ -373,7 +373,7 @@ class ZIP_Manager:
 		self.zip_allowed = zip_allowed
 		self.size_limit = size_limit
 
-		self.zip_temp_dir = tempfile.TemporaryDirectory().name + '/zip_temp/' if zip_temp_dir is None else zip_temp_dir
+		self.zip_temp_dir = zip_temp_dir if zip_temp_dir else tempfile.TemporaryDirectory().name + '/zip_temp/'
 		self.zip_ids = Callable_dict()
 		self.zip_path_ids = Callable_dict()
 		self.zip_in_progress = Callable_dict()

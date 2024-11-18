@@ -22,10 +22,12 @@ import re
 import time
 import traceback
 import urllib.parse
-
+from .tools import os_scan_walk, os_scan_walk_gen, xpath
 
 from ._exceptions import LimitExceed
 
+if __name__ == "__main__":
+	from .pyrobox_ServerHost import ServerHost
 
 
 
@@ -66,7 +68,7 @@ def check_access(path):
 
 
 
-def walk_dir(path, yield_dir=False):
+def walk_dir(*path, yield_dir=False):
 	"""
 	Iterate through a directory and its subdirectories
 	and `yield` the filePath object of each Files and Folders*.
@@ -75,27 +77,8 @@ def walk_dir(path, yield_dir=False):
 	yield_dir (bool): if True yields directories too (default: False)
 	"""
 
-	Q = Queue()
-	Q.put(path)
-	while not Q.empty():
-		path = Q.get()
-
-		try:
-			dir = os.scandir(path)
-		except OSError:
-			continue
-		for entry in dir:
-			try:
-				is_dir = entry.is_dir(follow_symlinks=False)
-			except OSError as error:
-				continue
-			if is_dir:
-				Q.put(entry.path)
-
-			if yield_dir or not is_dir:
-				yield entry
-
-		dir.close()
+	for f in os_scan_walk_gen(*path, allow_dir=yield_dir):
+		yield f
 
 
 # TODO: can be used in search feature
@@ -110,28 +93,6 @@ def get_tree(path, include_dir=True):
 	home = path
 	tree = []
 
-	# Q = Queue()
-	# Q.put(path)
-	# while not Q.empty():
-	# 	path = Q.get()
-
-	# 	try:
-	# 		dir = os.scandir(path)
-	# 	except OSError:
-	# 		continue
-	# 	for entry in dir:
-	# 		try:
-	# 			is_dir = entry.is_dir(follow_symlinks=False)
-	# 		except OSError as error:
-	# 			continue
-	# 		if is_dir:
-	# 			Q.put(entry.path)
-
-	# 		if include_dir or not is_dir:
-	# 			tree.append([entry.path, entry.path.replace(home, "", 1)])
-
-	# 	dir.close()
-
 	for entry in walk_dir(path, yield_dir=include_dir):
 		tree.append([entry.path, entry.path.replace(home, "", 1)])
 
@@ -141,27 +102,6 @@ def get_tree(path, include_dir=True):
 
 def _get_tree_count(path):
 	count = 0
-
-	# Q = Queue()
-	# Q.put(path)
-	# while not Q.empty():
-	# 	path = Q.get()
-
-	# 	try:
-	# 		dir = os.scandir(path)
-	# 	except OSError:
-	# 		continue
-	# 	for entry in dir:
-	# 		try:
-	# 			is_dir = entry.is_dir(follow_symlinks=False)
-	# 		except OSError as error:
-	# 			continue
-	# 		if is_dir:
-	# 			Q.put(entry.path)
-	# 		else:
-	# 			count += 1
-
-	# 	dir.close()
 
 	for entry in walk_dir(path):
 		count += 1
@@ -315,9 +255,9 @@ def fmbytes(B=0, path=''):
 	return "%i byte"%B
 
 
-def humanbytes(B):
+def humanbytes(B: int):
 	'Return the given bytes as a human friendly KB, MB, GB, or TB string'
-	B = B
+	B = int(B)
 	KB = 1024
 	MB = (KB ** 2) # 1,048,576
 	GB = (KB ** 3) # 1,073,741,824
@@ -382,7 +322,7 @@ def dir_navigator(path):
 	for i in range(1, len(dirs)-1):
 		dir = dirs[i]
 		# urls.append(urls[i-1] + urllib.parse.quote(dir, errors='surrogatepass' )+ '/' if not dir.endswith('/') else "")
-		urls.append(urls[i-1] + dir+ '/' if not dir.endswith('/') else "")
+		urls.append(urls[i-1] + dir + '/' if not dir.endswith('/') else "")
 		names.append(dir)
 
 	for i in range(len(names)):
@@ -395,7 +335,7 @@ def dir_navigator(path):
 
 
 
-def loc(path, _os_name='Linux'):  # fc=0602 v
+def loc(*path, _os_name='Linux'):  # fc=0602 v
 	"""to fix dir problem based on os
 
 	args:
@@ -404,10 +344,9 @@ def loc(path, _os_name='Linux'):  # fc=0602 v
 		os_name: Os name *Linux"""
 
 	if _os_name == 'Windows':
-		return path.replace('/', '\\')
+		return xpath(*path, win=True)
 
-	#else:
-	return path.replace('\\', '/')
+	return xpath(*path, posix=True)
 
 
 
@@ -425,7 +364,7 @@ def writer(fname, mode, data, direc="", encoding='utf-8'):  # fc=0608 v
 		direc: directory of the file, empty for current dir *None
 		func_code: (str) code of the running func *empty string
 		encoding: if encoding needs to be specified (only str, not binary data) *utf-8
-		timeout: how long to wait until free, 0 for unlimited, -1 for immidiate or crash"""
+		timeout: how long to wait until free, 0 for unlimited, -1 for immediate or crash"""
 
 	def write(location):
 		if 'b' not in mode:
@@ -447,13 +386,10 @@ def writer(fname, mode, data, direc="", encoding='utf-8'):  # fc=0608 v
 	# or else shitty problems occurs
 
 	direc = direc.strip()
-	if not direc.endswith("/"):
-		direc+="/"
 
 	fname = fname.strip()
 
-
-	location = loc(direc + fname)
+	location = xpath(direc, fname)
 
 	"""
 	if any(i in location for i in ('\\|:*"><?')):
@@ -522,7 +458,7 @@ class UploadHandler:
 
 
 
-	def _start(self, server):
+	def _start(self, server:"ServerHost"):
 		while self.active or not self.serial_io.empty():
 			if not self.serial_io.empty():
 				self.waited = 0
@@ -540,8 +476,8 @@ class UploadHandler:
 						os_fn = os.path.basename(os_f_path)
 
 						name, ext = os.path.splitext(os_f_path)
+						n = 1
 						while (not overwrite) and os.path.isfile(os_f_path):
-							n = 1
 							os_f_path = f"{name}({n}){ext}"
 							n += 1
 
