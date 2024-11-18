@@ -83,7 +83,7 @@ def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None
 			
 			# Use ffmpeg to extract the audio stream
 			subprocess.run(
-				[FFMPEG, "-i", input_file, "-map", stream_index, output_filename],
+				[FFMPEG, "-i", input_file, "-map", stream_index, '-y', output_filename],
 				check=True
 			)
 		

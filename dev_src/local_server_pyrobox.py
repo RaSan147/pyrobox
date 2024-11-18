@@ -25,6 +25,7 @@ from http.cookies import SimpleCookie
 
 
 import traceback
+import uuid
 
 from pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, runner as pyroboxRunner, tools, reload_server, __version__
 
@@ -267,9 +268,6 @@ def get_page_type(self: SH, *args, **kwargs):
 
 	elif self.query("logout"):
 		result = "logout"
-
-	elif self.query("vid-data"):
-		result = "vid-data"
 
 	elif self.query("style"):
 		result = "style-assets"
@@ -739,7 +737,7 @@ def send_ls_json(self: SH, *args, **kwargs):
 	return list_directory_json(self)
 
 
-
+subtitle_location_map = {}
 
 @SH.on_req('HEAD', hasQ=("vid", "vid-data"))
 def send_video_data(self: SH, *args, **kwargs):
@@ -769,7 +767,33 @@ def send_video_data(self: SH, *args, **kwargs):
 
 	title = get_titles(displaypath, file=True)
 
-	subtitles = extract_subtitles_from_file(os_path, output_format="vtt", output_dir=Sconfig.subtitles_dir)
+	subtitles = []
+	if Sconfig.allow_subtitle:
+		subtitles = extract_subtitles_from_file(os_path, output_format="vtt", output_dir=Sconfig.subtitles_dir)
+
+	updated_subtitles = []
+	default_ = True
+	for label, sub_path in subtitles:
+		random_uuid = uuid.uuid4().hex
+		subtitle_location_map[random_uuid] = sub_path
+
+		"""{
+			kind: 'captions',
+			label: 'English',
+			srclang: 'en',
+			src: '/path/to/captions.en.vtt',
+			default: true,
+		}"""
+		updated_subtitles.append(
+			{
+				"kind": "captions",
+				"label": label,
+				"srclang": label,
+				"src": f"/?sub={random_uuid}",
+				"default": default_,
+			}
+		)
+		default_ = False
 
 
 	warning = ""
@@ -783,7 +807,26 @@ def send_video_data(self: SH, *args, **kwargs):
 		"video": vid_source,
 		"title": displaypath.split("/")[-1],
 		"content_type": content_type,
+		"subtitles": updated_subtitles
 	}, cookie=cookie)
+
+
+@SH.on_req('HEAD', hasQ="sub")
+def send_subtitle(self: SH, *args, **kwargs):
+	# SEND SUBTITLE
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	sub_id = self.query.get('sub', [None])[0]
+	if sub_id not in subtitle_location_map:
+		return self.send_error(HTTPStatus.NOT_FOUND, "Subtitle not found", cookie=cookie)
+
+	sub_path = subtitle_location_map[sub_id]
+
+	return self.return_file(sub_path, cookie=cookie)
+
 
 
 

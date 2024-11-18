@@ -56,6 +56,7 @@ class Video_Page {
 		var content_type = data.content_type
 		var warning = data.warning
 
+		var subtitles = data.subtitles
 
 		this.player_title.innerText = title
 		this.player_warning.innerHTML = warning
@@ -77,7 +78,8 @@ class Video_Page {
 				keyboard: {
 					global: true,
 					focused: false,
-				}
+				},
+				tracks: subtitles
 			};
 
 			this.init_online_player() // Add double click to skip
@@ -85,9 +87,6 @@ class Video_Page {
 			this.player_source.src = video;
 			this.player_source.type = content_type;
 		}
-
-
-
 	}
 
 	hide() {
@@ -105,6 +104,9 @@ class Video_Page {
 		this.player_warning.innerHTML = ""
 		this.video_dl_url.href = ""
 	}
+
+
+
 
 	init_online_player() {
 		var player = this.player;
