@@ -837,7 +837,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		if self.response_code_sent:
 			return
 
-		if not code//100 ==1: # 1xx - Informational (allowes multiple responses)
+		if not int(code)//100 ==1: # 1xx - Informational (allowes multiple responses)
 			self.response_code_sent = True
 
 		self.log_request(code)
