@@ -12,7 +12,7 @@
   * **Server** Improved upload process (using buffer limit to reduce RAM load)
   * **Server:** Improved security (naming files and renaming)
   * **Server:** Added QR support (needs implementation)
-  * **Server:** Updated and improved databased package (pyroDB) with improved speed and application
+  * **Server:** Updated and improved database package (pyroDB) with improved speed and application
   * **Server:** Added 7z support (if installed in device)
   * **Server:** Added QR code for easy access to the server (from terminal -q)
 
