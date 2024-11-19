@@ -1,18 +1,41 @@
 # Version 0.9.6
   ## Client-side Changes:
-  
+  * Fixed Logout button in account (No more Sword Art Online)
+  * Updated Video Player and fixed the UI bugs. Key binding works.
+  * Added MOV and MKV support for video player (if supported by browser)
 
   ## Server-side Changes:
-  * **Server:** Added QR code for easy access to the server (from terminal -q)
+  * **Core:** Added CORS policy setting method
   * **Core:** Improved control over logging (on startup details) [`_log_details`, `_get_details`]
-  * **Core:** Server can be initialized without starting the server [`init_server` -> use `init_server.run` to start server]. Previous `run(...)` will keep working as usual.
   * **Core:** Removed `httpd` from global scope.
+  * **Core:** Server can be initialized without starting the server [`init_server` -> use `init_server.run` to start server]. Previous `run(...)` will keep working as usual.
+  * **Server** Improved upload process (using buffer limit to reduce RAM load)
+  * **Server:** Improved security (naming files and renaming)
+  * **Server:** Added QR support (needs implementation)
+  * **Server:** Updated and improved databased package (pyroDB) with improved speed and application
+  * **Server:** Added 7z support (if installed in device)
+  * **Server:** Added QR code for easy access to the server (from terminal -q)
 
   ## Fixes:
+  * Fixed video player
+  * Fixed some zip issues
+  * Fixed some upload issues
 
   ## TODO:
   * add zip in the dynamic island (maybe use session storage to store zip data)
 
+# Version 0.9.5
+  ## Client-side Changes:
+  * Fixed unexpected upload cancel
+
+  ## Server-side Changes:
+  * Improved upload process (using thread and queue)
+
+  ## Fixes:
+  * Fixed upload being cancelled unexpectedly
+
+  ## TODO:
+  * add zip in the dynamic island (maybe use session storage to store zip data)
 
 # Version 0.9.4
   ## Client-side Changes:
