@@ -1,3 +1,9 @@
+# Version 0.9.7
+  ## HOTFIX:
+  * Fixed requests requirement in the list
+  * **Server** In init and main, removed the import of the submodules
+  * **Server** Added folder size limit for zip (default 6GB)
+
 # Version 0.9.6
   ## Client-side Changes:
   * Fixed Logout button in account (No more Sword Art Online)
@@ -13,7 +19,7 @@
   * **Server:** Improved security (naming files and renaming)
   * **Server:** Added QR support (needs implementation)
   * **Server:** Updated and improved database package (pyroDB) with improved speed and application
-  * **Server:** Added 7z support (if installed in device)
+  * **Server:** Added 7z support (if installed in device) (searches for common locations)
   * **Server:** Added QR code for easy access to the server (from terminal -q)
 
   ## Fixes:
@@ -198,7 +204,7 @@
   * `TODO`: To change log level, use `--log-level` or `-l` flag
   * To change log level programmatically, use `pyroboxCore.logger.setLevel(logging.DEBUG|INFO|WARN|ERROR)`
   * REMOVED `pyrobox.clone` module (stil available in `dev_src` folder)
-  * The Entire server is now using `@SimpleHTTPRequestHandler.on_req` decorator importing from pyroboxCore to handle requests 
+  * The Entire server is now using `@SimpleHTTPRequestHandler.on_req` decorator importing from pyroboxCore to handle requests
     ### check v0.6.1 for more info
   * added send_file function to pyroboxCore
   * improved POST request handling

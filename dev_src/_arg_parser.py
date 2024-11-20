@@ -1,14 +1,16 @@
 # add additional arguments to the parser
-
+config = None
 # the config must be imported from pyroboxCore
-# from pyroboxCore import config
+if __name__ == "__main__":
+	from pyroboxCore import config
 
-def main(config):
+
+def main(config=config):
 	config.parser.add_argument('--password', '-k',
 							default=config.PASSWORD,
 							type=str,
 							help='[Value] Upload Password (default: %(default)s)')
-	
+
 
 
 	config.parser.add_argument('--qr', '-q',
@@ -90,4 +92,7 @@ def main(config):
 							default=False,
 							help="[Flag] Only allowed to see file list, nothing else (default: %(default)s)")
 
-
+	config.parser.add_argument('--zip-limit', '-zl',
+							default="6GB",
+							type=str,
+							help='[Value] Max size of zip file allowed to download (default: %(default)s) [can be bytes without suffix or suffixes like 1KB, 1MB, 1GB, 1TB]')

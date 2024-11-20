@@ -69,7 +69,7 @@ def check_exist(url, path, check_method):
 
 			if local_last_modify == original_modify and check_method == "date":
 				return True
-			
+
 			if local_last_modify >= original_modify and check_method == "date+":
 				return True
 
@@ -126,7 +126,7 @@ def dl(url, path, overwrite, check_method):
 		CANCEL = True
 		os.remove(local_filename)
 		return False
-	
+
 	except Exception:
 		traceback.print_exc()
 		print("ALERT:  [dl] Server is probably down")
@@ -159,7 +159,7 @@ class Cloner:
 		"""
 		if url[-1] != "/":
 			url += "/"
-			
+
 		Q = Queue()
 		def get_json(url):
 
@@ -178,7 +178,7 @@ class Cloner:
 
 			if path[-1] != "/":
 				path += "/"
-			
+
 			os.makedirs(path, exist_ok=True) # make sure the directory exists even if it's empty
 
 			json = get_json(url)
@@ -236,7 +236,7 @@ class Cloner:
 
 
 
-if __name__ == "__main__":
+def main():
 	url = input("URL: ")
 	path = input("Save to: ")
 
@@ -248,7 +248,11 @@ if __name__ == "__main__":
 	check_exist = "date+"
 	o = None
 	while not o:
-		o = input("Check exist? (date/date+/size) [Default: date+]: ")
+		o = input("""Check exist? [Default: date+]
+date: download if remote file is update time same as local file
+date+: download if remote file is newer or same as local file (ignored if local file is newer)
+size: download if remote file size is different from local file
+>>> """)
 		if o in ["date", "date+", "size"]:
 			check_exist = o
 		else:
@@ -271,3 +275,5 @@ if __name__ == "__main__":
 	for future in as_completed(cloner.futures):
 		bool(future.result())
 
+if __name__ == "__main__":
+	main()

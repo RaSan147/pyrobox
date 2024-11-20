@@ -22,7 +22,7 @@ import re
 import time
 import traceback
 import urllib.parse
-from tools import os_scan_walk, xpath
+from tools import os_scan_walk_gen, xpath
 
 from _exceptions import LimitExceed
 
@@ -77,7 +77,7 @@ def walk_dir(*path, yield_dir=False):
 	yield_dir (bool): if True yields directories too (default: False)
 	"""
 
-	for f in os_scan_walk(*path, allow_dir=yield_dir):
+	for f in os_scan_walk_gen(*path, allow_dir=yield_dir):
 		yield f
 
 
@@ -280,6 +280,35 @@ def humanbytes(B: int):
 		ret+= '%i bytes'%B
 
 	return ret
+
+def reverse_humanbytes(human_str:str):
+	"""
+	Converts human readable size to bytes
+	"""
+	human_str = human_str.strip().lower()
+
+	if human_str.endswith('bytes'):
+		return int(human_str[:-5].strip())
+	if human_str.endswith('byte'):
+		return int(human_str[:-4].strip())
+
+	if human_str.endswith('b'):
+		human_str = human_str[:-1].strip()
+
+	if human_str.endswith('k'):
+		return int(float(human_str[:-1].strip()) * 1024)
+
+	if human_str.endswith('m'):
+		return int(float(human_str[:-1].strip()) * 1024**2)
+
+	if human_str.endswith('g'):
+		return int(float(human_str[:-1].strip()) * 1024**3)
+
+	if human_str.endswith('t'):
+		return int(float(human_str[:-1].strip()) * 1024**4)
+
+	return int(human_str)
+
 
 def get_dir_m_time(path):
 	"""
@@ -492,7 +521,7 @@ class UploadHandler:
 							self.err(f"Failed to upload {os_fn}")
 
 							break
-	
+
 			else:
 				self.waited += 1
 				self.sleep()
@@ -503,7 +532,7 @@ class UploadHandler:
 	def kill(self):
 		self.active = False
 		self.done = True
-		
+
 		for f in tuple(self.serial_io.queue):
 			name = f[0].name
 			if not f[0].closed:

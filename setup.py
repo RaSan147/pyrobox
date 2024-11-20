@@ -8,11 +8,12 @@ setup(
         "msgpack",
         "tabulate2",
         "pyqrcode",
+        "requests",
     ],
     entry_points='''
         [console_scripts]
         pyrobox=pyrobox:server.run
     ''',
 
-    
+
 )

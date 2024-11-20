@@ -19,7 +19,7 @@ import re
 
 
 
-from _fs_utils import get_dir_m_time, _get_tree_path_n_size
+from _fs_utils import get_dir_m_time, _get_tree_path_n_size, humanbytes
 from _exceptions import LimitExceed
 
 
@@ -535,7 +535,7 @@ class ZIP_Manager:
 			try:
 				fs = _get_tree_path_n_size(path, must_read=True, path_type="both", limit=self.size_limit, add_dirs=True)
 			except LimitExceed as e:
-				return err("DIRECTORY SIZE LIMIT EXCEED")
+				return err(f"DIRECTORY SIZE LIMIT EXCEED [CURRENT LIMIT: {humanbytes(self.size_limit)}]")
 			source_size = sum(i[1] for i in fs)
 			fm = [i[0] for i in fs]
 			source_m_time = get_dir_m_time(path)

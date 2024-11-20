@@ -3,7 +3,7 @@ from http import HTTPStatus
 import os
 from typing import Union
 
-from _fs_utils import get_titles, dir_navigator
+from _fs_utils import get_titles, dir_navigator, reverse_humanbytes
 from tools import xpath
 from pyroDB import PickleTable
 import user_mgmt as u_mgmt
@@ -42,12 +42,12 @@ class ServerConfig():
 		self.init_account()
 
 		# Max size a zip file will be made
-		self.max_zip_size = 6*1024*1024*1024 # 6GB
+		self.max_zip_size = reverse_humanbytes(cli_args.zip_limit) # 6GB by default
 
 		# Max Buffer size for writing files
 		self.max_buffer_size = 1024*1024 # 1MB
 
-		
+
 		self.temp_dir = CoreConfig.temp_dir
 		self.subtitles_dir = xpath(self.temp_dir, "subtitles")
 		self.allow_subtitle = True

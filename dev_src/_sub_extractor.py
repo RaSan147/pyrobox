@@ -19,14 +19,14 @@ def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None
 	"""
 	output_paths = []
 	sub_names = []
-	
+
 	if not os.path.isfile(input_file):
 		raise FileNotFoundError(f"The file '{input_file}' does not exist.")
 
 	if not FFMPEG:
 		# we don't want to raise an exception here, just return an empty list
 		return []
-	
+
 	try:
 		# Run ffmpeg to analyze the file
 		process = subprocess.run(
@@ -36,7 +36,7 @@ def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None
 			text=True
 		)
 		output = process.stderr  # ffmpeg logs info in stderr
-		
+
 		# Extract stream information (Subtitle streams)
 		# Example: Stream #0:1(eng): Subtitle: dvd_subtitle
 		stream_pattern = re.compile(
@@ -52,7 +52,7 @@ def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None
 						sub_name = f"{sub_name}_{n}"
 			else:
 				sub_name = f"subtitle_{n}"
-				
+
 			sub_names.append(sub_name)
 			n += 1
 
@@ -77,16 +77,16 @@ def extract_subtitles_from_file(input_file, output_format="vtt", output_dir=None
 			os.makedirs(output_dir, exist_ok=True) # Create the output directory if it doesn't exist
 
 			output_filename = f"{os.path.splitext(input_file)[0]}_{sub_name}.{output_format}"
-			
+
 			# Generate output path
 			output_paths.append((sub_name, output_filename))
-			
+
 			# Use ffmpeg to extract the audio stream
 			subprocess.run(
 				[FFMPEG, "-i", input_file, "-map", stream_index, '-y', output_filename],
 				check=True
 			)
-		
+
 		return output_paths
 
 	except subprocess.CalledProcessError as e:

@@ -43,6 +43,7 @@
 * 🔜 More comming soon
 * All of these without the need of any internet connection (having connection will provide better experience)
 
+
 ## Server side requirement
 
 * Python 3.7 or higher. Older support available.[^1]
@@ -81,15 +82,15 @@ https://github.com/RaSan147/pyrobox/assets/34002411/eb2ac313-f95a-4334-a265-c3fe
 1. Simply running the code on will create a server on `CURRENT WORKING DIRECTORY` on `Port: 6969`
 1. On browser (on device under same router/wifi network), go to `deviceIP:port_number` to see the output like this: `http://192.168.0.101:6969/`
     * you must allow python in firewall to access network, check [FAQ](#faq) for more help
-1. To change the server running directory, 
-    * i) either edit the code  (see `config` class at top)
-    * ii) or add `-d` or `--directory` command line argument when launching the program
+1. To change the server running directory,
+    * (i) either edit the code  (see `config` class at top)
+    * (ii) or add `-d` or `--directory` command line argument when launching the program
         * `pyrobox -d .` to launch the server in current directory (where the file is)
         * `pyrobox -d "D:\Server\Public folder\"`  (Use Double-Quotation while directory has space)
         * `pyrobox -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter, unless your terminal thinks otherwise)
 1. To change port number
-    * i) just edit the code for permanent change  (see `config` class at top)
-    * ii) or add the port number at the end of the command line arg  
+    * (i) just edit the code for permanent change  (see `config` class at top)
+    * (ii) or add the port number at the end of the command line arg
         * `pyrobox 45678` # will run on port 45678
         * `pyrobox -d . 45678` # will run on port 45678 in current directory
 
@@ -97,11 +98,11 @@ https://github.com/RaSan147/pyrobox/assets/34002411/eb2ac313-f95a-4334-a265-c3fe
     * Add bind add `-bind {address}` # ie: `-bind 127.0.0.2` or `-bind 127.0.0.99`
 
 1. To change upload password
-    * i) or add `-k` or `--password` command line argument when launching the program
+    * (i) or add `-k` or `--password` command line argument when launching the program
         * `pyrobox -k "my new password"` to launch the server with new password
         * `pyrobox -k ""` to launch the server without password
         * `pyrobox` to launch the server with default password (SECret)
-    * ii) just edit the code for permanent change  (see `config` class at top)
+    * (ii) just edit the code for permanent change  (see `config` class at top)
 
 1. Optional configurations
 
@@ -117,12 +118,13 @@ usage: `pyrobox [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--
 
   | Flags/Arg `value`     | Description |
   | --------------------- | ------------|
-  |--password `PASSWORD`, -k  `PASSWORD` | Upload Password (GUESTS users and Nameless server users must use it to upload files)(default: SECret)|
+  |--password `PASSWORD`, -k  `PASSWORD` | Upload Password (GUESTS users and Nameless server users must use it to upload files)(default: `SECret`)|
   |--directory `DIRECTORY`, -d `DIRECTORY` | Specify alternative directory [default: current directory]
-  |--bind `ADDRESS`, -b `ADDRESS` | Specify alternate bind address [default: all interfaces]|
+  |--bind `ADDRESS`, -b `ADDRESS` | Specify alternate bind address [default: all interfaces (`0.0.0.0`)]|
   |--version, -v          | show program's version number and exit|
   |-h, --help             | show this help message and exit|
   |--no-extra-log         | Disable file path and [= + - #] based logs (default: False)|
+  |--zip-limit, -zl `ZIP_LIMIT` | Set the limit of zip file size in bytes/KB/MB/GB/TB (default: `6GB`)|
 
 ## Customization Options
 
@@ -155,12 +157,23 @@ usage: `pyrobox [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--
   1. `pyrobox -n "My Server3" -aid "admin" -ak "admin123" -ng -ns` # Only admin can access the server. No guest allowed, no signup allowed. Admin can add user from admin page
 
 
+## Clone Directory
+
+  1. Make a python file with the following code
+  ``` python
+  from pyrobox import clone
+  clone.main()
+  ```
+  1. Run the file. Follow the instructions.
+  1. For advanced use, check the source code of `clone.py` in the `pyrobox` module.
+
+
 ## TODO
 
 * https://github.com/RaSan147/pyrobox/issues/33 Show thumbnails, for png and jpg (how to do with just standard library?), For others, just show extension.
 * https://github.com/RaSan147/pyrobox/issues/34 Copy stream URL for videos to play with any video player
 * https://github.com/RaSan147/pyrobox/issues/36 Add side bar to do something 🤔
-* check output ip and port accuracy on multiple os  
+* check output ip and port accuracy on multiple os
 * https://github.com/RaSan147/pyrobox/issues/37 Backup code if Reload causes unhandled issue and can't be accessed
 * Add more flags to disable specific features
 
@@ -177,7 +190,7 @@ usage: `pyrobox [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--
   <summary>Using WSL, "PIP not found"</summary>
 
   > Run this to install `pip3` and add `pip` to path
-  
+
   ``` bash
   sudo apt -y purge python3-pip
   sudo python3 -m pip uninstall pip
@@ -206,7 +219,7 @@ usage: `pyrobox [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--
 
 <details>
   <summary>Deleted (Move to Recycle), But WHERE ARE THEY?? [on LINUX & WSL]</summary>
-  
+
   > Actually the feature is working fine, unfortunately NO-GUI mode linux and WSL don't recycle bin, so you can't find it!
   > And to make things worse, **you need to manually clear the recyle bin** from `~/.local/share/Trash`
   > **SO I'D RECOMMAND USING DELETE PARMANENTLY**
@@ -214,11 +227,11 @@ usage: `pyrobox [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--
 
 <details>
   <summary>Running on WINDOWS, but can't access with other device [FIREWALL]</summary>
- 
+
   > You probably have **FireWall ON** and not configured.
   > For your safety, I'd recommend you to allow Python on private network and run the server when your network is Private.
   > IN SHORT: ALLOW PYTHON ON FIREWALL, RUN THE SERVER
- 
+
   > *note: allowed on private but using public network on firewall will cause similar issue, you gotta make both same or allow python both on public and private*
 </details>
 

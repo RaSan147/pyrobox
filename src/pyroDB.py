@@ -674,7 +674,7 @@ class PickleTable(dict):
 
 	def delete_file(self):
 		"""
-		Delete the file from the disk		
+		Delete the file from the disk
 		"""
 		self._pk.delete_file()
 
@@ -712,11 +712,11 @@ class PickleTable(dict):
 				x += "\n"
 				x += "\t|\t".join(str(self.row(i).values()))
 
-		else:				
+		else:
 			x = tabulate(
-				# self[:min(self.height, limit)], 
+				# self[:min(self.height, limit)],
 				self.rows(start=0, end=min(self.height, limit)),
-				headers="keys", 
+				headers="keys",
 				tablefmt= "simple_grid",
 				#"orgtbl",
 				maxcolwidths=60
@@ -783,7 +783,7 @@ class PickleTable(dict):
 		"""
 		self.rescan(rescan=rescan)
 		return self._pk.db[name].copy()
-	
+
 	def get_column(self, name) -> list:
 		"""
 		Return the list pointer to the column (unsafe)
@@ -1018,7 +1018,7 @@ class PickleTable(dict):
 		- return_obj: return cell object instead of value (default: `True`)
 		- return: cell object
 
-		ie: 
+		ie:
 		```python
 		for cell in db.search_iter("abc"):
 			print(cell.value)
@@ -1099,7 +1099,7 @@ class PickleTable(dict):
 		- return_row: return row object instead of cell object (default: `False`)
 		- return: cell object
 
-		ie: 
+		ie:
 		```python
 		for cell in db.search("abc"):
 			print(cell.value)
@@ -1142,7 +1142,7 @@ class PickleTable(dict):
 
 		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=return_obj, rescan=rescan):
 			return cell
-		
+
 	def find_1st_row(self, kw, column=None , row=None, full_match=False, return_obj=True, rescan=True) -> Union["_PickleTRow", None]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the 1st matched row object
@@ -1335,7 +1335,7 @@ class PickleTable(dict):
 		- sig: Add signal handler for graceful shutdown (default: `True`)
 		- return: new PickleTable object
 		"""
-		
+
 		new = PickleTable(location, auto_dump=auto_dump, sig=sig)
 		new.add_column(*self.column_names)
 		new._pk.db = datacopy.deepcopy(self.__db__())
@@ -1633,7 +1633,7 @@ class PickleTable(dict):
 		"""
 		Load a csv file to the table
 		- WILL OVERWRITE THE EXISTING DATA (To append, make a new table and extend)
-		- header: 
+		- header:
 			* if True, the first row will be considered as column names
 			* if False, the columns will be named as "Unnamed-1", "Unnamed-2", ...
 			* if "auto", the columns will be named as "A", "B", "C", ..., "Z", "AA", "AB", ...
@@ -1654,7 +1654,7 @@ class PickleTable(dict):
 			new_row = {k: v for k, v in zip(columns, row)}
 
 			# print(new_row)
-			
+
 			self.add_row(new_row, AD=False)
 
 
@@ -1712,7 +1712,7 @@ class PickleTable(dict):
 
 				self.add_column(new_columns, exist_ok=True, AD=False, rescan=False)
 				columns = new_columns
-				
+
 				add_row(row, columns)
 			else:
 				# count the columns, and name them as "Unnamed-1", "Unnamed-2", ...
@@ -1742,7 +1742,7 @@ class PickleTable(dict):
 
 		self.auto_dump(AD=AD)
 
-	
+
 	def extend(self, other: "PickleTable", add_extra_columns=None, AD=True):
 		"""
 		Extend the table with another table
@@ -1762,7 +1762,7 @@ class PickleTable(dict):
 
 		keys = other.column_names
 		this_keys = self.column_names
-		
+
 		if add_extra_columns:
 			self.add_column(*keys, exist_ok=True, AD=False)
 		else:
@@ -1820,7 +1820,7 @@ class PickleTable(dict):
 
 		else:
 			self.extend(table, )
-				
+
 		self.auto_dump(AD=AD)
 
 
@@ -1911,7 +1911,7 @@ class _PickleTCell:
 	@property
 	def row(self):
 		"""
-		returns a COPY row dict of the cell 
+		returns a COPY row dict of the cell
 		"""
 		return self.source.row_by_id(self.id)
 
@@ -1949,7 +1949,7 @@ class _PickleTRow(dict):
 		self.id = uid
 		self.CC = CC
 		self.deleted = False
-		
+
 	def is_deleted(self):
 		"""
 		return True if the row is deleted, else False
@@ -2028,7 +2028,7 @@ class _PickleTRow(dict):
 		self.source.raise_source(self.CC)
 
 		self.source.set_cell_by_id(name, self.id, None, AD=AD)
-		
+
 
 	def __delitem__(self, name):
 		# Auto dump
@@ -2126,7 +2126,7 @@ class _PickleTRow(dict):
 	def __ne__(self, other):
 		self.raise_deleted()
 		return not self.__eq__(other)
-		
+
 
 
 class _PickleTColumn(list):
@@ -2345,7 +2345,7 @@ class _PickleTColumn(list):
 
 	def __repr__(self):
 		self.raise_deleted()
-		
+
 		return repr(self.source.get_column(self.name))
 
 	def del_column(self):
@@ -2559,7 +2559,7 @@ if __name__ == "__main__":
 		except Exception as e:
 			print("❌ TEST [ADD] (Raise Exception Invalid type): Failed")
 			raise e
-			
+
 
 		try:
 			tb.add({"x":[1,2,3], "Y":[4,5,6,7], "Z":[1,2,3]})
@@ -2571,7 +2571,7 @@ if __name__ == "__main__":
 			print("❌ TEST [ADD dict] (Raise Exception extra column) (F): Failed")
 			raise e
 
-		
+
 		try:
 			tb.add({"x":[1,2,3], "Y":[4,5,6,7]}, add_extra_columns=True)
 			print("✅ TEST [ADD dict] (Add extra column): Passed")
@@ -2604,21 +2604,21 @@ if __name__ == "__main__":
 
 
 		print("\n\n📝 Sort test 1 (sort by x)")
-		
+
 		_update_table(tb)
 
 		tb.sort("x")
 
 		if tb.column("x") != [1, 3, 5, 7]:
 			raise Exception("❌ TEST [SORT] (sort by x): Failed")
-		
+
 		print("✅ TEST [SORT] (sort by x): Passed")
 
 		print("="*50)
 
 		print("\n\n📝 Sort test 2 (sort by Y reverse)")
 		_update_table(tb)
-		
+
 		tb.sort("Y", reverse=True)
 
 		if tb.column("Y") != [8, 6, 4, 2]:
@@ -2636,7 +2636,7 @@ if __name__ == "__main__":
 
 
 		tb.add_column("x+Y", exist_ok=True)
-		
+
 		print("📝 APPLYING COLUMN FUNCTION with row_func=True")
 		try:
 			tb["x+Y"].apply(func=lambda x: x["x"]+x["Y"], row_func=True)
@@ -2649,7 +2649,7 @@ if __name__ == "__main__":
 			raise Exception("❌ TEST [SORT] (sort by key function) {x+y}: Failed")
 
 		print("✅ TEST [SORT] (sort by key function) {x+y}: Passed")
-		
+
 		print("="*50)
 
 		print("\n\n📝 Sort test 4 (sort by key function) {x+y} (copy)")
@@ -2685,7 +2685,7 @@ if __name__ == "__main__":
 
 		print("="*50)
 
-		
+
 		print("\n\n📝 Remove duplicates test [selective column]")
 
 		tb.clear()
@@ -2794,7 +2794,7 @@ if __name__ == "__main__":
 			raise e
 
 
-			
+
 		print("\t📝 NoFile Load ['warn']")
 		# 2nd error mode on file not found
 		try:
@@ -2811,7 +2811,7 @@ if __name__ == "__main__":
 			print("\t❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='warn']: Failed (Other error)")
 			raise e
 
-			
+
 		print("\t📝 NoFile Load ['no_warning']")
 		# 4th error mode on file not found
 		try:

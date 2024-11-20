@@ -515,7 +515,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 	@classmethod
 	def allow_CORS(self, method, origin):
 		"""Add a method to the allowed list
-		
+
 		`method` = `GET`, `POST`, `PUT`, `DELETE`, `HEAD`, `OPTIONS`, `PATCH`\n
 		`origin` = `*`, `http://example.com`, `https://example.com`, `http://example.com:8080`, `https://example.com:8080`
 		"""
@@ -895,7 +895,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 	def end_headers(self):
 		"""Send the blank line ending the MIME headers."""
-		
+
 		CORS_POLICY = self.allowed_CORS(self.method)
 		if self.allowed_CORS(self.method):
 			self.send_header('Access-Control-Allow-Origin', CORS_POLICY)
@@ -1165,7 +1165,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		alternative directory handler (only handles GET and HEAD request for files)
 		"""
 		self = __class__
-		
+
 		@self.on_req(method=method, url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
 		def alt_dir_function(self: Type[__class__], *args, **kwargs):
 			"""
@@ -1173,7 +1173,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			"""
 
 			file = self.url_path.split("/")[-1]
-			
+
 			if not os.path.exists(tools.xpath(dir, file)):
 				self.send_error(HTTPStatus.NOT_FOUND, "File not found")
 				return None
@@ -1430,7 +1430,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if cache_control:
 					self.send_header("Cache-Control", cache_control)
 
-				
+
 
 				self.send_header('Accept-Ranges', 'bytes')
 
@@ -1479,7 +1479,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def send_file(self, path, filename=None, download=False, cache_control='', cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
 		file = self.return_file(path, filename, download, cache_control, cookie=cookie)
-		if not file: 
+		if not file:
 			return # already flushed (with error/unchanged)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
@@ -1545,11 +1545,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def get_rel_path(self, filename):
 		"""Return the relative path to the file, FOR WEB."""
 		return urllib.parse.unquote(posixpath.join(self.url_path, filename), errors='surrogatepass')
-	
+
 	def get_web_path(self, path:str, times=1):
 		"""replace current directory with /"""
 		return path.replace(self.directory, "/", times)
-	
+
 	def path_safety_check(self, paths:Union[str, List], *more_paths:Union[str, List]):
 		"""check if path is safe
 		paths: list of paths to check"""
@@ -1569,11 +1569,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		for path in paths:
 			if path.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in path or '\\..\\' in path or path.endswith(('/..', '\\..')):
 				return False
-			
+
 		return True
 
 
-		
+
 
 	def translate_path(self, path):
 		"""Translate a /-separated PATH to the local filename syntax.
@@ -2163,7 +2163,7 @@ def _get_details():
 
 
 
-def _log_details(force):	
+def _log_details(force):
 	data = _get_details()
 
 	port = data['port'] # same as config.port
@@ -2186,8 +2186,8 @@ def _log_details(force):
 		f"Serving HTTP on port {port} \n",
 		f"Server is probably running on\n",
 		(f"[over NETWORK] {network_address}\n" if on_network else ""),
-		f"[on DEVICE] http://localhost:{port} & http://{local_ip}:{port}", 
-		
+		f"[on DEVICE] http://localhost:{port} & http://{local_ip}:{port}",
+
 		style="star", sep=""
 	)
 	)
@@ -2316,7 +2316,7 @@ class EasyServerRunner:
 
 
 def runner(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler, force_log_server_details=False) -> EasyServerRunner:
-	
+
 	EasyServer = EasyServerRunner(
 		port=port,
 		directory=directory,

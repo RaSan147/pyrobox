@@ -36,7 +36,7 @@ from .pyrobox_ServerHost import ServerConfig, ServerHost as SH
 
 
 
-__version__ = pyroboxCore_version
+__version__ = '0.9.7'
 true = T = True
 false = F = False
 enc = "utf-8"
@@ -615,14 +615,14 @@ def get_zip_id(self: SH, *args, **kwargs):
 
 	if not user.ZIP:
 		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
-	
+
 	if not (user.DOWNLOAD and user.VIEW):
 		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
 
 	if CoreConfig.disabled_func["zip"]:
 		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
-	
-	
+
+
 	os_path = kwargs.get('path', '')
 	spathsplit = kwargs.get('spathsplit', '')
 	filename = spathsplit[-2] + ".zip"
@@ -630,14 +630,14 @@ def get_zip_id(self: SH, *args, **kwargs):
 	zid = None
 	status = False
 	message = ''
-	
+
 	try:
 		zid = zip_manager.get_id(os_path)
 		status = True
 
 	except LimitExceed:
-		message = 'Directory size limit exceed'
-		
+		message = f"DIRECTORY SIZE LIMIT EXCEED [CURRENT LIMIT: {humanbytes(Sconfig.max_zip_size)}]"
+
 	except Exception:
 		self.log_error(traceback.format_exc())
 		message = 'Failed to create zip'
@@ -663,7 +663,7 @@ def create_zip(self: SH, *args, **kwargs):
 
 	if not user.ZIP:
 		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
-	
+
 	if not (user.DOWNLOAD and user.VIEW):
 		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
 
@@ -691,7 +691,7 @@ def create_zip(self: SH, *args, **kwargs):
 	data = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 											PY_PUBLIC_URL=CoreConfig.address(),
 											PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
-	
+
 	return self.return_txt(data, cookie=cookie)
 
 
@@ -707,7 +707,7 @@ def get_zip(self: SH, *args, **kwargs):
 
 	if not user.ZIP:
 		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
-	
+
 	if not (user.DOWNLOAD and user.VIEW):
 		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
 
@@ -1290,7 +1290,7 @@ def upload(self: SH, *args, **kwargs):
 
 
 		rltv_path = xpath(url_path, fn) # relative path (must be url path with / separator)
-		
+
 		if not self.path_safety_check(fn, rltv_path):
 			return self.send_txt("Invalid Path:  " + rltv_path, HTTPStatus.BAD_REQUEST, cookie=cookie)
 
@@ -1390,10 +1390,10 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 
 	rel_path = self.get_rel_path(filename)
-	
+
 	if not self.path_safety_check(filename, rel_path):
 		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
-	
+
 	os_f_path = self.translate_path(xpath(url_path, filename))
 
 	self.log_warning(f'<-send2trash-> {os_f_path} by {[uid]}')
@@ -1772,7 +1772,7 @@ def run(*args, **kwargs):
 			print(url.terminal('black', 'white', quiet_zone=1))
 		except Exception as e:
 			logger.error(f"Error generating QR code: {e}")
-			
+
 
 	runner.run()
 

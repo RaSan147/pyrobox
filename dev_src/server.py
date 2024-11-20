@@ -36,7 +36,7 @@ from pyrobox_ServerHost import ServerConfig, ServerHost as SH
 
 
 
-__version__ = pyroboxCore_version
+__version__ = '0.9.7'
 true = T = True
 false = F = False
 enc = "utf-8"
@@ -636,7 +636,7 @@ def get_zip_id(self: SH, *args, **kwargs):
 		status = True
 
 	except LimitExceed:
-		message = 'Directory size limit exceed'
+		message = f"DIRECTORY SIZE LIMIT EXCEED [CURRENT LIMIT: {humanbytes(Sconfig.max_zip_size)}]"
 		
 	except Exception:
 		self.log_error(traceback.format_exc())

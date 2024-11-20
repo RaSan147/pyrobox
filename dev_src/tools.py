@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 from typing import Generator, List, Union
-
+import mimetypes
 
 def get_codec():
 	# return "libx264"
@@ -121,7 +121,7 @@ def os_scan_walk_gen(*path, allow_dir=False) -> Generator[os.DirEntry, None, Non
 def os_scan_walk(*path, allow_dir=False) -> List[os.DirEntry]:
 	"""
 	Iterate through a directory and its subdirectories
-	and `yield` the filePath object of each Files and Folders*.
+	and return a list of the filePath object of each Files and Folders*.
 
 	path: path to the directory
 	allow_dir: if True, will also yield directories
@@ -134,12 +134,16 @@ def os_scan_walk(*path, allow_dir=False) -> List[os.DirEntry]:
 
 	return files
 
-	
 
 def is_file(*path):
 	return os.path.isfile(xpath(*path))
 	
 	
+def is_filetype(*path, ext_type):
+	path = xpath(*path)
+	mime = mimetypes.guess_type(path)[0]
+	return is_file(path) and mime and mime.split('/')[0] == ext_type
+
 class Text_Box:
 	def __init__(self):
 		self.styles = {

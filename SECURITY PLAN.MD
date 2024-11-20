@@ -9,7 +9,7 @@
 ------
 
 ## stream-url:
-Users can create stream-url . This will **allow nonblocking access to the file** and file only. So, anyone with force flag need to use stream-url to download file with IDM or stream .mkv file on VLC . 
+Users can create stream-url . This will **allow nonblocking access to the file** and file only. So, anyone with force flag need to use stream-url to download file with IDM or stream .mkv file on VLC .
 
 **Format:** `/stream?id=(5alphanumerical)` [60M links]
 
