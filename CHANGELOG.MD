@@ -1,3 +1,11 @@
+# Version 0.9.8
+  ## HOTFIX:
+  * **Core** updated core with python 3.12 http.server guidelines (escaping control characters)
+  * **Server** Now using better temp directory.
+  * **Server** `?folder_data` json used to escape character causing `&` -> `& amp;` in folder name
+  * **Server** Improved Zfunction and better logging
+  * **Server** Fixed 7z issue since 7z subprocess took ns time to start (but main thread assumed it was done)
+
 # Version 0.9.7
   ## HOTFIX:
   * Fixed requests requirement in the list

@@ -31,7 +31,6 @@ import uuid
 from pyroboxCore import config as CoreConfig, logger, DealPostData as DPD, runner as pyroboxRunner, tools, reload_server, __version__ as pyroboxCore_version
 
 from tools import xpath, EXT, make_dir, os_scan_walk, is_file, Text_Box
-
 from pyrobox_ServerHost import ServerConfig, ServerHost as SH
 
 
@@ -1050,7 +1049,7 @@ def get_folder_data(self: SH, *args, **kwargs):
 
 		})
 
-	data = list_directory(self, os_path, user, cookie=cookie)
+	data = list_directory(self, os_path, user, cookie=cookie, escape_html=False)
 
 	if data:
 		return self.send_json(data, cookie=cookie)

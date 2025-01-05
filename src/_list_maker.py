@@ -215,7 +215,7 @@ def list_directory_html(self:SH, path, user:User, cookie:Union[SimpleCookie, str
 
 
 
-def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=None):
+def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=None, escape_html=False):
 	"""
 	Helper to produce a directory listing (absent index.html).
 
@@ -223,6 +223,10 @@ def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=Non
 	error).  In either case, the headers are sent, making the
 	interface the same as for send_head().
 
+	path: path to the directory
+	user: User object
+	cookie: cookie object
+	escape_html: whether to escape html or not (default: False, since it will be sent as json)
 	"""
 	try:
 		dir_list = scansort(os.scandir(path))
@@ -232,7 +236,10 @@ def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=Non
 			"No permission to list directory")
 		return None
 
-	displaypath = self.get_displaypath(self.url_path)
+	displaypath = self.get_displaypath(
+		url_path=self.url_path,
+		escape_html=escape_html
+	)
 
 
 	title = get_titles(displaypath)
@@ -252,6 +259,9 @@ def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=Non
 		#fullname = os.path.join(path, name)
 		name = file.name
 		displayname = linkname = name
+
+		if escape_html:
+			displayname = html.escape(displayname, quote=False)
 		size=0
 		# Append / for directories or @ for symbolic links
 		_is_dir_ = True
@@ -266,22 +276,22 @@ def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=Non
 			__, ext = posixpath.splitext(name)
 			if ext=='.html':
 				r_li.append('h'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
+				f_li.append(displayname)
 
 			elif self.guess_type(linkname).startswith('video/'):
 				r_li.append('v'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
+				f_li.append(displayname)
 
 			elif self.guess_type(linkname).startswith('image/'):
 				r_li.append('i'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
+				f_li.append(displayname)
 
 			else:
 				r_li.append('f'+ urllib.parse.quote(linkname, errors='surrogatepass'))
-				f_li.append(html.escape(displayname, quote=False))
+				f_li.append(displayname)
 		if _is_dir_:
 			r_li.append('d' + urllib.parse.quote(linkname, errors='surrogatepass'))
-			f_li.append(html.escape(displayname, quote=False))
+			f_li.append(displayname)
 
 		s_li.append(size)
 

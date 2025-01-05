@@ -247,7 +247,7 @@ def main():
 
 	check_exist = "date+"
 	o = None
-	while not o:
+	while o not in ["date", "date+", "size", ""]:
 		o = input("""Check exist? [Default: date+]
 date: download if remote file is update time same as local file
 date+: download if remote file is newer or same as local file (ignored if local file is newer)
@@ -255,13 +255,17 @@ size: download if remote file size is different from local file
 >>> """)
 		if o in ["date", "date+", "size"]:
 			check_exist = o
-		else:
-			o = None
+		if o == "":
+			check_exist = "date+"
 
 	delete_extras = False
-	o = input("Delete extras? (y/n) [Default: n]: ")
-	if o.lower() == "y":
-		delete_extras = True
+
+	o = None
+	while o not in ["y", "n", ""]:
+		o = input("Delete extras? (y/n) [Default: n]: ")
+		if o.lower() == "y":
+			delete_extras = True
+	
 
 	cloner = Cloner()
 

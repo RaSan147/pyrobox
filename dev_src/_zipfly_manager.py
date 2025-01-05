@@ -17,6 +17,10 @@ import threading
 from collections import OrderedDict
 import re
 
+from logging import Logger
+
+logger = Logger(__name__)
+
 
 
 from _fs_utils import get_dir_m_time, _get_tree_path_n_size, humanbytes
@@ -302,6 +306,9 @@ class zip7z:
 		t = threading.Thread(target=process_thread)
 		t.start()
 
+		time.sleep(0.2)
+
+
 		while self.running_process:
 			if self.running_process.stdout is None:
 				break
@@ -499,7 +506,7 @@ class ZIP_Manager:
 
 		try:
 			for progress in zip7z_obj.make_zip_with_7z_generator(path, zfile_name):
-				print([progress])
+				logger.info(f"Zipping {[path]}: {[progress]}")
 				self.zip_in_progress[zid] = int(progress[:-1])
 		except Exception as e:
 			traceback.print_exc()

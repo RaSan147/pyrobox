@@ -38,11 +38,13 @@
 
 
 import io
+import json
 import os
 import signal
 import atexit
 import shutil
 from collections.abc import Iterable
+import sys
 import time
 import random
 from tempfile import NamedTemporaryFile
@@ -66,6 +68,13 @@ except ImportError:
 	TABLE = False
 
 try:
+	# Check if msgpack is installed
+
+	# Check if GIL is enabled (Now available in msgpack-1.1.0-cp313-cp313t-win_amd64.whl)
+	if not getattr(sys, '_is_gil_enabled', lambda: True)():
+		os.environ["MSGPACK_PUREPYTHON"] = "1"
+		# msgpack is not thread safe (yet)
+		
 	import msgpack # pip install msgpack
 	SAVE_LOAD = True
 except ImportError:
@@ -107,6 +116,8 @@ class PickleDB(object):
 		self.sig = sig
 		if sig:
 			self.set_sigterm_handler()
+
+		self._autodumpdb()
 
 	def __getitem__(self, item):
 		"""
@@ -576,10 +587,10 @@ def _int_to_alpha(n):
 	return string
 
 class PickleTable(dict):
-	def __init__(self, file_path="", *args, **kwargs):
+	def __init__(self, filepath="", *args, **kwargs):
 		"""
 		args:
-		- filename: path to the db file (default: `""` or in-memory db)
+		- filepath: path to the db file (default: `""` or in-memory db)
 		- auto_dump: auto dump on change (default: `True`)
 		- sig: Add signal handler for graceful shutdown (default: `True`)
 		"""
@@ -590,7 +601,7 @@ class PickleTable(dict):
 
 
 		self.busy = False
-		self._pk = PickleDB(file_path, *args, **kwargs)
+		self._pk = PickleDB(location=filepath, *args, **kwargs)
 
 		# make the super dict = self._pk.db
 
@@ -674,7 +685,7 @@ class PickleTable(dict):
 
 	def delete_file(self):
 		"""
-		Delete the file from the disk
+		Delete the file from the disk		
 		"""
 		self._pk.delete_file()
 
@@ -710,13 +721,13 @@ class PickleTable(dict):
 			x += "\t|\t".join(self.column_names_func(rescan=False))
 			for i in range(min(self.height, limit)):
 				x += "\n"
-				x += "\t|\t".join(str(self.row(i).values()))
+				x += "\t|\t".join([str(cell) if cell is not None else '' for cell in self.row(i).values()])
 
-		else:
+		else:				
 			x = tabulate(
-				# self[:min(self.height, limit)],
+				# self[:min(self.height, limit)], 
 				self.rows(start=0, end=min(self.height, limit)),
-				headers="keys",
+				headers="keys", 
 				tablefmt= "simple_grid",
 				#"orgtbl",
 				maxcolwidths=60
@@ -783,7 +794,7 @@ class PickleTable(dict):
 		"""
 		self.rescan(rescan=rescan)
 		return self._pk.db[name].copy()
-
+	
 	def get_column(self, name) -> list:
 		"""
 		Return the list pointer to the column (unsafe)
@@ -1018,7 +1029,7 @@ class PickleTable(dict):
 		- return_obj: return cell object instead of value (default: `True`)
 		- return: cell object
 
-		ie:
+		ie: 
 		```python
 		for cell in db.search_iter("abc"):
 			print(cell.value)
@@ -1099,7 +1110,7 @@ class PickleTable(dict):
 		- return_row: return row object instead of cell object (default: `False`)
 		- return: cell object
 
-		ie:
+		ie: 
 		```python
 		for cell in db.search("abc"):
 			print(cell.value)
@@ -1142,7 +1153,7 @@ class PickleTable(dict):
 
 		for cell in self.search_iter(kw, column=column , row=row, full_match=full_match, return_obj=return_obj, rescan=rescan):
 			return cell
-
+		
 	def find_1st_row(self, kw, column=None , row=None, full_match=False, return_obj=True, rescan=True) -> Union["_PickleTRow", None]:
 		"""
 		search a keyword in a cell/row/column/entire sheet and return the 1st matched row object
@@ -1335,7 +1346,7 @@ class PickleTable(dict):
 		- sig: Add signal handler for graceful shutdown (default: `True`)
 		- return: new PickleTable object
 		"""
-
+		
 		new = PickleTable(location, auto_dump=auto_dump, sig=sig)
 		new.add_column(*self.column_names)
 		new._pk.db = datacopy.deepcopy(self.__db__())
@@ -1384,7 +1395,7 @@ class PickleTable(dict):
 		return self.row_obj_by_id(row_id)
 
 
-	def add_row(self, row:Union[dict, "_PickleTRow"], position="last", AD=True) -> "_PickleTRow":
+	def add_row(self, row:Union[dict, "_PickleTRow"], position="last", AD=True, rescan=True) -> "_PickleTRow":
 		"""
 		@ locked
 		- row: row must be a dict|_PickleTRow containing column names and values
@@ -1399,7 +1410,7 @@ class PickleTable(dict):
 		```
 		"""
 
-		row_obj = self.lock(self._add_row)(row=row,position=position)
+		row_obj = self.lock(self._add_row)(row=row,position=position, rescan=rescan)
 
 		self.auto_dump(AD=AD)
 
@@ -1426,7 +1437,7 @@ class PickleTable(dict):
 
 
 
-	def add_row_as_list(self, row:list, position:int="last", AD=True) -> "_PickleTRow":
+	def add_row_as_list(self, row:list, position:int="last", AD=True, rescan=True) -> "_PickleTRow":
 		"""
 		@ locked
 		- row: row must be a list containing values. (order must match with column names)
@@ -1440,7 +1451,7 @@ class PickleTable(dict):
 		db.add_row_as_list(["John", 25])
 		"""
 
-		row_obj = self.lock(self._add_row)(row={k:v for k, v in zip(self.column_names, row)}, position=position)
+		row_obj = self.lock(self._add_row)(row={k:v for k, v in zip(self.column_names, row)}, position=position, rescan=rescan)
 
 		self.auto_dump(AD=AD)
 
@@ -1578,24 +1589,141 @@ class PickleTable(dict):
 		"""
 		self._pk._autodumpdb(AD=AD)
 
+	def to_json(self, filepath=None, indent=4, format=list) -> str:
+		"""
+		Write the table to a json file
+		- filepath: path to the file (if None, use current filepath.json) (if in memory and not provided, uses "table.json")
+		- indent: indentation level (default: 4 spaces)
+		- format: format of the json file (default: list) [options: list|dict]
+			- list: list of rows [{col1: val1, col2: val2, ...}, ...]
+			- dict: dict of columns {col1: [val1, val2, ...], col2: [val1, val2, ...], ...}
 
-	def to_csv(self, filename=None, write_header=True) -> str:
+		- return: path to the file
+		"""
+		if filepath is None:
+			# check filepath
+			path = self._pk.location
+			if not path:
+				path = "table.json"
+			else:
+				path = os.path.splitext(path)[0] + ".json"
+		else:
+			path = filepath
+
+
+		# write to file
+		with open(path, "w", encoding='utf8') as f:
+			if format == dict or format == 'dict':
+				json.dump(self.__db__(), f, indent=indent)
+			elif format == list or format == 'list':
+				json.dump(list(self.rows()), f, indent=indent)
+			else:
+				raise AttributeError("Invalid format. [expected: list|dict] [got:", format, "]")
+
+		return os.path.realpath(path)
+
+	def to_json_str(self, indent=4) -> str:
+		"""
+		Return the table as a json string
+		"""
+		return json.dumps(self.__db__(), indent=indent)
+
+	def load_json(self, filepath=None, iostream=None, json_str=None, ignore_new_headers=False, on_file_not_found='error', AD=True):
+		"""
+		Load a json file to the table
+		- WILL OVERWRITE THE EXISTING DATA (To append, make a new table and extend)
+		- filepath: path to the file
+		- ignore_new_headers: ignore new headers|columns if found `[when header=True]` (default: `False` and will add new headers)
+		- on_file_not_found: action to take if the file is not found (default: `'error'`) [options: `error`|`ignore`|`warn`|`no_warning`]
+			* if `error`, raise FileNotFoundError
+			* if `ignore`, ignore the operation (no warning, **no clearing**)
+			* if `no_warning`, ignore the operation, but **clears db**
+			* if `warn`, print warning and ignore the operation, but **clears db**
+		"""
+		
+		# if more than one source is provided
+		sources = [i for i in [filepath, iostream, json_str] if i]
+		if len(sources) > 1:
+			raise AttributeError(f"Only one source is allowed. Got: {len(sources)}")
+
+		# if no source is provided
+		if not sources:
+			raise AttributeError("No source provided")
+
+		if json_str:
+			# load it as io stream
+			iostream = io.StringIO(json_str)
+
+		if not ((filepath and os.path.isfile(filepath))	or (iostream and  isinstance(iostream, io.IOBase))):
+			if on_file_not_found == 'error':
+				raise FileNotFoundError(f"File not found: {filepath}")
+
+			elif on_file_not_found == 'ignore':
+				return
+			else:
+				self.clear(AD=AD)
+				if on_file_not_found == 'warn':
+					print(f"File not found: {filepath}. Cleared the table.")
+				if on_file_not_found == 'no_warning':
+					pass
+
+				return
+
+		self.clear(AD=False)
+
+		def load_as_io(f):
+			return json.load(f)
+
+		if iostream:
+			data = load_as_io(iostream)
+		else:
+			with open(filepath, "r", encoding='utf8') as f:
+				data = load_as_io(f)
+
+		# print(data)
+
+		if not data:
+			return
+
+		existing_columns = self.column_names_func(rescan=False)
+
+		if isinstance(data, dict):
+			# column names are keys
+			self.add(table=data, 
+				add_extra_columns=ignore_new_headers, 
+				AD=AD
+			)
+
+		elif isinstance(data, list):
+			# per row
+			for row in data:
+				if not ignore_new_headers:
+					for col in row:
+						if col not in existing_columns:
+							self.add_column(col, exist_ok=True, AD=False, rescan=False)
+
+				self._add_row(row, rescan=False)
+
+		self.auto_dump(AD=AD)
+
+
+	def to_csv(self, filepath=None, write_header=True) -> str:
 		"""
 		Write the table to a csv file
-		- filename: path to the file (if None, use current filename.csv) (if in memory and not provided, uses "table.csv")
+		- filepath: path to the file (if None, use current filepath.csv) (if in memory and not provided, uses "table.csv")
 		- write_header: write column names as header (1st row) (default: `True`)
 
 		- return: path to the file
 		"""
-		if filename is None:
-			# check filename
+		if filepath is None:
+			# check filepath
 			path = self._pk.location
 			if not path:
 				path = "table.csv"
 			else:
 				path = os.path.splitext(path)[0] + ".csv"
 		else:
-			path = filename
+			path = filepath
 
 		with open(path, "wb") as f:
 			f.write(b'')
@@ -1613,6 +1741,8 @@ class PickleTable(dict):
 
 		return os.path.realpath(path)
 
+	
+
 	def to_csv_str(self, write_header=True) -> str:
 		"""
 		Return the table as a csv string
@@ -1629,16 +1759,19 @@ class PickleTable(dict):
 
 		return output.getvalue()
 
-	def load_csv(self, filename, header=True, ignore_none=False, ignore_new_headers=False, on_file_not_found='error', AD=True):
+	def load_csv(self, filepath=None, iostream=None, csv_str=None,
+	header=True, ignore_none=False, ignore_new_headers=False, on_file_not_found='error', AD=True):
 		"""
 		Load a csv file to the table
 		- WILL OVERWRITE THE EXISTING DATA (To append, make a new table and extend)
-		- header:
+		- filepath: path to the file
+		- iostream: io stream object (use either filepath or iostream)
+		- header: 
 			* if True, the first row will be considered as column names
 			* if False, the columns will be named as "Unnamed-1", "Unnamed-2", ...
 			* if "auto", the columns will be named as "A", "B", "C", ..., "Z", "AA", "AB", ...
 		- ignore_none: ignore the None rows
-		- ignore_new_headers: ignore new headers if found `[when header=True]` (default: `False`)
+		- ignore_new_headers: ignore new headers if found `[when header=True]` (default: `False` and will add new headers)
 		- on_file_not_found: action to take if the file is not found (default: `'error'`) [options: `error`|`ignore`|`warn`|`no_warning`]
 			* if `error`, raise FileNotFoundError
 			* if `ignore`, ignore the operation (no warning, **no clearing**)
@@ -1648,26 +1781,36 @@ class PickleTable(dict):
 		columns_names = self.column_names
 
 		def add_row(row, columns):
-			if ignore_none and all(v is None for v in row):
+			if ignore_none and all((v is None or v == '') for v in row):
 				return
 
 			new_row = {k: v for k, v in zip(columns, row)}
+			
+			self.add_row(new_row, rescan=False)
 
-			# print(new_row)
+		# if more than one source is provided
+		sources = [i for i in [filepath, iostream, csv_str] if i]
+		if len(sources) > 1:
+			raise AttributeError(f"Only one source is allowed. Got: {len(sources)}")
 
-			self.add_row(new_row, AD=False)
+		if not sources:
+			raise AttributeError("No source provided")
+
+		if csv_str:
+			# load it as io stream
+			iostream = io.StringIO(csv_str)
 
 
-
-		if not os.path.exists(filename):
+		if not ((filepath and os.path.isfile(filepath)) or (iostream and  isinstance(iostream, io.IOBase))):
 			if on_file_not_found == 'error':
-				raise FileNotFoundError(f"File not found: {filename}")
+				raise FileNotFoundError(f"File not found: {filepath}")
+
 			elif on_file_not_found == 'ignore':
 				return
 			else:
 				self.clear(AD=AD)
 				if on_file_not_found == 'warn':
-					print(f"File not found: {filename}")
+					print(f"File not found: {filepath}. Cleared the table.")
 				if on_file_not_found == 'no_warning':
 					pass
 
@@ -1675,12 +1818,15 @@ class PickleTable(dict):
 
 		self.clear(AD=False)
 
-		with open(filename, 'r', encoding='utf8') as f:
+
+		def load_as_io(f):
 			reader = csv.reader(f)
 			if header is True:
 				columns = next(reader)
 				updated_columns = []
 				n = len(self.column_names_func(rescan=False))
+
+				
 				for col in columns:
 					if (col is None or col == ""):
 						while f"Unnamed-{n}" in columns_names:
@@ -1688,12 +1834,15 @@ class PickleTable(dict):
 						col = f"Unnamed-{n}"
 						n += 1
 
-					if col in columns_names or col in updated_columns:
+					if not (col in columns_names):
 						if ignore_new_headers:
+							continue
+						if col in updated_columns:
 							continue
 					updated_columns.append(col)
 
 				columns = updated_columns
+
 
 				# print(updated_columns)
 				self.add_column(updated_columns, exist_ok=True, AD=False, rescan=False)
@@ -1712,8 +1861,8 @@ class PickleTable(dict):
 
 				self.add_column(new_columns, exist_ok=True, AD=False, rescan=False)
 				columns = new_columns
-
-				add_row(row, columns)
+				
+				add_row(row, columns) # add the first row
 			else:
 				# count the columns, and name them as "Unnamed-1", "Unnamed-2", ...
 				row = next(reader)
@@ -1731,7 +1880,7 @@ class PickleTable(dict):
 				self.add_column(new_columns, exist_ok=True, AD=False, rescan=False)
 				columns = new_columns
 
-				add_row(row, columns)
+				add_row(row, columns) # add the first row
 
 
 
@@ -1740,10 +1889,17 @@ class PickleTable(dict):
 			for row in reader:
 				add_row(row, columns)
 
+		if filepath:
+			with open(filepath, 'r', encoding='utf8') as f:
+				load_as_io(f)
+		elif iostream:
+			load_as_io(iostream)
+
+
 		self.auto_dump(AD=AD)
 
-
-	def extend(self, other: "PickleTable", add_extra_columns=None, AD=True):
+	
+	def extend(self, other: "PickleTable", add_extra_columns=None, AD=True, rescan=True):
 		"""
 		Extend the table with another table
 		- other: `PickleTable` object
@@ -1760,9 +1916,11 @@ class PickleTable(dict):
 		if not isinstance(other, type(self)):
 			raise TypeError("Unsupported operand type(s) for +: 'PickleTable' and '{}'".format(type(other).__name__))
 
+		self.rescan(rescan=rescan)
+
 		keys = other.column_names
 		this_keys = self.column_names
-
+		
 		if add_extra_columns:
 			self.add_column(*keys, exist_ok=True, AD=False)
 		else:
@@ -1775,7 +1933,7 @@ class PickleTable(dict):
 
 
 		for row in other:
-			self._add_row({k: row[k] for k in keys})
+			self._add_row({k: row[k] for k in keys}, rescan=False)
 
 		self.auto_dump(AD=AD)
 
@@ -1820,10 +1978,8 @@ class PickleTable(dict):
 
 		else:
 			self.extend(table, )
-
+				
 		self.auto_dump(AD=AD)
-
-
 
 
 class _PickleTCell:
@@ -1911,7 +2067,7 @@ class _PickleTCell:
 	@property
 	def row(self):
 		"""
-		returns a COPY row dict of the cell
+		returns a COPY row dict of the cell 
 		"""
 		return self.source.row_by_id(self.id)
 
@@ -1949,7 +2105,7 @@ class _PickleTRow(dict):
 		self.id = uid
 		self.CC = CC
 		self.deleted = False
-
+		
 	def is_deleted(self):
 		"""
 		return True if the row is deleted, else False
@@ -2028,7 +2184,7 @@ class _PickleTRow(dict):
 		self.source.raise_source(self.CC)
 
 		self.source.set_cell_by_id(name, self.id, None, AD=AD)
-
+		
 
 	def __delitem__(self, name):
 		# Auto dump
@@ -2126,7 +2282,7 @@ class _PickleTRow(dict):
 	def __ne__(self, other):
 		self.raise_deleted()
 		return not self.__eq__(other)
-
+		
 
 
 class _PickleTColumn(list):
@@ -2345,7 +2501,7 @@ class _PickleTColumn(list):
 
 	def __repr__(self):
 		self.raise_deleted()
-
+		
 		return repr(self.source.get_column(self.name))
 
 	def del_column(self):
@@ -2390,6 +2546,7 @@ class _PickleTColumn(list):
 			return self
 
 		return ret
+
 
 
 
@@ -2473,7 +2630,7 @@ if __name__ == "__main__":
 		dt = time.perf_counter()
 		tb.dump()
 		tt = time.perf_counter()
-		print(f"⏱️ DUMP time: {tt-dt}s")
+		print(f"⏱️ [IN-MEMORY] DUMP time: {tt-dt}s")
 
 		print("="*50)
 
@@ -2491,16 +2648,10 @@ if __name__ == "__main__":
 
 		# for cell in cells:
 		# 	print(cell.row_obj())
-		print(tabulate(cells, headers="keys", tablefmt="simple_grid"))
-
-
-		print("="*50)
-		print("\n\n📝 TEST convert to CSV")
-		st = time.perf_counter()
-		tb.to_csv(f"test{st}.csv")
-		et = time.perf_counter()
-		print(f"⏱️ Convert to csv test in {et - st}s")
-		os.remove(f"test{st}.csv")
+		if TABLE:
+			print(tabulate(cells, headers="keys", tablefmt="simple_grid"))
+		else:
+			print(cells, sep="\n")
 
 
 		print("="*50)
@@ -2559,7 +2710,7 @@ if __name__ == "__main__":
 		except Exception as e:
 			print("❌ TEST [ADD] (Raise Exception Invalid type): Failed")
 			raise e
-
+			
 
 		try:
 			tb.add({"x":[1,2,3], "Y":[4,5,6,7], "Z":[1,2,3]})
@@ -2571,7 +2722,7 @@ if __name__ == "__main__":
 			print("❌ TEST [ADD dict] (Raise Exception extra column) (F): Failed")
 			raise e
 
-
+		
 		try:
 			tb.add({"x":[1,2,3], "Y":[4,5,6,7]}, add_extra_columns=True)
 			print("✅ TEST [ADD dict] (Add extra column): Passed")
@@ -2604,21 +2755,21 @@ if __name__ == "__main__":
 
 
 		print("\n\n📝 Sort test 1 (sort by x)")
-
+		
 		_update_table(tb)
 
 		tb.sort("x")
 
 		if tb.column("x") != [1, 3, 5, 7]:
 			raise Exception("❌ TEST [SORT] (sort by x): Failed")
-
+		
 		print("✅ TEST [SORT] (sort by x): Passed")
 
 		print("="*50)
 
 		print("\n\n📝 Sort test 2 (sort by Y reverse)")
 		_update_table(tb)
-
+		
 		tb.sort("Y", reverse=True)
 
 		if tb.column("Y") != [8, 6, 4, 2]:
@@ -2636,7 +2787,7 @@ if __name__ == "__main__":
 
 
 		tb.add_column("x+Y", exist_ok=True)
-
+		
 		print("📝 APPLYING COLUMN FUNCTION with row_func=True")
 		try:
 			tb["x+Y"].apply(func=lambda x: x["x"]+x["Y"], row_func=True)
@@ -2649,7 +2800,7 @@ if __name__ == "__main__":
 			raise Exception("❌ TEST [SORT] (sort by key function) {x+y}: Failed")
 
 		print("✅ TEST [SORT] (sort by key function) {x+y}: Passed")
-
+		
 		print("="*50)
 
 		print("\n\n📝 Sort test 4 (sort by key function) {x+y} (copy)")
@@ -2685,7 +2836,7 @@ if __name__ == "__main__":
 
 		print("="*50)
 
-
+		
 		print("\n\n📝 Remove duplicates test [selective column]")
 
 		tb.clear()
@@ -2743,6 +2894,37 @@ if __name__ == "__main__":
 		tb.add_column("x", exist_ok=True) # bring back the column
 		print("="*50)
 
+
+		
+		print("="*50)
+		print("\n\n📝 TEST convert to CSV")
+
+		CSV_tb = PickleTable()
+		CSV_tb.add_column("x", exist_ok=True)
+		CSV_tb.add_column("Y", exist_ok=True)
+
+		CSV_tb.add_row({"x":1, "Y":2})
+		CSV_tb.add_row({"x":3, "Y":None})
+		CSV_tb.add_row({"x":"5,5", "Y":6})
+
+		st = time.perf_counter()
+		CSV_tb.to_csv(f"test{st}.csv")
+		et = time.perf_counter()
+		print(f"⏱️ Convert to csv test in {et - st}s")
+
+		with open(f"test{st}.csv", "r") as f:
+			text = f.read()
+
+		if text != """x,Y
+1,2
+3,
+"5,5",6
+""":
+			raise Exception("❌ TEST [CONVERT TO CSV]: Failed (Data Mismatch)")
+		os.remove(f"test{st}.csv")
+
+		print("="*50)
+
 		print("\n\n📝 Load csv test")
 
 		tb.clear()
@@ -2751,26 +2933,137 @@ if __name__ == "__main__":
 		print(tb)
 		print(tb.column_names)
 
+		csv_test_data = """x,Y\n1,2\n3,4\n5,6\n"""
+		csv_test_iostream = io.StringIO(csv_test_data)
+
 		# make a csv file
 		with open("test.csv", "w") as f:
-			f.write("x,Y\n1,2\n3,4\n5,6\n")
+			f.write(csv_test_data)
 
-		print("\t📝 Normal Load")
+		print("\t📝 Normal Load [from File 📄 ]")
 		try:
 			tb.load_csv("test.csv")
 		except Exception as e:
-			print("❌ TEST [LOAD CSV]: Failed (Other error)")
+			print("❌ TEST [LOAD CSV][Normal Load][from File 📄 ]: Failed (Other error)")
 			raise e
 		if tb.height != 3 or tb.column("x") != ['1', '3', '5']:
 			print(tb)
 			print(tb.column("x"), tb.column('x')==[1, 3, 5])
 			print(tb.height, tb.height==3)
-			raise Exception("❌ TEST [LOAD CSV]: Failed")
+			raise Exception("❌ TEST [LOAD CSV][Normal Load][from File 📄 ]: Failed")
 
-		print("\t✅ TEST [LOAD CSV][Normal Load]: Passed")
+		print("\t✅ TEST [LOAD CSV][Normal Load][from File 📄 ]: Passed")
+
+		print("\t📝 Normal Load [from CSV string 🧵 ]")
+		tb.clear()
+
+		tb.load_csv(csv_str=csv_test_data)
+
+		if tb.height != 3 or tb.column("x") != ['1', '3', '5']:
+			print(tb)
+			print(tb.column("x"), tb.column('x')==[1, 3, 5])
+			print(tb.height, tb.height==3)
+			raise Exception("❌ TEST [LOAD CSV][Normal Load][from CSV string 🧵 ]: Failed")
+
+		print("\t✅ TEST [LOAD CSV][Normal Load][from CSV string 🧵 ]: Passed")
+
+		print("\t📝 Normal Load [From IOstream 🪡 ]")
+		tb.clear()
+
+		tb.load_csv(iostream=csv_test_iostream)
+
+		if tb.height != 3 or tb.column("x") != ['1', '3', '5']:
+			print(tb)
+			print(tb.column("x"), tb.column('x')==[1, 3, 5])
+			print(tb.height, tb.height==3)
+			raise Exception("❌ TEST [LOAD CSV][Normal Load][From IOstream 🪡 ]: Failed")
+
+		print("\t✅ TEST [LOAD CSV][Normal Load][From IOstream 🪡 ]: Passed")
+
+		print("\t📝 Multiple source [filepath+csv_str]['error']")
+		tb.clear()
+		# 1st error mode on multiple source
+		try:
+			tb.load_csv(filepath="test.csv", csv_str=csv_test_data)
+			raise Exception("❌ TEST [LOAD CSV][Multiple source]: Failed")
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD CSV][Multiple source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD CSV][Multiple source]: Failed (Other error)")
+			raise e
+
+		
+		print("\t📝 Multiple source [filepath+iostream]['error']")
+		# 2nd error mode on multiple source
+		tb.clear()
+		try:
+			tb.load_csv(filepath="test.csv", iostream=csv_test_iostream)
+			raise Exception("❌ TEST [LOAD CSV][Multiple source]: Failed")
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD CSV][Multiple source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD CSV][Multiple source]: Failed (Other error)")
+			raise e
+
+		print("\t📝 Multiple source [iostream+csv_str]['error']")
+		# 3rd error mode on multiple source
+		tb.clear()
+		try:
+			tb.load_csv(iostream=csv_test_iostream, csv_str=csv_test_data)
+			raise Exception("❌ TEST [LOAD CSV][Multiple source]: Failed")
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD CSV][Multiple source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD CSV][Multiple source]: Failed (Other error)")
+			raise e
+
+		print("\t📝 Multiple source [filepath+csv_str+iostream]['error']")
+		# 4th error mode on multiple source
+		tb.clear()
+		try:
+			tb.load_csv(filepath="test.csv", csv_str=csv_test_data, iostream=csv_test_iostream)
+			raise Exception("❌ TEST [LOAD CSV][Multiple source]: Failed")
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD CSV][Multiple source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD CSV][Multiple source]: Failed (Other error)")
+			raise e
+
+		print("\t📝 No source []['error']")
+		# 5th error mode on no source
+		tb.clear()
+		try:
+			tb.load_csv()
+			raise Exception("❌ TEST [LOAD CSV][No source]: Failed")
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD CSV][No source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD CSV][No source]: Failed (Other error)")
+			raise e
+
+
+
+
+
+
 
 		print("\t📝 NoFile Load ['error']")
 		# 1st error mode on file not found
+		tb.clear()
+		tb.add_row({"x":1, "Y":2})
+		tb.add_row({"x":3, "Y":4})
+		tb.add_row({"x":5, "Y":6})
+
 		try:
 			tb.load_csv(f"test-{random.random()}.csv", on_file_not_found="error")
 			raise Exception("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='error']: Failed")
@@ -2778,25 +3071,15 @@ if __name__ == "__main__":
 			print("\t✅ TEST [LOAD CSV][NoFile Load]['error'][on_file_not_found='error']: Passed")
 			print("\tError message = ", e)
 
-		print("\t📝 NoFile Load ['ignore']")
-		# 3rd error mode on file not found
-		try:
-			tb.load_csv(f"test-{random.random()}.csv", on_file_not_found="ignore")
-			if tb.height != 3 or tb.column("x") != ['1', '3', '5']:
-				raise Exception("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='ignore']: Failed")
-			print("\t✅ TEST [LOAD CSV][NoFile Load]['ignore'][on_file_not_found='ignore']: Passed")
-
-		except FileNotFoundError as e:
-			print("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='ignore']: Failed (File not found)")
-			raise e
-		except Exception as e:
-			print("\t❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='ignore']: Failed (Other error)")
-			raise e
-
 
 
 		print("\t📝 NoFile Load ['warn']")
-		# 2nd error mode on file not found
+		# 2nd error mode on file not found [DB is cleared]
+		tb.clear()
+		tb.add_row({"x":1, "Y":2})
+		tb.add_row({"x":3, "Y":4})
+		tb.add_row({"x":5, "Y":6})
+
 		try:
 			tb.load_csv(f"test-{random.random()}.csv", on_file_not_found="warn")
 			if tb.height: # must be 0
@@ -2812,8 +3095,35 @@ if __name__ == "__main__":
 			raise e
 
 
+		print("\t📝 NoFile Load ['ignore']")
+		# 3rd error mode on file not found
+		tb.clear()
+		tb.add_row({"x":1, "Y":2})
+		tb.add_row({"x":3, "Y":4})
+		tb.add_row({"x":5, "Y":6})
+
+		try:
+			tb.load_csv(f"test-{random.random()}.csv", on_file_not_found="ignore")
+			if tb.height != 3 or tb.column("x") != [1, 3, 5]:
+				print(tb.columns())
+				raise Exception("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='ignore']: Failed")
+			print("\t✅ TEST [LOAD CSV][NoFile Load]['ignore'][on_file_not_found='ignore']: Passed")
+
+		except FileNotFoundError as e:
+			print("❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='ignore']: Failed (File not found)")
+			raise e
+		except Exception as e:
+			print("\t❌ TEST [LOAD CSV][NoFile Load][on_file_not_found='ignore']: Failed (Other error)")
+			raise e
+
+			
 		print("\t📝 NoFile Load ['no_warning']")
 		# 4th error mode on file not found
+		tb.clear()
+		tb.add_row({"x":1, "Y":2})
+		tb.add_row({"x":3, "Y":4})
+		tb.add_row({"x":5, "Y":6})
+
 		try:
 			tb.load_csv(f"test-{random.random()}.csv", on_file_not_found="no_warning")
 			if tb.height: # must be 0
@@ -2837,6 +3147,8 @@ if __name__ == "__main__":
 
 		tb.clear()
 		tb.load_csv("test.csv", header=True)
+
+		# in CSV every value is string
 		if tb.height != 3 or tb.column("x") != ['1', '3', '5']:
 			raise Exception("❌ TEST [LOAD CSV][Header Load][header=True]: Failed")
 
@@ -2878,9 +3190,222 @@ if __name__ == "__main__":
 
 		os.remove("test.csv")
 
+		###############################################
+		print("="*50)
+
+		JSON_tb = PickleTable()
+		JSON_tb.add_column("x", exist_ok=True)
+		JSON_tb.add_column("Y", exist_ok=True)
+
+		JSON_tb.add_row({"x":1, "Y":2})
+		JSON_tb.add_row({"x":3, "Y":None})
+		JSON_tb.add_row({"x":"5", "Y":6})
+
+		print("\n\n📝 TEST convert to JSON [dict format]")
+
+		st = time.perf_counter()
+		JSON_tb.to_json(f"test{st}.json", format="dict")
+		et = time.perf_counter()
+		print(f"⏱️ Convert to JSON test in {et - st}s")
+
+		with open(f"test{st}.json") as f:
+			text = f.read()
+
+		if text != """{
+    "x": [
+        1,
+        3,
+        "5"
+    ],
+    "Y": [
+        2,
+        null,
+        6
+    ]
+}""":
+			raise Exception("❌ TEST [CONVERT TO JSON]: Failed (Data Mismatch)") 
+		os.remove(f"test{st}.json")
+
+		print("="*50)
+
+		print("\n\n📝 TEST convert to JSON [list format]")
+
+		st = time.perf_counter()
+		JSON_tb.to_json(f"test{st}.json", format="list")
+		et = time.perf_counter()
+		print(f"⏱️ Convert to JSON test in {et - st}s")
+
+		with open(f"test{st}.json") as f:
+			text = f.read()
+
+		if text != """[
+    {
+        "x": 1,
+        "Y": 2
+    },
+    {
+        "x": 3,
+        "Y": null
+    },
+    {
+        "x": "5",
+        "Y": 6
+    }
+]""":
+			raise Exception("❌ TEST [CONVERT TO JSON]: Failed (Data Mismatch)")
+
+		os.remove(f"test{st}.json")
+
 		print("="*50)
 
 
+		print("\n\n📝 Load JSON (dict) test")
+
+		tb.clear()
+
+		print("Initial table")
+		print(tb)
+		print(tb.column_names)
+
+		json_dict_test_data = """{
+			"x": [1, 3, 5],
+			"Y": [2, 4, 6]
+		}"""
+
+		json_list_test_data = """[
+			{"x":1, "Y":2},
+			{"x":3, "Y":4},
+			{"x":5, "Y":6}
+		]"""
+
+		json_dict_test_iostream = io.StringIO(json_dict_test_data)
+		json_file = "test.json"
+		# make a json file
+		with open(json_file, "w") as f:
+			f.write(json_dict_test_data)
+
+		print("\t📝 Normal Load [from JSON dict 📄 ]")
+		try:
+			tb.load_json(json_file)
+		except Exception as e:
+			print("❌ TEST [LOAD JSON][Normal Load][from JSON dict 📄 ]: Failed (Other error)")
+			raise e
+		if tb.height != 3 or tb.column("x") != [1, 3, 5]:
+			print(tb)
+			print(tb.column("x"), tb.column('x')==[1, 3, 5])
+			print(tb.height, tb.height==3)
+			raise Exception("❌ TEST [LOAD JSON][Normal Load][from JSON dict 📄 ]: Failed")
+
+		print("\t✅ TEST [LOAD JSON][Normal Load][from JSON dict 📄 ]: Passed")
+
+		print("\t📝 Normal Load [from JSON string 🧵 ]")
+		tb.clear()
+
+		tb.load_json(json_str=json_dict_test_data)
+
+		if tb.height != 3 or tb.column("x") != [1, 3, 5]:
+			print(tb)
+			print(tb.column("x"), tb.column('x')==[1, 3, 5])
+			print(tb.height, tb.height==3)
+			raise Exception("❌ TEST [LOAD JSON][Normal Load][from JSON string 🧵 ]: Failed")
+
+		print("\t✅ TEST [LOAD JSON][Normal Load][from JSON string 🧵 ]: Passed")
+
+		print("\t📝 Normal Load [From IOstream 🪡 ]")
+		tb.clear()
+
+		tb.load_json(iostream=json_dict_test_iostream)
+
+		if tb.height != 3 or tb.column("x") != [1, 3, 5]:
+			print(tb)
+			print(tb.column("x"), tb.column('x')==[1, 3, 5])
+			print(tb.height, tb.height==3)
+			raise Exception("❌ TEST [LOAD JSON][Normal Load][From IOstream 🪡 ]: Failed")
+
+		print("\t✅ TEST [LOAD JSON][Normal Load][From IOstream 🪡 ]: Passed")
+
+		print("\t📝 Multiple source [filepath+json_str]['error']")
+		# 1st error mode on multiple source
+		tb.clear()
+
+		try:
+			tb.load_json(filepath=json_file, json_str=json_dict_test_data)
+			raise Exception("❌ TEST [LOAD JSON][Multiple source]: Failed")
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD JSON][Multiple source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD JSON][Multiple source]: Failed (Other error)")
+			raise e
+
+		print("\t📝 Multiple source [filepath+iostream]['error']")
+		# 2nd error mode on multiple source
+		tb.clear()
+		try:
+			tb.load_json(filepath=json_file, iostream=json_dict_test_iostream)
+			raise Exception("❌ TEST [LOAD JSON][Multiple source]: Failed")
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD JSON][Multiple source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD JSON][Multiple source]: Failed (Other error)")
+			raise e
+
+		print("\t📝 Multiple source [iostream+json_str]['error']")
+		# 3rd error mode on multiple source
+		tb.clear()
+		try:
+			tb.load_json(iostream=json_dict_test_iostream, json_str=json_dict_test_data)
+			raise Exception("❌ TEST [LOAD JSON][Multiple source]: Failed")
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD JSON][Multiple source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD JSON][Multiple source]: Failed (Other error)")
+			raise e
+
+		print("\t📝 Multiple source [filepath+json_str+iostream]['error']")
+		# 4th error mode on multiple source
+		tb.clear()
+
+		try:
+			tb.load_json(filepath=json_file, json_str=json_dict_test_data, iostream=json_dict_test_iostream)
+			raise Exception("❌ TEST [LOAD JSON][Multiple source]: Failed")
+
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD JSON][Multiple source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD JSON][Multiple source]: Failed (Other error)")
+			raise e
+
+		print("\t📝 No source []['error']")
+		# 5th error mode on no source
+		tb.clear()
+
+		try:
+			tb.load_json()
+			raise Exception("❌ TEST [LOAD JSON][No source]: Failed")
+		except AttributeError as e:
+			print("\t✅ TEST [LOAD JSON][No source]: Passed")
+			print("\tError message = ", e)
+
+		except Exception as e:
+			print("\t❌ TEST [LOAD JSON][No source]: Failed (Other error)")
+			raise e
+
+
+		if os.path.exists(json_file):
+			os.remove(json_file)
+		if os.path.exists("test.csv"):
+			os.remove("test.csv")
+
+
+		print([tb.location])
 
 
 
@@ -2893,12 +3418,16 @@ if __name__ == "__main__":
 
 
 
-# if __name__ == "__main__":
+
+
+
+if __name__ == "__main__":
 	for i in range(1):
 		try:
 			os.remove("__test.pdb")
 		except:
 			pass
 		test()
-		os.remove("__test.pdb")
+
+		# os.remove("__test.pdb")
 		print("\n\n\n" + "# "*25 + "\n")

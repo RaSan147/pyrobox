@@ -4,6 +4,7 @@ import string
 import random
 import base64
 import re
+import itertools
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from functools import partial
@@ -306,6 +307,14 @@ class Zfunc(object):
 
 		self.caller = caller
 
+	def done(self):
+		"""returns True if all tasks are done"""
+		return self.queue.empty() and not self.BUSY
+
+	def outputs(self):
+		"""returns all the return values"""
+		return [self.returner.get() for i in range(self.returner.qsize())]
+
 	def next(self):
 		""" check if any item in queje and call, if already running or queue empty, returns """
 		if self.queue.empty() or self.BUSY:
@@ -322,13 +331,15 @@ class Zfunc(object):
 
 		if not self.queue.empty():
 			# will make the loop continue running
-			return True
+			self.next()
 
 	def update(self, *args, **kwargs):
-		""" Uses xprint and parse string"""
+		"""
+		Adds a task to the queue
+		"""
 
 		self.queue.put((args, kwargs))
-		while self.next() is True:
+		if self.next() is True:
 			# use while instead of recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion to avoid recursion.... error
 			pass
 
@@ -570,6 +581,10 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				#   - Leading zeros MUST be ignored by recipients.
 				if len(version_number) != 2:
 					raise ValueError
+				if any(not component.isdigit() for component in version_number):
+					raise ValueError("non digit in http version")
+				if any(len(component) > 10 for component in version_number):
+					raise ValueError("unreasonable length http version")
 				version_number = int(version_number[0]), int(version_number[1])
 			except (ValueError, IndexError):
 				self.send_error(
@@ -607,6 +622,20 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		# without scheme (similar to http://path) rather than a path.
 		if self.path.startswith('//'):
 			self.path = '/' + self.path.lstrip('/')  # Reduce to a single /
+
+		# The path should not contain any raw control characters; these
+		# are not allowed in URLs and could be used to bypass security
+		# filters.  If a control character is found, send a 400 error
+		# response.  This includes all characters below 0x20 except for
+		# horizontal tab, line feed, and carriage return, and all characters
+		self.path = self.safe_for_terminal(self.path)
+		if '\x00' in self.path:
+			self.send_error(
+				HTTPStatus.BAD_REQUEST,
+				message="Illegal null character in path")
+			return False
+
+
 
 		# Examine the headers and look for a Connection directive.
 		try:
@@ -729,7 +758,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			try:
 				method()
 			except Exception:
-				traceback.print_exc()
+				ERROR = traceback.format_exc()
+				self.log_error(ERROR)
 
 			if config.log_extra:
 				logger.info('-'*w + f' {self.req_hash} ' + '-'*w + '\n' +
@@ -910,7 +940,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			try:
 				raise RuntimeError("Headers already flushed")
 			except RuntimeError:
-				traceback.print_exc()
+				ERROR = traceback.format_exc()
+				self.log_error(ERROR)
 			return
 		if hasattr(self, '_headers_buffer'):
 			self.wfile.write(b"".join(self._headers_buffer))
@@ -959,6 +990,34 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			f.write(
 				(f"#{self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"))
 
+	# https://en.wikipedia.org/wiki/List_of_Unicode_characters#Control_codes
+	_control_char_table = str.maketrans(
+			{c: fr'\x{c:02x}' for c in itertools.chain(range(0x20), range(0x7f,0xa0))})
+	_control_char_table_removal = str.maketrans(
+			{c: None for c in itertools.chain(range(0x20), range(0x7f, 0xa0))})
+
+	__allowed_control_chars = [
+		'\t', '\n' # , '\r' no need to keep carriage return
+	]
+	_control_char_table[ord('\\')] = r'\\'
+	for c in __allowed_control_chars:
+		_control_char_table[ord(c)] = c
+		_control_char_table_removal[ord(c)] = c
+	
+
+
+
+
+	def safe_for_terminal(self, text: str, remove_control=False):
+		"""Replace control characters in text with escaped hex."""
+		
+
+		if not isinstance(text, str):
+			return text
+		if remove_control:
+			return text.translate(self._control_char_table_removal)
+		return text.translate(self._control_char_table)
+
 	def log_message(self, *args, error=False, warning=False, debug=False, write=True, **kwargs):
 		"""Log an arbitrary message.
 
@@ -968,7 +1027,20 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		The client ip and current date/time are prefixed to
 		every message.
 
+		Unicode control characters are replaced with escaped hex
+		before writing the output to stderr.
+
 		"""
+
+		try:
+			self._log_message(*args, error=error, warning=warning, debug=debug, write=write, **kwargs)
+		except Exception:
+			# SUB FUNCTION to avoid recursion error
+			ERROR = traceback.format_exc()
+			print(*args, {"error": error, "warning": warning, "debug": debug, "write": write}, **kwargs, sep='\n')
+			logger.error(ERROR)
+
+	def _log_message(self, *args, error=False, warning=False, debug=False, write=True, **kwargs):
 		if not args:
 			return
 
@@ -976,6 +1048,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		end = kwargs.get('end', '\n')
 
 		message = sep.join(map(str, args)) + end
+
+		# Replace control characters in message with hex escapes
+		message = self.safe_for_terminal(message)
 
 		message = f"# {self.req_hash} by [{self.address_string()}] at [{self.log_date_time_string()}]|=> {message}\n"
 
@@ -997,7 +1072,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		try:
 			self.Zlog_writer.update(message)
 		except Exception:
-			traceback.print_exc()
+			ERROR = traceback.format_exc()
+			self.log_error(ERROR)
 
 	def version_string(self):
 		"""Return the server software version string."""
@@ -1090,6 +1166,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	handlers = {
 		'HEAD': [],
 		'POST': [],
+		# 'GET': [],
+		'OPTIONS': [],
+		'PUT': [],
+		'DELETE': [],
+		'PATCH': [],
+		'CONNECT': [],
+		'TRACE': []
 	}
 
 	def __init__(self, *args, directory=None, **kwargs):
@@ -1158,9 +1241,51 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return func
 		return decorator
 
+	@staticmethod
+	def on_GET(url='', hasQ=(), QV={}, fragent='', url_regex=''):
+		'''called when GET request is received'''
+		self = __class__
+
+		return self.on_req(method='GET', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
 
 	@staticmethod
-	def alt_directory(dir, method='', url='', hasQ=(), QV={}, fragent='', url_regex=''):
+	def on_POST(url='', hasQ=(), QV={}, fragent='', url_regex=''):
+		'''called when POST request is received'''
+		self = __class__
+
+		return self.on_req(method='POST', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+
+	@staticmethod
+	def on_HEAD(url='', hasQ=(), QV={}, fragent='', url_regex=''):
+		'''called when HEAD request is received'''
+		self = __class__
+
+		return self.on_req(method='HEAD', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+
+	@staticmethod
+	def on_OPTIONS(url='', hasQ=(), QV={}, fragent='', url_regex=''):
+		'''called when OPTIONS request is received'''
+		self = __class__
+
+		return self.on_req(method='OPTIONS', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+
+	@staticmethod
+	def on_DELETE(url='', hasQ=(), QV={}, fragent='', url_regex=''):
+		'''called when DELETE request is received'''
+		self = __class__
+
+		return self.on_req(method='DELETE', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+
+	@staticmethod
+	def on_PUT(url='', hasQ=(), QV={}, fragent='', url_regex=''):
+		'''called when PUT request is received'''
+		self = __class__
+
+		return self.on_req(method='PUT', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+
+
+	@staticmethod
+	def alt_directory(dir, method='', url='', hasQ=(), QV={}, fragent='', url_regex='', cache_control="", cookie:Union[SimpleCookie, str]=None):
 		"""
 		alternative directory handler (only handles GET and HEAD request for files)
 		"""
@@ -1173,12 +1298,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			"""
 
 			file = self.url_path.split("/")[-1]
+			requested_file = tools.xpath(dir, file)
 
-			if not os.path.exists(tools.xpath(dir, file)):
+			if not os.path.exists(requested_file):
 				self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+				self.log_info(f'File not found: {requested_file}')
 				return None
 
-			return self.send_file(tools.xpath(dir, file))
+			return self.send_file(
+				requested_file, 
+				cache_control=cache_control, 
+				cookie=cookie)
 
 
 	def test_req(self, url='', hasQ=(), QV={}, fragent='', url_regex=''):
@@ -1221,7 +1351,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		try:
 			resp = self.send_head()
 		except Exception as e:
-			traceback.print_exc()
+			ERROR = traceback.format_exc()
+			self.log_error(ERROR)
+
 			self.send_error(500, str(e))
 			return
 		finally:
@@ -1242,10 +1374,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			for case, func in self.handlers['POST']:
 				if self.test_req(*case):
 					try:
+						self.log_info(f'[POST] -> [{func.__name__}] ->  {self.url_path}')
+
 						resp = func(self, url_path=url_path, query=query,
 								fragment=fragment, path=path, spathsplit=spathsplit)
 					except PostError:
-						traceback.print_exc()
+						ERROR = traceback.format_exc()
+						self.log_error(ERROR)
 						# break if error is raised and send BAD_REQUEST (at end of loop)
 						break
 
@@ -1253,7 +1388,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 						try:
 							self.copyfile(resp, self.wfile)
 						except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-							logger.info(tools.text_box(
+							self.log_info(tools.text_box(
 								e.__class__.__name__, e, "\nby ", [self.address_string()]))
 						finally:
 							resp.close()
@@ -1262,13 +1397,56 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return self.send_error(HTTPStatus.BAD_REQUEST, "Invalid request.")
 
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-			logger.info(tools.text_box(e.__class__.__name__,
+			self.log_info(tools.text_box(e.__class__.__name__,
 						e, "\nby ", [self.address_string()]))
 			return
 		except Exception as e:
-			traceback.print_exc()
+			ERROR = traceback.format_exc()
+			self.log_error(ERROR)
+
 			self.send_error(500, str(e))
 			return
+
+	
+	def send_head(self):
+		"""Common code for GET and HEAD commands.
+
+		This sends the response code and MIME headers.
+
+		Return value is either a file object (which has to be copied
+		to the outputfile by the caller unless the command was HEAD,
+		and must be closed by the caller under all circumstances), or
+		None, in which case the caller has nothing further to do.
+
+		"""
+
+		if 'Range' not in self.headers:
+			self.range = None, None
+			first, last = 0, 0
+
+		else:
+			try:
+				self.range = parse_byte_range(self.headers['Range'])
+				first, last = self.range
+				self.use_range = True
+			except ValueError as e:
+				self.send_error(400, message='Invalid byte range')
+				return None
+
+		path = self.translate_path(self.path)
+		# DIRECTORY DONT CONTAIN SLASH / AT END
+
+		url_path, query, fragment = self.url_path, self.query, self.fragment
+
+		spathsplit = self.url_path.split("/")
+
+		# GET WILL Also BE HANDLED BY HEAD
+		for case, func in self.handlers['HEAD']:
+			if self.test_req(*case):
+				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+
+		return self.send_error(HTTPStatus.NOT_FOUND, message="File not found")
+
 
 	def redirect(self, location, cookie:Union[SimpleCookie, str]=None):
 		'''redirect to location'''
@@ -1340,12 +1518,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'''proxy to send_txt'''
 		return self.send_txt(msg, code, content_type)
 
-	def send_json(self, obj:Union[object, str, bytes], code=200, cookie:Union[SimpleCookie, str]=None):
+	def send_json(self, obj:Union[object, str, bytes], code=200, cookie:Union[SimpleCookie, str]=None, cache_control=""):
 		"""send object as json
 		obj: json-able object or json.dumps() string"""
 		if not isinstance(obj, str):
 			obj = json.dumps(obj, indent=1)
-		file = self.return_txt(obj, code, content_type="application/json", cookie=cookie)
+		file = self.return_txt(obj, code, content_type="application/json", cookie=cookie, cache_control=cache_control)
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
@@ -1468,13 +1646,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		except OSError:
 			self.send_error(HTTPStatus.NOT_FOUND, message="File not found", cookie=cookie)
+			self.log_info(f'File not found: {path}')
+
 			return None
 
 		except Exception:
-			traceback.print_exc()
+			ERR_LOG = traceback.format_exc()
+			self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, message="Internal Server Error", cookie=cookie)
+			self.log_error(ERR_LOG)
 
-			# if f and not f.closed(): f.close()
-			raise
+			if file and not file.closed:
+				file.close()
+
+			return None
 
 	def send_file(self, path, filename=None, download=False, cache_control='', cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
@@ -1489,46 +1673,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			file.close()
 
 
-	def send_head(self):
-		"""Common code for GET and HEAD commands.
-
-		This sends the response code and MIME headers.
-
-		Return value is either a file object (which has to be copied
-		to the outputfile by the caller unless the command was HEAD,
-		and must be closed by the caller under all circumstances), or
-		None, in which case the caller has nothing further to do.
-
-		"""
-
-		if 'Range' not in self.headers:
-			self.range = None, None
-			first, last = 0, 0
-
-		else:
-			try:
-				self.range = parse_byte_range(self.headers['Range'])
-				first, last = self.range
-				self.use_range = True
-			except ValueError as e:
-				self.send_error(400, message='Invalid byte range')
-				return None
-
-		path = self.translate_path(self.path)
-		# DIRECTORY DONT CONTAIN SLASH / AT END
-
-		url_path, query, fragment = self.url_path, self.query, self.fragment
-
-		spathsplit = self.url_path.split("/")
-
-		# GET WILL Also BE HANDLED BY HEAD
-		for case, func in self.handlers['HEAD']:
-			if self.test_req(*case):
-				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
-
-		return self.send_error(HTTPStatus.NOT_FOUND, message="File not found")
-
-	def get_displaypath(self, url_path):
+	def get_displaypath(self, url_path, escape_html=True):
 		"""
 		Helper to produce a display path for the directory listing.
 		"""
@@ -1538,7 +1683,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				url_path, errors='surrogatepass')
 		except UnicodeDecodeError:
 			displaypath = urllib.parse.unquote(url_path)
-		displaypath = html.escape(displaypath, quote=False)
+
+		if escape_html:
+			displaypath = html.escape(displaypath, quote=False)
 
 		return displaypath
 
@@ -1627,7 +1774,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			source.read(1)
 			source.seek(0)
 		except OSError as e:
-			traceback.print_exc()
+			ERROR = traceback.format_exc()
+			self.log_error(ERROR)
 			raise e
 
 		if not self.range:
@@ -1721,7 +1869,21 @@ class ContentDisposition:
 
 
 class DealPostData:
-	"""do_login
+	"""
+	Deal with POST data
+
+	init with SimpleHTTPRequestHandler
+
+	* get: get next line
+	* get_content: get all content
+	* get_json: get json data
+	* skip: skip next line
+	* start: start reading
+	* check_size_limit: check if content size is within limit
+
+	"""
+	
+	__sample_post_req__ = """do_post
 
 #get starting boundary
 0: b'------WebKitFormBoundary7RGDIyjMpWhLXcZa\r\n'
@@ -1839,6 +2001,7 @@ class DealPostData:
 		"""
 
 		if not self.content_type == "application/json":
+			self.req.log_info(f"Are you sure you called `x=DealPostData(); x.start()` ?")
 			raise PostError("Content-Type is not application/json")
 
 		line = self.get_content(max_size=max_size)
@@ -2290,7 +2453,7 @@ class EasyServerRunner:
 			handler=handler
 		)
 
-	def run(self, poll_interval=0.1):
+	def run(self, poll_interval=0.1, on_exit=lambda: None):
 		try:
 			self.httpd.serve_forever(poll_interval=poll_interval)
 		except KeyboardInterrupt:
@@ -2305,6 +2468,7 @@ class EasyServerRunner:
 		finally:
 			self.stop()
 
+			on_exit()
 
 
 	def stop(self):
