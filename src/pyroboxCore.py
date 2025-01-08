@@ -706,6 +706,15 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		"""
 		try:
 			self.raw_requestline = self.rfile.readline(65537)
+
+			# Generate a unique request hash
+			_hash = abs(hash((self.raw_requestline, tools.random_string(10))))
+			self.req_hash = base64.b64encode(
+					str(_hash).encode('ascii')
+				).decode()[:10]
+
+
+			# if the requestline is too long, ignore the request
 			if len(self.raw_requestline) > 65536:
 				self.requestline = ''
 				self.request_version = ''
@@ -734,11 +743,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.fragment = fragment
 
 			self.use_range = False
-
-			_hash = abs(hash((self.raw_requestline, tools.random_string(10))))
-			self.req_hash = base64.b64encode(
-					str(_hash).encode('ascii')
-				).decode()[:10]
 
 			_w = tools.term_width()
 			w = _w - len(str(self.req_hash)) - 2
