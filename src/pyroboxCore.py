@@ -580,7 +580,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				#     turn is lower than HTTP/12.3;
 				#   - Leading zeros MUST be ignored by recipients.
 				if len(version_number) != 2:
-					raise ValueError
+					raise ValueError("malformed HTTP version")
 				if any(not component.isdigit() for component in version_number):
 					raise ValueError("non digit in http version")
 				if any(len(component) > 10 for component in version_number):
@@ -640,7 +640,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		# Examine the headers and look for a Connection directive.
 		try:
 			self.headers = http.client.parse_headers(self.rfile,
-													 _class=self.MessageClass)
+													_class=self.MessageClass)
 		except http.client.LineTooLong as err:
 			self.send_error(
 				HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
