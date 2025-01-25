@@ -75,7 +75,7 @@ class Config:
 
 		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
 		# CAN BE CHANGED BY USING --password NEW_PASSWORD
-		self.PASSWORD = "SECret"
+		self.PASSWORD = ""
 
 		# LOGGING
 		self.log_location = "./"  # fallback log_location = "./"
