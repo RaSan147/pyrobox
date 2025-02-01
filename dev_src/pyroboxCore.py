@@ -34,7 +34,7 @@ import tempfile
 
 from typing import Type
 
-__version__ = "0.9.6"
+__version__ = "0.9.9"
 enc = "utf-8"
 DEV_MODE = True
 

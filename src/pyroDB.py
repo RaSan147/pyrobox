@@ -914,7 +914,9 @@ class PickleTable(dict):
 	def row(self, row, _columns=(), rescan=True):
 		"""
 		returns a row dict by `row index`
-		_column: specify columns you need, blank if you need all
+
+		- row: row index
+		- _columns: specify columns you need, blank if you need all
 		"""
 		self.rescan(rescan=rescan)
 
@@ -932,6 +934,7 @@ class PickleTable(dict):
 		"""
 		Return a row object `_PickleTRow` in db
 		- row: row index
+		- loop_back: loop back support (circular indexing)
 		"""
 		if loop_back:
 			row = row % self.height
@@ -941,7 +944,7 @@ class PickleTable(dict):
 
 	def row_obj_by_id(self, row_id):
 		"""Return a row object `_PickleTRow` in db
-		- row: row index
+		- row_id: row id
 		"""
 		return _PickleTRow(source=self,
 			uid=row_id,
@@ -952,6 +955,8 @@ class PickleTable(dict):
 		- start: start index (default: 0)
 		- end: end index (default: None|end of the table)
 		- sep: step size (default: 1)
+		- loop_back: loop back support (circular indexing)
+
 		"""
 		self.rescan(rescan=rescan)
 
@@ -990,6 +995,7 @@ class PickleTable(dict):
 		- start: start index (default: 0)
 		- end: end index (default: None|end of the table)
 		- sep: step size (default: 1)
+		- loop_back: loop back support (circular indexing)
 		"""
 		self.rescan(rescan=rescan)
 
@@ -1205,13 +1211,14 @@ class PickleTable(dict):
 		- row_id: unique id of the row
 		- val: value of cell
 		- AD: auto dump
+		- rescan: rescan the db if changes are made
 
 		ie:
 		```python
 		db.set_cell_by_id("name", 0, "John")
 		```
 		"""
-		return self.set_cell(col=col, row=self.ids.index(row_id), val=val, AD=AD, rescan=rescan)
+		self.set_cell(col=col, row=self.ids.index(row_id), val=val, AD=AD, rescan=rescan)
 
 	def get_cell(self, col, row, rescan=True):
 		"""
@@ -2049,13 +2056,13 @@ class _PickleTCell:
 	def __contains__(self, item):
 		return item in self.value
 
-	def set(self, value, AD=True):
+	def set(self, value, AD=True, rescan=True):
 		"""
 		Set the `value` of the cell
 		"""
 		self.source_check()
 
-		self.source.set_cell_by_id(self.column_name, self.id, val=value, AD=AD)
+		self.source.set_cell_by_id(self.column_name, self.id, val=value, AD=AD, rescan=rescan)
 
 
 	@property
@@ -2091,11 +2098,11 @@ class _PickleTCell:
 	def source_check(self):
 		self.source.raise_source(self.CC)
 
-	def clear(self):
+	def clear(self, AD=True, rescan=True):
 		"""Clear the cell value"""
 		self.source_check()
 
-		self.source.set_cell_by_id(self.column_name, self.id, None)
+		self.source.set_cell_by_id(self.column_name, self.id, None, AD=AD, rescan=rescan)
 
 
 class _PickleTRow(dict):
@@ -2363,11 +2370,16 @@ class _PickleTColumn(list):
 
 		return self.source.get_cell_obj(col=self.name, row=row)
 
-	def set_item(self, row:int, value, AD=True):
+	def _set_item(self, row:int, value, AD=True, rescan=True):
 		"""
+		@ Auto dumps
+
+		[FASTER+UNSAFE] Set the cell value in the column by row index
+
 		* row: row index (not id)
 		* value: accepts both raw value and _PickleTCell obj
 		* AD: auto dump
+		* rescan: rescan the db file if changed
 		"""
 
 		self.raise_deleted()
@@ -2376,7 +2388,32 @@ class _PickleTColumn(list):
 		if isinstance(value, _PickleTCell):
 			value = value.value
 
-		self.source.set_cell(col=self.name, row=row, val=value, AD=AD)
+		self.source.set_cell(col=self.name, row=row, val=value, AD=AD, rescan=rescan)
+
+
+	def set_item(self, row:int, value, AD=True, rescan=True) -> "_PickleTCell":
+		"""
+		@ Auto dumps
+
+		Set the cell value in the column by row index
+
+		* row: row index (not id)
+		* value: accepts both raw value and _PickleTCell obj
+		* AD: auto dump
+		* rescan: rescan the table after setting the value
+		"""
+
+		self.raise_deleted()
+		# self.source.raise_source(self.CC)
+
+		if isinstance(value, _PickleTCell):
+			value = value.value
+
+		# self.source.set_cell(col=self.name, row=row, val=value, AD=AD)
+		cell:"_PickleTCell" = self.get_cell_obj(row)
+		cell.set(value, AD=AD, rescan=rescan)
+
+		return cell
 
 	def __setitem__(self, row:int, value):
 		"""
@@ -2390,8 +2427,13 @@ class _PickleTColumn(list):
 
 	def del_item(self, row:int, AD=True):
 		"""
-		* row: row index (not id)
-		* AD: auto dump
+		@ Auto dumps
+
+
+		Delete the cell value from the column by row index
+
+		- row: row index (not id)
+		- AD: auto dump
 		"""
 		self.raise_deleted()
 		self.source.set_cell(self.name, row, None, AD=AD)
@@ -2420,8 +2462,14 @@ class _PickleTColumn(list):
 		self.raise_deleted()
 		return self.source.get_column(self.name)
 
-	def get_cells_obj(self, start:int=0, end:int=None, sep:int=1):
-		"""Return a list of all rows in db"""
+	def get_cells_obj(self, start:int=0, end:int=None, sep:int=1) -> Generator["_PickleTCell", None, None]:
+		"""
+		Return a list of all rows in db
+
+		- start: start index (default: 0)
+		- end: end index (default: None)
+		- sep: step (default: 1)
+		"""
 		self.raise_deleted()
 		if end is None:
 			end = self.source.height
@@ -2444,7 +2492,7 @@ class _PickleTColumn(list):
 	pop = append
 	insert = append
 
-	def update(self, column:Union[list, "_PickleTColumn"], AD=True):
+	def update(self, column:Union[list, "_PickleTColumn"], AD=True, rescan=True):
 		"""
 		@ Auto dumps
 		- column: list of values to update
@@ -2455,25 +2503,30 @@ class _PickleTColumn(list):
 		if isinstance(column, self.__class__):
 			column = column.to_list()
 
-
+		self.source.rescan(rescan=rescan)
 		for i, v in enumerate(column):
-			self.set_item(i, v, AD=False)
+			self._set_item(i, v, AD=False, rescan=False)
 
 		self.source.auto_dump(AD=AD)
 
-	def remove(self, value, n_times=1):
+	def remove(self, value, n_times=1, AD=True, rescan=True):
 		"""
 		@ Auto dumps
 		- This will remove the occurrences of the value in the column (from top to bottom)
 		- n_times: number of occurrences to remove (0: all)
 		"""
 		self.raise_deleted()
+
+		self.source.rescan(rescan=rescan)
 		for i in self:
 			if i == value:
-				i.clear()
+				i.clear(AD=False, rescan=False)
 				n_times -= 1
 				if n_times==0:
 					break
+
+		self.source.auto_dump(AD=AD)
+
 
 
 
@@ -2488,7 +2541,7 @@ class _PickleTColumn(list):
 		self.source.rescan(rescan=rescan)
 
 		for row in range(self.source.height):
-			self.source.set_cell(col=self.name, row=row, val=None, AD=False, rescan=False)
+			self._set_item(row, None, AD=False, rescan=False)
 
 		self.source.auto_dump(AD=AD)
 
@@ -2515,13 +2568,22 @@ class _PickleTColumn(list):
 
 		self.source.del_column(self.name)
 
-		self.deleted = False
+		self.deleted = True
 
 
 	def apply(self, func=None, row_func=False, copy=False, AD=True):
 		"""
 		Apply a function to all cells in the column
 		Overwrites the existing values
+
+		- func: function to apply
+		- row_func: if True, apply the function to the row object instead of the cell value
+		- copy: if True, return a copy of the column
+		- AD: auto dump
+
+		- returns: 
+			* `list of values` if `copy=True`
+			* `self` if `copy=False`
 		"""
 		self.raise_deleted()
 		ret = []

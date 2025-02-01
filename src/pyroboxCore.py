@@ -34,7 +34,7 @@ import tempfile
 
 from typing import Type
 
-__version__ = "0.9.6"
+__version__ = "0.9.9"
 enc = "utf-8"
 DEV_MODE = False
 
@@ -588,21 +588,21 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				version_number = int(version_number[0]), int(version_number[1])
 			except (ValueError, IndexError):
 				self.send_error(
-					HTTPStatus.BAD_REQUEST,
+					code=HTTPStatus.BAD_REQUEST,
 					message="Bad request version (%r)" % version)
 				return False
 			if version_number >= (1, 1) and self.protocol_version >= "HTTP/1.1":
 				self.close_connection = False
 			if version_number >= (2, 0):
 				self.send_error(
-					HTTPStatus.HTTP_VERSION_NOT_SUPPORTED,
+					code=HTTPStatus.HTTP_VERSION_NOT_SUPPORTED,
 					message="Invalid HTTP version (%s)" % base_version_number)
 				return False
 			self.request_version = version
 
 		if not 2 <= len(words) <= 3:
 			self.send_error(
-				HTTPStatus.BAD_REQUEST,
+				code=HTTPStatus.BAD_REQUEST,
 				message="Bad request syntax (%r)" % requestline)
 			return False
 		command, path = words[:2]
@@ -610,7 +610,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.close_connection = True
 			if command != 'GET':
 				self.send_error(
-					HTTPStatus.BAD_REQUEST,
+					code=HTTPStatus.BAD_REQUEST,
 					message="Bad HTTP/0.9 request type (%r)" % command)
 				return False
 		self.command, self.path = command, path
@@ -631,7 +631,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		self.path = self.safe_for_terminal(self.path)
 		if '\x00' in self.path:
 			self.send_error(
-				HTTPStatus.BAD_REQUEST,
+				code=HTTPStatus.BAD_REQUEST,
 				message="Illegal null character in path")
 			return False
 
@@ -643,13 +643,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 													_class=self.MessageClass)
 		except http.client.LineTooLong as err:
 			self.send_error(
-				HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
+				code=HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
 				message="Line too long",
 				explain=str(err))
 			return False
 		except http.client.HTTPException as err:
 			self.send_error(
-				HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
+				code=HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
 				message="Too many headers",
 				explain=str(err)
 			)
@@ -692,7 +692,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		False.
 
 		"""
-		self.send_response_only(HTTPStatus.CONTINUE)
+		self.send_response_only(code=HTTPStatus.CONTINUE)
 		self.end_headers()
 		return True
 
@@ -719,7 +719,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 				self.requestline = ''
 				self.request_version = ''
 				self.command = ''
-				self.send_error(HTTPStatus.REQUEST_URI_TOO_LONG)
+				self.send_error(code=HTTPStatus.REQUEST_URI_TOO_LONG)
 				return
 			if not self.raw_requestline:
 				self.close_connection = True
@@ -732,7 +732,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
 			if not hasattr(self, mname):
 				self.send_error(
-					HTTPStatus.NOT_IMPLEMENTED,
+					code=HTTPStatus.NOT_IMPLEMENTED,
 					message="Unsupported method (%r)" % self.command)
 				return
 			method = getattr(self, mname)
@@ -826,7 +826,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 		if explain is None:
 			explain = longmsg
 		self.log_error("code", code, "message", message, "\n\n", "URL", self.path, "\nquery", self.query, "\nfragment", self.fragment, "\nmethod", self.method)
-		self.send_response(code, message)
+		self.send_response(code=code, message=message)
 
 		self._send_cookie(cookie=cookie)
 
@@ -875,7 +875,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			self.response_code_sent = True
 
 		self.log_request(code)
-		self.send_response_only(code, message)
+		self.send_response_only(code=code, message=message)
 		self.send_header('Server', self.version_string())
 		self.send_header('Date', self.date_time_string())
 
@@ -1193,7 +1193,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			resp = self.send_head()
 		except Exception as e:
 			traceback.print_exc()
-			self.send_error(500, str(e))
+			self.send_error(code=500, message=str(e))
 			return
 
 		if resp:
@@ -1207,7 +1207,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def do_(self):
 		'''incase of errored request'''
-		self.send_error(HTTPStatus.BAD_REQUEST, "Bad request.")
+		self.send_error(code=HTTPStatus.BAD_REQUEST, message="Bad request.")
 
 	@staticmethod
 	def on_req(method='', url='', hasQ=(), QV={}, fragent='', url_regex='', func=null):
@@ -1305,14 +1305,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			requested_file = tools.xpath(dir, file)
 
 			if not os.path.exists(requested_file):
-				self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+				self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found")
 				self.log_info(f'File not found: {requested_file}')
 				return None
 
 			return self.send_file(
 				requested_file, 
-				cache_control=cache_control, 
-				cookie=cookie)
+				cookie=cookie,
+				cache_control=cache_control
+				)
 
 
 	def test_req(self, url='', hasQ=(), QV={}, fragent='', url_regex=''):
@@ -1358,7 +1359,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			ERROR = traceback.format_exc()
 			self.log_error(ERROR)
 
-			self.send_error(500, str(e))
+			self.send_error(code=500, message=str(e))
 			return
 		finally:
 			if resp:
@@ -1398,7 +1399,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 							resp.close()
 					return
 
-			return self.send_error(HTTPStatus.BAD_REQUEST, "Invalid request.")
+			return self.send_error(code=HTTPStatus.BAD_REQUEST, message="Invalid request.")
 
 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
 			self.log_info(tools.text_box(e.__class__.__name__,
@@ -1408,7 +1409,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			ERROR = traceback.format_exc()
 			self.log_error(ERROR)
 
-			self.send_error(500, str(e))
+			self.send_error(code=500, message=str(e))
 			return
 
 	
@@ -1434,7 +1435,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				first, last = self.range
 				self.use_range = True
 			except ValueError as e:
-				self.send_error(400, message='Invalid byte range')
+				self.send_error(code=400, message='Invalid byte range')
 				return None
 
 		path = self.translate_path(self.path)
@@ -1449,13 +1450,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			if self.test_req(*case):
 				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
 
-		return self.send_error(HTTPStatus.NOT_FOUND, message="File not found")
+		return self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found")
 
 
 	def redirect(self, location, cookie:Union[SimpleCookie, str]=None):
 		'''redirect to location'''
 		self.log_info("REDIRECT ", location)
-		self.send_response(302)
+		self.send_response(code=302)
 		self.send_header("Location", location)
 		self._send_cookie(cookie)
 		self.end_headers()
@@ -1482,7 +1483,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		box.write(encoded)
 		box.seek(0)
 
-		self.send_response(code)
+		self.send_response(code=code)
 
 		self._send_cookie(cookie)
 
@@ -1496,7 +1497,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
-		file = self.return_txt(msg, code, content_type, cookie, cache_control="no-cache")
+		file = self.return_txt(msg, code, content_type, cookie=cookie, cache_control="no-cache")
 		if self.command == "HEAD":
 			return  # to avoid sending file on get request
 		self.copyfile(file, self.wfile)
@@ -1504,23 +1505,23 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	def send_text(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''proxy to send_txt'''
-		self.send_txt(msg, code, content_type, cookie)
+		self.send_txt(msg, code, content_type, cookie=cookie)
 
 	def return_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''proxy to send_txt'''
-		return self.return_txt(msg, code, content_type, cookie)
+		return self.return_txt(msg, code, content_type, cookie=cookie)
 
-	def send_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8"):
+	def send_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''proxy to send_txt'''
-		return self.send_txt(msg, code, content_type)
+		return self.send_txt(msg, code, content_type, cookie=cookie)
 
 	def return_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''proxy to send_txt'''
-		return self.return_txt(msg, code, content_type, cookie)
+		return self.return_txt(msg, code, content_type, cookie=cookie)
 
-	def send_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8"):
+	def send_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''proxy to send_txt'''
-		return self.send_txt(msg, code, content_type)
+		return self.send_txt(msg, code, content_type, cookie=cookie)
 
 	def send_json(self, obj:Union[object, str, bytes], code=200, cookie:Union[SimpleCookie, str]=None, cache_control=""):
 		"""send object as json
@@ -1533,7 +1534,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.copyfile(file, self.wfile)
 		file.close()
 
-	def return_file(self, path, filename=None, download=False, cache_control="", cookie:Union[SimpleCookie, str]=None):
+	def return_file(self, path, filename=None, download=False, cookie:Union[SimpleCookie, str]=None, cache_control=""):
 		file = None
 		is_attachment = "attachment;" if (self.query("dl") or download) else ""
 
@@ -1584,7 +1585,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 						last_modif = last_modif.replace(microsecond=0)
 
 						if last_modif <= ims:
-							self.send_response(HTTPStatus.NOT_MODIFIED)
+							self.send_response(code=HTTPStatus.NOT_MODIFIED)
 							self._send_cookie(cookie=cookie)
 							if C_encoding:
 								self.send_header("Content-Encoding", C_encoding)
@@ -1603,10 +1604,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					last = file_len - 1
 
 				if first >= file_len:  # PAUSE AND RESUME SUPPORT
-					self.send_error(416, message='Requested Range Not Satisfiable', cookie=cookie)
+					self.send_error(code=416, message='Requested Range Not Satisfiable', cookie=cookie)
 					return None
 
-				self.send_response(206)
+				self.send_response(code=206)
 				self._send_cookie(cookie=cookie)
 
 				if cache_control:
@@ -1623,7 +1624,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				self.send_header('Content-Length', str(response_length))
 
 			else:
-				self.send_response(HTTPStatus.OK)
+				self.send_response(code=HTTPStatus.OK)
 				self._send_cookie(cookie)
 
 				self.send_header("Content-Length", str(file_len))
@@ -1645,18 +1646,18 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return file
 
 		except PermissionError:
-			self.send_error(HTTPStatus.FORBIDDEN, message="Permission denied", cookie=cookie)
+			self.send_error(code=HTTPStatus.FORBIDDEN, message="Permission denied", cookie=cookie)
 			return None
 
 		except OSError:
-			self.send_error(HTTPStatus.NOT_FOUND, message="File not found", cookie=cookie)
+			self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found", cookie=cookie)
 			self.log_info(f'File not found: {path}')
 
 			return None
 
 		except Exception:
 			ERR_LOG = traceback.format_exc()
-			self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, message="Internal Server Error", cookie=cookie)
+			self.send_error(code=HTTPStatus.INTERNAL_SERVER_ERROR, message="Internal Server Error", cookie=cookie)
 			self.log_error(ERR_LOG)
 
 			if file and not file.closed:
@@ -1664,9 +1665,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			return None
 
-	def send_file(self, path, filename=None, download=False, cache_control='', cookie:Union[SimpleCookie, str]=None):
+	def send_file(self, path, filename=None, download=False, cookie:Union[SimpleCookie, str]=None, cache_control=''):
 		'''sends the head and file to client'''
-		file = self.return_file(path, filename, download, cache_control, cookie=cookie)
+		file = self.return_file(path, filename, download, cookie=cookie, cache_control=cache_control)
 		if not file:
 			return # already flushed (with error/unchanged)
 		if self.command == "HEAD":

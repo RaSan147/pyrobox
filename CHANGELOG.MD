@@ -1,3 +1,16 @@
+# Version 0.9.9
+  ## HOTFIX
+  * **Server** Fixed upload where send_error(code, message) was swapped with send_error(message, code)
+  
+  ## Client-side Changes:
+  * Fixed subtitle support. 
+    * if the subtitle file is in the same folder as the video file (with the same name)
+    * if the video file has soft-coded subtitles
+
+  ## Clone:
+  * Fixed folder permission issue
+
+
 # Version 0.9.8
   ## HOTFIX:
   * **Core** updated core with python 3.12 http.server guidelines (escaping control characters)
@@ -17,6 +30,7 @@
   * Fixed Logout button in account (No more Sword Art Online)
   * Updated Video Player and fixed the UI bugs. Key binding works.
   * Added MOV and MKV support for video player (if supported by browser)
+  * Added subtitle support (if video has soft-coded subtitles)
 
   ## Server-side Changes:
   * **Core:** Added CORS policy setting method
