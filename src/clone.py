@@ -179,7 +179,11 @@ class Cloner:
 			if path[-1] != "/":
 				path += "/"
 
-			os.makedirs(path, exist_ok=True) # make sure the directory exists even if it's empty
+			try:
+				os.makedirs(path, exist_ok=True) # make sure the directory exists even if it's empty
+			except (OSError, PermissionError):
+				print("ALERT:  [run_Q] Permission denied (", path, ")")
+				return
 
 			json = get_json(url)
 			if not json:
@@ -241,27 +245,36 @@ def main():
 	path = input("Save to: ")
 
 	overwrite = False
-	o = input("Overwrite? (y/n) [Default: n]: ")
-	if o.lower() == "y":
-		overwrite = True
+
+	o = None
+	while o not in ["y", "n", "", "yes", "no"]:
+		o = input("Overwrite? (y/n) [Default: n]: ").lower()
+		if o == "y" or o == "yes":
+			overwrite = True
 
 	check_exist = "date+"
 	o = None
-	while not o:
+	while o not in ["date", "date+", "size", ""]:
 		o = input("""Check exist? [Default: date+]
 date: download if remote file is update time same as local file
 date+: download if remote file is newer or same as local file (ignored if local file is newer)
 size: download if remote file size is different from local file
 >>> """)
+		o = o or "date+" # default
+		
 		if o in ["date", "date+", "size"]:
 			check_exist = o
 		else:
 			o = None
 
 	delete_extras = False
-	o = input("Delete extras? (y/n) [Default: n]: ")
-	if o.lower() == "y":
-		delete_extras = True
+
+	o = None
+	while o not in ["y", "n", "", "yes", "no"]:
+		o = input("Delete extras? (y/n) [Default: n]: ").lower()
+		if o == "y" or o == "yes":
+			delete_extras = True
+	
 
 	cloner = Cloner()
 
