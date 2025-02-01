@@ -328,16 +328,16 @@ def get_qr(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if CoreConfig.disabled_func["pyqrcode"]:
-		return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "QR code generation is disabled", cookie=cookie)
+		return self.send_error(code=HTTPStatus.INTERNAL_SERVER_ERROR, message="QR code generation is disabled", cookie=cookie)
 
 	query = self.query.get("qr", [None])[0]
 	url = query or CoreConfig.address()
 
 	if len(url) > 2048:
-		return self.send_error(HTTPStatus.BAD_REQUEST, "URL too long", cookie=cookie)
+		return self.send_error(code=HTTPStatus.BAD_REQUEST, message="URL too long", cookie=cookie)
 
 	md5_url = hashlib.md5(url.encode()).hexdigest() + hashlib.sha256(url.encode()).hexdigest()
 	qr_path = xpath(CoreConfig.temp_dir, f"QR-{md5_url}.svg")
@@ -354,14 +354,14 @@ def reload(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.is_admin():
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 
 	CoreConfig.reload = True
-	self.send_text("Reload initiated")
+	self.send_text("Reload initiated", cookie=cookie)
 
 	reload_server()
 
@@ -371,10 +371,10 @@ def shutdown(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.is_admin():
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 	self.send_text("Shut down initiated", cookie=cookie)
 	self.server.shutdown()
@@ -384,10 +384,10 @@ def admin_page(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.is_admin():
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 	return self.html_main_page(user, cookie=cookie)
 
@@ -400,10 +400,10 @@ def get_users(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.is_admin():
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 
 
@@ -415,10 +415,10 @@ def update_user_perm(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.is_admin():
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 	query = self.query
 	username = query.get("username", [None])[0]
@@ -449,10 +449,10 @@ def get_user_perm(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.is_admin():
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 	username = self.query.get("username", [None])[0]
 
@@ -472,10 +472,10 @@ def add_user(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.is_admin():
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 	username = self.query.get("username", [None])[0]
 	password = self.query.get("password", [None])[0]
@@ -500,7 +500,7 @@ def delete_user(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.is_admin():
 		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
@@ -530,10 +530,10 @@ def update(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED)
 
 	if not user.is_admin():
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 
 
@@ -541,9 +541,9 @@ def update(self: SH, *args, **kwargs):
 	if data:
 		data  = data.decode("utf-8").strip()
 		ret = json.dumps({"update_available": data > __version__, "latest_version": data})
-		return self.return_txt(ret, HTTPStatus.OK, cookie=cookie)
+		return self.return_txt(ret, code=HTTPStatus.OK, cookie=cookie)
 	else:
-		return self.return_txt("Failed to fetch latest version", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+		return self.return_txt("Failed to fetch latest version", code=HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
 
 @SH.on_req('HEAD', hasQ="size")
@@ -552,7 +552,7 @@ def get_size(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
 
@@ -569,10 +569,13 @@ def get_size(self: SH, *args, **kwargs):
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
-	return self.send_json({"status": 1,
-														"byte": size,
-														"humanbyte": humanbyte,
-														"fmbyte": fmbyte}, cookie=cookie)
+	return self.send_json({
+							"status": 1,
+							"byte": size,
+							"humanbyte": humanbyte,
+							"fmbyte": fmbyte
+						},
+						cookie=cookie)
 
 @SH.on_req('HEAD', hasQ="size_n_count")
 def get_size_n_count(self: SH, *args, **kwargs):
@@ -580,7 +583,7 @@ def get_size_n_count(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
 
@@ -597,11 +600,14 @@ def get_size_n_count(self: SH, *args, **kwargs):
 
 	humanbyte = humanbytes(size)
 	fmbyte = fmbytes(size)
-	return self.send_json({"status": 1,
-														"byte": size,
-														"humanbyte": humanbyte,
-														"fmbyte": fmbyte,
-														"count": count}, cookie=cookie)
+	return self.send_json({
+								"status": 1,
+								"byte": size,
+								"humanbyte": humanbyte,
+								"fmbyte": fmbyte,
+								"count": count
+							},
+							cookie=cookie)
 
 
 @SH.on_req('HEAD', hasQ=("zip_id", "czip"))
@@ -610,18 +616,18 @@ def get_zip_id(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.ZIP:
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
-	
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
+
 	if not (user.DOWNLOAD and user.VIEW):
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 	if CoreConfig.disabled_func["zip"]:
-		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
-	
-	
+		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", code=HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+
+
 	os_path = kwargs.get('path', '')
 	spathsplit = kwargs.get('spathsplit', '')
 	filename = spathsplit[-2] + ".zip"
@@ -629,14 +635,14 @@ def get_zip_id(self: SH, *args, **kwargs):
 	zid = None
 	status = False
 	message = ''
-	
+
 	try:
 		zid = zip_manager.get_id(os_path)
 		status = True
 
 	except LimitExceed:
 		message = f"DIRECTORY SIZE LIMIT EXCEED [CURRENT LIMIT: {humanbytes(Sconfig.max_zip_size)}]"
-		
+
 	except Exception:
 		self.log_error(traceback.format_exc())
 		message = 'Failed to create zip'
@@ -658,23 +664,23 @@ def create_zip(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.ZIP:
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
-	
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
+
 	if not (user.DOWNLOAD and user.VIEW):
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 	if CoreConfig.disabled_func["zip"]:
-		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", code=HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
 	url_path = kwargs.get('url_path', '')
 	os_path = self.translate_path(url_path)
 
 	# if not dir or not exists
 	if not os.path.isdir(os_path):
-		return self.send_error(HTTPStatus.NOT_FOUND, "Directory not found", cookie=cookie)
+		return self.send_error(code=HTTPStatus.NOT_FOUND, message="Directory not found", cookie=cookie)
 
 
 	# dir_size = get_dir_size(path, limit=6*1024*1024*1024)
@@ -690,7 +696,7 @@ def create_zip(self: SH, *args, **kwargs):
 	data = pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
 											PY_PUBLIC_URL=CoreConfig.address(),
 											PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
-	
+
 	return self.return_txt(data, cookie=cookie)
 
 
@@ -702,16 +708,16 @@ def get_zip(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	if not user.ZIP:
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
-	
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
+
 	if not (user.DOWNLOAD and user.VIEW):
-		return self.send_error(HTTPStatus.UNAUTHORIZED, "You are not authorized to perform this action", cookie=cookie)
+		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
 
 	if CoreConfig.disabled_func["zip"]:
-		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+		return self.return_txt("ERROR: ZIP FEATURE IS UNAVAILABLE !", code=HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
 
 
 
@@ -752,7 +758,7 @@ def get_zip(self: SH, *args, **kwargs):
 		if query("download"):
 			zip_path = zip_manager.zip_ids[id]
 
-			return self.return_file(zip_path, filename, True, cookie=cookie)
+			return self.return_file(zip_path, filename, download=True, cookie=cookie)
 
 
 		if query("progress"):
@@ -774,7 +780,7 @@ def send_ls_json(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
 	return list_directory_json(self)
@@ -788,7 +794,7 @@ def send_video_data(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	os_path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
@@ -802,7 +808,7 @@ def send_video_data(self: SH, *args, **kwargs):
 		content_type = self.guess_type(".mp4") # add chrome support for .mov
 
 	if not content_type.startswith('video/'):
-		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
+		self.send_error(code=HTTPStatus.NOT_FOUND, message="THIS IS NOT A VIDEO FILE", cookie=cookie)
 		return None
 
 
@@ -845,13 +851,13 @@ def send_video_data(self: SH, *args, **kwargs):
 		warning = ('<h2>It seems HTML player may not be able to play this Video format, Try Downloading</h2>')
 
 	return self.send_json({
-		"status": "success",
-		"warning": warning,
-		"video": vid_source,
-		"title": displaypath.split("/")[-1],
-		"content_type": content_type,
-		"subtitles": updated_subtitles
-	}, cookie=cookie)
+							"status": "success",
+							"warning": warning,
+							"video": vid_source,
+							"title": displaypath.split("/")[-1],
+							"content_type": content_type,
+							"subtitles": updated_subtitles
+						}, cookie=cookie)
 
 
 @SH.on_req('HEAD', hasQ="sub")
@@ -860,11 +866,11 @@ def send_subtitle(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	sub_id = self.query.get('sub', [None])[0]
 	if sub_id not in subtitle_location_map:
-		return self.send_error(HTTPStatus.NOT_FOUND, "Subtitle not found", cookie=cookie)
+		return self.send_error(code=HTTPStatus.NOT_FOUND, message="Subtitle not found", cookie=cookie)
 
 	sub_path = subtitle_location_map[sub_id]
 
@@ -879,7 +885,7 @@ def send_video_page(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
 	os_path = kwargs.get('path', '')
@@ -889,7 +895,7 @@ def send_video_page(self: SH, *args, **kwargs):
 	content_type = self.guess_type(os_path)
 
 	if not content_type.startswith('video/'):
-		self.send_error(HTTPStatus.NOT_FOUND, "THIS IS NOT A VIDEO FILE", cookie=cookie)
+		self.send_error(code=HTTPStatus.NOT_FOUND, message="THIS IS NOT A VIDEO FILE", cookie=cookie)
 		return None
 
 	r = []
@@ -924,7 +930,7 @@ def send_style(self: SH, *args, **kwargs):
 @SH.on_req('HEAD', hasQ="script_global")
 def send_script_global(self: SH, *args, **kwargs):
 	"""Send global script"""
-	return self.send_script(pt.script_global(), content_type="text/javascript")
+	return self.send_script(pt.script_global())
 
 @SH.on_req('HEAD', hasQ="asset_script")
 def send_script(self: SH, *args, **kwargs):
@@ -987,7 +993,7 @@ def signup_page(self: SH, *args, **kwargs):
 		return self.redirect("/")
 
 	if Sconfig.cli_args.no_signup:
-		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Signup is disabled")
+		return self.send_error(code=HTTPStatus.SERVICE_UNAVAILABLE, message="Signup is disabled")
 
 	return self.send_text(pt.signup_page())
 
@@ -1049,7 +1055,7 @@ def get_folder_data(self: SH, *args, **kwargs):
 
 		})
 
-	data = list_directory(self, os_path, user, cookie=cookie, escape_html=False)
+	data = list_directory(self, os_path, user, cookie=cookie)
 
 	if data:
 		return self.send_json(data, cookie=cookie)
@@ -1074,7 +1080,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 		parts = urllib.parse.urlsplit(self.path)
 		if not parts.path.endswith('/'):
 			# redirect browser - doing basically what apache does
-			self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+			self.send_response(code=HTTPStatus.MOVED_PERMANENTLY)
 			new_parts = (parts[0], parts[1], parts[2] + '/',
 							parts[3], parts[4])
 			new_url = urllib.parse.urlunsplit(new_parts)
@@ -1097,7 +1103,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# parsing and rejection of filenames with a trailing slash
 
 	if os_path.endswith("/"):
-		self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie=cookie)
+		self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found", cookie=cookie)
 		return None
 
 
@@ -1105,10 +1111,10 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 	# else:
 
 	if (not user.DOWNLOAD) or user.NOPERMISSION:
-		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Download is disabled", cookie=cookie)
+		return self.send_error(code=HTTPStatus.SERVICE_UNAVAILABLE, message="Download is disabled", cookie=cookie)
 
 	if not os.path.exists(os_path):
-		return self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie=cookie)
+		return self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found", cookie=cookie)
 	return self.return_file(os_path, filename, cookie=cookie)
 
 
@@ -1185,7 +1191,7 @@ def handle_signup_post(self: SH, *args, **kwargs):
 		return self.redirect("/")
 
 	if Sconfig.cli_args.no_signup:
-		return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE, "Signup is disabled")
+		return self.send_error(code=HTTPStatus.SERVICE_UNAVAILABLE, message="Signup is disabled")
 
 
 	post = DPD(self)
@@ -1229,11 +1235,11 @@ def upload(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
 	if user.NOPERMISSION or (not user.UPLOAD):
-		return self.send_txt("Upload not allowed", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
+		return self.send_txt("Upload not allowed", code=HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 
 	os_path = kwargs.get('path', '')
@@ -1280,18 +1286,18 @@ def upload(self: SH, *args, **kwargs):
 	if (user.MEMBER and not user.check_password(password)) or (not user.MEMBER and password != CoreConfig.PASSWORD): # readline returns password with \r\n at end
 		self.log_info(f"Incorrect password by {uid}")
 
-		return self.send_txt("Incorrect password", HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_txt("Incorrect password", code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 	while post.remainbytes > 0:
 		fn = form.get_file_name() # reads the next line and returns the file name
 		if not fn:
-			return self.send_error(HTTPStatus.BAD_REQUEST, "Can't find out file name...", cookie=cookie)
+			return self.send_error(code=HTTPStatus.BAD_REQUEST, message="Can't find out file name...", cookie=cookie)
 
 
 		rltv_path = xpath(url_path, fn) # relative path (must be url path with / separator)
-		
+
 		if not self.path_safety_check(fn, rltv_path):
-			return self.send_txt("Invalid Path:  " + rltv_path, HTTPStatus.BAD_REQUEST, cookie=cookie)
+			return self.send_txt("Invalid Path:  " + rltv_path, code=HTTPStatus.BAD_REQUEST, cookie=cookie)
 
 		temp_fn = xpath(os_path, ".LStemp-"+ fn +'.tmp')
 		CoreConfig.temp_files.add(temp_fn)
@@ -1330,20 +1336,20 @@ def upload(self: SH, *args, **kwargs):
 
 			if upload_handler.error and not upload_handler.active:
 				remove_from_temp(temp_fn)
-				return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, upload_handler.error, cookie=cookie)
+				return self.send_error(code=HTTPStatus.INTERNAL_SERVER_ERROR, message=upload_handler.error, cookie=cookie)
 
 
 
 		except (IOError, OSError):
 			traceback.print_exc()
-			return self.send_txt("Can't create file to write, do you have permission to write?", HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
+			return self.send_txt("Can't create file to write, do you have permission to write?", code=HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
 
 
 	upload_handler.active = False # will take no further inputs
 	upload_thread.join()
 
 	if upload_handler.error:
-		return self.send_error(upload_handler.error, HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+		return self.send_error(code=HTTPStatus.INTERNAL_SERVER_ERROR, message=upload_handler.error, cookie=cookie)
 
 
 
@@ -1359,7 +1365,7 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
 	if user.NOPERMISSION or (not user.DELETE):
@@ -1389,10 +1395,10 @@ def del_2_recycle(self: SH, *args, **kwargs):
 
 
 	rel_path = self.get_rel_path(filename)
-	
+
 	if not self.path_safety_check(filename, rel_path):
 		return self.send_json({"head": "Failed", "body": "Invalid Path:  " + rel_path}, cookie=cookie)
-	
+
 	os_f_path = self.translate_path(xpath(url_path, filename))
 
 	self.log_warning(f'<-send2trash-> {os_f_path} by {[uid]}')
@@ -1424,7 +1430,7 @@ def del_permanently(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
 	if user.NOPERMISSION or (not user.DELETE):
@@ -1480,7 +1486,7 @@ def rename_content(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
 	if user.NOPERMISSION or (not user.MODIFY):
@@ -1542,7 +1548,7 @@ def get_info(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
 
 
 	if user.NOPERMISSION:
@@ -1669,7 +1675,7 @@ def new_folder(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user: # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), HTTPStatus.UNAUTHORIZED)
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED)
 
 	if user.NOPERMISSION or (not user.MODIFY):
 		return self.send_json({"head": "Failed", "body": "Permission denied."}, cookie=cookie)
@@ -1707,7 +1713,7 @@ def new_folder(self: SH, *args, **kwargs):
 		if os.path.isfile(os_f_path):
 			return self.send_json({"head": "Failed", "body": "File Already Exists:  " + rel_path}, cookie=cookie)
 		os.makedirs(os_f_path)
-		return self.send_json({"head": "Success", "body": "New Folder Created:  " + rel_path +post.refresh}, cookie=cookie)
+		return self.send_json({"head": "Success", "body": "New Folder Created:  " + rel_path + post.refresh}, cookie=cookie)
 
 	except Exception as e:
 		self.log_error(traceback.format_exc())
@@ -1771,7 +1777,7 @@ def run(*args, **kwargs):
 			print(url.terminal('black', 'white', quiet_zone=1))
 		except Exception as e:
 			logger.error(f"Error generating QR code: {e}")
-			
+
 
 	runner.run()
 
