@@ -81,7 +81,7 @@ def xpath(*path: Union[str, bytes], realpath=False, posix=True, win=False):
 def EXT(path):
 	"""
 	Returns the extension of the file
-
+	
 	ie. EXT("file.txt") -> "txt"
 	"""
 	return path.rsplit('.', 1)[-1]
@@ -137,8 +137,8 @@ def os_scan_walk(*path, allow_dir=False) -> List[os.DirEntry]:
 
 def is_file(*path):
 	return os.path.isfile(xpath(*path))
-
-
+	
+	
 def is_filetype(*path, ext_type):
 	path = xpath(*path)
 	mime = mimetypes.guess_type(path)[0]
@@ -214,9 +214,9 @@ def str_comma(x):
 		x = float(x)
 
 	x = round(x, 2)
-
+	
 	return ("{:.2f}".format(x)).replace('.', ',')
-
+	
 
 def str_comma_to_float(x):
 	try:
@@ -229,6 +229,30 @@ def str_comma_to_float(x):
 		if "," in x:
 			x = x.replace(",", ".")
 	return float(x)
+
+
+try:
+	from print_text3 import xprint
+except ImportError:
+	xprint = print
+
+
+def lprint(*args, **kwargs):
+	"""
+	xprint, but the 1st argument is the line number from where it's being called.
+	"""
+	import inspect
+	# Get the previous frame in the stack, otherwise it would be this function
+	frame = inspect.currentframe().f_back
+	# Extract the line number
+	line_number = frame.f_lineno
+	# Extract the file name
+	file_path = frame.f_code.co_filename.replace('\\', '/')
+	# file_path = '/'.join(file_path.split('/')[-2:])
+	# Print the file name and line number, along with the provided arguments
+	xprint(f'/b/["{file_path}", line {line_number}]:/=/ ', end='')
+	print(*args, **kwargs)
+
 
 
 if __name__ == '__main__':
