@@ -44,11 +44,12 @@ import signal
 import atexit
 import shutil
 from collections.abc import Iterable
+from concurrent.futures import Future
+from queue import Queue
 import sys
 import time
 import random
 from tempfile import NamedTemporaryFile
-from threading import Thread
 import csv
 import copy as datacopy
 
@@ -90,14 +91,100 @@ def load(location, auto_dump, sig=True):
 	"""
 	return PickleDB(location, auto_dump, sig)
 
+
+class TaskExecutor:
+	"""
+	A thread-safe task execution queue that ensures tasks are executed sequentially 
+	and allows retrieving return values or raising exceptions as if they were 
+	executed normally.
+	"""
+	
+	def __init__(self):
+		"""Initialize the task queue and set the executor to idle."""
+		self.__TASKS = Queue()  # Queue to store tasks
+		self.busy = False       # Flag to indicate if a task is currently running
+		self.active_future = None  # Future object of the currently running task
+
+	def __next_task(self):
+		"""
+		Executes the next task in the queue.
+		
+		- Retrieves the next task from the queue.
+		- Executes it and stores the result or raises an exception.
+		- Marks the task as completed.
+		- Calls itself recursively to process the next task (if any).
+		"""
+		if self.busy:
+			return
+		while not self.__TASKS.empty():
+			self.busy = True  # Mark as busy
+
+			# Retrieve the next task (function, args, kwargs, future object)
+			func, args, kwargs, future = self.__TASKS.get(timeout=0.1)
+			self.active_future = future
+
+			try:
+				# Execute the function and store the result
+				result = func(*args, **kwargs)
+				# future.put(result)  # Store result in future
+				future.set_result(result)
+			except Exception as e:
+				# If an exception occurs, store it in the future
+				# future.put(e)
+				print(traceback.format_exc())
+				future.set_exception(e)
+			finally:
+				# Mark the task as done in the queue
+				self.__TASKS.task_done()
+				
+				# Mark executor as idle and trigger the next task
+				self.busy = False
+				self.active_future = None
+
+	def lock(self, func, *args, **kwargs):
+		"""
+		Adds a function to the task queue and waits for its result.
+		
+		- If the function executes successfully, returns the result.
+		- If the function raises an error, it propagates the exception.
+		
+		Args:
+			func (callable): The function to execute.
+			*args: Positional arguments for the function.
+			**kwargs: Keyword arguments for the function.
+
+		Returns:
+			Any: The return value of the function.
+
+		Raises:
+			Exception: Any exception raised by the function.
+		"""
+		# future = Queue()  # Create a Future object to store result or exception
+		future = Future()
+		self.__TASKS.put((func, args, kwargs, future))  # Add task to queue
+		self.__next_task()  # Start executing tasks if not already running
+
+		# result = future.get()  # Wait for and return the function's result
+		result = future.result()
+
+
+		# if isinstance(result, Exception):
+		# 	raise result
+
+		return result
+
+
 class PickleDB(object):
 
 	key_string_error = TypeError('Key/name must be a string!')
 
-	def __init__(self, location="", auto_dump=True, sig=True):
+	def __init__(self, location="", auto_dump=True, sig=True, *args, **kwargs):
 		"""Creates a database object and loads the data from the location path.
 		If the file does not exist it will be created on the first update.
 		"""
+		self.task_executor = TaskExecutor()
+
+
 		self.db = {}
 
 		self.in_memory = False
@@ -106,8 +193,6 @@ class PickleDB(object):
 			self.load(location, auto_dump)
 		else:
 			self.in_memory = True
-
-		self.dthread = None
 
 		self.m_time = 0
 
@@ -148,14 +233,31 @@ class PickleDB(object):
 		"""Get a total number of keys, lists, and dicts inside the db"""
 		return len(self.db)
 
+	
+	def threadsafe_decorator(func):
+		"""
+		Decorator for thread safe functions
+		"""
+		# check if the func stack is already locked
+		# if not, lock it, else return the function
+		
+
+		def wrapper(self:"PickleTable", *args, **kwargs):
+			return self.task_executor.lock(func, self, *args, **kwargs)
+
+		# def wrapper(self, *args, **kwargs):
+		# 	return func(self, *args, **kwargs)
+		return wrapper
+
+
 
 	def set_sigterm_handler(self):
 		"""
 		Assigns sigterm_handler for graceful shutdown during dump()
 		"""
 		def sigterm_handler(*args, **kwargs):
-			if self.dthread is not None:
-				self.dthread.join()
+			if self.task_executor.active_future:
+				self.task_executor.active_future.result()
 		try:
 			signal.signal(signal.SIGTERM, sigterm_handler)
 			# ValueError: signal only works in main thread of the main interpreter
@@ -183,14 +285,17 @@ class PickleDB(object):
 		self.in_memory = True
 		return
 
+	@threadsafe_decorator
 	def rescan(self, rescan=True):
 		"""
 		Rescan the file for changes
 		"""
+
 		if self.in_memory or not rescan:
 			return
 		if os.path.exists(self.location):
 			m_time = os.stat(self.location).st_mtime
+			# print("⏰", "OWN:", self.m_time, "NEW:", m_time)
 			if m_time > self.m_time:
 				self._loaddb()
 				self.m_time = m_time
@@ -219,39 +324,42 @@ class PickleDB(object):
 			self.new()
 		return True
 
-	def _dump(self):
+	@threadsafe_decorator
+	def dump(self, filepath=None):
 		"""
 		Dump to a temporary file, and then move to the actual location
 		"""
-		if self.in_memory:
-			return
+		save_own = True
+		if filepath and filepath != self.location:
+			save_own = False
+
+		savepath = filepath or self.location
+		
+		if not SAVE_LOAD or self.in_memory or savepath is None:
+			return self.in_memory # return False if not saved
+
+		db = self.db
+		# make a copy of the db if not saving to own location
+		if not save_own:
+			db = datacopy.deepcopy(self.db)
+			
+
 
 		logger.info("--dumping--")
 		with NamedTemporaryFile(mode='wb', delete=False) as f:
 			try:
-				msgpack.dump(self.db, f)
+				msgpack.dump(db, f)
 			except Exception as e:
 				logger.error("Error while dumping to temp file: %s", e)
-				logger.error("Location: %s", self.location)
+				logger.error("Location: %s, (to be moved to %s)", f.name, savepath)
 
 				raise e
+
 		if os.stat(f.name).st_size != 0:
-			shutil.move(f.name, self.location)
+			shutil.move(f.name, savepath)
 
-		self.m_time = os.stat(self.location).st_mtime
-
-	def dump(self):
-		"""
-		Force dump memory db to file
-		"""
-
-		if self.in_memory or not SAVE_LOAD:
-			return
-
-		self.dthread = Thread(target=self._dump)
-		self.dthread.start()
-		self.dthread.join()
-		return True
+		if save_own:
+			self.m_time = os.stat(savepath).st_mtime
 
 	# save = PROXY OF SELF.DUMP()
 	save = dump
@@ -261,7 +369,7 @@ class PickleDB(object):
 		Load or reload the json info from the file
 		"""
 		if not SAVE_LOAD:
-			logger.warn("msgpack not found, install it using `pip install msgpack`\n * Only in-memory db will work")
+			logger.warning("msgpack not found, install it using `pip install msgpack`\n * Only in-memory db will work")
 			self.in_memory = True
 			self.new()
 			return
@@ -288,8 +396,8 @@ class PickleDB(object):
 
 
 	def validate_key(self, key):
-		"""Make sure key is a string
-		msgpack is optimized for string keys, so we need to make sure"""
+		"""Make sure key is a string|bytes
+		msgpack is optimized for string|bytes keys, so we need to make sure"""
 
 		if not isinstance(key, (str, bytes)):
 			raise self.key_string_error
@@ -593,6 +701,7 @@ class PickleTable(dict):
 		- filepath: path to the db file (default: `""` or in-memory db)
 		- auto_dump: auto dump on change (default: `True`)
 		- sig: Add signal handler for graceful shutdown (default: `True`)
+		- always_rescan: always rescan the file for changes (default: `False`)
 		"""
 		self.CC = 0 # consider it as country code and every items are its people. they gets NID
 
@@ -600,10 +709,13 @@ class PickleTable(dict):
 		self.gen_CC()
 
 
-		self.busy = False
 		self._pk = PickleDB(location=filepath, *args, **kwargs)
 
+		self.always_rescan = kwargs.get("always_rescan", False)
+
 		# make the super dict = self._pk.db
+		self.busy = False
+		self.task_executor = TaskExecutor()
 
 
 
@@ -613,6 +725,14 @@ class PickleTable(dict):
 
 		# DEFAULR LIMIT FOR STR conversion
 		self.str_limit = 50
+
+	def threadsafe_decorator(func):
+		"""
+		Decorator for thread safe functions
+		"""
+		def wrapper(self:"PickleTable", *args, **kwargs):
+			return self.task_executor.lock(func, self, *args, **kwargs)
+		return wrapper
 
 	def __bool__(self):
 		"""
@@ -664,12 +784,17 @@ class PickleTable(dict):
 
 	to_dataframe = dataFrame
 
-	def to_list(self):
+	@threadsafe_decorator
+	def to_list(self, rescan=True):
 		"""
 		Return a list of all rows
 		"""
-		self.rescan()
-		return [list(self.column_names_func(rescan=False))] + [self.row_obj(i).to_list() for i in range(self.height)]
+		self.rescan(rescan=rescan)
+		col_names = list(self.column_names_func(rescan=False))
+		return [col_names] + [
+			[self._pk.db[col][i] for col in col_names]
+			for i in range(self.height)
+		]
 
 	def rescan(self, rescan=True):
 		"""
@@ -698,14 +823,14 @@ class PickleTable(dict):
 
 		return self.CC
 
+	@threadsafe_decorator
 	def get_height(self):
 		"""
 		Return the number of rows
 		"""
 		self.rescan()
-		columns = self.column_names_func(rescan=False)
+		columns = self._column_names_func(rescan=False)
 		h = len(self._pk.db[columns[0]]) if columns else 0
-
 		return h
 
 	def __str__(self, limit:int=None):
@@ -721,12 +846,12 @@ class PickleTable(dict):
 			x += "\t|\t".join(self.column_names_func(rescan=False))
 			for i in range(min(self.height, limit)):
 				x += "\n"
-				x += "\t|\t".join([str(cell) if cell is not None else '' for cell in self.row(i).values()])
+				x += "\t|\t".join([str(cell) if cell is not None else '' for cell in self.row(i, rescan=False).values()])
 
 		else:				
 			x = tabulate(
 				# self[:min(self.height, limit)], 
-				self.rows(start=0, end=min(self.height, limit)),
+				self.rows(start=0, end=min(self.height, limit), rescan=False),
 				headers="keys", 
 				tablefmt= "simple_grid",
 				#"orgtbl",
@@ -767,27 +892,7 @@ class PickleTable(dict):
 		"""
 		return self._pk.location
 
-
-	def lock(self, func):
-		"""
-		Thread safety lock to avoid race condition
-		"""
-
-		def inner(*args, **kwargs):
-
-			while self.busy:
-				time.sleep(.001)
-
-			self.busy = True
-
-			box = func(*args, **kwargs)
-
-			self.busy = False
-
-			return box
-
-		return inner
-
+	@threadsafe_decorator
 	def column(self, name, rescan=True) -> list:
 		"""
 		Return a copy list of all values in column
@@ -795,6 +900,7 @@ class PickleTable(dict):
 		self.rescan(rescan=rescan)
 		return self._pk.db[name].copy()
 	
+	@threadsafe_decorator
 	def get_column(self, name) -> list:
 		"""
 		Return the list pointer to the column (unsafe)
@@ -807,6 +913,7 @@ class PickleTable(dict):
 		"""
 		return _PickleTColumn(self, name, self.CC)
 
+	@threadsafe_decorator
 	def columns(self, rescan=True):
 		"""
 		Return a **copy list** of all columns in db
@@ -821,14 +928,22 @@ class PickleTable(dict):
 		self.rescan(rescan=rescan)
 		return [_PickleTColumn(self, name, self.CC) for name in self._pk.db]
 
-	def column_names_func(self, rescan=True):
+	def _column_names_func(self, rescan=True):
 		"""
 		return a tuple (unmodifiable) of column names
 		"""
 		self.rescan(rescan=rescan)
 		return tuple(self._pk.db.keys())
 
+	@threadsafe_decorator
+	def column_names_func(self, rescan=True):
+		"""
+		return a tuple (unmodifiable) of column names
+		"""
+		return self._column_names_func(rescan=rescan)
+
 	@property
+	@threadsafe_decorator
 	def column_names(self):
 		"""
 		return a tuple (unmodifiable) of column names
@@ -836,18 +951,21 @@ class PickleTable(dict):
 		self.rescan()
 		return tuple(self._pk.db.keys())
 
+	@threadsafe_decorator
 	def keys(self, rescan=True):
 		"""
 		Return a list of all keys in db
 		"""
 		return self._pk.keys(rescan=rescan)
 
+	@threadsafe_decorator
 	def values(self, rescan=True):
 		"""
 		Return a list of all values in db
 		"""
 		return self._pk.values(rescan=rescan)
 
+	@threadsafe_decorator
 	def items(self, rescan=True):
 		"""
 		Return a list of all items in db
@@ -856,33 +974,73 @@ class PickleTable(dict):
 
 	def add_column(self, *names, exist_ok=False, AD=True, rescan=True):
 		"""
-		name: column name
-		exist_ok: ignore if column already exists. Else raise KeyError
-		AD: auto-dump
+		- name: name|_PickleTColumn or list of names|_PickleTColumn
+		- exist_ok: 
+		- - =False then raise KeyError if column already exists
+		- - =True then `if name` ignore if column already exists. Else raise KeyError
+		- - =True then`if _PickleTColumn` if column already exists, 
+		- - - exist_ok=True:  ignore if column already exists. (Only checks/add for name, doesn't copy the column)
+		- - - exist_ok="name": ignore if column already exists. (Only checks/add for name, doesn't copy the column)
+		- - - exist_ok="overwrite": overwrite it (may add new rows in table if column size is higher)(may add None in column if column size is lower)
+		- AD: auto-dump
 		"""
 		self.rescan(rescan=rescan)
 
-		def add(name):
-			self._pk.validate_key(key=name)
+		def add(data):
+			if isinstance(data, _PickleTColumn):
+				name = data.name
+				self._pk.validate_key(key=name)
 
-			tsize = self.height
-			if name in self.column_names_func(rescan=False):
-				if exist_ok :
-					tsize = self.height - len(self._pk.db[name])
-					if not tsize: # 0 cells to add
-						return
-				else:
-					raise KeyError("Column Name already exists")
+				col = data.to_list()
+
+				tsize = self.height
+				csize = len(col)
+				diff = tsize - csize
+
+				if name in self.column_names_func(rescan=False):
+					if exist_ok == True or exist_ok == "name":
+						pass
+					elif exist_ok == "overwrite":
+						if diff > 0:
+							col.extend([None] * diff)
+						elif diff < 0:
+							# we need to add more rows
+							for _ in range(abs(diff)):
+								self.add_row({}, AD=False, rescan=False)
+
+						self._pk.db[name] = col
+
+					else:
+						raise KeyError("Column Name already exists")
+
 			else:
-				self._pk.db[name] = []
-				self.gen_CC() # major change
+				name = data
+
+				self._pk.validate_key(key=name)
+
+				tsize = self.height
+				if name in self._pk.db:
+					if exist_ok==True:
+						tsize = self.height - len(self._pk.db[name])
+						if not tsize: # 0 cells to add
+							return
+					else:
+						raise KeyError("Column Name already exists")
+				else:
+					self._pk.db[name] = []
+					self.gen_CC() # major change
 
 
-			self._pk.db[name].extend([None] * tsize)
+				self._pk.db[name].extend([None] * tsize)
 
 
 		# if the 1st argument is a list, unpack it
-		if isinstance(names[0], Iterable) and not isinstance(names[0], str) and not isinstance(names[0], bytes) and len(names) == 1:
+		if (isinstance(names[0], Iterable) 
+			and not isinstance(names[0], str) 
+			and not isinstance(names[0], bytes) 
+			and not isinstance(names[0], _PickleTColumn)
+			and len(names) == 1
+			):
 			names = names[0]
 
 		for name in names:
@@ -893,7 +1051,7 @@ class PickleTable(dict):
 
 	add_columns = add_column # alias
 
-
+	@threadsafe_decorator
 	def del_column(self, name, AD=True, rescan=True):
 		"""
 		@ locked
@@ -901,7 +1059,7 @@ class PickleTable(dict):
 		# AD: auto dump
 		"""
 		self.rescan(rescan=rescan)
-		self.lock(self._pk.db.pop)(name)
+		self._pk.db.pop(name)
 		if not self._pk.db: # has no keys
 			self.height = 0
 
@@ -910,8 +1068,7 @@ class PickleTable(dict):
 		self.auto_dump(AD=AD)
 
 
-
-	def row(self, row, _columns=(), rescan=True):
+	def _row(self, row, _columns=(), rescan=True):
 		"""
 		returns a row dict by `row index`
 
@@ -920,8 +1077,23 @@ class PickleTable(dict):
 		"""
 		self.rescan(rescan=rescan)
 
-		columns = _columns or self.column_names_func(rescan=False)
-		return {j: self._pk.db[j][row] for j in columns}
+		columns = _columns or self._column_names_func(rescan=False)
+		try:
+			return {j: self._pk.db[j][row] for j in columns}
+		except IndexError:
+			raise IndexError("Row index out of range, [expected: 0 to", self.height, "] [got:", row, "]")
+
+	
+	@threadsafe_decorator
+	def row(self, row, _columns=(), rescan=True):
+		"""
+		@ locked
+
+		returns a row dict by `row index`
+		- row: row index
+		- _columns: specify columns you need, blank if you need all
+		"""
+		return self._row(row, _columns=_columns, rescan=rescan)
 
 	def row_by_id(self, row_id, _columns=(), rescan=True):
 		"""
@@ -1185,7 +1357,7 @@ class PickleTable(dict):
 			return row
 
 
-	def set_cell(self, col, row, val, AD=True, rescan=True):
+	def _set_cell(self, col, row, val, AD=True, rescan=True) -> bool:
 		"""
 		set value of a cell
 		- col: column name
@@ -1204,7 +1376,27 @@ class PickleTable(dict):
 
 		self.auto_dump(AD=AD)
 
-	def set_cell_by_id(self, col, row_id, val, AD=True, rescan=True):
+		return True
+
+	@threadsafe_decorator
+	def set_cell(self, col, row, val, AD=True, rescan=True) -> bool:
+		"""
+		@ locked
+
+		set value of a cell
+		- col: column name
+		- row: row index
+		- val: value of cell
+		- AD: auto dump
+
+		ie:
+		```python
+		db.set_cell("name", 0, "John")
+		```
+		"""
+		return self._set_cell(col, row, val, AD=AD, rescan=rescan)
+
+	def set_cell_by_id(self, col, row_id, val, AD=True, rescan=True) -> bool:
 		"""
 		set value of a cell
 		- col: column name
@@ -1218,9 +1410,9 @@ class PickleTable(dict):
 		db.set_cell_by_id("name", 0, "John")
 		```
 		"""
-		self.set_cell(col=col, row=self.ids.index(row_id), val=val, AD=AD, rescan=rescan)
+		return self.set_cell(col=col, row=self.ids.index(row_id), val=val, AD=AD, rescan=rescan)
 
-	def get_cell(self, col, row, rescan=True):
+	def _get_cell(self, col, row, rescan=True):
 		"""
 		get cell value only (by row index)
 		- col: column name
@@ -1232,7 +1424,7 @@ class PickleTable(dict):
 		try:
 			_col = self._pk.db[col]
 		except KeyError:
-			column_names = self.column_names_func(rescan=False)
+			column_names = self._column_names_func(rescan=False)
 			raise KeyError("Invalid column name:", col, "\nAvailable columns:", column_names)
 		try:
 			cell = _col[row]
@@ -1241,7 +1433,18 @@ class PickleTable(dict):
 
 		return cell
 
-	def get_cell_by_id(self, col, row_id):
+	@threadsafe_decorator
+	def get_cell(self, col, row, rescan=True):
+		"""
+		@ locked
+
+		get cell value only (by row index)
+		- col: column name
+		- row: row index
+		"""
+		return self._get_cell(col, row, rescan=rescan)
+
+	def get_cell_by_id(self, col, row_id, rescan=True):
 		"""
 		get cell value only (by row_id)
 		- col: column name
@@ -1251,9 +1454,9 @@ class PickleTable(dict):
 			row = self.ids.index(row_id)
 		except ValueError:
 			raise ValueError("Invalid row id:", row_id)
-		return self.get_cell(col, row)
+		return self.get_cell(col, row, rescan=rescan)
 
-	def get_cell_obj(self, col, row:int=-1, row_id:int=-1) -> "_PickleTCell":
+	def get_cell_obj(self, col, row:int=-1, row_id:int=-1, rescan=True) -> "_PickleTCell":
 		"""
 		return cell object
 		- col: column name
@@ -1265,6 +1468,7 @@ class PickleTable(dict):
 		cell = db.get_cell_obj("name", 0)
 		```
 		"""
+		self.rescan(rescan=rescan)
 
 		if row>-1:
 			if row>=self.height:
@@ -1276,9 +1480,11 @@ class PickleTable(dict):
 		# in case row or row_id is invalid
 		raise IndexError("Invalid row")
 
-
+	@threadsafe_decorator
 	def pop_row(self, index:int=-1, returns=True, AD=True, rescan=True) -> Union[dict, None]:
 		"""
+		@ locked
+
 		Pop a row from the table (last row by default)
 
 		- index: index of the row (not id), if not given, last row of the table is popped
@@ -1298,7 +1504,7 @@ class PickleTable(dict):
 		if returns:
 			box = self.row(index)
 
-		for c in self.column_names_func(rescan=False):
+		for c in self._column_names_func(rescan=False):
 			self._pk.db[c].pop(index)
 
 		self.ids.pop(index)
@@ -1309,14 +1515,14 @@ class PickleTable(dict):
 
 		return box
 
-	def del_row(self, row:int, AD=True):
+	def del_row(self, row:int, AD=True, rescan=True):
 		"""
 		Delete a row from the table (by row index)
 		- row: row index
 		- AD: auto dump
 		"""
 		# Auto dumps (locked)
-		self.lock(self.pop_row)(row, returns=False, AD=AD)
+		self.pop_row(row, returns=False, AD=AD, rescan=rescan)
 
 
 
@@ -1328,15 +1534,18 @@ class PickleTable(dict):
 		"""
 		self.del_row(self.ids.index(row_id), AD=AD)
 
+
+	@threadsafe_decorator
 	def clear(self, AD=True, rescan=True):
 		"""
-		Delete all rows
+		@ locked
 
-		AD: auto dump
+		Delete all rows
+		- AD: auto dump
 		"""
 		self.rescan(rescan=rescan)
 
-		for c in self.column_names_func(rescan=False):
+		for c in self._column_names_func(rescan=False):
 			self._pk.db[c].clear()
 
 		self.ids.clear()
@@ -1344,9 +1553,26 @@ class PickleTable(dict):
 
 		self.auto_dump(AD=AD)
 
+		return self
 
-	def copy(self, location=None, auto_dump=True, sig=True) -> "PickleTable":
+	def blank_sheet(self, AD=True, rescan=True):
 		"""
+		Blank the sheet (clear all rows and columns)
+		- AD: auto dump
+		"""
+		self.clear(AD=False, rescan=rescan)
+
+		for c in self._column_names_func(rescan=False):
+			self._pk.db.pop(c)
+
+		self.auto_dump(AD=AD)
+
+		return self
+
+	def _copy(self, location=None, auto_dump=True, sig=True) -> "PickleTable":
+		"""
+		@ locked
+
 		Copy the table to a new location/memory
 		- location: new location of the table (default: `None`->`in-memory`)
 		- auto_dump: auto dump on change (default: `True`)
@@ -1355,23 +1581,39 @@ class PickleTable(dict):
 		"""
 		
 		new = PickleTable(location, auto_dump=auto_dump, sig=sig)
-		new.add_column(*self.column_names)
+		new.add_column(*self._column_names_func())
 		new._pk.db = datacopy.deepcopy(self.__db__())
 		new.height = self.height
 		new.ids = self.ids.copy()
 
-
 		return new
 
-
-
-
-	def _add_row(self, row:Union[dict, "_PickleTRow"], position:int="last", rescan=True) -> "_PickleTRow":
+	
+	@threadsafe_decorator
+	def copy(self, location=None, auto_dump=True, sig=True) -> "PickleTable":
 		"""
-		@ unlocked
+		@ locked
+
+		Copy the table to a new location/memory
+		- location: new location of the table (default: `None`->`in-memory`)
+		- auto_dump: auto dump on change (default: `True`)
+		- sig: Add signal handler for graceful shutdown (default: `True`)
+		- return: new PickleTable object
+		"""
+		return self._copy(location=location, auto_dump=auto_dump, sig=sig)
+
+
+
+	@threadsafe_decorator
+	def add_row(self, row:Union[dict, "_PickleTRow"], position:int=None, rescan=True, AD=True) -> "_PickleTRow":
+		"""
+		@ locked
+
 		Add a row to the table. (internal use, no auto dump)
 		- row: row must be a dict or _PickleTRow containing column names and values
-		- position: position to add the row (default: "last")
+		- position: position to add the row (default: `None`->`last`)
+		- rescan: rescan the db if changes are made (default: `False`)
+		- AD: auto dump (default: `False`)
 		- return: row object
 		"""
 		self.rescan(rescan=rescan)
@@ -1382,53 +1624,25 @@ class PickleTable(dict):
 		else:
 			row_id = self.ids[-1] + 1
 
+		column_names = self._column_names_func(rescan=False)
 
-		if isinstance(position, int):
-			for k in self.column_names_func(rescan=False):
-				self._pk.db[k].insert(position, row.get(k))
-			self.ids.insert(position, row_id)
+		position = position if position is not None else self.height
 
-		else:
-			for k in self.column_names_func(rescan=False):
-				self._pk.db[k].append(row.get(k))
-			self.ids.append(row_id)
-
-
-		#for k, v in row.items():
-		#	self.set_cell(k, self.height, v, AD=False)
+		self.ids.insert(position, row_id)
+		for k in column_names:
+			self._pk.db[k].insert(position, row.get(k))
 
 		self.height += 1
+
+		self.auto_dump(AD=AD)
 
 		return self.row_obj_by_id(row_id)
 
 
-	def add_row(self, row:Union[dict, "_PickleTRow"], position="last", AD=True, rescan=True) -> "_PickleTRow":
+	def insert_row(self, row:Union[dict, "_PickleTRow"], position:int=None, AD=True) -> "_PickleTRow":
 		"""
-		@ locked
 		- row: row must be a dict|_PickleTRow containing column names and values
-		- position: position to add the row (default: "last")
-		- AD: auto dump
-		- return: row object
-
-		ie:
-		```python
-		db.add_row({"name": "John", "age": 25})
-		db.add_row(row_obj)
-		```
-		"""
-
-		row_obj = self.lock(self._add_row)(row=row,position=position, rescan=rescan)
-
-		self.auto_dump(AD=AD)
-
-		return row_obj
-
-
-	def insert_row(self, row:Union[dict, "_PickleTRow"], position:int="last", AD=True) -> "_PickleTRow":
-		"""
-		@ locked
-		- row: row must be a dict|_PickleTRow containing column names and values
-		- position: position to add the row (default: "last")
+		- position: position to add the row (default: `None`->`last`)
 		- AD: auto dump
 		- return: row object
 
@@ -1442,13 +1656,10 @@ class PickleTable(dict):
 		return self.add_row(row=row, position=position, AD=AD)
 
 
-
-
-	def add_row_as_list(self, row:list, position:int="last", AD=True, rescan=True) -> "_PickleTRow":
+	def add_row_as_list(self, row:list, position:int=None, AD=True, rescan=True) -> "_PickleTRow":
 		"""
-		@ locked
 		- row: row must be a list containing values. (order must match with column names)
-		- position: position to add the row (default: "last")
+		- position: position to add the row (default: `None`->`last`)
 		- AD: auto dump
 		- return: row object
 
@@ -1457,20 +1668,60 @@ class PickleTable(dict):
 		# db.column_names == ["name", "age"]
 		db.add_row_as_list(["John", 25])
 		"""
-
-		row_obj = self.lock(self._add_row)(row={k:v for k, v in zip(self.column_names, row)}, position=position, rescan=rescan)
-
-		self.auto_dump(AD=AD)
+		row_obj = self.add_row(row={k:v for k, v in zip(self.column_names, row)}, position=position, rescan=rescan, AD=AD)
 
 		return row_obj
 
+	def add_rows(self, rows:List[Union[dict, "_PickleTRow"]], position:int=None, rescan=True, AD=True) -> List["_PickleTRow"]:
+		"""
+		- rows: list of rows (dict|_PickleTRow)
+		- position: position to add the row (default: `None`->`last`)
+		- AD: auto dump
+		- return: list of row objects
+
+		ie:
+		```python
+		db.add_rows([{"name": "John", "age": 25}, {"name": "Alice", "age": 30}])
+		```
+		"""
+		self.rescan(rescan=rescan)
+		ret = []
+		for row in rows:
+			ret.append(self.add_row(row=row, position=position, AD=False, rescan=False))
+
+		self.auto_dump(AD=AD)
+		return ret
+
+	def add_rows_as_list(self, rows:List[list], position:int=None, AD=True, rescan=True) -> List["_PickleTRow"]:
+		"""
+		- rows: list of rows (list)
+		- position: position to add the row (default: `None`->`last`)
+		- AD: auto dump
+		- return: list of row objects
+
+		ie:
+		```python
+		# db.column_names == ["name", "age"]
+		db.add_rows_as_list([["John", 25], ["Alice", 30]])
+		```
+		"""
+		self.rescan(rescan=rescan)
+
+		ret = []
+		for row in rows:
+			ret.append(self.add_row_as_list(row=row, position=position, AD=False, rescan=False))
+
+		self.auto_dump(AD=AD)
+		return ret
+
+	@threadsafe_decorator
 	def sort(self, column=None, key=None, reverse=False, copy=False, AD=True, rescan=True):
 		"""
 		Sort the table by a key
 		- column: column name to sort by
 		- key: function to get the key for sorting
 		- reverse: reverse the sorting
-		- copy: return a copy of the table (default: `False`)
+		- copy: return a copy of the table, `can be` the `location` of `to save file` (default: `False`)
 		- AD: auto dump
 		"""
 		self.rescan(rescan=rescan)
@@ -1478,35 +1729,28 @@ class PickleTable(dict):
 		if copy:
 			if copy is True:
 				copy = ''
-			db = self.copy(location=copy, auto_dump=self._pk.auto_dump, sig=self._pk.sig)
+			db = self._copy(location=copy, auto_dump=self._pk.auto_dump, sig=self._pk.sig)
 		else:
 			db = self
 
-		# if key is None:
-		# 	self.ids.sort(reverse=reverse)
-		# else:
-		# 	self.ids.sort(key=lambda x: self.get_cell(key, x), reverse=reverse)
-
-		# self.auto_dump(AD=AD)
-
 		# create a index array for sorting then apply to all columns and ids
 		if column:
-			def get_cell(row: "_PickleTRow"):
+			def get_cell(row: dict):
 				return row[column]
 
 		elif key:
-			def get_cell(row: "_PickleTRow"):
+			def get_cell(row: dict):
 				return key(row)
 
 		else:
-			def get_cell(row: "_PickleTRow"):
+			def get_cell(row: dict):
 				return row.values()
 
 		seq = range(db.height)
-		seq = sorted(seq, key=lambda x: get_cell(db.row_obj(x)), reverse=reverse)
+		seq = sorted(seq, key=lambda x: get_cell(db._row(x)), reverse=reverse)
 
 		# apply to all columns
-		for col in self.column_names:
+		for col in self._column_names_func(rescan=False):
 			db._pk.db[col] = [self._pk.db[col][i] for i in seq]
 
 		db.ids = [self.ids[i] for i in seq]
@@ -1515,14 +1759,17 @@ class PickleTable(dict):
 
 		return db
 
-	def remove_duplicates(self, columns=None, AD=True):
+
+	def remove_duplicates(self, columns=None, AD=True, rescan=True):
 		"""
 		Remove duplicate rows (keep the 1st occurrence)
 		- columns: columns to check for duplicates (default: all columns) (if None, all columns are checked) (if string, only that column is checked) (if list, all the mentioned columns are checked)
 		- AD: auto dump
 		"""
+		self.rescan(rescan=rescan)
+
 		if columns is None:
-			columns = self.column_names
+			columns = self._column_names_func(rescan=False)
 		if isinstance(columns, str):
 			columns = [columns]
 
@@ -1538,17 +1785,6 @@ class PickleTable(dict):
 				return None
 
 		row = self.row_obj(0)
-		# while row is not None:
-		# 	next = get_next(row)
-		# 	while next is not None:
-		# 		if any(next[col]!=row[col] for col in columns):
-		# 			next = get_next(next)
-		# 		else:
-		# 			_next = get_next(next)
-		# 			next.del_row()
-		# 			next = _next
-
-		# 	row = get_next(row)
 
 		seen_rows = set()
 		while row is not None:
@@ -1562,7 +1798,6 @@ class PickleTable(dict):
 				row = get_next(row)
 
 		self.auto_dump(AD=AD)
-
 
 
 	def verify_source(self, CC):
@@ -1581,13 +1816,13 @@ class PickleTable(dict):
 
 
 
-	def dump(self):
+	def dump(self, filepath=None):
 		"""
 		Dump the table to the db file
-
-		ignored if the table is in-memory
+		- ignored if the table is in-memory
+		- filepath: path to the file (if None, use current filepath)
 		"""
-		self._pk.dump()
+		self._pk.dump(filepath=filepath)
 
 	def auto_dump(self, AD=True):
 		"""
@@ -1635,11 +1870,13 @@ class PickleTable(dict):
 		"""
 		return json.dumps(self.__db__(), indent=indent)
 
-	def load_json(self, filepath=None, iostream=None, json_str=None, ignore_new_headers=False, on_file_not_found='error', AD=True):
+	def load_json(self, filepath=None, iostream=None, json_str=None, ignore_new_headers=False, on_file_not_found='error', keep_columns=True, AD=True):
 		"""
 		Load a json file to the table
-		- WILL OVERWRITE THE EXISTING DATA (To append, make a new table and extend)
+		- WILL OVERWRITE THE EXISTING ROWS (To append, make a new table and extend)
 		- filepath: path to the file
+		- iostream: io stream object (use either filepath or iostream)
+		- json_str: json string
 		- ignore_new_headers: ignore new headers|columns if found `[when header=True]` (default: `False` and will add new headers)
 		- on_file_not_found: action to take if the file is not found (default: `'error'`) [options: `error`|`ignore`|`warn`|`no_warning`]
 			* if `error`, raise FileNotFoundError
@@ -1668,15 +1905,18 @@ class PickleTable(dict):
 			elif on_file_not_found == 'ignore':
 				return
 			else:
-				self.clear(AD=AD)
+				self.clear(AD=AD, rescan=False)
 				if on_file_not_found == 'warn':
-					print(f"File not found: {filepath}. Cleared the table.")
+					logger.warning(f"File not found: {filepath}. Cleared the table.")
 				if on_file_not_found == 'no_warning':
 					pass
 
 				return
 
-		self.clear(AD=False)
+		if keep_columns:
+			self.clear(AD=False, rescan=False)
+		else:
+			self.blank_sheet(AD=False, rescan=False)
 
 		def load_as_io(f):
 			return json.load(f)
@@ -1709,7 +1949,7 @@ class PickleTable(dict):
 						if col not in existing_columns:
 							self.add_column(col, exist_ok=True, AD=False, rescan=False)
 
-				self._add_row(row, rescan=False)
+				self.add_row(row, rescan=False, AD=False)
 
 		self.auto_dump(AD=AD)
 
@@ -1793,7 +2033,7 @@ class PickleTable(dict):
 
 			new_row = {k: v for k, v in zip(columns, row)}
 			
-			self.add_row(new_row, rescan=False)
+			self.add_row(new_row, AD=False, rescan=False)
 
 		# if more than one source is provided
 		sources = [i for i in [filepath, iostream, csv_str] if i]
@@ -1815,15 +2055,15 @@ class PickleTable(dict):
 			elif on_file_not_found == 'ignore':
 				return
 			else:
-				self.clear(AD=AD)
+				self.clear(AD=AD, rescan=False)
 				if on_file_not_found == 'warn':
-					print(f"File not found: {filepath}. Cleared the table.")
+					logger.warning(f"File not found: {filepath}. Cleared the table.")
 				if on_file_not_found == 'no_warning':
 					pass
 
 				return
 
-		self.clear(AD=False)
+		self.clear(AD=False, rescan=False)
 
 
 		def load_as_io(f):
@@ -1940,12 +2180,12 @@ class PickleTable(dict):
 
 
 		for row in other:
-			self._add_row({k: row[k] for k in keys}, rescan=False)
+			self.add_row({k: row[k] for k in keys}, AD=False, rescan=False)
 
 		self.auto_dump(AD=AD)
 
 
-	def add(self, table:Union["PickleTable", dict], add_extra_columns=None, AD=True):
+	def add(self, table:Union["PickleTable", dict], add_extra_columns=None, AD=True, rescan=True):
 		"""
 		Add another table to this table
 		- table: PickleTable object or dict
@@ -1955,14 +2195,20 @@ class PickleTable(dict):
 			- if None, raise error if columns mismatch (default)
 		- AD: auto dump
 		"""
+		self.rescan(rescan=rescan)
+
 		if isinstance(table, dict) or isinstance(table, type(self)):
 			keys = table.keys()
 		else:
 			raise TypeError("Unsupported operand type(s) for +: 'PickleTable' and '{}'".format(type(table).__name__))
 
+		table_type = "dict" if isinstance(table, dict) else "PickleTable"
+		if table_type == "PickleTable":
+			table.rescan(rescan=rescan)
+
 		this_keys = self.column_names
 		if add_extra_columns:
-			self.add_column(*keys, exist_ok=True, AD=False)
+			self.add_column(*keys, exist_ok=True, AD=False, rescan=False)
 		else:
 			for key in keys:
 				if key not in this_keys:
@@ -1973,15 +2219,19 @@ class PickleTable(dict):
 
 		if isinstance(table, dict):
 			max_height = 0
-			for key, value in table.items():
+			for key, value in (table.items(rescan=False) if table_type=="PickleTable" else table.items()):
 				if not isinstance(value, (list, tuple)):
 					raise TypeError(f"Value type must be a list/tuple. Got: {type(value).__name__} for key: {key}")
 
 				max_height = max(max_height, len(value))
 
 			for i in range(max_height):
-				row = {k: table[k][i] if i<len(table[k]) else None for k in keys}
-				self.add_row(row, AD=False)
+				if table_type == "dict":
+					row = {k: table[k][i] if i<len(table[k]) else None for k in keys}
+				else:
+					row = {k: table.get_cell(k, i, rescan=False) for k in keys}
+					
+				self.add_row(row, AD=False, rescan=False)
 
 		else:
 			self.extend(table, )
@@ -1999,9 +2249,15 @@ class _PickleTCell:
 
 	@property
 	def value(self):
-		self.source_check()
+		return self.get_value()
 
-		return self.source.get_cell_by_id(self.column_name, self.id)
+	def get_value(self, rescan=True):
+		"""
+		return the value of the cell
+		"""
+		self.raise_deleted()
+
+		return self.source.get_cell_by_id(self.column_name, self.id, rescan=rescan)
 
 
 	def is_deleted(self):
@@ -2158,7 +2414,7 @@ class _PickleTRow(dict):
 		if name not in self.source.column_names_func(rescan=rescan):
 			return default
 
-		return self.source.get_cell_obj(col=name, row_id=self.id)
+		return self.source.get_cell_obj(col=name, row_id=self.id, rescan=rescan)
 
 	def set_item(self, name, value, AD=True):
 		"""
@@ -2278,12 +2534,16 @@ class _PickleTRow(dict):
 
 	def __eq__(self, other):
 		self.raise_deleted()
+		# if not iterable
+		if not hasattr(other, "__iter__"):
+			return False
+
 		try:
 			for k in self.source.column_names:
 				if self[k] != other[k]:
 					return False
 			return True
-		except KeyError:
+		except (KeyError, TypeError, IndexError):
 			return False
 
 	def __ne__(self, other):
@@ -2361,14 +2621,18 @@ class _PickleTColumn(list):
 
 		return self[row]
 
-	def get_cell_obj(self, row:int, default=None):
+	def get_cell_obj(self, row:int, default=None, rescan=True) -> "_PickleTCell":
+		"""
+		return the cell object of the column by row index
+		"""
+
 		self.raise_deleted()
 		if not isinstance(row, int):
 			return default
 		if row > (self.source.height-1):
 			return default
 
-		return self.source.get_cell_obj(col=self.name, row=row)
+		return self.source.get_cell_obj(col=self.name, row=row, rescan=rescan)
 
 	def _set_item(self, row:int, value, AD=True, rescan=True):
 		"""
@@ -2410,8 +2674,8 @@ class _PickleTColumn(list):
 			value = value.value
 
 		# self.source.set_cell(col=self.name, row=row, val=value, AD=AD)
-		cell:"_PickleTCell" = self.get_cell_obj(row)
-		cell.set(value, AD=AD, rescan=rescan)
+		cell:"_PickleTCell" = self.get_cell_obj(row, rescan=rescan)
+		cell.set(value, AD=AD, rescan=False)
 
 		return cell
 
@@ -2423,9 +2687,9 @@ class _PickleTColumn(list):
 		"""
 
 		# self.source.raise_source(self.CC)
-		self.set_item(row, value, AD=True)
+		self.set_item(row, value, AD=True, rescan=True)
 
-	def del_item(self, row:int, AD=True):
+	def del_item(self, row:int, AD=True, rescan=True):
 		"""
 		@ Auto dumps
 
@@ -2436,24 +2700,48 @@ class _PickleTColumn(list):
 		- AD: auto dump
 		"""
 		self.raise_deleted()
-		self.source.set_cell(self.name, row, None, AD=AD)
+		self.source.set_cell(self.name, row, None, AD=AD, rescan=rescan)
 
 	def __delitem__(self, row:int):
 		"""
 		@ Auto dump
 		* row: index of row (not id)
 		"""
-		self.del_item(row, AD=True)
+		self.del_item(row, AD=True, rescan=True)
 
 	def __iter__(self):
 		return self.get_cells_obj()
 
-	def to_list(self) -> list:
+	def __contains__(self, item):
+		self.raise_deleted()
+		return item in self.iter_values()
+
+	def iter_values(self, rescan=True) -> Generator:
+		"""
+		returns the values of the column
+		"""
+		self.raise_deleted()
+		self.source.rescan(rescan=rescan)
+
+		for i in self:
+			yield i.get_value(rescan=False)
+
+	def to_list(self, rescan=True) -> list:
 		"""
 		returns the column as list
 		"""
 		self.raise_deleted()
-		return [i.value for i in self]
+		return list(self.iter_values(rescan=rescan))
+
+	def to_dict(self, rescan=True) -> dict:
+		"""
+		returns the column as dict
+		"""
+		self.raise_deleted()
+		self.source.rescan(rescan=rescan)
+
+		d = {i: v for i, v in enumerate(self.iter_values())}
+		return d
 
 	def source_list(self):
 		"""
@@ -2639,7 +2927,7 @@ if __name__ == "__main__":
 
 		print("adding")
 		for n in range(int(100)):
-			tb._add_row({"x":n, "Y":'🍎'})
+			tb.add_row({"x":n, "Y":'🍎'})
 
 			#print(n)
 
@@ -3273,18 +3561,19 @@ if __name__ == "__main__":
 		with open(f"test{st}.json") as f:
 			text = f.read()
 
-		if text != """{
-    "x": [
-        1,
-        3,
-        "5"
-    ],
-    "Y": [
-        2,
-        null,
-        6
-    ]
-}""":
+		data = {
+			"x": [
+				1,
+				3,
+				"5"
+			],
+			"Y": [
+				2,
+				None,
+				6
+			]
+		}
+		if text != json.dumps(data, indent=4):
 			raise Exception("❌ TEST [CONVERT TO JSON]: Failed (Data Mismatch)") 
 		os.remove(f"test{st}.json")
 
@@ -3300,20 +3589,21 @@ if __name__ == "__main__":
 		with open(f"test{st}.json") as f:
 			text = f.read()
 
-		if text != """[
-    {
-        "x": 1,
-        "Y": 2
-    },
-    {
-        "x": 3,
-        "Y": null
-    },
-    {
-        "x": "5",
-        "Y": 6
-    }
-]""":
+		data = [
+			{
+				"x": 1,
+				"Y": 2
+			},
+			{
+				"x": 3,
+				"Y": None
+			},
+			{
+				"x": "5",
+				"Y": 6
+			}
+		]
+		if text != json.dumps(data, indent=4):
 			raise Exception("❌ TEST [CONVERT TO JSON]: Failed (Data Mismatch)")
 
 		os.remove(f"test{st}.json")
@@ -3469,7 +3759,214 @@ if __name__ == "__main__":
 
 		print([tb.location])
 
+		print("\t📝 _PickleTColumn -> list test")
+		tb.clear()
+		tb.add_column("x", exist_ok=True)
+		tb.add_column("Y", exist_ok=True)
 
+		tb.add_row({"x":1, "Y":2})
+		tb.add_row({"x":3, "Y":4})
+		tb.add_row({"x":5, "Y":6})
+
+		col = tb.column_obj("x")
+		if list(col) != [1, 3, 5]:
+			raise Exception("❌ TEST [_PickleTColumn -> list]: Failed")
+		if col[0] != 1:
+			raise Exception("❌ TEST [_PickleTColumn -> list]: Failed")
+		if col.to_list() != [1, 3, 5]:
+			raise Exception("❌ TEST [_PickleTColumn -> list]: Failed")
+		print("list(_PickleTColumn) = ", list(col))
+		print("_PickleTColumn = ", col)
+		print("_PickleTColumn.to_list() = ", col.to_list())
+		print("\t✅ TEST [_PickleTColumn -> list]: Passed")
+
+		print("\t📝 _PickleTColumn -> dict test")
+
+		if col.to_dict() != {0: 1, 1: 3, 2: 5}:
+			raise Exception("❌ TEST [_PickleTColumn -> dict]: Failed")
+
+		print("_PickleTColumn.to_dict() = ", col.to_dict())
+		print("\t✅ TEST [_PickleTColumn -> dict]: Passed")
+		try:
+			dict(col)
+			raise Exception("❌ TEST [_PickleTColumn -> dict]: (Must raise error) on dict(_PickleTColumn))")
+		except TypeError as e:
+			print(e)
+			print("\t✅ TEST [_PickleTColumn -> dict]: Passed (Raise Exception on dict(_PickleTColumn))")
+
+
+		print("="*50)
+
+		# PARALLEL TEST
+		print("\n\n📝 Parallel test ::")
+
+
+		def test_io_in_single_db(db: PickleTable, thread_id=None):
+			"""Test I/O operations in a single database."""
+			print("📝 Testing I/O operations in a single database")
+
+			# Create a table
+
+			for i in range(100):
+				# Add some data
+				row1 = db.add_row({"x": 1, "Y": 2}, rescan=False)
+				row2 = db.add_row({"x": 3, "Y": 4}, rescan=False)
+				row3 = db.add_row({"x": 5, "Y": 6}, rescan=False)
+
+			row1_index = row1.index()
+			row2_index = row2.index()
+			row3_index = row3.index()
+
+			# print(f"T {thread_id} :: {row1_index}, {row2_index}, {row3_index}, Max = {db.height}")
+
+			# Save the database
+			try:
+				db.dump(f"table_{thread_id}.pdb")
+
+				# Load the database
+				new_db = PickleTable(f"table_{thread_id}.pdb")
+				# print(f"T {thread_id} :: {new_db.height}")
+
+				# Check the data
+				if any([
+					new_db.row(row1_index)["x"] != 1,
+					new_db.row(row1_index)["Y"] != 2,
+					new_db.row(row2_index)["x"] != 3,
+					new_db.row(row2_index)["Y"] != 4,
+					new_db.row(row3_index)["x"] != 5,
+					new_db.row(row3_index)["Y"] != 6
+				]):
+					if thread_id is not None:
+						ValueError(f"❌ [Thread {thread_id}] I/O operations in a single database failed [DATA MISMATCH]")
+					raise ValueError("❌ I/O operations in a single database failed [DATA MISMATCH]")
+			
+			except Exception as e:
+				if thread_id is not None:
+					print(f"❌ [Thread {thread_id}] I/O operations in a single database failed")
+				else:
+					print("❌ I/O operations in a single database failed")
+				raise e
+
+			finally:
+				if os.path.exists(f"table_{thread_id}.pdb"):
+					os.remove(f"table_{thread_id}.pdb")
+
+			if thread_id is not None:
+				print(f"✅ [Thread {thread_id}] I/O operations in a single database passed")
+			else:
+				print("✅ I/O operations in a single database passed")
+
+		
+		def test_batch_io_in_single_db(db: PickleTable, thread_id=None):
+			"""Test I/O operations in a single database."""
+			print("📝 Testing I/O operations in a single database")
+
+			# Create a table
+
+			for i in range(100):
+				# Add some data
+				a, b, c, d, e, f = random.choices(range(100), k=6)
+				rows = db.add_rows([
+					{"x": a, "Y": b},
+					{"x": c, "Y": d},
+					{"x": e, "Y": f}
+				])
+
+			row1_index = rows[0].index()
+			row2_index = rows[1].index()
+			row3_index = rows[2].index()
+
+# 			print(f"""🥳 
+# T {thread_id} :: BATCH : 	{row1_index} == {rows[0]}
+# T {thread_id} :: BATCH : 	{row2_index} == {rows[1]}
+# T {thread_id} :: BATCH : 	{row3_index} == {rows[2]}
+# T {thread_id} :: BATCH : 	Max = {db.height} :: {len(db['x'])}""")
+
+			# Save the database
+			try:
+				db.dump(f"table_{thread_id}.pdb")
+
+				# Load the database
+				new_db = PickleTable(f"table_{thread_id}.pdb")
+
+				# print(f"🥶 T {thread_id} :: BATCH : {new_db.height}")
+				# Check the data
+				if any([
+					new_db.row(row1_index)["x"] != a,
+					new_db.row(row1_index)["Y"] != b,
+					new_db.row(row2_index)["x"] != c,
+					new_db.row(row2_index)["Y"] != d,
+					new_db.row(row3_index)["x"] != e,
+					new_db.row(row3_index)["Y"] != f
+				]):
+					if thread_id is not None:
+						raise ValueError(f"❌ [Thread {thread_id}] BATCH I/O operations in a single database failed [DATA MISMATCH]")
+					raise ValueError("❌ BATCH I/O operations in a single database failed [DATA MISMATCH]")
+			
+			except Exception as e:
+				if thread_id is not None:
+					print(f"❌ [Thread {thread_id}] BATCH I/O operations in a single database failed")
+				else:
+					print("❌ BATCH I/O operations in a single database failed")
+				raise e
+
+			finally:
+				if os.path.exists(f"table_{thread_id}.pdb"):
+					os.remove(f"table_{thread_id}.pdb")
+
+			if thread_id is not None:
+				print(f"✅ [Thread {thread_id}] BATCH I/O operations in a single database passed")
+
+			else:
+				print("✅ BATCH I/O operations in a single database passed")
+
+
+		def threading_request_test(threads_count=5):
+			"""Test multithreading."""
+			print("📝 Testing multithreading")
+			# Create multiple threads for intense I/O
+			threads = []
+
+			import threading
+
+			# Run the tests
+			test_db = PickleTable("__test2.pdb")
+			test_db.add_column("x", exist_ok=True)
+			test_db.add_column("Y", exist_ok=True)
+
+			start_time = time.perf_counter()
+			for i in range(threads_count):  # Run 5 parallel tests
+				t1 = threading.Thread(target=test_io_in_single_db, args=(test_db, i))
+				threads.append(t1)
+				t1.start()
+			# Wait for all threads to finish
+			for t in threads:
+				t.join()
+
+			end_time = time.perf_counter()
+			print(f"\n\n⏱️ I/O operations in a single database test in {end_time - start_time}s")
+
+			test_db.clear()
+
+			start_time = time.perf_counter()
+			for i in range(threads_count):
+				t1 = threading.Thread(target=test_batch_io_in_single_db, args=(test_db, i))
+				t1.start()
+				threads.append(t1)
+			# Wait for all threads to finish
+			for t in threads:
+				t.join()
+
+			end_time = time.perf_counter()
+			print(f"\n\n⏱️ BATCH I/O operations in a single database test in {end_time - start_time}s")
+
+			# Clear the database
+			if os.path.exists("__test2.pdb"):
+				os.remove("__test2.pdb")
+
+			print("🎉 All multithreaded tests completed successfully!")
+
+		threading_request_test(threads_count=10)
 
 
 
@@ -3491,5 +3988,6 @@ if __name__ == "__main__":
 			pass
 		test()
 
-		# os.remove("__test.pdb")
+		if os.path.exists("__test.pdb"):
+			os.remove("__test.pdb")
 		print("\n\n\n" + "# "*25 + "\n")
