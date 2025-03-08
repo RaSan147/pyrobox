@@ -14,7 +14,7 @@ import urllib.parse
 import time
 import sys
 import socketserver
-import socket  # For gethostbyaddr()
+import socket
 import shutil
 import posixpath
 import mimetypes
@@ -44,14 +44,6 @@ __all__ = [
 	"SimpleHTTPRequestHandler",
 ]
 
-
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: \n%(message)s')
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-# set INFO to see all the requests
-# set WARNING to see only the requests that made change to the server
-# set ERROR to see only the requests that made the errors
 
 
 endl = "\n"
@@ -208,6 +200,42 @@ class Config:
 		return args
 
 
+	def init_logger(self, logger):
+		"""
+		Initializes the logger
+
+		Use arg parser to get log level, default is INFO
+		"""
+
+		self.parser.add_argument('--log-level', '-l',
+								default='INFO',
+								help='[Log level] Set the log level (default: %(default)s) [DEBUG, INFO, WARNING, ERROR, CRITICAL]')
+		args = self.parser.parse_known_args()[0]
+
+		log_level = args.log_level.upper()
+		if log_level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+			log_level = 'INFO'
+
+		logger.setLevel(getattr(logging, log_level))
+
+
+
+config = Config()
+
+
+def get_log_level():
+	argparse.add_argument('--log', '-l', default='INFO', help='Log level')
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: \n%(message)s')
+
+logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
+# set INFO to see all the requests
+# set WARNING to see only the requests that made change to the server
+# set ERROR to see only the requests that made the errors
+config.init_logger(logger)
+
+
+
 class Tools:
 	def __init__(self):
 		self.styles = {
@@ -255,7 +283,6 @@ class Tools:
 
 
 tools = Tools()
-config = Config()
 
 
 
@@ -441,6 +468,7 @@ def URL_MANAGER(url: str):
 class HTTPServer(socketserver.TCPServer):
 
 	allow_reuse_address = True  # Seems to make sense in testing environment
+	allow_reuse_port = True # As per https://github.com/python/cpython/commit/192d17c3fd9945104bc0303cf248bb0d074d260e
 
 	def server_bind(self):
 		"""Override server_bind to store the server name."""

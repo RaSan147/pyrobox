@@ -20,7 +20,7 @@ def main(config=config):
 
 
 
-	config.parser.add_argument('--name', '-n',
+	config.parser.add_argument('--server-name', '-sn',
 							type=str,
 							default=None,
 							help='[Value] In case you want to create a server User accounts based. --password must be always same and --admin-id and --admin-pass is required. See web doc for more info.'
