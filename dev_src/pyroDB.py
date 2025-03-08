@@ -2065,8 +2065,22 @@ class PickleTable(dict):
 
 		self.clear(AD=False, rescan=False)
 
+		def fix_BOM(f: io.TextIOBase) -> io.TextIOBase:
+			"""
+			Checks if the file-like object f (assumed to be in text mode)
+			starts with a UTF-8 BOM. If found, it removes it by repositioning
+			the stream so that the BOM is skipped.
+			"""
+			# Read the first character; if it's not a BOM, rewind.
+			first_char = f.read(1)
+			if first_char != "\ufeff":
+				f.seek(0)
+			return f
+
 
 		def load_as_io(f):
+			f = fix_BOM(f)
+
 			reader = csv.reader(f)
 			if header is True:
 				columns = next(reader)
@@ -2563,7 +2577,7 @@ class _PickleTColumn(list):
 		"""
 		return True if the column is deleted, else False
 		"""
-		self.deleted = self.deleted or (self.name not in self.source.column_names_func(rescan=False))
+		self.deleted = self.deleted or (self.name not in self.source._column_names_func(rescan=False))
 
 		return self.deleted
 
@@ -2577,7 +2591,7 @@ class _PickleTColumn(list):
 
 	def __getitem__(self, row:Union[int, slice]):
 		"""
-		row: the index of row (not id)
+		row: the index of row (not id) [returns the cell value]
 		"""
 		self.raise_deleted()
 
@@ -2611,7 +2625,9 @@ class _PickleTColumn(list):
 
 	def get(self, row:int, default=None):
 		"""
-		get the cell value from the column by row index
+		get the cell value from the column by row **index**
+
+		- row: row index (not id)
 		"""
 		self.raise_deleted()
 		if not isinstance(row, int):
@@ -2621,18 +2637,40 @@ class _PickleTColumn(list):
 
 		return self[row]
 
-	def get_cell_obj(self, row:int, default=None, rescan=True) -> "_PickleTCell":
+	def get_by_id(self, row_id:int, default=None):
+		"""
+		get the cell value from the column by row **id**
+
+		- row_id: row id
+		"""
+
+		self.raise_deleted()
+		if row_id not in self.source.ids:
+			return default
+
+		return self[self.source.ids.index(row_id)]
+
+	def get_cell_obj(self, row:int=None, row_id:int=None, default=None, rescan=True) -> "_PickleTCell":
 		"""
 		return the cell object of the column by row index
 		"""
 
 		self.raise_deleted()
+
+		if row is None:
+			# use row index
+			if row_id is None:
+				raise ValueError("row or row_id must be provided")
+			row = self.source.ids.index(row_id)
+
 		if not isinstance(row, int):
 			return default
 		if row > (self.source.height-1):
 			return default
 
 		return self.source.get_cell_obj(col=self.name, row=row, rescan=rescan)
+
+
 
 	def _set_item(self, row:int, value, AD=True, rescan=True):
 		"""
@@ -2709,14 +2747,14 @@ class _PickleTColumn(list):
 		"""
 		self.del_item(row, AD=True, rescan=True)
 
-	def __iter__(self):
+	def __iter__(self) -> Generator[_PickleTCell, None, None]:
 		return self.get_cells_obj()
 
 	def __contains__(self, item):
 		self.raise_deleted()
 		return item in self.iter_values()
 
-	def iter_values(self, rescan=True) -> Generator:
+	def iter_values(self, rescan=True) -> Generator[Any, None, None]:
 		"""
 		returns the values of the column
 		"""
