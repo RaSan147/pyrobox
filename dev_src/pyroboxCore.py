@@ -1,3 +1,4 @@
+import asyncio
 import traceback
 import json
 import string
@@ -1491,7 +1492,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 
-	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None, cache_control=""):
+	async def _return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None, cache_control=""):
 		'''returns only the head to client
 		and returns a file object to be used by copyfile'''
 		self.log_debug(f'[RETURNED] {code} to client')
@@ -1522,6 +1523,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.send_header("Cache-Control", cache_control)
 		self.end_headers()
 		return box
+
+	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None, cache_control=""):
+		'''proxy to _return_txt'''
+		return asyncio.run(self._return_txt(msg, code, content_type, cookie, cache_control))
 
 	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
 		'''sends the head and file to client'''
@@ -1588,8 +1593,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			file = open(path, 'rb')
 			fs = os.fstat(file.fileno())
-
 			file_len = fs[6]
+
+			# fs = os.stat(path)
+			# file_len = fs.st_size
+
+
 			# Use browser cache if possible
 			if ("If-Modified-Since" in self.headers
 					and "If-None-Match" not in self.headers):
@@ -1702,8 +1711,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return  # to avoid sending file on get request
 		try:
 			self.copyfile(file, self.wfile)
-		finally:
-			file.close()
+		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+			self.log_info(tools.text_box(e.__class__.__name__,
+						e, "\nby ", [self.address_string()]))
+
 
 
 	def get_displaypath(self, url_path, escape_html=True):
@@ -1788,7 +1799,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		return os.path.normpath(path)  # fix OS based path issue
 
-	def copyfile(self, source, outputfile):
+	async def _copyfile(self, source, outputfile):
 		"""Copy all data between two file objects.
 
 		The SOURCE argument is a file object open for reading
@@ -1819,6 +1830,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			# you stop the copying before the end of the file.
 			start, stop = self.range  # set in send_head()
 			copy_byte_range(source, outputfile, start, stop)
+
+		source.close()
+
+	def copyfile(self, source, outputfile):
+		'''proxy to _copyfile'''
+		return asyncio.run(self._copyfile(source, outputfile))
 
 	def guess_type(self, path):
 		"""Guess the type of a file.
