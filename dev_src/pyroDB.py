@@ -862,7 +862,7 @@ class PickleTable(dict):
 
 		return x
 
-	def str(self, limit:int=None):
+	def to_str(self, limit:int=None):
 		"""
 		Return a string representation of the table
 		- Default only first 50 rows are shown
@@ -1744,7 +1744,7 @@ class PickleTable(dict):
 
 		else:
 			def get_cell(row: dict):
-				return row.values()
+				return list(row.values())
 
 		seq = range(db.height)
 		seq = sorted(seq, key=lambda x: get_cell(db._row(x)), reverse=reverse)
@@ -2158,6 +2158,69 @@ class PickleTable(dict):
 
 
 		self.auto_dump(AD=AD)
+
+
+	@staticmethod
+	def from_json(filepath=None, iostream=None, json_str=None, location=None, auto_dump=True, sig=True) -> "PickleTable":
+		"""
+		Load a json file to a new table
+		- filepath: path to the file
+		- iostream: io stream object (use either filepath or iostream)
+		- json_str: json string
+		- location: new location of the table (default: `None`->`in-memory`)
+		- auto_dump: auto dump on change (default: `True`)
+		- sig: Add signal handler for graceful shutdown (default: `True`)
+		- return: new PickleTable object
+		"""
+
+		db = PickleTable(location, auto_dump=auto_dump, sig=sig)
+		db.load_json(filepath=filepath, iostream=iostream, json_str=json_str, AD=False)
+
+		return db
+
+	@staticmethod
+	def from_csv(filepath=None, iostream=None, csv_str=None, header=True, location=None, auto_dump=True, sig=True) -> "PickleTable":
+		"""
+		Load a csv file to a new table
+		- filepath: path to the file
+		- iostream: io stream object (use either filepath or iostream)
+		- csv_str: csv string
+		- header: 
+			* if True, the first row will be considered as column names
+			* if False, the columns will be named as "Unnamed-1", "Unnamed-2", ...
+			* if "auto", the columns will be named as "A", "B", "C", ..., "Z", "AA", "AB", ...
+		- location: new location of the table (default: `None`->`in-memory`)
+		- auto_dump: auto dump on change (default: `True`)
+		- sig: Add signal handler for graceful shutdown (default: `True`)
+		- return: new PickleTable object
+		"""
+		db = PickleTable(location, auto_dump=auto_dump, sig=sig)
+		db.load_csv(filepath=filepath, iostream=iostream, csv_str=csv_str, header=header, AD=False)
+
+		return db
+
+	@staticmethod
+	def from_rows(rows:List[dict], location=None, auto_dump=True, sig=True) -> "PickleTable":
+		"""
+		Load a list of rows to a new table
+		- rows: list of rows (dict)
+		- location: new location of the table (default: `None`->`in-memory`)
+		- auto_dump: auto dump on change (default: `True`)
+		- sig: Add signal handler for graceful shutdown (default: `True`)
+		- return: new PickleTable object
+		"""
+		db = PickleTable(location, auto_dump=auto_dump, sig=sig)
+
+		# get all columns
+		columns = set()
+		for row in rows:
+			columns.update(row.keys())
+
+		db.add_column(columns, exist_ok=True, AD=False)
+
+		db.add_rows(rows, AD=auto_dump)
+
+		return db
 
 	
 	def extend(self, other: "PickleTable", add_extra_columns=None, AD=True, rescan=True):
