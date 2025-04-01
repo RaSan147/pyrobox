@@ -849,7 +849,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			message = shortmsg
 		if explain is None:
 			explain = longmsg
+		
 		self.log_error("code", code, "message", message, "\n\n", "URL", self.path, "\nquery", self.query, "\nfragment", self.fragment, "\nmethod", self.method)
+
 		self.send_response(code=code, message=message)
 
 		self._send_cookie(cookie=cookie)
@@ -1203,6 +1205,14 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'TRACE': []
 	}
 
+	
+	handler_func = None
+	handler_func_name = None
+	handler_func_args = None
+	handler_func_source = None
+	handler_func_file = None
+	handler_func_lines, handler_func_line = None, None
+
 	def __init__(self, *args, directory=None, **kwargs):
 		if directory is None:
 			directory = os.getcwd()
@@ -1211,12 +1221,6 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		super().__init__(*args, **kwargs)
 		self.query = Callable_dict()
 
-		self.func = None
-		self.func_name = None
-		self.func_args = None
-		self.func_source = None
-		self.func_file = None
-		self.func_lines, self.func_line = None, None
 
 
 	# def do_GET(self):
@@ -1346,6 +1350,17 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				cookie=cookie,
 				cache_control=cache_control
 				)
+
+
+
+	def log_error(self, *args, **kwargs):
+		"""
+		Log error as well as show the function name and info
+		"""
+		if getattr(self, 'handler_func', None):
+			self.log_info(f'Error on [{self.handler_func_name}] -> [{self.handler_func_args}] -> at line [{self.handler_func_line}] -> in [{self.handler_func_file}]')
+
+		return super().log_error(*args, **kwargs)
 
 
 	def test_req(self, url='', hasQ=(), QV={}, fragent='', url_regex=''):
@@ -1488,12 +1503,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 						# save function details in class using inspect
-						self.func = func
-						self.func_name = func.__name__
-						self.func_args = str(inspect.signature(func))
-						self.func_source = inspect.getsource(func)
-						self.func_file = inspect.getfile(func)
-						self.func_lines, self.func_line = inspect.getsourcelines(func)
+						self.handler_func = func
+						self.handler_func_name = func.__name__
+						self.handler_func_args = str(inspect.signature(func))
+						self.handler_func_source = inspect.getsource(func)
+						self.handler_func_file = inspect.getfile(func)
+						self.handler_func_lines, self.handler_func_line = inspect.getsourcelines(func)
 
 						resp = func(self, url_path=url_path, query=query,
 								fragment=fragment, path=path, spathsplit=spathsplit)
