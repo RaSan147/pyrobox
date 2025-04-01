@@ -1,3 +1,4 @@
+import inspect
 import traceback
 import json
 import string
@@ -755,14 +756,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			if not self.parse_request():
 				# An error code has been sent, just exit
 				return
-			mname = 'do_' + self.command
-			self.method = self.command
+			mname = 'do_HANDLE'
+			self.method = self.command.upper()
 
-			if not hasattr(self, mname):
-				self.send_error(
-					code=HTTPStatus.NOT_IMPLEMENTED,
-					message="Unsupported method (%r)" % self.command)
-				return
 			method = getattr(self, mname)
 
 			url_path, query, fragment = URL_MANAGER(self.path)
@@ -788,7 +784,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 						)
 
 			try:
-				method()
+				method(self.command)
 			except Exception:
 				ERROR = traceback.format_exc()
 				self.log_error(ERROR)
@@ -1215,27 +1211,35 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		super().__init__(*args, **kwargs)
 		self.query = Callable_dict()
 
-	def do_GET(self):
-		"""Serve a GET request."""
-		try:
-			resp = self.send_head()
-		except Exception as e:
-			traceback.print_exc()
-			self.send_error(code=500, message=str(e))
-			return
+		self.func = None
+		self.func_name = None
+		self.func_args = None
+		self.func_source = None
+		self.func_file = None
+		self.func_lines, self.func_line = None, None
 
-		if resp:
-			try:
-				self.copyfile(resp, self.wfile)
-			except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-				self.log_info(tools.text_box(e.__class__.__name__,
-							  e, "\nby ", self.address_string()))
-			finally:
-				resp.close()
 
-	def do_(self):
-		'''incase of errored request'''
-		self.send_error(code=HTTPStatus.BAD_REQUEST, message="Bad request.")
+	# def do_GET(self):
+	# 	"""Serve a GET request."""
+	# 	try:
+	# 		resp = self.send_head()
+	# 	except Exception as e:
+	# 		traceback.print_exc()
+	# 		self.send_error(code=500, message=str(e))
+	# 		return
+
+	# 	if resp:
+	# 		try:
+	# 			self.copyfile(resp, self.wfile)
+	# 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+	# 			self.log_info(tools.text_box(e.__class__.__name__,
+	# 						  e, "\nby ", self.address_string()))
+	# 		finally:
+	# 			resp.close()
+
+	# def do_(self):
+	# 	'''incase of errored request'''
+	# 	self.send_error(code=HTTPStatus.BAD_REQUEST, message="Bad request.")
 
 	@staticmethod
 	def on_req(method='', url='', hasQ=(), QV={}, fragent='', url_regex='', func=null):
@@ -1268,7 +1272,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		to_check = (url, hasQ, QV, fragent, url_regex)
 
-		def decorator(func):
+		def decorator(func=func):
 			self.handlers[method].append((to_check, func))
 			return func
 		return decorator
@@ -1378,80 +1382,83 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		return True
 
-	def do_HEAD(self):
-		"""Serve a HEAD request."""
-		resp = None
-		try:
-			resp = self.send_head()
-		except Exception as e:
-			ERROR = traceback.format_exc()
-			self.log_error(ERROR)
+	# def do_HEAD(self):
+	# 	"""Serve a HEAD request."""
+	# 	resp = None
+	# 	try:
+	# 		resp = self.send_head()
+	# 	except Exception as e:
+	# 		ERROR = traceback.format_exc()
+	# 		self.log_error(ERROR)
 
-			self.send_error(code=500, message=str(e))
-			return
-		finally:
-			if resp:
-				resp.close()
+	# 		self.send_error(code=500, message=str(e))
+	# 		return
+	# 	finally:
+	# 		if resp:
+	# 			resp.close()
 
-	def do_POST(self):
-		"""Serve a POST request."""
-		self.range = None, None
+	# def do_POST(self):
+	# 	"""Serve a POST request."""
+	# 	self.range = None, None
 
-		path = self.translate_path(self.path)
-		# DIRECTORY DONT CONTAIN SLASH / AT END
+	# 	path = self.translate_path(self.path)
+	# 	# DIRECTORY DONT CONTAIN SLASH / AT END
 
-		url_path, query, fragment = self.url_path, self.query, self.fragment
-		spathsplit = self.url_path.split("/")
+	# 	url_path, query, fragment = self.url_path, self.query, self.fragment
+	# 	spathsplit = self.url_path.split("/")
 
-		try:
-			for case, func in self.handlers['POST']:
-				if self.test_req(*case):
-					try:
-						self.log_info(f'[POST] -> [{func.__name__}] ->  {self.url_path}')
+	# 	try:
+	# 		for case, func in self.handlers['POST']:
+	# 			if self.test_req(*case):
+	# 				try:
+	# 					self.log_info(f'[POST] -> [{func.__name__}] ->  {self.url_path}')
 
-						resp = func(self, url_path=url_path, query=query,
-								fragment=fragment, path=path, spathsplit=spathsplit)
-					except PostError:
-						ERROR = traceback.format_exc()
-						self.log_error(ERROR)
-						# break if error is raised and send BAD_REQUEST (at end of loop)
-						break
+	# 					resp = func(self, url_path=url_path, query=query,
+	# 							fragment=fragment, path=path, spathsplit=spathsplit)
+	# 				except PostError:
+	# 					ERROR = traceback.format_exc()
+	# 					self.log_error(ERROR)
+	# 					# break if error is raised and send BAD_REQUEST (at end of loop)
+	# 					break
 
-					if resp:
-						try:
-							self.copyfile(resp, self.wfile)
-						except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-							self.log_info(tools.text_box(
-								e.__class__.__name__, e, "\nby ", [self.address_string()]))
-						finally:
-							resp.close()
-					return
+	# 				if resp:
+	# 					try:
+	# 						self.copyfile(resp, self.wfile)
+	# 					except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+	# 						self.log_info(tools.text_box(
+	# 							e.__class__.__name__, e, "\nby ", [self.address_string()]))
+	# 					finally:
+	# 						resp.close()
+	# 				return
 
-			return self.send_error(code=HTTPStatus.BAD_REQUEST, message="Invalid request.")
+	# 		return self.send_error(code=HTTPStatus.BAD_REQUEST, message="Invalid request.")
 
-		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-			self.log_info(tools.text_box(e.__class__.__name__,
-						e, "\nby ", [self.address_string()]))
-			return
-		except Exception as e:
-			ERROR = traceback.format_exc()
-			self.log_error(ERROR)
+	# 	except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+	# 		self.log_info(tools.text_box(e.__class__.__name__,
+	# 					e, "\nby ", [self.address_string()]))
+	# 		return
+	# 	except Exception as e:
+	# 		ERROR = traceback.format_exc()
+	# 		self.log_error(ERROR)
 
-			self.send_error(code=500, message=str(e))
-			return
+	# 		self.send_error(code=500, message=str(e))
+	# 		return
+
 
 	
-	def send_head(self):
-		"""Common code for GET and HEAD commands.
+	def do_HANDLE(self, method:str):
+		"""Serve a REQUEST."""
+		self.range = None, None
+		method = method.upper()
+		if method == "GET":
+			method = "HEAD"
 
-		This sends the response code and MIME headers.
+		if method not in self.handlers:
+			return self.send_error(
+				code=HTTPStatus.NOT_IMPLEMENTED,
+				message="Unsupported method (%r)" % self.command)
 
-		Return value is either a file object (which has to be copied
-		to the outputfile by the caller unless the command was HEAD,
-		and must be closed by the caller under all circumstances), or
-		None, in which case the caller has nothing further to do.
 
-		"""
 
 		if 'Range' not in self.headers:
 			self.range = None, None
@@ -1466,19 +1473,100 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				self.send_error(code=400, message='Invalid byte range')
 				return None
 
+
 		path = self.translate_path(self.path)
 		# DIRECTORY DONT CONTAIN SLASH / AT END
 
 		url_path, query, fragment = self.url_path, self.query, self.fragment
-
 		spathsplit = self.url_path.split("/")
 
-		# GET WILL Also BE HANDLED BY HEAD
-		for case, func in self.handlers['HEAD']:
-			if self.test_req(*case):
-				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+		try:
+			for case, func in self.handlers[method]:
+				if self.test_req(*case):
+					try:
+						self.log_info(f'[{method}] -> [{func.__name__}] ->  {self.url_path}')
 
-		return self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found")
+
+						# save function details in class using inspect
+						self.func = func
+						self.func_name = func.__name__
+						self.func_args = str(inspect.signature(func))
+						self.func_source = inspect.getsource(func)
+						self.func_file = inspect.getfile(func)
+						self.func_lines, self.func_line = inspect.getsourcelines(func)
+
+						resp = func(self, url_path=url_path, query=query,
+								fragment=fragment, path=path, spathsplit=spathsplit)
+					except PostError:
+						ERROR = traceback.format_exc()
+						self.log_error(ERROR)
+						# break if error is raised and send BAD_REQUEST (at end of loop)
+						break
+
+					if resp:
+						try:
+							print(method, self.method)
+							if self.method != "HEAD":
+								self.copyfile(resp, self.wfile)
+						except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+							self.log_info(tools.text_box(
+								e.__class__.__name__, e, "\nby ", [self.address_string()]))
+						finally:
+							resp.close()
+					return
+
+			return self.send_error(code=HTTPStatus.NOT_FOUND, message="File Not Found.")
+
+		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+			self.log_info(tools.text_box(e.__class__.__name__,
+						e, "\nby ", [self.address_string()]))
+			return
+		except Exception as e:
+			ERROR = traceback.format_exc()
+			self.log_error(ERROR)
+
+			self.send_error(code=500, message=str(e))
+			return
+
+	
+	# def send_head(self):
+	# 	"""Common code for GET and HEAD commands.
+
+	# 	This sends the response code and MIME headers.
+
+	# 	Return value is either a file object (which has to be copied
+	# 	to the outputfile by the caller unless the command was HEAD,
+	# 	and must be closed by the caller under all circumstances), or
+	# 	None, in which case the caller has nothing further to do.
+
+	# 	"""
+
+	# 	if 'Range' not in self.headers:
+	# 		self.range = None, None
+	# 		first, last = 0, 0
+
+	# 	else:
+	# 		try:
+	# 			self.range = parse_byte_range(self.headers['Range'])
+	# 			first, last = self.range
+	# 			self.use_range = True
+	# 		except ValueError as e:
+	# 			self.send_error(code=400, message='Invalid byte range')
+	# 			return None
+
+	# 	path = self.translate_path(self.path)
+	# 	# DIRECTORY DONT CONTAIN SLASH / AT END
+
+	# 	url_path, query, fragment = self.url_path, self.query, self.fragment
+
+	# 	spathsplit = self.url_path.split("/")
+
+	# 	# GET WILL Also BE HANDLED BY HEAD
+	# 	for case, func in self.handlers['HEAD']:
+	# 		if self.test_req(*case):
+	# 			return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+
+	# 	return self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found")
 
 
 	def redirect(self, location, cookie:Union[SimpleCookie, str]=None):
