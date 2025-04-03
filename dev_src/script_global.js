@@ -18,32 +18,7 @@ String.prototype.toHtmlEntities = function () {
 
 
 
-// pass expected list of properties and optional maxLen
-// returns obj or null
-function safeJSONParse(str, propArray, maxLen) {
-	var parsedObj, safeObj = {};
-	try {
-		if (maxLen && str.length > maxLen) {
-			return null;
-		} else {
-			parsedObj = JSON.parse(str);
-			if (typeof parsedObj !== "object" || Array.isArray(parsedObj)) {
-				safeObj = parsedObj;
-			} else {
-				// copy only expected properties to the safeObj
-				propArray.forEach(function (prop) {
-					if (parsedObj.hasOwnProperty(prop)) {
-						safeObj[prop] = parsedObj[prop];
-					}
-				});
-			}
-			return safeObj;
-		}
-	} catch (e) {
-		return null;
 
-	}
-}
 
 
 
@@ -78,7 +53,7 @@ class Config {
 	constructor() {
 		this.total_popup = 0;
 		this.popup_msg_open = false;
-		this.allow_Debugging = DEBUGGING;
+		this.allow_Debugging = false;
 		this.Debugging = false;
 		this.is_touch_device = 'ontouchstart' in document.documentElement;
 
@@ -247,7 +222,7 @@ class Tools {
 			return
 		}
 		config.Debugging = true;
-		var script = this.add_script("//cdn.jsdelivr.net/npm/eruda");
+		var script = this.add_script("https://cdn.jsdelivr.net/npm/eruda");
 		script.onload = function () {
 			if (that.is_touch_device()) {
 				eruda.init()
@@ -506,6 +481,33 @@ class Tools {
 			document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
 		}
 		);
+	}
+
+	// pass expected list of properties and optional maxLen
+	// returns obj or null
+	safeJSONParse(str, propArray, maxLen) {
+		var parsedObj, safeObj = {};
+		try {
+			if (maxLen && str.length > maxLen) {
+				return null;
+			} else {
+				parsedObj = JSON.parse(str);
+				if (typeof parsedObj !== "object" || Array.isArray(parsedObj)) {
+					safeObj = parsedObj;
+				} else {
+					// copy only expected properties to the safeObj
+					propArray.forEach(function (prop) {
+						if (parsedObj.hasOwnProperty(prop)) {
+							safeObj[prop] = parsedObj[prop];
+						}
+					});
+				}
+				return safeObj;
+			}
+		} catch (e) {
+			return null;
+
+		}
 	}
 }
 var tools = new Tools();

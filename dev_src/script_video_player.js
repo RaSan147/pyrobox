@@ -1,8 +1,10 @@
-class Video_Page {
-	constructor() {
-		this.type = "vid"
+class Video_Page extends Page {
+	constructor(controller=page_controller, type="vid", handle_part="video-page") {
+		super(controller, type, handle_part);
 
-		this.my_part = document.getElementById("video-page")
+		// this.my_part = byId(handle_part);
+		// this.type = type;
+		// this.controller = controller;
 
 		this.controls = [
 			'play-large', // The large play button in the center
@@ -36,13 +38,18 @@ class Video_Page {
 
 		if (typeof (Plyr) !== "undefined") {
 			this.player = new Plyr('#player', {
-				controls: this.controls
+				controls: this.controls,
+				keyboard: {
+					global: true,
+					focused: false,
+				},
+				disableContextMenu: false,
 			});
 		}
 	}
 
 	async initialize() {
-		page.hide_actions_button(); // Hide actions button, not needed here
+		this.controller.hide_actions_button(); // Hide actions button, not needed here
 
 
 		var url = tools.add_query_here("vid-data")
@@ -62,7 +69,7 @@ class Video_Page {
 		this.player_warning.innerHTML = warning
 		this.video_dl_url.href = video
 
-		page.set_title(title)
+		this.set_title(title)
 
 		if (this.player) {
 			this.player.source = {
@@ -111,6 +118,7 @@ class Video_Page {
 
 	init_online_player() {
 		var player = this.player;
+		player.elements.container.tabIndex = 0;
 		player.eventListeners.forEach(function (eventListener) {
 			if (eventListener.type === 'dblclick') {
 				eventListener.element.removeEventListener(eventListener.type, eventListener.callback, eventListener
@@ -227,4 +235,4 @@ class Video_Page {
 	}
 }
 
-var video_page = new Video_Page()
+page_controller.add_handler("vid", Video_Page, "video-page");

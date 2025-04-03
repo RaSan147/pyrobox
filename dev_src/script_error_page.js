@@ -1,13 +1,11 @@
-class Error_Page {
-	constructor() {
-		this.type = "error"
-
-		this.my_part = document.getElementById("error-page")
+class Error_Page extends Page {
+	constructor(controller=page_controller, type="error", handle_part="error-page") {
+		super(controller, type, handle_part);
 	}
 
 	initialize() {
-		page.hide_actions_button(); // Hide actions button, not needed
-		page.set_title("Error")
+		this.controller.hide_actions_button(); // Hide actions button, not needed
+		this.controller.set_title("Error")
 	}
 
 	hide() {
@@ -22,4 +20,4 @@ class Error_Page {
 	}
 }
 
-var error_page = new Error_Page()
+page_controller.add_handler("error", Error_Page, "error-page");

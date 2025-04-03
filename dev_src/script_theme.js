@@ -84,37 +84,42 @@ class Theme_Controller {
 		vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0)
 
 	}
-
 	async del_fa_alt() {
 		if (this.fa_ok) {
-			document.querySelectorAll(".fa").forEach(e => e.parentNode.replaceChild(Object.assign(document.createElement("i"), { className: e.className, style: e.style, id: e.id }), e));
+			document.querySelectorAll(".fa").forEach(e => {
+				const i = document.createElement("i");
+				i.className = e.className;
+				i.style = e.style.cssText;  // Ensure styles are retained
+				i.id = e.id;
+				e.parentNode.replaceChild(i, e);
+			});
 		}
 	}
-
+	
 	async load_fa() {
-		var that = this;
-		let link = createElement('link');
+		const that = this;
+		const link = document.createElement("link");
+	
 		link.rel = "stylesheet";
-
 		link.type = "text/css";
-		link.media = 'print';
-		// link.href = "https://cdn.jsdelivr.net/gh/hung1001/font-awesome-pro-v6@44659d9/css/all.min.css";
-
-		const cache_buster = Math.random() // bcz it needs to fetch webFont files which may not be cached and cause Tofu font issue
-		link.href = "//cdn.jsdelivr.net/gh/RaSan147/fabkp@2f5670e/css/all.min.css" + "?no_cache=" + cache_buster;
+		link.media = "print";  // Load in print mode first to avoid blocking render
+	
+		const cache_buster = Math.random();  // Force new font fetch (fixes Tofu issue)
+		link.href = "https://cdn.jsdelivr.net/gh/RaSan147/fabkp@2f5670e/css/all.min.css" + "?no_cache=" + cache_buster;
+	
 		link.onload = function () {
-			log("fa loaded")
-			that.fa_ok = true;
-			that.del_fa_alt()
-			link.media = "all";
-
-
-
-			// var fa = byClass("fa")
-			// for (var i=0;i<fa.length;i++){
-			// 	fa[i].tagName = "i"
-			// }
-		}
+			console.log("FA loaded at:", new Date().toISOString());
+	
+			// Wait for all fonts, including WOFF, to be fully loaded
+			document.fonts.ready.then(() => {
+				console.log("Fonts fully loaded at:", new Date().toISOString());
+	
+				that.fa_ok = true;  // Only set when confirmed fully loaded
+				that.del_fa_alt();  // Swap placeholders
+				link.media = "all";  // Apply styles properly
+			});
+		};
+	
 		document.head.appendChild(link);
 	}
 }

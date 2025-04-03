@@ -1,6 +1,7 @@
-class Admin_page {
-	constructor() {
-		this.my_part = byId("admin-page")
+class Admin_page extends Page {
+	constructor(controller=page_controller, type="admin", handle_part="admin-page") {
+		super(controller, type, handle_part);
+
 	}
 
 	initialize() {
@@ -32,7 +33,7 @@ class Admin_page {
 	}
 }
 
-var admin_page = new Admin_page()
+page_controller.add_handler("admin", Admin_page, "admin-page");
 
 
 class Updater {

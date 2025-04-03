@@ -8,7 +8,7 @@ class ContextMenu {
 	async on_result(self) {
 		var data = false;
 		if (self.status == 200) {
-			data = safeJSONParse(self.responseText, ["head", "body", "script"], 5000);
+			data = tools.safeJSONParse(self.responseText, ["head", "body", "script"], 5000);
 		}
 		popup_msg.close()
 		await tools.sleep(300)

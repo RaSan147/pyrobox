@@ -261,6 +261,8 @@ class ServerHost(SH_base):
 			PY_ERROR_PAGE="active",
 			PY_PAGE_TITLE=title,
 			PY_PUBLIC_URL=CoreConfig.address(),
-			PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+			PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
+			PY_ERR_IMG_SRC=f""" src="https://http.cat/{code}" """,
+		)
 
 		return super().send_error(code, message, explain, Template(_format), cookie=cookie)

@@ -3,89 +3,8 @@ var f_li = [] // ${PY_FILE_LIST};
 var s_li = [] // ${PY_FILE_SIZE};
 
 
-function clear_file_list() {
-	// clear previous data
-	tools.del_child("linkss");
-	tools.del_child("js-content_list")
-}
-
-
-class FM_Page {
-	constructor() {
-		this.type = "dir"
-
-		this.my_part = document.getElementById("fm_page")
-
-	}
-
-	on_action_button() {
-		// show add folder, sort, etc
-		fm.show_more_menu()
-	}
-
-	async initialize(lazyload = false) {
-		if (!lazyload) {
-			page.clear();
-		}
-
-		page.set_title("File Manager")
-		page.set_actions_button_text("New&nbsp;")
-		page.show_actions_button()
-
-		if (user.permissions.NOPERMISSION || !user.permissions.VIEW) {
-			page.set_title("No Permission")
-
-			const container = byId("js-content_list")
-			const warning = createElement("h2")
-			warning.innerText = "You don't have permission to view this page"
-			container.appendChild(warning)
-
-			return
-		}
-
-		var folder_data = await fetch(tools.add_query_here("folder_data"))
-			.then(response => response.json())
-			.catch(error => {
-				console.error('There has been a problem with your fetch operation:', error); // TODO: Show error in page
-			});
-
-		if (!folder_data || !folder_data["status"] || folder_data.status == "error") {
-			console.error("Error getting folder data") // TODO: Show error in page
-			return
-		}
-
-		r_li = folder_data.type_list
-		f_li = folder_data.file_list
-		s_li = folder_data.size_list
-
-		var title = folder_data.title
-
-		page.set_title(title)
-
-
-		show_file_list();
-	}
-
-	hide() {
-		this.my_part.classList.remove("active");
-	}
-
-	show() {
-		this.my_part.classList.add("active");
-	}
-
-	clear() {
-		tools.del_child("linkss");
-	}
-
-}
-
-const fm_page = new FM_Page();
-
-
 class UploadManager {
 	constructor() {
-		let that = this;
 		this.last_index = 1
 		this.uploaders = {}
 		this.requests = {}
@@ -94,16 +13,18 @@ class UploadManager {
 		{index: form_element, ...}
 		*/
 
-		var form = null;
-		let file_list = byId("content_container")
+		thisd.file_list = byId("content_container")
 		this.drag_pop_open = false;
 
-		file_list.ondragover = async (event) => {
-			event.preventDefault(); //preventing from default behaviour
-			if (that.drag_pop_open) {
-				return;
-			}
-			that.drag_pop_open = true;
+		this.setupDragEvents();
+	}
+
+    setupDragEvents() {
+		let that = this;
+        this.file_list.ondragover = async (event) => {
+            event.preventDefault();
+            if (this.drag_pop_open) return;
+            this.drag_pop_open = true;
 
 			form = await upload_man.new()
 			popup_msg.createPopup("Upload Files", form, true, onclose = () => {
@@ -654,6 +575,127 @@ class FileManager {
 		popup_msg.open_popup();
 	}
 
+	
+	show_file_list() {
+		let folder_li = createElement('div');
+		let file_li = createElement("div")
+		r_li.forEach((r, i) => {
+			// time to customize the links according to their formats
+			let folder = false
+			let type = null;
+			// let r = r_li[i];
+			let r_ = r.slice(1);
+			let name = f_li[i];
+
+			let item = createElement('div');
+			item.classList.add("dir_item")
+
+
+			let link = createElement('a');// both icon and title, display:flex
+			link.href = r_;
+			link.title = name;
+
+			link.classList.add('all_link');
+			link.classList.add("disable_selection")
+			let l_icon = createElement("span")
+			// this will go inside "link" 1st
+			l_icon.classList.add("link_icon")
+
+			let l_box = createElement("span")
+			// this will go inside "link" 2nd
+			l_box.classList.add("link_name")
+
+
+			if (r.startsWith('d')) {
+				// add DOWNLOAD FOLDER OPTION in it
+				// TODO: add download folder option by zipping it
+				// currently only shows folder size and its contents
+				type = "folder"
+				folder = true
+				l_icon.innerHTML = "📂".toHtmlEntities();
+				l_box.classList.add('link');
+			}
+			if (r.startsWith('v')) {
+				// if its a video, add play button at the end
+				// that will redirect to the video player
+				// clicking main link will download the video instead
+				type = 'video';
+				l_icon.innerHTML = '🎥'.toHtmlEntities();
+				link.href = go_link("vid", r_)
+				l_box.classList.add('vid');
+			}
+			if (r.startsWith('i')) {
+				type = 'image'
+				l_icon.innerHTML = '🌉'.toHtmlEntities();
+				l_box.classList.add('file');
+			}
+			if (r.startsWith('f')) {
+				type = 'file'
+				l_icon.innerHTML = '📄'.toHtmlEntities();
+				l_box.classList.add('file');
+			}
+			if (r.startsWith('h')) {
+				type = 'html'
+				l_icon.innerHTML = '🔗'.toHtmlEntities();
+				l_box.classList.add('html');
+			}
+
+			link.appendChild(l_icon)
+
+			l_box.innerText = " " + name;
+
+			if (s_li[i]) {
+				l_box.appendChild(createElement("br"))
+
+				let s = createElement("span")
+				s.className = "link_size"
+				s.innerText = s_li[i]
+				l_box.appendChild(s)
+			}
+			link.appendChild(l_box)
+
+
+			link.oncontextmenu = function (ev) {
+				ev.preventDefault()
+
+				context_menu.show_menus(r_, name, type);
+				return false;
+			}
+
+			item.appendChild(link);
+			//item.appendChild(context);
+			// recycling option for the files and folder
+			// files and folders are handled differently
+			let xxx = "F"
+			if (r.startsWith('d')) {
+				xxx = "D";
+			}
+
+
+			let hrr = createElement("hr")
+			item.appendChild(hrr);
+			if (folder) {
+				folder_li.appendChild(item);
+			} else {
+				file_li.appendChild(item)
+			}
+		});
+
+		this.clear_file_list(); // clear the links since they are no js compatible
+
+		let dir_container = byId("js-content_list")
+		dir_container.appendChild(folder_li)
+		dir_container.appendChild(file_li)
+	}
+
+	clear_file_list() {
+		// clear previous data
+		tools.del_child("linkss");
+		tools.del_child("js-content_list")
+	}
+	
+
+
 
 
 }
@@ -663,116 +705,71 @@ const fm = new FileManager();
 
 
 
+class FM_Page extends Page {
+	constructor(controller=page_controller, type="dir", my_part="fm_page") {
+		super(controller, type, my_part);
+	}
 
-function show_file_list() {
-	let folder_li = createElement('div');
-	let file_li = createElement("div")
-	r_li.forEach((r, i) => {
-		// time to customize the links according to their formats
-		var folder = false
-		let type = null;
-		// let r = r_li[i];
-		let r_ = r.slice(1);
-		let name = f_li[i];
+	on_action_button() {
+		// show add folder, sort, etc
+		fm.show_more_menu()
+	}
 
-		let item = createElement('div');
-		item.classList.add("dir_item")
-
-
-		let link = createElement('a');// both icon and title, display:flex
-		link.href = r_;
-		link.title = name;
-
-		link.classList.add('all_link');
-		link.classList.add("disable_selection")
-		let l_icon = createElement("span")
-		// this will go inside "link" 1st
-		l_icon.classList.add("link_icon")
-
-		let l_box = createElement("span")
-		// this will go inside "link" 2nd
-		l_box.classList.add("link_name")
-
-
-		if (r.startsWith('d')) {
-			// add DOWNLOAD FOLDER OPTION in it
-			// TODO: add download folder option by zipping it
-			// currently only shows folder size and its contents
-			type = "folder"
-			folder = true
-			l_icon.innerHTML = "📂".toHtmlEntities();
-			l_box.classList.add('link');
-		}
-		if (r.startsWith('v')) {
-			// if its a video, add play button at the end
-			// that will redirect to the video player
-			// clicking main link will download the video instead
-			type = 'video';
-			l_icon.innerHTML = '🎥'.toHtmlEntities();
-			link.href = go_link("vid", r_)
-			l_box.classList.add('vid');
-		}
-		if (r.startsWith('i')) {
-			type = 'image'
-			l_icon.innerHTML = '🌉'.toHtmlEntities();
-			l_box.classList.add('file');
-		}
-		if (r.startsWith('f')) {
-			type = 'file'
-			l_icon.innerHTML = '📄'.toHtmlEntities();
-			l_box.classList.add('file');
-		}
-		if (r.startsWith('h')) {
-			type = 'html'
-			l_icon.innerHTML = '🔗'.toHtmlEntities();
-			l_box.classList.add('html');
+	async initialize(lazyload = false) {
+		if (!lazyload) {
+			this.controller.clear();
 		}
 
-		link.appendChild(l_icon)
+		this.set_title("File Manager")
+		this.controller.set_actions_button_text("New&nbsp;")
+		this.controller.show_actions_button()
 
-		l_box.innerText = " " + name;
+		if (user.permissions.NOPERMISSION || !user.permissions.VIEW) {
+			this.set_title("No Permission")
 
-		if (s_li[i]) {
-			l_box.appendChild(createElement("br"))
+			const container = byId("js-content_list")
+			const warning = createElement("h2")
+			warning.innerText = "You don't have permission to view this page"
+			container.appendChild(warning)
 
-			let s = createElement("span")
-			s.className = "link_size"
-			s.innerText = s_li[i]
-			l_box.appendChild(s)
-		}
-		link.appendChild(l_box)
-
-
-		link.oncontextmenu = function (ev) {
-			ev.preventDefault()
-
-			context_menu.show_menus(r_, name, type);
-			return false;
+			return
 		}
 
-		item.appendChild(link);
-		//item.appendChild(context);
-		// recycling option for the files and folder
-		// files and folders are handled differently
-		var xxx = "F"
-		if (r.startsWith('d')) {
-			xxx = "D";
+		var folder_data = await fetch(tools.add_query_here("folder_data"))
+			.then(response => response.json())
+			.catch(error => {
+				console.error('There has been a problem with your fetch operation:', error); // TODO: Show error in page
+			});
+
+		if (!folder_data || !folder_data["status"] || folder_data.status == "error") {
+			console.error("Error getting folder data") // TODO: Show error in page
+			return
 		}
 
+		r_li = folder_data.type_list
+		f_li = folder_data.file_list
+		s_li = folder_data.size_list
 
-		let hrr = createElement("hr")
-		item.appendChild(hrr);
-		if (folder) {
-			folder_li.appendChild(item);
-		} else {
-			file_li.appendChild(item)
-		}
-	});
+		var title = folder_data.title
 
-	clear_file_list(); // clear the links since they are no js compatible
+		this.set_title(title)
 
-	let dir_container = byId("js-content_list")
-	dir_container.appendChild(folder_li)
-	dir_container.appendChild(file_li)
+
+		fm.show_file_list();
+	}
+
+	hide() {
+		this.my_part.classList.remove("active");
+	}
+
+	show() {
+		this.my_part.classList.add("active");
+	}
+
+	clear() {
+		tools.del_child("linkss");
+	}
 }
+
+page_controller.add_handler("dir", FM_Page, "fm_page");
 

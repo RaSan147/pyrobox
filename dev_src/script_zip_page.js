@@ -1,25 +1,23 @@
 
-class Zip_Page {
-	constructor() {
-		this.type = "zip"
-
-		this.my_part = document.getElementById("zip-page")
+class Zip_Page extends Page {
+	constructor(controller=page_controller, type="zip", handle_part="zip-page") {
+		super(controller, type, handle_part);
 
 		this.message = document.getElementById("zip-prog")
 		this.percentage = document.getElementById("zip-perc")
 	}
 
 	async initialize() {
-		page.hide_actions_button(); // Hide actions button, not needed here
+		this.controller.hide_actions_button(); // Hide actions button, not needed here
 
 		this.dl_now = false
 		this.check_prog = true
 
 		this.prog_timer = null
 
-		var url = tools.add_query_here("zip_id")
+		let url = tools.add_query_here("zip_id")
 
-		var data = await fetch(url)
+		let data = await fetch(url)
 			.then(data => { return data.json() })
 			.catch(err => { console.error(err) })
 
@@ -30,8 +28,8 @@ class Zip_Page {
 		//  "filename": filename
 		// }
 
-		var status = data.status
-		var message = data.message
+		let status = data.status
+		let message = data.message
 		this.zid = data.zid
 		this.filename = data.filename
 
@@ -82,7 +80,7 @@ class Zip_Page {
 				// Typical action to be performed when the document is ready:
 				//document.getElementById("demo").innerHTML = xhttp.responseText;
 				// json of the response
-				var resp = safeJSONParse(this.response, ["status", "message"], 5000);
+				var resp = tools.safeJSONParse(this.response, ["status", "message"], 5000);
 				// console.log(resp)
 
 				if (resp.status == "SUCCESS") {
@@ -119,4 +117,4 @@ class Zip_Page {
 
 }
 
-var zip_page = new Zip_Page();
+page_controller.add_handler("zip", Zip_Page, "zip-page");

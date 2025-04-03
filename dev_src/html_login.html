@@ -1,30 +1,63 @@
 <!DOCTYPE HTML>
 <!-- test1 -->
 <html lang="en">
-
 <head>
+	<!-- Performance: Preconnect & DNS Prefetch -->
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous">
+	<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="dns-prefetch" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+	<link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+	<!-- Encoding & Viewport -->
 	<meta charset="UTF-8">
-	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
-	<meta property="og:title" content="Signup" />
+	<!-- SEO Meta Tags -->
+	<title>Login - PyroBox</title>
+	<meta name="description" content="PyroBox - Login to the file system">
+	<meta name="keywords" content="PyroBox, file manager, file sharing, file storage">
+	<meta name="author" content="RaSan147">
+	<meta name="application-name" content="PyroBox">
 
-	<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" />
+	<!-- Open Graph (Facebook, LinkedIn, etc.) -->
+	<meta property="og:title" content="PyroBox">
+	<meta property="og:description" content="PyroBox - A simple file manager">
+	<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+	<meta property="og:url" content="${PY_PUBLIC_URL}">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="PyroBox">
+	<meta property="og:locale" content="en_US">
+	<meta property="og:locale:alternate" content="en_GB">
 
+	<!-- Twitter Meta Tags -->
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:site" content="@RaSan147">
+	<meta name="twitter:title" content="PyroBox">
+	<meta name="twitter:description" content="PyroBox - A simple file manager">
+	<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
 
+	<!-- Mobile & PWA Compatibility -->
+	<meta name="theme-color" content="#000000">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-title" content="PyroBox">
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="msapplication-TileColor" content="#000000">
+	<meta name="msapplication-TileImage" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
 
+	<!-- Fonts -->
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
 
-	<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
-
-	<title>Login</title>
-
-
+	<!-- Favicon -->
 	<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
 
-
+	<!-- Stylesheets -->
 	<link rel="stylesheet" href="?style">
 </head>
-
+		
 <body>
 
 

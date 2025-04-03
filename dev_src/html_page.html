@@ -1,15 +1,59 @@
 <!DOCTYPE HTML>
 <html lang="en">
-
 <head>
+	<!-- Performance: Preconnect & DNS Prefetch -->
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous">
+	<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="dns-prefetch" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+	<link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+	<!-- Encoding & Viewport -->
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet'>
+
+	<!-- Page Title -->
 	<title>${PY_PAGE_TITLE}</title>
 
-	<link rel="stylesheet" href="?style">
-</head>
+	<!-- SEO Meta Tags -->
+	<meta name="description" content="PyroBox - A simple file manager">
+	<meta name="keywords" content="PyroBox, file manager, file sharing, file storage">
+	<meta name="author" content="RaSan147">
+	<meta name="application-name" content="PyroBox">
 
+	<!-- Open Graph (Facebook, LinkedIn, etc.) -->
+	<meta property="og:title" content="PyroBox">
+	<meta property="og:description" content="PyroBox - A simple file manager">
+	<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+	<meta property="og:url" content="${PY_PUBLIC_URL}">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="PyroBox">
+	<meta property="og:locale" content="en_US">
+	<meta property="og:locale:alternate" content="en_GB">
+
+	<!-- Twitter Meta Tags -->
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:site" content="@RaSan147">
+	<meta name="twitter:title" content="PyroBox">
+	<meta name="twitter:description" content="PyroBox - A simple file manager">
+	<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+
+	<!-- Mobile & PWA Compatibility -->
+	<meta name="theme-color" content="#000000">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-title" content="PyroBox">
+	<meta name="msapplication-TileColor" content="#000000">
+	<meta name="msapplication-TileImage" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+
+	<!-- Styles & Fonts (Loaded Last for Performance) -->
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="/?style">
+</head>
+	
 <body>
 	<script>
 		const public_url = "${PY_PUBLIC_URL}";
@@ -141,7 +185,7 @@
 			<p><u>Message:</u> <span id="error_message">${message}</span></p>
 			<p><u>Error code explanation:</u> <span id="error_code2">${code}</span> - <span id="error_explain">${explain}</span></p>
 			<hr>
-			<center><img src="https://http.cat/${code}" style="max-width: 95vw;" alt="Error Image" /></center>
+			<center><img ${PY_ERR_IMG_SRC} style="max-width: 95vw;" alt="${code} Error Image" /></center>
 		</div>
 
 
@@ -223,28 +267,32 @@
 		</div>
 	</div>
 
-	<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'"></script>
-
+	
 	<script src="/?script_global"></script>
 	<script src="/?asset_script"></script>
-
-	<script src="/?file_list_script"></script>
+	
 	<script src="/?theme_script"></script>
-	<script src="/?video_page_script"></script>
-	<script src="/?admin_page_script"></script>
-	<script src="/?error_page_script"></script>
-	<script src="/?zip_page_script"></script>
-
+	
 	<script src="/?page_handler_script"></script>
 
+	<script src="/?file_list_script"></script>
+	<script src="/?error_page_script"></script>
+	<script src="/?zip_page_script"></script>
+	<script src="/?admin_page_script"></script>
+	
+	<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'" defer></script>
+	<!-- <script src="https://cdn.plyr.io/3.7.8/plyr.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'" defer></script> -->
+	<script src="/?video_page_script" defer></script>
+	
+	
 
 	<!-- ASSET_SCRIPT will load at the end with all the classes defined -->
 
 
 
-	<link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" />
-	<!-- <link rel="stylesheet" href="/@assets/video.css" /> -->
-	<!-- <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" /> -->
+	<!-- <link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" /> -->
+	<link rel="preload" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css" onload="this.onload=null;this.rel='stylesheet'" as="style">
+	<noscript><link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css"></noscript>
 
 </body>
 

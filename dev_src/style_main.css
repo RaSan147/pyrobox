@@ -64,9 +64,9 @@ button {
 	color: #e8e6e3;
 	background-color: #181a1b;
 }
-
 * {
-	font-family: "Open Sans", sans-serif;
+	font-family: "Open Sans", Arial, sans-serif;
+	font-display: swap;
 }
 
 
@@ -654,7 +654,7 @@ ul {
 }
 
 .sidebar {
-	display: block;
+	display: none;
 	opacity: 0.8;
 	height: 100%;
 	width: var(--sb-width);
