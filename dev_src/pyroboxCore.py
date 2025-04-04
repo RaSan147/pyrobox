@@ -1829,9 +1829,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		"""Return the relative path to the file, FOR WEB."""
 		return urllib.parse.unquote(posixpath.join(self.url_path, filename), errors='surrogatepass')
 
-	def get_web_path(self, path:str, times=1):
-		"""replace current directory with /"""
-		return path.replace(self.directory, "/", times)
+	def get_web_path(self, string:str, times=1):
+		"""
+		replace current directory with /. Use case, when sending log to client, hide the directory
+		
+		Args:
+			string (str): string to be converted
+			times (int): number of times to replace the directory with / (default: 1)(-1 for all)
+		"""
+		return string.replace(self.directory, "/", times)
 
 	def path_safety_check(self, paths:Union[str, List], *more_paths:Union[str, List]):
 		"""check if path is safe
@@ -1844,17 +1850,79 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if isinstance(path, str):
 					paths.append(path)
 				elif isinstance(path, (list, tuple, set)):
-					paths += more_paths
+					paths.extend(more_paths)
 				else:
 					raise TypeError(f"Invalid type {type(path)} for path")
 
 
 		for path in paths:
-			if path.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in path or '\\..\\' in path or path.endswith(('/..', '\\..')):
+			# if path.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in path or '\\..\\' in path or path.endswith(('/..', '\\..')):
+			
 				return False
 
 		return True
 
+	def path_safety_check(self, paths: Union[str, List], *more_paths: Union[str, List]):
+		"""Check if paths are safe and do not contain directory traversal attempts.
+		
+		Args:
+			paths: A string or list of paths to check.
+			more_paths: Additional paths to check.
+
+		Returns:
+			bool: True if all paths are safe, False otherwise.
+		"""
+		if isinstance(paths, str):
+			paths = [paths]  # Convert single string to list
+
+		# Process additional paths
+		for path in more_paths:
+			if isinstance(path, str):
+				paths.append(path)
+			elif isinstance(path, (list, tuple, set)):
+				paths.extend(path)  # Extend with actual list contents
+			else:
+				raise TypeError(f"Invalid type {type(path)} for path")
+
+		if not all(isinstance(path, str) for path in paths):
+			raise TypeError("All paths must be strings")
+			
+
+		# Base directory (change this as needed)
+		base_dir = os.path.abspath(self.directory)  # Assuming self.base_directory exists
+		BAD_FILENAME_CHARS = re.compile(r'[:*?"<>|]')  # Windows-illegal characters
+
+		for path in paths:
+			if not path or not path.strip():  # False on empty paths
+				print(f"Empty path: {path}")
+				return False
+
+			path = path.strip().replace('\\', '/').strip('/')  # Remove leading/trailing whitespace
+
+			for part in path.split('/'):
+				if part in ('..', '.'):
+					print(f"Path traversal attempt: {path}")
+					return False
+
+			# Check for illegal characters
+			if BAD_FILENAME_CHARS.search(path):
+				print(f"Illegal characters in path: {path}")
+				return False
+
+			# Normalize the path to an absolute path
+			abs_path = os.path.abspath(os.path.join(base_dir, path))
+
+			# Check if the resolved path is inside the base directory
+			if not abs_path.startswith(base_dir):
+				print(f"Path escapes base directory: {path}")
+				print(f"Base directory: {base_dir}")
+				print(f"Resolved path: {abs_path}")
+				return False  # Reject any path that escapes the base directory
+
+
+			# check for bad characters
+
+		return True  # If all checks pass, path is safe
 
 
 
@@ -2144,8 +2212,17 @@ class DealPostData:
 
 		return json.loads(line)
 
-	def skip(self,):
-		self.get()
+	def skip(self, line_count=1, *args, **kwargs):
+		"""skip next line
+		
+		Args:
+			line_count(int): number of lines to skip
+			show(bool): print line
+			strip(bool): strip \r\n at end
+			Timeout(float): if having network issue on any side, will keep trying to get content until Timeout (in seconds)
+		"""
+		for _ in range(line_count):
+			self.get(*args, **kwargs)
 
 	def start(self):
 		'''reads upto line 0'''
@@ -2230,7 +2307,7 @@ class FormData:
 
 		return line
 
-	def get_file_name(self, line: Union[bytes, str, None] = None):
+	def get_file_name(self, line: Union[bytes, str, None] = None, ignore_folder=False):
 		"""
 		* get file name from Content-Disposition
 		* return file name
@@ -2239,8 +2316,14 @@ class FormData:
 
 		cd = ContentDisposition(line)
 		fn = cd.get('filename')
+		name = cd.get('name')
+
+		if name == 'folder' and ignore_folder:
+			return None
 
 		if not fn:
+			self.req.log_info(
+				f"Content-Disposition: {line}\nMissing filename in Content-Disposition")
 			raise PostError("Can't find out file name...")
 
 		return fn

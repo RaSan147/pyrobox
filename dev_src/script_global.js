@@ -53,7 +53,7 @@ class Config {
 	constructor() {
 		this.total_popup = 0;
 		this.popup_msg_open = false;
-		this.allow_Debugging = false;
+		this.allow_Debugging = true;
 		this.Debugging = false;
 		this.is_touch_device = 'ontouchstart' in document.documentElement;
 
@@ -190,21 +190,21 @@ class Tools {
 
 
 		if (typeof (document.body) === "undefined" || document.body === null) document.head.appendChild(script);
-		else document.body.appendChild(script)
+		else document.body.appendChild(script);
 
 		return script;
 	}
 
 	add_css(href, { crossorigin = null, referrerpolicy = null, integrity = null } = {}) {
 		var cssFile = createElement('link');
-		cssFile.setAttribute("rel", "stylesheet")
+		cssFile.setAttribute("rel", "stylesheet");
 		cssFile.href = href;
 		if (crossorigin != null) cssFile.crossorigin = crossorigin;
 		if (referrerpolicy != null) cssFile.referrerpolicy = referrerpolicy;
 		if (integrity != null) cssFile.integrity = integrity;
 
 		if (typeof (document.body) === "undefined") document.head.appendChild(cssFile);
-		else document.body.appendChild(cssFile)
+		else document.body.appendChild(cssFile);
 
 		return cssFile;
 	}
@@ -221,13 +221,13 @@ class Tools {
 		if (config.Debugging) {
 			return
 		}
-		config.Debugging = true;
-		var script = this.add_script("https://cdn.jsdelivr.net/npm/eruda");
-		script.onload = function () {
-			if (that.is_touch_device()) {
-				eruda.init()
-			}
-		};
+		// config.Debugging = true;
+		// var script = this.add_script("https://cdn.jsdelivr.net/npm/eruda");
+		// script.onload = function () {
+		// 	if (that.is_touch_device()) {
+		// 		eruda.init()
+		// 	}
+		// };
 	}
 
 
@@ -349,7 +349,7 @@ class Tools {
 		if (navigator.clipboard && window.isSecureContext) {
 			// navigator clipboard api method'
 			await navigator.clipboard.writeText(textToCopy);
-			return 1
+			return 1;
 		} else {
 			// text area method
 			let textArea = createElement("textarea");
@@ -364,10 +364,10 @@ class Tools {
 
 			let ok = 0;
 			// here the magic happens
-			if (document.execCommand('copy')) ok = 1
+			if (document.execCommand('copy')) ok = 1;
 
 			textArea.remove();
-			return ok
+			return ok;
 
 		}
 	}
@@ -421,7 +421,7 @@ class Tools {
 			console.log('version:', app.version);
 		}
 
-		return listOfInstalledApps
+		return listOfInstalledApps;
 	}
 
 	get AMPM_time() {
@@ -514,7 +514,7 @@ var tools = new Tools();
 
 
 '#########################################'
-tools.enable_debug() // TODO: Disable this in production
+tools.enable_debug(); // TODO: Disable this in production
 '#########################################'
 
 /**
@@ -827,9 +827,9 @@ var popup_msg = new Popup_Msg();
  */
 class Toaster {
 	constructor() {
-		this.container = createElement("div")
-		this.container.classList.add("toast-box")
-		document.body.appendChild(this.container)
+		this.container = createElement("div");
+		this.container.classList.add("toast-box");
+		document.body.appendChild(this.container);
 
 		this.default_bg = "#005165ed";
 
@@ -850,34 +850,34 @@ class Toaster {
 		var sleep = 3000;
 
 		while (this.queue.length > 2) {
-			await tools.sleep(100)
+			await tools.sleep(100);
 		}
-		this.queue.push(true)
+		this.queue.push(true);
 
-		let toastBody = createElement("div")
-		toastBody.classList.add("toast-body")
+		let toastBody = createElement("div");
+		toastBody.classList.add("toast-body");
 
-		this.container.appendChild(toastBody)
+		this.container.appendChild(toastBody);
 
-		await tools.sleep(50) // wait for dom to update
+		await tools.sleep(50); // wait for dom to update
 
 		// SET BG COLOR
 		toastBody.style.backgroundColor = bgcolor || this.default_bg;
 
 		toastBody.innerText = msg;
-		toastBody.classList.add("visible")
+		toastBody.classList.add("visible");
 		if (tools.is_defined(time)) sleep = time;
-		await tools.sleep(sleep)
-		toastBody.classList.remove("visible")
-		await tools.sleep(500)
-		toastBody.remove()
+		await tools.sleep(sleep);
+		toastBody.classList.remove("visible");
+		await tools.sleep(500);
+		toastBody.remove();
 
-		this.queue.pop()
+		this.queue.pop();
 
 	}
 }
 
-var toaster = new Toaster()
+var toaster = new Toaster();
 
 
 
@@ -893,10 +893,10 @@ var toaster = new Toaster()
  */
 function r_u_sure({ y = null_func, n = null, head = "Are you sure", body = "", y_msg = "Yes", n_msg = "No" } = {}) {
 	// popup_msg.close()
-	var box = createElement("div")
-	var msggg = createElement("p")
+	var box = createElement("div");
+	var msggg = createElement("p");
 	msggg.innerHTML = body; //"This can't be undone!!!"
-	box.appendChild(msggg)
+	box.appendChild(msggg);
 	var y_btn = createElement("div");
 	y_btn.innerText = y_msg;//"Continue"
 	y_btn.className = "pagination center";
@@ -948,15 +948,15 @@ if (window.history && "pushState" in history) {
 		//log(evt.state)
 
 		if (HISTORY_ACTION.length) {
-			let action = HISTORY_ACTION.pop()
-			action()
+			let action = HISTORY_ACTION.pop();
+			action();
 
-			return false
+			return false;
 		}
 
-		const x = evt
+		const x = evt;
 		if (x.state && x.state.url == window.location.href) {
-			return false
+			return false;
 		}
 		location.reload(true);
 	};

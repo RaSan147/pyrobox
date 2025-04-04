@@ -80,8 +80,8 @@ class Theme_Controller {
 		// vh = byId("brightness").clientHeight;
 		// vw = byId("brightness").clientWidth;
 
-		vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0)
-		vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0)
+		vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+		vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
 
 	}
 	async del_fa_alt() {
@@ -108,12 +108,9 @@ class Theme_Controller {
 		link.href = "https://cdn.jsdelivr.net/gh/RaSan147/fabkp@2f5670e/css/all.min.css" + "?no_cache=" + cache_buster;
 	
 		link.onload = function () {
-			console.log("FA loaded at:", new Date().toISOString());
-	
+
 			// Wait for all fonts, including WOFF, to be fully loaded
 			document.fonts.ready.then(() => {
-				console.log("Fonts fully loaded at:", new Date().toISOString());
-	
 				that.fa_ok = true;  // Only set when confirmed fully loaded
 				that.del_fa_alt();  // Swap placeholders
 				link.media = "all";  // Apply styles properly
@@ -127,7 +124,7 @@ class Theme_Controller {
 var theme_controller = new Theme_Controller();
 
 theme_controller.getViewportSize();
-theme_controller.load_fa()
+theme_controller.load_fa();
 
 
 
@@ -146,7 +143,6 @@ class Local_Data_Manager {
 
 	show_last_opened() {
 		var self = this;
-		log("show_last_opened used get_local_data");
 		var link = null;
 
 		this.click_last_link = function (evt) {
@@ -168,7 +164,6 @@ class Local_Data_Manager {
 			datas.last_opened == -1
 		) {
 			datas.last_opened = datas.current_page_index;
-			//log("show_last_opened used set_local_data");
 			this.update_data();
 			return;
 		}
@@ -180,7 +175,6 @@ class Local_Data_Manager {
 			datas.last_opened != datas.current_page_index
 		) {
 			let header = "Psst!";
-			//log("last_opened", datas.last_opened);
 			let content =
 				"You left the page on <a id= 'lastleft' href='" +
 				datas.pages_list[datas.last_opened] +

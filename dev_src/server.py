@@ -10,6 +10,7 @@ import hashlib
 import os
 #import sys
 import posixpath
+import re
 import shutil
 
 import datetime
@@ -1287,30 +1288,49 @@ def upload(self: SH, *args, **kwargs):
 		self.log_info(f"Incorrect password by {uid}")
 
 		return self.send_txt("Incorrect password", code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		
 
 	while post.remainbytes > 0:
-		fn = form.get_file_name() # reads the next line and returns the file name
-		if not fn:
+		print("Remaining bytes: ", post.remainbytes)
+		fn = form.get_file_name(ignore_folder=True) # reads the next line and returns the file name/relative path
+		print("File name: ", fn)
+		if fn is None: # folder
+			post.skip(4) # skip the next 3 lines and the boundary
+			continue
+			
+		if not fn or not fn.strip():
 			return self.send_error(code=HTTPStatus.BAD_REQUEST, message="Can't find out file name...", cookie=cookie)
 
+		fn = fn.strip().replace('\\', '/').strip('/')
 
 		rltv_path = xpath(url_path, fn) # relative path (must be url path with / separator)
 
 		if not self.path_safety_check(fn, rltv_path):
+			logger.warning(f"Invalid Path: {fn} - {rltv_path} by {uid}")
+			upload_handler.kill()
 			return self.send_txt("Invalid Path:  " + rltv_path, code=HTTPStatus.BAD_REQUEST, cookie=cookie)
-
-		temp_fn = xpath(os_path, ".LStemp-"+ fn +'.tmp')
-		CoreConfig.temp_files.add(temp_fn)
 
 
 		os_f_path = xpath(os_path, fn)
 
+		# make directory if not exists
+		f_dir = os.path.dirname(os_f_path)
+		try:
+			os.makedirs(f_dir, exist_ok=True)
+		except OSError:
+			return self.send_txt("Can't create directory to write, do you have permission to write?", code=HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)
+
+
+		# temp_fn = xpath(os_path, ".LStemp-"+ fn +'.tmp')
+		real_fn = os.path.basename(fn)
+		temp_fn = xpath(f_dir, ".LStemp-"+ real_fn +'.tmp')
+		CoreConfig.temp_files.add(temp_fn)
 
 
 		line = post.get() # content type
 		line = post.get() # line gap
 
-
+		print("Handling file: ", fn)
 
 		# ORIGINAL FILE STARTS FROM HERE
 		try:

@@ -105,7 +105,7 @@ poster.onclick = function (e) {
 	const rect = e.target.getBoundingClientRect();
 	const x = e.clientX - rect.left; //x position within the element.
 	const y = e.clientY - rect.top;  //y position within the element.
-	console.log("Left? : " + x + " ; Top? : " + y + ".");
+
 	// The relative position of click on video
 
 	const width = e.target.offsetWidth;

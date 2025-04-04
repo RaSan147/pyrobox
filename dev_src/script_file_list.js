@@ -1,703 +1,794 @@
-var r_li = [] // ${PY_LINK_LIST};
-var f_li = [] // ${PY_FILE_LIST};
-var s_li = [] // ${PY_FILE_SIZE};
-
+var r_li = []; // ${PY_LINK_LIST};
+var f_li = []; // ${PY_FILE_LIST};
+var s_li = []; // ${PY_FILE_SIZE};
 
 class UploadManager {
 	constructor() {
-		this.last_index = 1
-		this.uploaders = {}
-		this.requests = {}
-		this.status = {}
+		this.last_index = 1;
+		this.uploaders = new Map();
+		this.requests = new Map();
+		this.status = new Map();
 		/* Data Structure
 		{index: form_element, ...}
 		*/
-
-		thisd.file_list = byId("content_container")
+		
 		this.drag_pop_open = false;
 
-		this.setupDragEvents();
+		this.initDragDropHandlers();
 	}
 
-    setupDragEvents() {
-		let that = this;
-        this.file_list.ondragover = async (event) => {
-            event.preventDefault();
-            if (this.drag_pop_open) return;
-            this.drag_pop_open = true;
-
-			form = await upload_man.new()
-			popup_msg.createPopup("Upload Files", form, true, onclose = () => {
-				that.drag_pop_open = false;
-			})
+	initDragDropHandlers() {
+		const file_list = byId("content_container");
+		
+		file_list.ondragover = async (event) => {
+			event.preventDefault();
+			if (this.drag_pop_open) return;
+			
+			this.drag_pop_open = true;
+			const form = await this.new();
+			
+			popup_msg.createPopup("Upload Files", form, true, () => {
+				this.drag_pop_open = false;
+			});
 			popup_msg.open_popup();
-
 		};
 
-		//If user leave dragged File from DropArea
 		file_list.ondragleave = (event) => {
-			event.preventDefault(); //preventing from default behavior
-			// form.remove();
+			event.preventDefault();
 		};
 
-		//If user drop File on DropArea
 		file_list.ondrop = (event) => {
-			event.preventDefault(); //preventing from default behavior
+			event.preventDefault();
 		};
 	}
 
 	async new() {
-		//selecting all required elements
-		let that = this;
-		let index = this.last_index;
-		this.last_index += 1;
-
-		let Form = createElement("form")
-		Form.id = "uploader-" + index
-		Form.className = "jsonly"
-		Form.method = "post"
-		Form.action = tools.full_path("?upload") // the upload url, to use later from different pages
-		Form.enctype = "multipart/form-data"
-
-		let center = createElement("center")
-		// centering the form
-
-
-		let post_type = createElement("input")
-		post_type.type = "hidden";
-		post_type.name = "post-type";
-		post_type.value = "upload";
-		center.appendChild(post_type)
-
-
-		let pass_header = createElement("span")
-		pass_header.className = "upload-pass";
-		pass_header.innerText = "Password:  ";
-		center.appendChild(pass_header)
-
-		let pass_input = createElement("input")
-		pass_input.type = "password";
-		pass_input.name = "password";
-		pass_input.placeholder = "Password";
-		pass_input.label = "Password";
-		pass_input.className = "upload-pass-box";
-		center.appendChild(pass_input)
-
-
-		let up_files = createElement("input")
-		up_files.type = "file";
-		up_files.name = "file";
-		up_files.multiple = true
-		up_files.hidden = true;
-		up_files.onchange = (e) => {
-			// USING THE BROWSE BUTTON
-			let f = e.target.files; // this.files = [file1, file2,...];
-			addFiles(f);
-		};
-		center.appendChild(up_files)
-
-
-		center.appendChild(createElement("br"))
-		center.appendChild(createElement("br"))
-
-		let uploader_box = createElement("div")
-		uploader_box.className = "upload-box";
-
-		let uploader_dragArea = createElement("div")
-		uploader_dragArea.className = "drag-area";
-		uploader_dragArea.id = "drag-area";
-
-		let up_icon = createElement("div")
-		up_icon.className = "drag-icon";
-		up_icon.innerText = "⬆️";
-		uploader_dragArea.appendChild(up_icon)
-
-		let up_text = createElement("header")
-		up_text.innerText = "Drag & Drop to Upload File";
-		uploader_dragArea.appendChild(up_text)
-
-		let or_text = createElement("span")
-		or_text.innerText = "OR"
-		uploader_dragArea.appendChild(or_text)
-
-		let up_button = createElement("button")
-		up_button.type = "button";
-		up_button.innerText = "Browse File";
-		up_button.className = "drag-browse";
-		up_button.onclick = (e) => {
-			e.preventDefault();
-			up_files.click(); //if user click on the button then the input also clicked
-		}
-		uploader_dragArea.appendChild(up_button)
-
-		uploader_dragArea.ondragover = (event) => {
-			event.preventDefault(); //preventing from default behavior
-			uploader_dragArea.classList.add("active");
-			up_text.innerText = "Release to Upload File";
-		};
-
-		//If user leave dragged File from DropArea
-		uploader_dragArea.ondragleave = () => {
-			uploader_dragArea.classList.remove("active");
-			up_text.innerText = "Drag & Drop to Upload File";
-		};
-
-		//If user drop File on DropArea
-		uploader_dragArea.ondrop = (event) => {
-			event.preventDefault(); //preventing from default behavior
-			//getting user select file and [0] this means if user select multiple files then we'll select only the first one
-			uploader_dragArea.classList.remove("active");
-			up_text.innerText = "Drag & Drop to Upload File";
-
-			addFiles(event.dataTransfer.files);
-			// uploader_showFiles(); //calling function
-		};
-
-		uploader_box.appendChild(uploader_dragArea)
-		center.appendChild(uploader_box)
-
-
-		Form.appendChild(center)
-
-		let uploader_file_container = createElement("div")
-		// uploader_file_container.style.display = "contents";
-		uploader_file_container.style.display = "none";
-
-		let uploader_file_display = createElement("div")
-		uploader_file_display.className = "drag-file-list";
-
-		let uploader_file_display_title = createElement("h2")
-		uploader_file_display_title.innerText = "Selected Files"
-		uploader_file_display_title.className = "has-selected-files";
-		uploader_file_display_title.style.textAlign = "center";
-		uploader_file_container.appendChild(uploader_file_display_title)
-		uploader_file_container.appendChild(uploader_file_display)
-
-
-
-		Form.appendChild(uploader_file_container)
-
-		Form.appendChild(createElement("br"))
-		let center2 = createElement("center")
-		let submit_button = createElement("button")
-		submit_button.type = "submit";
-		submit_button.innerText = "➾ Upload";
-		submit_button.className = "drag-browse upload-button";
-
-		center2.appendChild(submit_button)
-
-		center2.appendChild(createElement("br"))
-		center2.appendChild(createElement("br"))
-
-		let upload_pop_status_label = createElement("span")
-		upload_pop_status_label.innerText = "Status: ";
-		let upload_pop_status = createElement("span")
-		upload_pop_status.className = "upload-pop-status";
-		upload_pop_status.innerText = "Waiting";
-		upload_pop_status_label.appendChild(upload_pop_status)
-		upload_pop_status_label.style.display = "none";
-		center2.appendChild(upload_pop_status_label)
-
-		Form.appendChild(center2)
-
-		let prog_id = null;
-		let request = null;
-		Form["prog_id"] = null; // This is used to update the progress bar
-
-		Form.onsubmit = (e) => {
-			e.preventDefault();
-
-			if (that.status[index]) {
-				that.cancel(index);
-				show_status("Upload cancelled");
-				return;
-			}
-
-			if (selected_files.files.length == 0) {
-				toaster.toast("No files selected");
-				return;
-			}
-
-			that.status[index] = true; // The user is uploading
-
-			request = request || new XMLHttpRequest();
-			that.requests[index] = request;
-			that.uploaders[index] = Form; // Save the form for later use
-			// Unless the user is uploading, this won't be saved
-
-
-			submit_button.innerText = "⏹️ Cancel";
-
-			popup_msg.close();
-
-			up_files.files = selected_files.files; // Assign the updates list
-
-
-			const formData = new FormData(e.target);
-
-			prog_id = prog_id || progress_bars.new('upload', index, window.location.href); // Create a new progress bar if not already created
-			Form.prog_id = prog_id; // Save the progress bar id for later use
-
-
-
-			var prog = 0,
-				msg = "",
-				color = "green",
-				upload_status = "waiting";
-
-
-			progress_bars.update(prog_id, {
-				"status_text": "Waiting",
-				"status_color": color,
-				"status": "waiting",
-				"percent": 0
-			});
-
-
-			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
-
-			request.open(e.target.method, e.target.action);
-			// request.timeout = 60 * 1000; // in case wifi have no internet, it will stop after 60 seconds
-			request.onreadystatechange = () => {
-				if (request.readyState === XMLHttpRequest.DONE) {
-					msg = `${request.status}: ${request.statusText}`;
-					upload_status = "error";
-					color = "red";
-					prog = 0;
-					if (request.status === 401) {
-						msg = 'Incorrect password';
-					} else if (request.status == 503) {
-						msg = 'Upload is disabled';
-					} else if (request.status === 0) {
-						msg = 'Connection failed (Possible cause: Incorrect password or Upload disabled)';
-					} else if (request.status === 204 || request.status === 200) {
-						msg = 'Success';
-						color = "green";
-						prog = 100;
-						upload_status = "done";
-
-						page.refresh_dir(); // refresh the page if it is a dir page
-					}
-
-
-					progress_bars.update(prog_id, {
-						"status_text": msg,
-						"status_color": color,
-						"status": upload_status,
-						"percent": prog
-					});
-
-					submit_button.innerText = "➾ Re-upload";
-					if (!that.status[index]) {
-						return; // needs to check this.status[index] because the user might have cancelled the upload but its still called. On cancel already a toast is shown
-					}
-					show_status(msg);
-
-					if (upload_status === "error") {
-						msg = "Upload Failed";
-					} else {
-						msg = "Upload Complete";
-					}
-					toaster.toast(msg, 3000, color);
-
-					that.status[index] = false;
-
-				}
-			}
-			request.upload.onprogress = e => {
-				prog = Math.floor(100 * e.loaded / e.total);
-				if (e.loaded === e.total) {
-					msg = 'Saving...';
-					show_status(msg);
-				} else {
-					msg = `Progress`;
-					show_status(msg + " " + prog + "%");
-				}
-
-
-				progress_bars.update(prog_id, {
-					"status_text": msg,
-					"status_color": "green",
-					"status": "running",
-					"percent": prog
-				});
-			}
-
-			request.setRequestHeader('Cache-Control', 'no-cache');
-			request.setRequestHeader("Connection", "close");
-			request.send(formData);
-		}
-
-
-		let selected_files = new DataTransfer(); //this is a global variable and we'll use it inside multiple functions
-
-
-
-		/**
-		 * Displays a status message and optionally hides it.
-		 * @param {string} msg - The message to display.
-		 * @param {boolean} [hide=false] - Whether to hide the status message or not.
-		 */
-		function show_status(msg, hide = false) {
-			if (hide) {
-				upload_pop_status_label.style.display = "none";
-				return;
-			}
-			upload_pop_status_label.style.display = "block";
-			upload_pop_status.innerText = msg;
-		}
-
-		function truncate_file_name(name) {
-			// if bigger than 20, truncate, veryvery...last6chars
-			if (name.length > 20) {
-				return name.slice(0, 7) + "..." + name.slice(-6);
-			}
-			return name;
-		}
-
-		function remove_duplicates(files) {
-			for (let i = 0; i < files.length; i++) {
-				var selected_fnames = [];
-				const file = files[i];
-
-				let exist = [...selected_files.files].findIndex(f => f.name === file.name);
-
-				if (exist > -1) {
-					// if file already selected,
-					// remove that and replace with
-					// new one, because, when uploading
-					// last file will remain in host server,
-					// so we need to replace it with new one
-					toaster.toast(truncate_file_name(file.name) + " already selected", 1500);
-					selected_files.items.remove(exist - 1);
-				}
-				selected_files.items.add(file);
-			};
-		}
-
-
-		/**
-		 * Adds files to the selected files list and replaces any existing file with the same name.
-		 * @param {FileList} files - The list of files to add.
-		 */
-		function addFiles(files) {
-
-			remove_duplicates(files);
-
-
-			log("selected " + selected_files.items.length + " files");
-			uploader_showFiles();
-		}
-
-		function uploader_removeFileFromFileList(index) {
-			let dt = new DataTransfer();
-			// const input = byId('files')
-			// const { files } = input
-
-			for (let i = 0; i < selected_files.files.length; i++) {
-				let file = selected_files.files[i]
-				if (index !== i) {
-					dt.items.add(file) // here you exclude the file. thus removing it.
-				}
-			}
-
-			selected_files = dt
-			// uploader_input.files = dt // Assign the updates list
-			uploader_showFiles()
-		}
-
-		function uploader_showFiles() {
-			tools.del_child(uploader_file_display)
-
-			if (selected_files.files.length) {
-				uploader_file_container.style.display = "contents"
-			} else {
-				uploader_file_container.style.display = "none"
-			}
-
-			for (let i = 0; i < selected_files.files.length; i++) {
-				uploader_showFile(selected_files.files[i], i);
-			};
-		}
-
-
-		function uploader_showFile(file, index) {
-			let filename = file.name;
-			let size = fmbytes(file.size);
-
-			let item = createElement("table");
-			item.className = "upload-file-item";
-
-			let fname = createElement("td");
-			fname.className = "ufname";
-			fname.innerText = filename;
-			item.appendChild(fname);
-
-			let fsize = createElement("td");
-			fsize.className = "ufsize";
-			let fsize_text = createElement("span");
-			fsize_text.innerText = size;
-			fsize.appendChild(fsize_text);
-			item.appendChild(fsize);
-
-			let fremove = createElement("td");
-			fremove.className = "ufremove";
-			let fremove_icon = createElement("span");
-			fremove_icon.innerHTML = "&times;";
-			fremove_icon.onclick = function () {
-				uploader_removeFileFromFileList(index)
-			}
-			fremove.appendChild(fremove_icon);
-			item.appendChild(fremove);
-
-			uploader_file_display.appendChild(item);
-
-		}
-
-
-
-		return Form;
-
-
+		const index = this.last_index++;
+		const form = this.createFormElement(index);
+		this.selected_files = new DataTransfer();
+		
+		this.setupFormHandlers(form, index);
+		return form;
 	}
 
-	up_stat(form, stat = null) {
-		if (stat === null) {
-			return form.getAttribute("uploading");
+	createFormElement(index) {
+		const form = createElement("form");
+		form.id = `uploader-${index}`;
+		form.className = "jsonly";
+		form.method = "post";
+		form.action = tools.full_path("?upload");
+		form.enctype = "multipart/form-data";
+
+		const center = createElement("center");
+		center.appendChild(this.createHiddenInput("post-type", "upload"));
+		center.appendChild(this.createPasswordInput());
+		
+		const up_files = createElement("input");
+		up_files.type = "file";
+		up_files.name = "file";
+		up_files.multiple = true;
+		up_files.hidden = true;
+		center.appendChild(up_files);
+		
+		center.appendChild(createElement("br"));
+		center.appendChild(createElement("br"));
+		center.appendChild(this.createDragDropArea(up_files));
+		
+		form.appendChild(center);
+		form.appendChild(this.createFileListContainer());
+		form.appendChild(this.createSubmitSection());
+		
+		return form;
+	}
+
+	createHiddenInput(name, value) {
+		const input = createElement("input");
+		input.type = "hidden";
+		input.name = name;
+		input.value = value;
+		return input;
+	}
+
+	createPasswordInput() {
+		const container = createElement("span");
+		container.className = "upload-pass";
+		
+		const label = document.createTextNode("Password:  ");
+		container.appendChild(label);
+		
+		const input = createElement("input");
+		input.type = "password";
+		input.name = "password";
+		input.placeholder = "Password";
+		input.className = "upload-pass-box";
+		container.appendChild(input);
+		
+		return container;
+	}
+
+	createDragDropArea(fileInput) {
+		const uploader_box = createElement("div");
+		uploader_box.className = "upload-box";
+		
+		const dragArea = createElement("div");
+		dragArea.className = "drag-area";
+		dragArea.id = "drag-area";
+		
+		dragArea.appendChild(this.createIconElement("⬆️", "drag-icon"));
+		
+		const header = this.createHeaderElement("Drag & Drop Files or Folders");
+		dragArea.appendChild(header);
+		
+		dragArea.appendChild(this.createTextElement("OR"));
+		
+		// Unified file/folder selection button
+		const buttonContainer = createElement("div");
+		buttonContainer.className = "upload-button-container";
+		
+		const browseButton = this.createBrowseButton(fileInput, "Browse Files/Folders");
+		buttonContainer.appendChild(browseButton);
+		dragArea.appendChild(buttonContainer);
+		
+		// Hidden folder input that we'll use when needed
+		const folderInput = createElement("input");
+		folderInput.type = "file";
+		folderInput.name = "folder";
+		folderInput.webkitdirectory = true;
+		folderInput.multiple = true;
+		folderInput.hidden = true;
+		dragArea.appendChild(folderInput);
+		
+		// Dynamic input handler
+		fileInput.addEventListener('change', (e) => {
+			if (e.target.files.length > 0) {
+				// console.log("Files selected", e.target.files);
+				this.addFiles(e.target.files, fileInput);
+			}
+		});
+		
+		folderInput.addEventListener('change', async (e) => {
+			if (e.target.files.length > 0) {
+				// console.log("Folder selected", e.target.files);
+				const files = await this.processFolderContents(e.target.files);
+				this.addFiles(files, fileInput);
+			}
+		});
+		
+		// Smart click handler that detects folder upload requests
+		browseButton.onclick = (e) => {
+			if (e.shiftKey || e.ctrlKey || e.metaKey) {
+				// Modified click = folder upload
+				folderInput.click();
+			} else {
+				// Regular click = file upload
+				fileInput.click();
+			}
+		};
+		
+		this.setupDragDropHandlers(dragArea, fileInput, header);
+		uploader_box.appendChild(dragArea);
+		
+		return uploader_box;
+	}
+
+	createIconElement(icon, className) {
+		const element = createElement("div");
+		element.className = className;
+		element.innerText = icon;
+		return element;
+	}
+
+	createHeaderElement(text) {
+		const element = createElement("header");
+		element.innerText = text;
+		return element;
+	}
+
+	createTextElement(text) {
+		const element = createElement("span");
+		element.innerText = text;
+		return element;
+	}
+
+	createBrowseButton(fileInput) {
+		const button = createElement("button");
+		button.type = "button";
+		button.innerText = "Browse File";
+		button.className = "drag-browse";
+		button.onclick = () => fileInput.click();
+		return button;
+	}
+
+	setupDragDropHandlers(dragArea, fileInput, header) {
+		dragArea.ondragover = (event) => {
+			event.preventDefault();
+			dragArea.classList.add("active");
+			header.innerText = "Release to Upload";
+		};
+
+		dragArea.ondragleave = () => {
+			dragArea.classList.remove("active");
+			header.innerText = "Drag & Drop Files or Folders";
+		};
+
+		dragArea.ondrop = async (event) => {
+			event.preventDefault();
+			dragArea.classList.remove("active");
+			header.innerText = "Drag & Drop Files or Folders";
+
+			const items = event.dataTransfer.items;
+			const files = [];
+			
+			// Process all items (files and folders)
+			const processItem = async (item) => {
+				if (item.kind === 'file') {
+					const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+					if (entry) {
+						if (entry.isFile) {
+							const file = item.getAsFile();
+							files.push(file);
+						} else if (entry.isDirectory) {
+							const folderFiles = await this.processDirectoryEntry(entry);
+							files.push(...folderFiles);
+						}
+					} else {
+						// Fallback for browsers without webkitGetAsEntry
+						const file = item.getAsFile();
+						if (file) files.push(file);
+					}
+				}
+			};
+
+			await Promise.all([...items].map(processItem));
+			
+			if (files.length > 0) {
+				// console.log("Files dropped", files);
+				this.addFiles(files, fileInput);
+			}
+		};
+	}
+
+	async processDirectoryEntry(directoryEntry) {
+		const files = [];
+		const directoryPath = directoryEntry.fullPath || directoryEntry.name;
+	
+		const readEntries = (reader) => {
+			return new Promise((resolve) => {
+				reader.readEntries(async (entries) => {
+					if (!entries || entries.length === 0) {
+						return resolve([]);
+					}
+	
+					for (const entry of entries) {
+						if (entry.isFile) {
+							const file = await this.getFileFromEntry(entry);
+							if (file) {
+								// Store the full relative path including the directory name
+								file._relativePath = directoryPath + '/' + entry.name;
+								files.push(file);
+							}
+						} else if (entry.isDirectory) {
+							const folderFiles = await this.processDirectoryEntry(entry);
+							files.push(...folderFiles);
+						}
+					}
+					resolve(entries);
+				}, () => resolve([])); // Handle readEntries failure
+			});
+		};
+	
+		const reader = directoryEntry.createReader();
+		let entries;
+		do {
+			entries = await readEntries(reader);
+		} while (entries.length > 0);
+	
+		return files;
+	}
+
+	getFileFromEntry(fileEntry) {
+		return new Promise((resolve) => {
+			fileEntry.file((file) => {
+				resolve(file);
+			});
+		});
+	}
+
+	async processFolderContents(files) {
+		const processedFiles = [];
+		
+		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+			// For folder uploads, webkitRelativePath contains the full path
+			if (file.webkitRelativePath) {
+				file._relativePath = file.webkitRelativePath;
+			}
+			processedFiles.push(file);
 		}
-		form.setAttribute("uploading", stat);
+		
+		return processedFiles;
+	}
+
+	createFileListContainer() {
+		const container = createElement("div");
+		container.style.display = "none";
+		
+		const title = createElement("h2");
+		title.innerText = "Selected Files";
+		title.className = "has-selected-files";
+		title.style.textAlign = "center";
+		container.appendChild(title);
+		
+		const fileDisplay = createElement("div");
+		fileDisplay.className = "drag-file-list";
+		container.appendChild(fileDisplay);
+		
+		return container;
+	}
+
+	createSubmitSection() {
+		const fragment = document.createDocumentFragment();
+		
+		fragment.appendChild(createElement("br"));
+		
+		const center = createElement("center");
+		const submitButton = createElement("button");
+		submitButton.type = "submit";
+		submitButton.innerText = "➾ Upload";
+		submitButton.className = "drag-browse upload-button";
+		center.appendChild(submitButton);
+		
+		center.appendChild(createElement("br"));
+		center.appendChild(createElement("br"));
+		
+		const statusLabel = createElement("span");
+		statusLabel.innerText = "Status: ";
+		
+		const statusText = createElement("span");
+		statusText.className = "upload-pop-status";
+		statusText.innerText = "Waiting";
+		statusLabel.appendChild(statusText);
+		statusLabel.style.display = "none";
+		center.appendChild(statusLabel);
+		
+		fragment.appendChild(center);
+		return fragment;
+	}
+
+	setupFormHandlers(form, index) {
+		let that = this;
+
+		let fileInput = form.querySelector('input[type="file"]');
+		let submitButton = form.querySelector('button[type="submit"]');
+		this.fileDisplay = form.querySelector('.drag-file-list');
+		this.fileContainer = form.querySelector('div:has(.drag-file-list)');
+		let statusLabel = form.querySelector('span:has(.upload-pop-status)');
+		let statusText = statusLabel.querySelector('.upload-pop-status');
+
+		form.onsubmit = (e) => {
+			e.preventDefault();
+
+			// remove the folder input from the form data
+			if (form.querySelector('input[name="folder"]')) {
+				form.querySelector('input[name="folder"]').remove();
+			}
+			
+			// Create a new FormData and append all files with their relative paths
+			const formData = new FormData();
+			
+			// Copy all form fields except files
+			for (const pair of new FormData(e.target)) {
+				if (pair[0] !== 'file') {
+					formData.append(pair[0], pair[1]);
+				}
+			}
+			
+			// Append all files with their relative paths
+			for (let i = 0; i < this.selected_files.files.length; i++) {
+				const file = this.selected_files.files[i];
+				const path = file._relativePath || file.name;
+				formData.append('file[]', file, path);
+			}
+			
+			that.handleFormSubmit(e, index, submitButton, statusText, statusLabel, formData);
+		};
+	}
+
+	addFiles(files, fileInput) {
+		this.removeDuplicates(files);
+		fileInput.files = this.selected_files.files;
+		this.showFiles();
+	}
+
+	removeDuplicates(files) {
+		let fileNames = new Set([...this.selected_files.files].map(f => f.name));
+
+		for (let file of files) {
+			if (fileNames.has(file.name)) {
+				toaster.toast(this.truncateFileName(file.name) + " already selected", 1500);
+				continue;
+			}
+			this.selected_files.items.add(file);
+			fileNames.add(file.name);
+		}
+	}
+
+	truncateFileName(name) {
+		return name.length > 20 ? `${name.slice(0, 7)}...${name.slice(-6)}` : name;
+	}
+
+	showFiles() {
+		let selected_files = this.selected_files;
+		let fileContainer = this.fileContainer;
+		let fileDisplay = this.fileDisplay;
+
+		tools.del_child(fileDisplay);
+
+		if (selected_files.files.length) {
+			fileContainer.style.display = "contents";
+			let fragment = document.createDocumentFragment();
+			
+			for (let i = 0; i < selected_files.files.length; i++) {
+				fragment.appendChild(this.createFileItem(selected_files.files[i], i, selected_files, fileDisplay, fileContainer));
+			}
+			
+			fileDisplay.appendChild(fragment);
+		} else {
+			fileContainer.style.display = "none";
+		}
+	}
+
+	createFileItem(file, index, selected_files, fileDisplay, fileContainer) {
+		selected_files = selected_files || this.selected_files;
+
+		let item = createElement("table");
+		item.className = "upload-file-item";
+		
+		let nameCell = createElement("td");
+		nameCell.className = "ufname";
+		// Show the relative path if available
+		nameCell.innerText = file._relativePath || file.name;
+		item.appendChild(nameCell);
+		
+		let sizeCell = createElement("td");
+		sizeCell.className = "ufsize";
+		sizeCell.innerHTML = `<span>${fmbytes(file.size)}</span>`;
+		item.appendChild(sizeCell);
+		
+		let removeCell = createElement("td");
+		removeCell.className = "ufremove";
+		removeCell.innerHTML = `<span>&times;</span>`;
+		removeCell.onclick = () => this.removeFileFromList(index, fileDisplay);
+		item.appendChild(removeCell);
+		
+		return item;
+	}
+
+	removeFileFromList(index, fileDisplay) {
+		let selected_files = this.selected_files;
+
+		let dt = new DataTransfer();
+		
+		for (let i = 0; i < selected_files.files.length; i++) {
+			if (index !== i) dt.items.add(selected_files.files[i]);
+		}
+		
+		selected_files = dt;
+		this.selected_files = selected_files;
+		this.showFiles(fileDisplay);
+	}
+
+	handleFormSubmit(e, index, submitButton, statusText, statusLabel, formData) {
+		if (this.status.get(index)) {
+			this.cancel(index);
+			this.showStatus("Upload cancelled", statusText, statusLabel);
+			return;
+		}
+		
+		if (!this.selected_files.files.length) {
+			toaster.toast("No files selected");
+			return;
+		}
+		
+		this.status.set(index, true);
+		const request = new XMLHttpRequest();
+		this.requests.set(index, request);
+		this.uploaders.set(index, e.target);
+		
+		submitButton.innerText = "⏹️ Cancel";
+		popup_msg.close();
+		
+		var prog_id = `upload-${index}`;
+		
+		if (!progress_bars.bar_elements[prog_id]) {
+			prog_id = progress_bars.new(
+				'upload', 
+				prog_id, 
+				window.location.href,
+				{
+					"onclick": () => {
+						this.show(index);
+					},
+					"oncancel": () => {
+						this.cancel(index);
+					}
+				}
+			);
+			e.target.prog_id = prog_id;
+		}
+			
+		
+		this.setupRequestHandlers(request, e, prog_id, index, submitButton, statusText, statusLabel);
+		request.send(formData);
+	}
+
+	setupRequestHandlers(request, e, prog_id, index, submitButton, statusText, statusLabel) {
+		request.open(e.target.method, e.target.action);
+		request.setRequestHeader('Cache-Control', 'no-cache');
+		// request.setRequestHeader("Connection", "close");
+		
+		request.onreadystatechange = () => {
+			if (request.readyState !== XMLHttpRequest.DONE) return;
+			
+			let msg, color, status;
+			if (request.status === 401) {
+				msg = 'Incorrect password';
+				color = "red";
+				status = "error";
+			} else if (request.status === 503) {
+				msg = 'Upload is disabled';
+				color = "red";
+				status = "error";
+			} else if (request.status === 0) {
+				msg = 'Connection failed';
+				color = "red";
+				status = "error";
+			} else if (request.status === 204 || request.status === 200) {
+				msg = 'Success';
+				color = "green";
+				status = "done";
+				page_controller.refresh_dir();
+			} else {
+				msg = `${request.status}: ${request.statusText}`;
+				color = "red";
+				status = "error";
+			}
+			
+			this.handleUploadComplete(prog_id, index, submitButton, statusText, msg, color, status);
+		};
+		
+		request.upload.onprogress = e => {
+			const percent = Math.floor(100 * e.loaded / e.total);
+			const msg = e.loaded === e.total ? 'Saving...' : `Progress ${percent}%`;
+			
+			this.showStatus(msg, statusText, statusLabel);
+			progress_bars.update(prog_id, {
+				"status_text": msg,
+				"status_color": "green",
+				"status": "running",
+				"percent": percent
+			});
+		};
+	}
+
+	handleUploadComplete(prog_id, index, submitButton, statusText, msg, color, status) {
+		progress_bars.update(prog_id, {
+			"status_text": msg,
+			"status_color": color,
+			"status": status,
+			"percent": status === "done" ? 100 : 0
+		});
+		
+		submitButton.innerText = "➾ Re-upload";
+		if (!this.status.get(index)) return;
+		
+		this.showStatus(msg, statusText);
+		this.status.set(index, false);
+		
+		const toastMsg = status === "error" ? "Upload Failed" : "Upload Complete";
+		toaster.toast(toastMsg, 3000, color);
+	}
+
+	showStatus(msg, statusText, statusLabel) {
+		if (statusLabel) statusLabel.style.display = "block";
+		if (statusText) statusText.innerText = msg;
 	}
 
 	show(index) {
-		let form = this.uploaders[index];
+		let form = this.uploaders.get(index);
+		if (!form) {
+			toaster.toast("No form found");
+			return;
+		}
 		popup_msg.createPopup("Upload Files", form);
 		popup_msg.show();
 	}
 
 	cancel(index, remove = false) {
-		let request = this.requests[index];
-		let form = this.uploaders[index];
-		let prog_id = form.prog_id;
-
+		const request = this.requests.get(index);
+		const form = this.uploaders.get(index);
+		
 		if (form) {
 			form.querySelector(".upload-button").innerText = "➾ Upload";
 		}
-		progress_bars.update(prog_id, {
+		
+		progress_bars.update(form?.prog_id, {
 			"status_text": "Upload Canceled",
 			"status_color": "red",
 			"status": "error",
 			"percent": 0
-		})
-
-
-		if (this.status[index]) {
-			this.status[index] = false;
-			if (request) {
-				request.abort();
-			}
+		});
+		
+		if (this.status.get(index)) {
+			this.status.set(index, false);
+			request?.abort();
 			if (!remove) toaster.toast("Upload Canceled");
-
 			return true;
 		}
-
 		return false;
 	}
 
 	remove(index) {
-		this.cancel(index, true); //cancel the upload (true to make sure it doesn't show toast)
-		let form = this.uploaders[index];
-		let prog_id = form.prog_id;
-		if (prog_id) {
-			progress_bars.remove(prog_id);
-		}
-		this.uploaders[index].remove(); //remove the form from DOM
-		delete this.uploaders[index]; //remove the form from uploaders array
-		delete this.requests[index]; //remove the request from requests array
+		this.cancel(index, true);
+		const form = this.uploaders.get(index);
+		progress_bars.remove(form?.prog_id);
+		form?.remove();
+		this.uploaders.delete(index);
+		this.requests.delete(index);
 	}
-
 }
 
 const upload_man = new UploadManager();
 
-
 class FileManager {
 	constructor() {
+		this.typeIcons = {
+			'd': { icon: '📂', class: 'link', type: 'folder' },
+			'v': { icon: '🎥', class: 'vid', type: 'video' },
+			'i': { icon: '🌉', class: 'file', type: 'image' },
+			'f': { icon: '📄', class: 'file', type: 'file' },
+			'h': { icon: '🔗', class: 'html', type: 'html' }
+		};
 	}
 
 	show_more_menu() {
-		let that = this;
-		let menu = createElement("div")
-
-		let sort_by = createElement("div")
-		sort_by.innerText = "Sort By"
-		sort_by.className = "disable_selection popup-btn menu_options debug_only"
-		sort_by.onclick = function () {
-			that.Show_sort_by()
-		}
-		menu.appendChild(sort_by)
-
-		let new_folder = createElement("div")
-		new_folder.innerText = "New Folder"
-		new_folder.onclick = function () {
-			that.Show_folder_maker()
-		}
-		new_folder.className = "disable_selection popup-btn menu_options"
-		menu.appendChild(new_folder)
-
-		let upload = createElement("div")
-		upload.innerText = "Upload Files"
-		upload.className = "disable_selection popup-btn menu_options"
-		if (user.permissions.NOPERMISSION || !user.permissions.UPLOAD) {
-			upload.className += " disabled"
-		} else {
-			upload.onclick = function () {
-				that.Show_upload_files()
+		const menu = createElement("div");
+		
+		const options = [
+			{ 
+				text: "Sort By", 
+				className: "disable_selection popup-btn menu_options debug_only",
+				action: () => this.Show_sort_by()
+			},
+			{ 
+				text: "New Folder", 
+				className: "disable_selection popup-btn menu_options",
+				action: () => this.Show_folder_maker()
+			},
+			{ 
+				text: "Upload Files", 
+				className: `disable_selection popup-btn menu_options ${user.permissions.NOPERMISSION || !user.permissions.UPLOAD ? "disabled" : ""}`,
+				action: () => this.Show_upload_files()
 			}
-		}
-		menu.appendChild(upload)
-
-		popup_msg.createPopup("Options", menu)
-
-		popup_msg.open_popup()
+		];
+		
+		options.forEach(opt => {
+			if (opt.className.includes("disabled")) return;
+			
+			const element = createElement("div");
+			element.innerText = opt.text;
+			element.className = opt.className;
+			element.onclick = opt.action;
+			menu.appendChild(element);
+		});
+		
+		popup_msg.createPopup("Options", menu);
+		popup_msg.open_popup();
 	}
 
-
 	Show_folder_maker() {
-		popup_msg.createPopup("Create Folder",
-			"Enter folder name: <input id='folder-name' type='text'><br><br><div class='pagination center' onclick='context_menu.create_folder()'>Create</div>"
+		popup_msg.createPopup(
+			"Create Folder",
+			`Enter folder name: <input id='folder-name' type='text'><br><br>
+			 <div class='pagination center' onclick='context_menu.create_folder()'>Create</div>`
 		);
 		popup_msg.open_popup();
 	}
 
 	async Show_upload_files() {
-		let form = await upload_man.new()
+		const form = await upload_man.new();
 		popup_msg.createPopup("Upload Files", form);
 		popup_msg.open_popup();
 	}
 
-	
 	show_file_list() {
-		let folder_li = createElement('div');
-		let file_li = createElement("div")
+		const dir_container = byId("js-content_list");
+		const fragment = document.createDocumentFragment();
+		
+		const { folderFragment, fileFragment } = this.createFileFragments();
+		
+		fragment.appendChild(folderFragment);
+		fragment.appendChild(fileFragment);
+		
+		this.clear_file_list();
+		dir_container.appendChild(fragment);
+	}
+
+	createFileFragments() {
+		const folderFragment = createElement('div');
+		const fileFragment = createElement('div');
+		
 		r_li.forEach((r, i) => {
-			// time to customize the links according to their formats
-			let folder = false
-			let type = null;
-			// let r = r_li[i];
-			let r_ = r.slice(1);
-			let name = f_li[i];
-
-			let item = createElement('div');
-			item.classList.add("dir_item")
-
-
-			let link = createElement('a');// both icon and title, display:flex
-			link.href = r_;
-			link.title = name;
-
-			link.classList.add('all_link');
-			link.classList.add("disable_selection")
-			let l_icon = createElement("span")
-			// this will go inside "link" 1st
-			l_icon.classList.add("link_icon")
-
-			let l_box = createElement("span")
-			// this will go inside "link" 2nd
-			l_box.classList.add("link_name")
-
-
+			const typeInfo = this.typeIcons[r[0]];
+			if (!typeInfo) return;
+			
+			const item = this.createFileItem(r, i, typeInfo);
+			
 			if (r.startsWith('d')) {
-				// add DOWNLOAD FOLDER OPTION in it
-				// TODO: add download folder option by zipping it
-				// currently only shows folder size and its contents
-				type = "folder"
-				folder = true
-				l_icon.innerHTML = "📂".toHtmlEntities();
-				l_box.classList.add('link');
-			}
-			if (r.startsWith('v')) {
-				// if its a video, add play button at the end
-				// that will redirect to the video player
-				// clicking main link will download the video instead
-				type = 'video';
-				l_icon.innerHTML = '🎥'.toHtmlEntities();
-				link.href = go_link("vid", r_)
-				l_box.classList.add('vid');
-			}
-			if (r.startsWith('i')) {
-				type = 'image'
-				l_icon.innerHTML = '🌉'.toHtmlEntities();
-				l_box.classList.add('file');
-			}
-			if (r.startsWith('f')) {
-				type = 'file'
-				l_icon.innerHTML = '📄'.toHtmlEntities();
-				l_box.classList.add('file');
-			}
-			if (r.startsWith('h')) {
-				type = 'html'
-				l_icon.innerHTML = '🔗'.toHtmlEntities();
-				l_box.classList.add('html');
-			}
-
-			link.appendChild(l_icon)
-
-			l_box.innerText = " " + name;
-
-			if (s_li[i]) {
-				l_box.appendChild(createElement("br"))
-
-				let s = createElement("span")
-				s.className = "link_size"
-				s.innerText = s_li[i]
-				l_box.appendChild(s)
-			}
-			link.appendChild(l_box)
-
-
-			link.oncontextmenu = function (ev) {
-				ev.preventDefault()
-
-				context_menu.show_menus(r_, name, type);
-				return false;
-			}
-
-			item.appendChild(link);
-			//item.appendChild(context);
-			// recycling option for the files and folder
-			// files and folders are handled differently
-			let xxx = "F"
-			if (r.startsWith('d')) {
-				xxx = "D";
-			}
-
-
-			let hrr = createElement("hr")
-			item.appendChild(hrr);
-			if (folder) {
-				folder_li.appendChild(item);
+				folderFragment.appendChild(item);
 			} else {
-				file_li.appendChild(item)
+				fileFragment.appendChild(item);
 			}
 		});
+		
+		return { folderFragment, fileFragment };
+	}
 
-		this.clear_file_list(); // clear the links since they are no js compatible
+	createFileItem(r, i, typeInfo) {
+		const r_ = r.slice(1);
+		const name = f_li[i];
+		
+		const item = createElement('div');
+		item.classList.add("dir_item");
+		
+		const link = createElement('a');
+		link.href = r.startsWith('v') ? go_link("vid", r_) : r_;
+		link.title = name;
+		link.className = `all_link disable_selection ${typeInfo.class}`;
+		
+		link.appendChild(this.createIconElement(typeInfo.icon));
+		link.appendChild(this.createNameElement(name, s_li[i]));
+		
+		link.oncontextmenu = (ev) => {
+			ev.preventDefault();
+			context_menu.show_menus(r_, name, typeInfo.type);
+			return false;
+		};
+		
+		item.appendChild(link);
+		item.appendChild(createElement("hr"));
+		
+		return item;
+	}
 
-		let dir_container = byId("js-content_list")
-		dir_container.appendChild(folder_li)
-		dir_container.appendChild(file_li)
+	createIconElement(icon) {
+		const element = createElement("span");
+		element.className = "link_icon";
+		element.innerHTML = icon.toHtmlEntities();
+		return element;
+	}
+
+	createNameElement(name, size) {
+		const element = createElement("span");
+		element.className = "link_name";
+		element.innerText = ` ${name}`;
+		
+		if (size) {
+			element.appendChild(createElement("br"));
+			
+			const sizeElement = createElement("span");
+			sizeElement.className = "link_size";
+			sizeElement.innerText = size;
+			element.appendChild(sizeElement);
+		}
+		
+		return element;
 	}
 
 	clear_file_list() {
-		// clear previous data
 		tools.del_child("linkss");
-		tools.del_child("js-content_list")
+		tools.del_child("js-content_list");
 	}
-	
-
-
-
-
 }
 
 const fm = new FileManager();
@@ -712,7 +803,7 @@ class FM_Page extends Page {
 
 	on_action_button() {
 		// show add folder, sort, etc
-		fm.show_more_menu()
+		fm.show_more_menu();
 	}
 
 	async initialize(lazyload = false) {
@@ -720,19 +811,19 @@ class FM_Page extends Page {
 			this.controller.clear();
 		}
 
-		this.set_title("File Manager")
-		this.controller.set_actions_button_text("New&nbsp;")
-		this.controller.show_actions_button()
+		this.set_title("File Manager");
+		this.controller.set_actions_button_text("New&nbsp;");
+		this.controller.show_actions_button();
 
 		if (user.permissions.NOPERMISSION || !user.permissions.VIEW) {
-			this.set_title("No Permission")
+			this.set_title("No Permission");
 
-			const container = byId("js-content_list")
-			const warning = createElement("h2")
-			warning.innerText = "You don't have permission to view this page"
-			container.appendChild(warning)
+			const container = byId("js-content_list");
+			const warning = createElement("h2");
+			warning.innerText = "You don't have permission to view this page";
+			container.appendChild(warning);
 
-			return
+			return;
 		}
 
 		var folder_data = await fetch(tools.add_query_here("folder_data"))
@@ -742,17 +833,17 @@ class FM_Page extends Page {
 			});
 
 		if (!folder_data || !folder_data["status"] || folder_data.status == "error") {
-			console.error("Error getting folder data") // TODO: Show error in page
-			return
+			console.error("Error getting folder data"); // TODO: Show error in page
+			return;
 		}
 
-		r_li = folder_data.type_list
-		f_li = folder_data.file_list
-		s_li = folder_data.size_list
+		r_li = folder_data.type_list;
+		f_li = folder_data.file_list;
+		s_li = folder_data.size_list;
 
-		var title = folder_data.title
+		var title = folder_data.title;
 
-		this.set_title(title)
+		this.set_title(title);
 
 
 		fm.show_file_list();

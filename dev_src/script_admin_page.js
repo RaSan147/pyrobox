@@ -5,9 +5,9 @@ class Admin_page extends Page {
 	}
 
 	initialize() {
-		this.show()
-		page.set_actions_button_text("Add User&nbsp;");
-		page.show_actions_button();
+		this.show();
+		this.controller.set_actions_button_text("Add User&nbsp;");
+		this.controller.show_actions_button();
 	}
 
 	show() {
@@ -25,10 +25,10 @@ class Admin_page extends Page {
 	}
 
 	clear() {
-		var table = byClass("users_list")[0]
-		var rows = table.rows.length
+		var table = byClass("users_list")[0];
+		var rows = table.rows.length;
 		for (var i = 1; i < rows; i++) {
-			table.deleteRow(1)
+			table.deleteRow(1);
 		}
 	}
 }
@@ -41,7 +41,7 @@ class Updater {
 		fetch('/?update')
 			.then(response => {
 				// console.log(response);
-				return response.json()
+				return response.json();
 			}).then(data => {
 				if (data.update_available) {
 					byId("update_text").innerText = "Update Available! 🎉 Latest Version: " + data.latest_version;
@@ -172,7 +172,7 @@ class Admin_tools {
 </form>
 
 <br>
-<div class='pagination' onclick='admin_tools.delete_user(${index})'
+<div class="pagination" onclick='admin_tools.delete_user(${index})'
 	style="margin: 0 auto;">Delete User</div>
 
 <!--
@@ -182,6 +182,8 @@ if admin is checked, all other values are checked -->
 
 <!-- make the table and input look modern
 keep the submit button in center, modernize the button UI-->
+
+
 <style>
 	.perm_checker_form table {
 		border-collapse: collapse;
@@ -340,12 +342,12 @@ keep the submit button in center, modernize the button UI-->
 	}
 
 }
-		`
+`
 
 
 		popup_msg.createPopup(username + " Options", client_page_html, true, null_func, client_page_script);
 
-		popup_msg.open_popup()
+		popup_msg.open_popup();
 
 
 	}
@@ -512,23 +514,20 @@ keep the submit button in center, modernize the button UI-->
 		var _pass = password.value;
 		var _pass_confirm = confirm_password.value;
 
-		console.log(_uname);
-		console.log(_pass);
-
 		if(_uname.length<1){
-			note("Username must have at least 1 character!")
+			note("Username must have at least 1 character!");
 		} else if (_uname.length>64){
-			note("Username must be less than 64 character long")
+			note("Username must be less than 64 character long");
 		} else if (_pass.length<4){
-			note("Password must have at least 4 character!")
+			note("Password must have at least 4 character!");
 		}else if (_pass.length>256){
-			note("Password can't be longer than 256 characters")
+			note("Password can't be longer than 256 characters");
 		} else if (NotUsernameRegex.test(_uname)){
-			note("Username can only have A-Z, a-z, 0-9, _")
+			note("Username can only have A-Z, a-z, 0-9, _");
 		} else if (_uname == _pass){
-			note("Username and password can't be the same!")
+			note("Username and password can't be the same!");
 		} else if (_pass != _pass_confirm){
-			note("Passwords do not match!")
+			note("Passwords do not match!");
 		} else {
 			OK = true;
 			note("Adding user...", "green");
@@ -555,7 +554,7 @@ keep the submit button in center, modernize the button UI-->
 
 		popup_msg.createPopup("Add User", client_page_html, true, null_func, client_page_script);
 
-		popup_msg.open_popup()
+		popup_msg.open_popup();
 	}
 }
 
