@@ -1,3 +1,4 @@
+import os
 from data_types import Template
 __all__ = [
 	"directory_explorer_header",
@@ -36,6 +37,7 @@ pt_config = config()
 
 def _get_template(path):
 	if pt_config.dev_mode:
+		path = os.path.join(os.path.dirname(__file__), path)
 		with open(path, encoding=enc) as f:
 			return f.read()
 
