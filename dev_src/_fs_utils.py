@@ -22,7 +22,7 @@ import re
 import time
 import traceback
 import urllib.parse
-from dev_src.UX_Tools import os_scan_walk_gen, xpath
+from UX_Tools import os_scan_walk_gen, xpath
 
 from _exceptions import LimitExceed
 

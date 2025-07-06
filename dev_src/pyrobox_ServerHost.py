@@ -4,8 +4,8 @@ import os
 from typing import Union
 
 from _fs_utils import get_titles, dir_navigator, reverse_humanbytes
-from dev_src.UX_Tools import xpath
-from pyroDB import PickleTable
+from UX_Tools import xpath
+from pyroDB2 import PickleTable
 import user_mgmt as u_mgmt
 from user_mgmt import User
 

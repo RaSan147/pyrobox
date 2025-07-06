@@ -39,7 +39,7 @@ from pyroboxCore import config as CoreConfig
 from pyroboxCore import logger, reload_server
 from pyroboxCore import runner as pyroboxRunner
 from pyroboxCore import tools
-from dev_src.UX_Tools import is_file, xpath
+from UX_Tools import is_file, xpath
 
 __version__ = '0.9.7'
 true = T = True
