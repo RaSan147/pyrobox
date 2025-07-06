@@ -9,7 +9,9 @@ def main(config=config):
 	config.parser.add_argument('--password', '-k',
 							default=config.PASSWORD,
 							type=str,
-							help='[Value] Upload Password (default: %(default)s)')
+							help='[Value] Upload Password (default: %(default)s)',
+							nargs="?",
+							const=config.PASSWORD)
 
 
 

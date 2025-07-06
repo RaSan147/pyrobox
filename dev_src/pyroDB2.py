@@ -503,7 +503,6 @@ class PyroDB(object):
 		"""Get a total number of keys, lists, and dicts inside the db"""
 		return len(self.db)
 
-	@staticmethod
 	def threadsafe_decorator(func):
 		"""
 		Decorator for thread safe functions
@@ -895,7 +894,6 @@ class PyroTable(dict):
 		# DEFAULR LIMIT FOR STR conversion
 		self.str_limit = 50
 
-	@staticmethod
 	def threadsafe_decorator(func):
 		"""
 		Decorator for thread safe functions
@@ -5257,7 +5255,10 @@ if __name__ == "__main__":
 
 		
 		# remove any existing test files
-		test_files = ["__persistence_test.pdb", "__concurrency_test.pdb", "__extreme_concurrency_test.pdb"] + ["__extreme_concurrency_final.json", "__extreme_concurrency_activities.json, actual_values.json", "expected_values.json"]
+		test_files = ["__persistence_test.pdb", "__concurrency_test.pdb", "__extreme_concurrency_test.pdb"] + ["__extreme_concurrency_final.json", "__extreme_concurrency_activities.json", 
+		"__test_csv.csv", "__test_json.json",
+		"__extreme_concurrency_test.pdb0_final.json", "__extreme_concurrency_test.pdb1_final.json", "__extreme_concurrency_test.pdb2_final.json", "__extreme_concurrency_test.pdb3_final.json",
+		"actual_values.json", "expected_values.json"]
 
 		for file in test_files:
 			if os.path.exists(file):
