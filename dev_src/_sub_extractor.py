@@ -4,7 +4,7 @@ import re
 
 import shutil
 
-from tools import get_exe_location, make_dir, xpath
+from dev_src.UX_Tools import get_exe_location, make_dir, xpath
 
 FFMPEG = get_exe_location("ffmpeg")
 

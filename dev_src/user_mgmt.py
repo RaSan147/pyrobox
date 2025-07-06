@@ -10,7 +10,7 @@ from typing import Tuple, List, TypeVar, Union
 import binascii
 
 from pyroboxCore import logger
-from pyroDB import PickleTable, _PickleTRow
+from dev_src.pyroDB2 import PickleTable, _PickleTRow
 from data_types import LimitedDict
 
 # Loads user database. Database is plaintext but stores passwords as a hash salted by config.PASSWORD
