@@ -9,6 +9,8 @@ import sys
 from queue import Queue
 from typing import Generator, List, Union
 
+from pathlib import Path
+
 
 def get_codec():
 	"""
@@ -144,7 +146,7 @@ def xpath(*path: Union[str, bytes], realpath: bool = False, posix: bool = True) 
 		posix (bool, optional): If True, uses POSIX-style (forward slash) separators in the output path. If False, uses the system's default separator (e.g., backslash on Windows). Defaults to True.
 
 	Returns:
-		Union[str, bytes]: The joined and normalized path as a string or bytes, matching the type of the first path component.
+		str: The joined and normalized path as a string or bytes, matching the type of the first path component.
 
 	Notes:
 		- If any path component is bytes, the result will be bytes; otherwise, it will be a string.
@@ -222,7 +224,7 @@ def remove_new_lines(txt):
 	return txt.replace("\\n", '\0').replace("\n", "").replace("\0", "\\n")
 
 
-def make_dir(*path):
+def make_dir(*path, return_path_type=False):
 	"""
 	Creates a directory at the specified path if it does not already exist.
 	Parameters:
@@ -237,6 +239,9 @@ def make_dir(*path):
 	
 	path = xpath(*path)
 	os.makedirs(path, exist_ok=True)
+
+	if return_path_type:
+		return Path(path)
 
 	return path
 
@@ -439,7 +444,7 @@ def str_comma(x):
 	"""
 	try:
 		try:
-			from App.pyroDB2 import _PyroTCell
+			from pyroDB2 import _PyroTCell
 		except ImportError:
 			from pyroDB import _PickleTCell
 		if isinstance(x, _PyroTCell):
@@ -460,7 +465,7 @@ def str_comma_to_float(x):
 	"""
 	try:
 		try:
-			from App.pyroDB2 import _PyroTCell
+			from pyroDB2 import _PyroTCell
 		except ImportError:
 			from pyroDB import _PickleTCell
 		if isinstance(x, _PyroTCell):
@@ -513,24 +518,27 @@ class CaseInsensitiveDict(dict):
 try:
 	from print_text3 import xprint
 except ImportError:
-	def xprint(*args, sep=' ', end='\n', **kwargs):
-		"""
-		Prints text with a specific format.
-		"""
-		
-		blue_term_text = '\033[94m'
-		reset_term_text = '\033[0m'
+	try:
+		from print_text4 import xprint
+	except ImportError:
+		def xprint(*args, sep=' ', end='\n', **kwargs):
+			"""
+			Prints text with a specific format.
+			"""
 
-		args = list(args)  # Convert args to a list for modification
-		for i, string in enumerate(args):
-			if isinstance(string, str):
-				# Replace special codes with terminal colors
-				string = string.replace('/b/', blue_term_text)
-				string = string.replace('/=/', reset_term_text)
+			blue_term_text = '\033[94m'
+			reset_term_text = '\033[0m'
 
-				args[i] = string
+			args = list(args)  # Convert args to a list for modification
+			for i, string in enumerate(args):
+				if isinstance(string, str):
+					# Replace special codes with terminal colors
+					string = string.replace('/b/', blue_term_text)
+					string = string.replace('/=/', reset_term_text)
 
-		print(*args, sep=sep, end=end, **kwargs)
+					args[i] = string
+
+			print(*args, sep=sep, end=end, **kwargs)
 
 
 
@@ -562,6 +570,7 @@ def lprint(*args, **kwargs):
 	# Print the file name and line number, along with the provided arguments
 	xprint(f'/b/["{file_path}", line {line_number}]:/=/ ', end='')
 	print(*args, **kwargs)
+
 
 if __name__ == '__main__':
 	# Test get_codec()
