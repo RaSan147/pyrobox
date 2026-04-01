@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Pull to Refresh (Top Zone)</title>
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    overscroll-behavior-y: contain;
+    background: #f5f6f8;
+  }
+
+  #refresh-overlay {
+    position: fixed;
+    top: 0;
+    left: 0; right: 0;
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transform: translateY(-100%);
+    transition: transform 0.25s ease-out;
+    z-index: 1000;
+  }
+
+  #refresh-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid #ccc;
+    border-top-color: #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: none;
+  }
+
+  #refresh-text {
+    font-size: 14px;
+    color: #666;
+    margin-left: 8px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  main {
+    padding: 20px;
+  }
+
+  .card {
+    background: white;
+    margin-bottom: 12px;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .title { font-weight: 600; }
+  .timestamp { font-size: 12px; color: #555; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div id="refresh-overlay">
+  <div id="refresh-spinner"></div>
+  <div id="refresh-text">Pull to refresh</div>
+</div>
+
+<main>
+  <h2>Smart Pull-to-Refresh Demo</h2>
+  <p>Only works when you start pulling from the top 30% of screen.</p>
+  <div id="feed"></div>
+</main>
+
+<script>
+const overlay = document.getElementById('refresh-overlay');
+const spinner = document.getElementById('refresh-spinner');
+const text = document.getElementById('refresh-text');
+const feed = document.getElementById('feed');
+
+let startY = 0;
+let pulling = false;
+let diffY = 0;
+let threshold = 80;
+let triggered = false;
+let refreshing = false;
+
+// Generate dummy content
+function makePosts(count = 30) {
+  for (let i = 0; i < count; i++) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="title">Post #${Math.floor(Math.random()*9999)}</div>
+      <div>${randomSentence()}</div>
+      <div class="timestamp">${new Date().toLocaleTimeString()}</div>`;
+    feed.appendChild(card);
+  }
+}
+function randomSentence() {
+  const words = ["AI","vision","logic","neural","core","system","design","reactive","model","parallel","task","synthesis"];
+  return Array.from({length: 10},()=>words[Math.floor(Math.random()*words.length)]).join(" ")+".";
+}
+makePosts();
+
+// --- Touch logic ---
+window.addEventListener('touchstart', e => {
+  const startYPos = e.touches[0].clientY;
+  const screenHeight = window.innerHeight;
+
+  // Only start pull if near top and scroll is at top
+  if (window.scrollY <= 0 && startYPos <= screenHeight * 0.6 && !refreshing) {
+    pulling = true;
+    startY = startYPos;
+    diffY = 0;
+    triggered = false;
+  } else {
+    pulling = false;
+  }
+});
+
+window.addEventListener('touchmove', e => {
+  if (!pulling) return;
+  diffY = e.touches[0].clientY - startY;
+  if (diffY > 0) {
+    e.preventDefault(); // stop native bounce
+    const pull = Math.min(diffY, 150);
+    overlay.style.transform = `translateY(${pull}px)`;
+
+    if (pull > threshold && !triggered) {
+      triggered = true;
+      text.textContent = "Release to refresh";
+      text.style.color = "#007bff";
+    } else if (pull <= threshold && triggered) {
+      triggered = false;
+      text.textContent = "Pull to refresh";
+      text.style.color = "#666";
+    }
+  }
+});
+
+window.addEventListener('touchend', async () => {
+  if (!pulling) return;
+
+  if (triggered && diffY > threshold) {
+    await doRefresh();
+  } else if (diffY > 0) {
+    text.textContent = "Cancelled";
+    text.style.color = "#ff3b30";
+    overlay.style.transform = 'translateY(0)';
+    setTimeout(() => {
+      overlay.style.transform = 'translateY(-100%)';
+      text.textContent = "Pull to refresh";
+      text.style.color = "#666";
+    }, 600);
+  } else {
+    overlay.style.transform = 'translateY(-100%)';
+  }
+
+  pulling = false;
+  diffY = 0;
+  triggered = false;
+});
+
+async function doRefresh() {
+  refreshing = true;
+  spinner.style.display = 'block';
+  text.textContent = "Refreshing...";
+  text.style.color = "#007bff";
+  overlay.style.transform = 'translateY(60px)';
+  await new Promise(res => setTimeout(res, 1200));
+  feed.innerHTML = "";
+  makePosts(25);
+  spinner.style.display = 'none';
+  text.textContent = "Refreshed!";
+  text.style.color = "#28a745";
+  setTimeout(() => {
+    overlay.style.transform = 'translateY(-100%)';
+    text.textContent = "Pull to refresh";
+    text.style.color = "#666";
+    refreshing = false;
+  }, 800);
+}
+</script>
+</body>
+</html>
