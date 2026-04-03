@@ -137,10 +137,13 @@
 	</div>
 
 
-	<div id="actions-btn" class="disable_selection jsonly" onclick="page_controller.on_action_button()">
-		<div id="actions-btn-text">More&nbsp;</div>
-		<span class="fa fa-solid fa-plus" id="actions-btn-icon"><b>+</b></span>
-		<span class="fa fa-duotone fa-spinner fa-spin" id="actions-loading-icon"><span class='spin'>⚉</span></span>
+	<div id="actions-menu" class="actions-menu disable_selection jsonly hidden">
+		<!-- Buttons will be injected here -->
+	</div>
+	<div id="actions-btn" class="disable_selection jsonly" onclick="action_btn_controller.toggle()">
+		<div id="actions-btn-text">Tools&nbsp;</div>
+		<span class="fa fa-solid fa-wrench" id="actions-btn-icon"><b>+</b></span>
+		<span class="fa fa-duotone fa-spinner fa-spin hidden" id="actions-loading-icon"><span class='spin'>⚉</span></span>
 	</div>
 	<div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
 		<span id="progress-uploads">Running Uploads
@@ -152,7 +155,6 @@
 			<span id="progress-zips-count">(0/0)</span></span>
 	</div>
 
-	<hr>
 
 	<div id="content_container">
 
@@ -211,18 +213,43 @@
 			<h3 id="zip-perc"></h3>
 		</div>
 
-		<div id="text-editor-page" class="page hidden">
-			<!-- Still under development -->
-			<h1>Text Editor</h1>
-			<!--add a button to toggle readonly  -->
-			<div>
-				<span class="fa fa-sharp fa-solid fa-pen-slash" id="toggle-readOnly"
-					  onclick="code_editor.toggle_readOnly()">🔏</span>
-				<span class="fa fa-sharp fa-solid fa-pen" id="toggle-writeAllowed"
-					  onclick="code_editor.toggle_writeAllowed()">🖋️</span>
+		<div id="code-editor-page" class="page">
+			<div id="editor-sticky-header">
+				<!-- Modern code editor with syntax highlighting -->
+				<header id="editor-header" class="editor-header">
+					<div class="editor-title-section">
+						<h2 id="editor-file-title">Code Editor</h2>
+						<span id="editor-file-info" class="editor-file-info"></span>
+						<span id="editor-unsaved-indicator" class="editor-unsaved-indicator" title="Unsaved changes">●</span>
+					</div>
+					<div class="editor-controls">
+						<input type="password" id="editor-password-input" class="editor-password-input" placeholder="Password" title="Password to save">
+						<select id="editor-line-ending-select" class="editor-line-ending-select" title="Choose line ending format">
+							<option value="LF">LF</option>
+							<option value="CRLF">CRLF</option>
+						</select>
+						<button id="editor-toggle-readonly-btn" class="editor-btn" title="Enable Editing">
+							<span class="fa fa-regular fa-pen">🔓</span>
+							<span class="btn-text">Enable Editing</span>
+						</button>
+						<button id="editor-download-btn" class="editor-btn" title="Download File">
+							<span class="fa fa-solid fa-download">⬇️</span>
+							<span class="btn-text">Download</span>
+						</button>
+						<button id="editor-save-btn" class="editor-save-btn" title="Save (Ctrl+S)">
+							<span class="fa fa-solid fa-save">💾</span>
+							<span class="btn-text">Save</span>
+						</button>
+					</div>
+				</header>
 			</div>
-			<hr>
-			<div id="editor"></div>
+			<div id="editor-container" class="editor-container"></div>
+			<noscript>
+				<div class="editor-noscript-warning">
+					<strong>JavaScript is required to use the code editor.</strong><br>
+					Please enable JavaScript to edit files or use your browser's developer tools to download the file content.
+				</div>
+			</noscript>
 		</div>
 
 		<div id="admin-page" class="page">
@@ -252,13 +279,13 @@
 
 
 
-				<div class='pagination jsonly' onclick="admin_tools.request_reload()">RELOAD SERVER 🧹</div>
+				<div class='pagination jsonly' onclick="admin_tools.request_reload()"><span class="fa fa-solid fa-arrows-rotate">🧹</span> RELOAD SERVER</div>
 				<noscript>
-					<a href="/?reload" class='pagination'>RELOAD SERVER 🧹</a><br>
+					<a href="/?reload" class='pagination'><span class="fa fa-solid fa-arrows-rotate">🧹</span> RELOAD SERVER</a><br>
 				</noscript>
 				<hr>
 
-				<div class='pagination jsonly' onclick="admin_tools.request_shutdown()">Shut down 🔻</div>
+				<div class='pagination jsonly' onclick="admin_tools.request_shutdown()"><span class="fa fa-solid fa-power-off">🔻</span> Shut down</div>
 			</div>
 
 			<noscript>
@@ -284,7 +311,49 @@
 	<!-- <script src="https://cdn.plyr.io/3.7.8/plyr.js" crossorigin="anonymous" onerror="document.getElementById('player').style.maxWidth = '98vw'" defer></script> -->
 	<script src="/?video_page_script" defer></script>
 	
+	<!-- CodeMirror 5.65.21 (latest v5) from jsDelivr -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.css">
+	<!-- Optional: Uncomment for a specific theme. Available: dracula, material, monokai, solarized, etc. -->
+	<!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/dracula.css"> -->
 	
+	<!-- Core CodeMirror - MUST load first, no defer -->
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.js"></script>
+	
+	<!-- CodeMirror modes for syntax highlighting -->
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/python/python.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/javascript/javascript.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/htmlmixed/htmlmixed.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/css/css.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/xml/xml.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/mode/overlay.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/markdown/markdown.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/sql/sql.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/clike/clike.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/go/go.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/php/php.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/ruby/ruby.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/yaml/yaml.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/shell/shell.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/toml/toml.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/r/r.js" defer></script>
+
+	<!-- CodeMirror addons -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/foldgutter.css">
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/edit/matchbrackets.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/edit/closebrackets.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/edit/matchtags.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/search.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/searchcursor.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/selection/active-line.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/foldcode.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/foldgutter.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/brace-fold.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/xml-fold.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/indent-fold.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/markdown-fold.js" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/fold/comment-fold.js" defer></script>
+
+	<script src="/?code_editor_script" defer></script>
 
 	<!-- ASSET_SCRIPT will load at the end with all the classes defined -->
 

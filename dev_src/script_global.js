@@ -57,19 +57,41 @@ class Config {
 		this.Debugging = false;
 		this.is_touch_device = 'ontouchstart' in document.documentElement;
 
-
 		this.previous_type = null;
 		this.themes = ["Tron"];
 
-
-
 		this.is_webkit = navigator.userAgent.indexOf('AppleWebKit') != -1;
 		this.is_edge = navigator.userAgent.indexOf('Edg') != -1;
-
 	}
 }
 var config = new Config();
 
+class PrefStoreManager {
+	constructor(prefix = "pyrobox_pref_") {
+		this.prefix = prefix;
+	}
+
+	set(key, value, useSession = false) {
+		try {
+			const storage = useSession ? sessionStorage : localStorage;
+			storage.setItem(this.prefix + key, JSON.stringify(value));
+		} catch (e) {
+			console.error("Storage error:", e);
+		}
+	}
+
+	get(key, defaultValue = null, useSession = false) {
+		try {
+			const storage = useSession ? sessionStorage : localStorage;
+			const val = storage.getItem(this.prefix + key);
+			return val ? JSON.parse(val) : defaultValue;
+		} catch (e) {
+			console.error("Storage error:", e);
+			return defaultValue;
+		}
+	}
+}
+var pref_store = new PrefStoreManager();
 
 class Tools {
 	// various tools for the page

@@ -13,7 +13,8 @@ __all__ = [
 	"page_handler_script",
 	"admin_page_script",
 	"login_page",
-	"style_css"
+	"style_css",
+	"code_editor_script"
 
 ]
 
@@ -83,6 +84,9 @@ def error_page_script():
 
 def zip_page_script():
 	return get_template("script_zip_page.js")
+
+def code_editor_script():
+	return get_template("script_code_editor.js")
 
 
 

@@ -6,7 +6,8 @@ class Admin_page extends Page {
 
 	initialize() {
 		this.show();
-		this.controller.set_actions_button_text("Add User&nbsp;");
+		this.controller.set_actions_button_text("Add User", { class: "fa-solid fa-user-plus", text: "👤+" }, () => admin_tools.add_user());
+		this.controller.set_action_tools([]);
 		this.controller.show_actions_button();
 	}
 
@@ -18,10 +19,6 @@ class Admin_page extends Page {
 
 	hide() {
 		this.my_part.classList.remove("active");
-	}
-
-	on_action_button() {
-		admin_tools.add_user();
 	}
 
 	clear() {

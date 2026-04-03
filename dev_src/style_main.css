@@ -900,6 +900,8 @@ ul {
 	color: var(--popup-color);
 	background-color: var(--popup-btn-bg);
 	min-width: 50px;
+	width: auto;
+	max-width: 150px;
 	min-height: 50px;
 	line-height: 1.8;
 	font-size: 25px;
@@ -912,12 +914,25 @@ ul {
 
 	transition: all 0.3s ease-in-out;
 	box-shadow: 0 2px 3px 1px #3d8be4;
-
+	transform: scale(1);
+	opacity: 1;
 
 	flex-direction: row;
 	flex-wrap: nowrap;
 	justify-content: center;
 	align-items: center;
+}
+
+/* Let the button keep its layout but be hidden/small during transition */
+#actions-btn.hidden-btn {
+	transform: scale(0.3);
+	opacity: 0;
+	pointer-events: none;
+}
+
+#actions-btn * {
+	transition: all 0.3s ease-in-out;
+	pointer-events: none; /* Make sure inner elements don't block parent clicks */
 }
 
 #actions-btn:hover,
@@ -932,13 +947,37 @@ ul {
 	transform: scale(0.3);
 }
 
+/* Fix for the button shrinking away from the pointer during scale down, cancelling the click.
+   This oversized invisible boundary ensures the pointer remains over the active button. */
+#actions-btn:active::after {
+	content: "";
+	position: absolute;
+	top: -150%;
+	bottom: -150%;
+	left: -150%;
+	right: -150%;
+	background: transparent;
+}
+
 #actions-btn-text {
 	display: none;
+	white-space: nowrap;
+	max-width: 100px;
+	overflow: hidden;
 }
 
 @media screen and (min-width: 700px) {
 	#actions-btn-text {
-		display: block;
+		display: inline-block;
+	}
+
+	#actions-btn-text.hidden {
+		display: inline-block !important; /* override display hidden to let it transition */
+		max-width: 0 !important;
+		opacity: 0 !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		transform: scale(0) !important;
 	}
 
 	#actions-btn {
@@ -951,8 +990,102 @@ ul {
 	}
 }
 
-#actions-loading-icon {
-	display: block;
+#actions-loading-icon,
+#actions-btn-icon {
+	display: inline-block;
+	overflow: hidden;
+}
+
+#actions-loading-icon.hidden,
+#actions-btn-icon.hidden {
+	display: inline-block !important;
+	max-width: 0 !important;
+	opacity: 0 !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	transform: scale(0) !important;
+}
+
+#actions-btn.loading {
+	border-radius: 50%;
+	padding: 0;
+	min-width: 50px;
+	max-width: 50px;
+	--action-btn-width: 50px;
+}
+
+#actions-menu {
+	position: fixed;
+	right: 15px;
+	bottom: 80px;
+	display: flex;
+	flex-direction: column-reverse;
+	gap: 10px;
+	z-index: 5;
+	align-items: flex-end;
+	/* No transitions here on the parent container */
+}
+
+#actions-menu.hidden {
+	display: flex !important; /* override the global .hidden */
+	pointer-events: none;
+}
+
+.action-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	background-color: var(--popup-btn-bg);
+	color: var(--popup-color);
+	padding: 10px 15px;
+	border-radius: 25px;
+	cursor: pointer;
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+	font-weight: bold;
+	
+	/* The core transition for expansion sequence. Wait based on index: `var(--btn-idx) * 0.05s` */
+	transition: opacity 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) calc(var(--btn-idx, 0) * 0.05s),
+	            transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) calc(var(--btn-idx, 0) * 0.05s), 
+	            background-color 0.2s, 
+	            color 0.2s;
+	
+	transform: scale(1) translateY(0);
+	opacity: 1;
+	transform-origin: bottom right;
+	white-space: nowrap;
+	min-width: max-content;
+}
+
+#actions-menu.hidden .action-menu-item {
+	opacity: 0;
+	transform: scale(0.3) translateY(20px);
+	/* Run the exit sequence backwards using rev-idx, so top closes first, with a nice bounce */
+	transition: opacity 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) calc(var(--btn-rev-idx, 0) * 0.04s),
+	            transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) calc(var(--btn-rev-idx, 0) * 0.04s);
+}
+
+.action-menu-item:hover {
+	background-color: var(--popup-btn-bg-active);
+	color: var(--theme-color-text2);
+	transform: scale(1.05) !important;
+	/* remove delay on hover */
+	transition: all 0.2s ease-in-out !important;
+}
+
+.action-menu-item:active {
+	background-color: var(--popup-btn-bg-active);
+	color: var(--theme-color-text2);
+	transform: scale(0.95) !important;
+	transition: all 0.1s ease-in-out !important;
+}
+
+.action-menu-item-icon {
+	font-size: 20px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-width: 25px;
+	text-align: center;
 }
 
 
@@ -1284,4 +1417,345 @@ input#folder-name {
 
 .upload-button-container:hover .tooltip {
     opacity: 1;
+}
+
+/* ================================================================
+   CODE EDITOR STYLES - OPTIMIZED & LIGHTWEIGHT
+   ================================================================ */
+
+#code-editor-page.active {
+    display: flex;
+}
+
+#code-editor-page {
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}
+
+.editor-header {
+    padding: 12px 15px;
+    background: #2d2d2d;
+    border-bottom: 1px solid #444;
+    color: #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.editor-title-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.editor-title-section h2 {
+    margin: 0;
+    font-size: 16px;
+    color: #fff;
+}
+
+.editor-file-info {
+    color: #999;
+    font-size: 11px;
+}
+
+.editor-unsaved-indicator {
+    color: #ff6b6b;
+    font-size: 12px;
+    animation: blink 1.5s infinite;
+    display: none;
+}
+
+@keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+.editor-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.editor-save-btn {
+    padding: 6px 12px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.editor-save-btn:hover:not(:disabled) {
+    background: #45a049;
+}
+
+.editor-save-btn:disabled {
+    background: #999;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.editor-btn {
+    padding: 6px 12px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.editor-btn:hover {
+    background: #0b7dda;
+}
+
+.editor-btn:disabled {
+    background: #999;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.editor-btn.readonly {
+    background: #ff9800;
+}
+
+.editor-btn.readonly:hover {
+    background: #f57c00;
+}
+
+.editor-password-input {
+    padding: 6px 12px;
+    background: #2d2d30;
+    color: #e0e0e0;
+    border: 1px solid #3e3e42;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: monospace;
+    width: 140px;
+    transition: border-color 0.2s ease;
+}
+
+.editor-password-input:focus {
+    outline: none;
+    border-color: #2196F3;
+}
+
+.editor-password-input::placeholder {
+    color: #858585;
+}
+
+.editor-line-ending-select {
+    padding: 6px 12px;
+    background: #2d2d30;
+    color: #e0e0e0;
+    border: 1px solid #3e3e42;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: monospace;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.editor-line-ending-select:focus {
+    outline: none;
+    border-color: #2196F3;
+}
+
+.editor-line-ending-select option {
+    background: #2d2d30;
+    color: #e0e0e0;
+}
+
+.editor-noscript-warning {
+    background: #ffebee;
+    color: #c62828;
+    padding: 15px;
+    margin: 10px;
+    border: 1px solid #e53935;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.editor-container {
+    flex: 1;
+    overflow: hidden; /* Changed from auto so absolute child expands perfectly */
+    background: #1e1e1e;
+    color: #e0e0e0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    position: relative;
+}
+
+#editor-sticky-header {
+    position: sticky;
+    top: 50px;
+    z-index: 100;
+    transition: top 0.3s;
+}
+
+/* Find & Replace Panel */
+.editor-find-panel {
+    background: #3e3e42;
+    border-bottom: 1px solid #555;
+    padding: 8px 12px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.editor-find-panel.hidden {
+    display: none;
+}
+
+.find-controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.find-input {
+    padding: 4px 8px;
+    border: 1px solid #555;
+    background: #252526;
+    color: #ccc;
+    font-size: 11px;
+    border-radius: 2px;
+    font-family: monospace;
+    min-width: 120px;
+}
+
+.find-input:focus {
+    outline: none;
+    border-color: #007ACC;
+    background: #1e1e1e;
+}
+
+.find-btn {
+    padding: 4px 8px;
+    background: #3e3e42;
+    color: #ccc;
+    border: 1px solid #555;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.15s ease;
+}
+
+.find-btn:hover {
+    background: #505052;
+    border-color: #007ACC;
+}
+
+.find-status {
+    color: #999;
+    font-size: 10px;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+/* CodeMirror Overrides - Minimal & Fast */
+.CodeMirror {
+    background: #1e1e1e !important;
+    color: #e0e0e0 !important;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace !important;
+    font-size: 13px !important;
+    border: none !important;
+    height: 100% !important;
+}
+
+.CodeMirror-lines {
+    padding-bottom: 40vh !important;
+}
+
+.CodeMirror-gutters {
+    background: #252526 !important;
+    border-right: 1px solid #3e3e42 !important;
+}
+
+.CodeMirror-linenumber {
+    color: #858585 !important;
+}
+
+.CodeMirror-cursor {
+    border-left: 1px solid #e0e0e0 !important;
+}
+
+.CodeMirror-selected {
+    background: #264f78 !important;
+}
+
+.CodeMirror-activeline-background {
+    background: #2d2d30 !important;
+}
+
+/* Syntax Highlighting - Minimal Set */
+.cm-string { color: #ce9178 !important; }
+.cm-number { color: #b5cea8 !important; }
+.cm-atom { color: #569cd6 !important; }
+.cm-keyword { color: #569cd6 !important; }
+.cm-variable { color: #9cdcfe !important; }
+.cm-property { color: #9cdcfe !important; }
+.cm-comment { color: #6a9955 !important; }
+.cm-tag { color: #569cd6 !important; }
+.cm-attribute { color: #9cdcfe !important; }
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .editor-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    .editor-title-section {
+        flex-wrap: wrap;
+        margin-bottom: 5px;
+    }
+    
+    .editor-controls {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+    
+    .editor-password-input {
+        flex: 1 1 100%;
+        width: auto;
+    }
+
+    .editor-line-ending-select {
+        flex: 1;
+        min-width: 80px;
+    }
+    
+    .editor-save-btn {
+        flex: 1;
+        min-width: 80px;
+    }
+
+    .editor-btn {
+        flex: 1;
+        min-width: 80px;
+        font-size: 11px;
+        padding: 6px 8px;
+    }
+
+    .find-controls {
+        gap: 4px;
+    }
+
+    .find-input {
+        min-width: 100px;
+        flex: 1;
+    }
 }

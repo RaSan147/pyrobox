@@ -80,6 +80,28 @@ class ContextMenu {
 			popup_msg.close();
 		}
 		menu.appendChild(new_tab);
+		
+		// Add "Open in Editor" option for text files
+		if (type != "folder") {
+			const text_extensions = ['.py', '.js', '.ts', '.jsx', '.tsx', '.html', '.htm', '.css', '.scss', '.less', 
+									  '.json', '.xml', '.md', '.txt', '.sql', '.java', '.cpp', '.c', '.h', '.go', 
+									  '.rs', '.php', '.rb', '.yaml', '.yml', '.sh', '.bash', '.conf', '.cfg', '.ini', 
+									  '.properties', '.gradle', '.maven'];
+			const file_ext = name.substr(name.lastIndexOf('.')).toLowerCase();
+			
+			if (text_extensions.includes(file_ext)) {
+				let open_editor = createElement("div");
+				open_editor.innerText = "✎ " + " Open in Editor";
+				open_editor.className = "disable_selection popup-btn menu_options";
+				open_editor.onclick = function () {
+					popup_msg.close();
+					// Navigate to editor view
+					window.location.href = go_link('edit', file);
+				}
+				menu.appendChild(open_editor);
+			}
+		}
+		
 		if (type != "folder") {
 			let download = createElement("div");
 			download.innerText = "📥" + " Download";

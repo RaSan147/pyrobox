@@ -249,6 +249,9 @@ def get_page_type(self: SH, *args, **kwargs):
 	elif self.query("signup"):
 		result = "signup"
 
+	elif self.query("edit"):
+		result = "code"
+
 	elif self.query("vid"):
 		result = "vid"
 
@@ -304,7 +307,7 @@ def get_qr(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	if CoreConfig.disabled_func["pyqrcode"]:
 		return self.send_error(code=HTTPStatus.INTERNAL_SERVER_ERROR, message="QR code generation is disabled", cookie=cookie)
@@ -331,7 +334,7 @@ def reload(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	if not user.is_admin():
 		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
@@ -348,7 +351,7 @@ def shutdown(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	if not user.is_admin():
 		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
@@ -362,7 +365,7 @@ def admin_page(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:  # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	if not user.is_admin():
 		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
@@ -376,7 +379,7 @@ def get_users(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	if not user.is_admin():
 		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
@@ -389,7 +392,7 @@ def update_user_perm(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	if not user.is_admin():
 		return self.send_error(code=HTTPStatus.UNAUTHORIZED, message="You are not authorized to perform this action", cookie=cookie)
@@ -742,7 +745,7 @@ def send_ls_json(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:  # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	return list_directory_json(self)
 
@@ -756,7 +759,7 @@ def send_video_data(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:  # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	os_path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
@@ -827,7 +830,7 @@ def send_subtitle(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	sub_id = self.query.get('sub', [None])[0]
 	if sub_id not in subtitle_location_map:
@@ -844,7 +847,7 @@ def send_video_page(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:  # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	os_path = kwargs.get('path', '')
 	url_path = kwargs.get('url_path', '')
@@ -869,6 +872,323 @@ def send_video_page(self: SH, *args, **kwargs):
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
 	return self.return_txt(encoded, cookie=cookie)
+
+
+# ================================================================
+# CODE EDITOR ENDPOINTS
+# ================================================================
+
+@SH.on_req('GET', hasQ=("edit", "edit-data"))
+def send_code_data(self: SH, *args, **kwargs):
+	"""Send code file data for editing"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+
+	# Check if it's a supported text file
+	supported_extensions = {
+		'.py', '.js', '.html', '.css', '.json', '.xml', '.txt', '.md', '.sql',
+		'.java', '.cpp', '.c', '.h', '.go', '.php', '.rb', '.yaml', '.yml',
+		'.sh', '.bash', '.conf', '.cfg', '.ini', '.properties', '.gradle', '.maven'
+	}
+	
+	file_ext = os.path.splitext(os_path)[1].lower()
+	if file_ext not in supported_extensions:
+		return self.send_error(
+			code=HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+			message=f"File type {file_ext} is not supported for editing",
+			cookie=cookie
+		)
+
+	# Check file size
+	try:
+		file_size = os.path.getsize(os_path)
+	except OSError:
+		return self.send_error(
+			code=HTTPStatus.NOT_FOUND,
+			message="File not found",
+			cookie=cookie
+		)
+
+	# Read file content - limit preview for very large files
+	try:
+		# Detect original file's line ending format
+		detected_line_ending = '\n'  # default
+		try:
+			with open(os_path, 'rb') as f:
+				original_bytes = f.read(min(8192, file_size))  # Check first 8KB
+				if b'\r\n' in original_bytes:
+					detected_line_ending = 'CRLF'
+				else:
+					detected_line_ending = 'LF'
+		except:
+			detected_line_ending = 'LF'  # default if detection fails
+		
+		# For read-only display of large files, limit to 16KB
+		max_preview_size = 16 * 1024  # 16KB for read-only preview
+		max_edit_size = 4 * 1024 * 1024  # 4MB for editing
+		
+		content_preview = ""
+		is_truncated = False
+		
+		if file_size > max_edit_size:
+			# Very large file - show 16KB preview only
+			is_truncated = True
+			with open(os_path, 'r', encoding='utf-8', errors='replace', newline='') as f:
+				content_preview = f.read(max_preview_size)
+		else:
+			# Normal file - read full content
+			with open(os_path, 'r', encoding='utf-8', errors='replace', newline='') as f:
+				content_preview = f.read()
+	except Exception as e:
+		return self.send_error(
+			code=HTTPStatus.INTERNAL_SERVER_ERROR,
+			message=f"Error reading file: {str(e)}",
+			cookie=cookie
+		)
+
+	displaypath = self.get_displaypath(url_path)
+	file_name = os.path.basename(os_path)
+
+	# Auto-detect language from extension
+	language_map = {
+		'.py': 'python',
+		'.js': 'javascript',
+		'.ts': 'javascript',
+		'.tsx': 'javascript',
+		'.jsx': 'javascript',
+		'.html': 'html',
+		'.htm': 'html',
+		'.css': 'css',
+		'.scss': 'css',
+		'.less': 'css',
+		'.json': 'json',
+		'.xml': 'xml',
+		'.svg': 'xml',
+		'.md': 'markdown',
+		'.txt': 'null',
+		'.sql': 'sql',
+		'.java': 'java',
+		'.cpp': 'cpp',
+		'.c': 'c',
+		'.h': 'cpp',
+		'.go': 'go',
+		'.php': 'php',
+		'.rb': 'ruby',
+		'.yaml': 'yaml',
+		'.yml': 'yaml',
+		'.sh': 'shell',
+		'.bash': 'shell',
+		'.conf': 'null',
+		'.cfg': 'null',
+		'.ini': 'null',
+		'.properties': 'null',
+		'.gradle': 'groovy',
+		'.maven': 'xml',
+	}
+
+	language = language_map.get(file_ext, 'null')
+
+	# Get file modification time for conflict detection
+	try:
+		mod_time = os.path.getmtime(os_path)
+	except OSError:
+		mod_time = 0
+
+	return self.send_json({
+		"status": "success",
+		"file_name": file_name,
+		"path": url_path,
+		"content": content_preview,
+		"language": language,
+		"file_size": file_size,
+		"is_truncated": is_truncated,
+		"truncated_at": max_preview_size if is_truncated else None,
+		"mod_time": mod_time,
+		"line_ending": detected_line_ending,
+		"read_only": not user.MODIFY or file_size > max_edit_size,  # Read-only if no permission or too large
+		"can_edit": user.MODIFY and file_size <= max_edit_size  # Can edit only if has permission AND file <= 4MB
+	}, cookie=cookie)
+
+
+@SH.on_req('GET', hasQ="edit")
+def send_code_editor_page(self: SH, *args, **kwargs):
+	"""Send code editor page"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	os_path = kwargs.get('path', '')
+	url_path = kwargs.get('url_path', '')
+
+	# Basic file validation
+	if not os.path.isfile(os_path):
+		return self.send_error(
+			code=HTTPStatus.NOT_FOUND,
+			message="File not found",
+			cookie=cookie
+		)
+
+	r = []
+
+	displaypath = self.get_displaypath(url_path)
+	title = get_titles(displaypath, file=True)
+
+	r.append(pt.directory_explorer_header().safe_substitute(PY_PAGE_TITLE=title,
+															PY_PUBLIC_URL=CoreConfig.address(),
+															PY_DIR_TREE_NO_JS=dir_navigator(displaypath)))
+
+	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
+	return self.return_txt(encoded, cookie=cookie)
+
+
+@SH.on_req('POST', hasQ="save-file")
+def save_code_file(self: SH, *args, **kwargs):
+	"""Save edited code file"""
+	user, cookie = Authorize_user(self)
+
+	if not user:
+		return self.send_json({
+			"status": "error",
+			"message": "Authentication required"
+		}, code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	# Check MODIFY permission
+	if not user.MODIFY:
+		return self.send_json({
+			"status": "error",
+			"message": "You don't have permission to modify files"
+		}, code=HTTPStatus.FORBIDDEN, cookie=cookie)
+
+	os_path = kwargs.get('path', '')
+	
+	# Validate file exists
+	if not os.path.isfile(os_path):
+		return self.send_json({
+			"status": "error",
+			"message": "File not found"
+		}, code=HTTPStatus.NOT_FOUND, cookie=cookie)
+
+	post = DPD(self)
+
+	# AUTHORIZE - verify post-type first
+	uid = AUTHORIZE_POST(self, post, 'save-code')
+
+	form = post.form
+
+	if not uid:
+		return self.send_json({
+			"status": "error",
+			"message": "Invalid request"
+		}, code=HTTPStatus.BAD_REQUEST, cookie=cookie)
+
+	# PASSWORD VALIDATION FIRST (before reading content)
+	password = form.get_multi_field(verify_name='password', decode=True)[1]
+	self.log_debug(f'code save password attempt by {user.UID}')
+	
+	if (user.MEMBER and not user.check_password(password)) or (not user.MEMBER and password != CoreConfig.PASSWORD):
+		self.log_info(f"Incorrect password for code save by {user.UID}")
+		return self.send_json({
+			"status": "error",
+			"message": "Incorrect password"
+		}, code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+
+	try:
+		# Now read content after password validation
+		content_field = form.get_multi_field(verify_name='content', decode=True)
+		content = content_field[1] if len(content_field) > 1 else ''
+		
+		mod_time_field = form.get_multi_field(verify_name='mod_time', decode=True)
+		mod_time_str = mod_time_field[1] if len(mod_time_field) > 1 else '0'
+		
+		line_ending_field = form.get_multi_field(verify_name='line_ending', decode=True)
+		line_ending_type = line_ending_field[1] if len(line_ending_field) > 1 else 'LF'
+		
+		try:
+			mod_time = float(mod_time_str) if mod_time_str else 0.0
+		except (ValueError, TypeError):
+			mod_time = 0.0
+
+		# Conflict detection: check if file was modified since user opened it
+		current_mod_time = os.path.getmtime(os_path)
+		if mod_time > 0 and current_mod_time > mod_time:
+			return self.send_json({
+				"status": "conflict",
+				"message": "File was modified by another process. Please reload and try again.",
+				"current_mod_time": current_mod_time
+			}, code=HTTPStatus.CONFLICT, cookie=cookie)
+
+		# Create backup before writing
+		backup_path = os_path + '.backup'
+		try:
+			if os.path.exists(os_path):
+				shutil.copy2(os_path, backup_path)
+		except Exception as backup_error:
+			logger.warning(f"Failed to create backup: {backup_error}")
+
+		# Map user's line ending choice to actual separator
+		separator_map = {
+			'CRLF': '\r\n',
+			'LF': '\n'
+		}
+		separator = separator_map.get(line_ending_type, '\n')
+		
+		# Write file atomically using temp file + rename
+		temp_path = os_path + '.tmp'
+		try:
+			# Ensure content is string
+			if isinstance(content, bytes):
+				content = content.decode('utf-8', errors='replace')
+			
+			# Apply original file's line ending format to new content
+			content = separator.join(content.splitlines())
+			
+			# Write with newline='' to prevent Python's automatic line ending conversion on Windows
+			with open(temp_path, 'w', encoding='utf-8', errors='replace', newline='') as f:
+				f.write(content)
+			# Atomic rename
+			if os.name == 'nt':  # Windows requires removing target first
+				if os.path.exists(os_path):
+					os.remove(os_path)
+			shutil.move(temp_path, os_path)
+		except Exception as write_error:
+			# Restore from backup on write failure
+			if os.path.exists(backup_path):
+				try:
+					shutil.copy2(backup_path, os_path)
+				except:
+					pass
+			raise write_error
+
+		# Log the edit
+		username = user.username if hasattr(user, 'username') else 'unknown'
+		logger.info(f"File edited by {username}: {os_path} ({len(content)} bytes)")
+
+		new_mod_time = os.path.getmtime(os_path)
+
+		return self.send_json({
+			"status": "success",
+			"message": "File saved successfully",
+			"mod_time": new_mod_time
+		}, cookie=cookie)
+
+	except Exception as e:
+		logger.error(f"Error saving file: {e}")
+		return self.send_json({
+			"status": "error",
+			"message": f"Error saving file: {str(e)}"
+		}, code=HTTPStatus.INTERNAL_SERVER_ERROR, cookie=cookie)
+
+
+@SH.on_req('GET', hasQ="code_editor_script")
+def send_code_editor_script(self: SH, *args, **kwargs):
+	"""Send code editor script"""
+	return self.send_script(pt.code_editor_script())
 
 
 if CoreConfig.dev_mode:
@@ -1177,7 +1497,7 @@ def upload(self: SH, *args, **kwargs):
 	user, cookie = Authorize_user(self)
 
 	if not user:  # guest or not will be handled in Authentication
-		return self.send_text(pt.login_page(), code=HTTPStatus.UNAUTHORIZED, cookie=cookie)
+		return self.redirect("?login")
 
 	if user.NOPERMISSION or (not user.UPLOAD):
 		return self.send_txt("Upload not allowed", code=HTTPStatus.SERVICE_UNAVAILABLE, cookie=cookie)

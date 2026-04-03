@@ -252,6 +252,8 @@ def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=Non
 				# h  : HTML
 	f_li = [] # file_names
 	s_li = [] # size list
+	rs_li = [] # raw size list (for sorting)
+	mt_li = [] # modified time list (for sorting)
 
 
 	# r.append("""<a href="../" style="background-color: #000;padding: 3px 20px 8px 20px;border-radius: 4px;">&#128281; {Prev folder}</a>""")
@@ -263,6 +265,14 @@ def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=Non
 		if escape_html:
 			displayname = html.escape(displayname, quote=False)
 		size=0
+		raw_size = 0
+		mtime = 0
+		try:
+			stat = file.stat()
+			mtime = stat.st_mtime
+		except OSError:
+			pass
+			
 		# Append / for directories or @ for symbolic links
 		_is_dir_ = True
 		if file.is_dir():
@@ -272,7 +282,15 @@ def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=Non
 			displayname = name + "@"
 		else:
 			_is_dir_ =False
-			size = fmbytes(file.stat().st_size)
+			
+			try:
+				stat = file.stat()
+				raw_size = stat.st_size
+				size = fmbytes(raw_size)
+			except OSError:
+				raw_size = 0
+				size = ""
+				
 			__, ext = posixpath.splitext(name)
 			if ext=='.html':
 				r_li.append('h'+ urllib.parse.quote(linkname, errors='surrogatepass'))
@@ -294,11 +312,15 @@ def list_directory(self:SH, path, user:User, cookie:Union[SimpleCookie, str]=Non
 			f_li.append(displayname)
 
 		s_li.append(size)
+		rs_li.append(raw_size)
+		mt_li.append(mtime)
 
 	result = {
 		"status": "success",
 		"file_list": f_li,
 		"size_list": s_li,
+		"raw_size_list": rs_li,
+		"mtime_list": mt_li,
 		"type_list": r_li,
 		"title": title,
 	}

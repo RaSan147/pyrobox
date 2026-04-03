@@ -84,14 +84,18 @@ class Theme_Controller {
 		vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
 
 	}
-	async del_fa_alt() {
+	async del_fa_alt(element = document) {
 		if (this.fa_ok) {
-			document.querySelectorAll(".fa").forEach(e => {
+			const targets = element.querySelectorAll ? Array.from(element.querySelectorAll(".fa")) : [];
+			if (element !== document && element.classList && element.classList.contains("fa")) {
+				targets.push(element);
+			}
+			targets.forEach(e => {
 				const i = document.createElement("i");
 				i.className = e.className;
 				i.style = e.style.cssText;  // Ensure styles are retained
 				i.id = e.id;
-				e.parentNode.replaceChild(i, e);
+				if (e.parentNode) e.parentNode.replaceChild(i, e);
 			});
 		}
 	}
@@ -298,7 +302,13 @@ class Top_Bar {
 		this.dont_move = false;
 		this.prevScrollpos = window.scrollY;
 		this.top_bar = byId("TopBar");
+		this.is_visible = true;
+		this._listeners = [];
 	}
+
+    on_change(callback) {
+        this._listeners.push(callback);
+    }
 
 	set_title(title) {
 		// if (vw < 300) {
@@ -314,17 +324,29 @@ class Top_Bar {
 	}
 	show() {
 		if (!this.top_bar) return false;
+		if (this.is_visible) return;
+		this.is_visible = true;
 
 		this.top_bar.style.top = "0";
 		document.body.style.top = "50px";
 		// this.top_bar.classList.remove("inactive");
+
+		for (const cb of this._listeners) {
+			try { cb(true); } catch(e) {}
+		}
 	}
 
 	hide() {
 		if (!this.top_bar) return false;
+		if (!this.is_visible) return;
+		this.is_visible = false;
 
 		this.top_bar.style.top = "-50px";
 		document.body.style.top = "0";
+
+		for (const cb of this._listeners) {
+			try { cb(false); } catch(e) {}
+		}
 	}
 
 }

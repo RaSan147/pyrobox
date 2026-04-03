@@ -1,6 +1,9 @@
 var r_li = []; // ${PY_LINK_LIST};
 var f_li = []; // ${PY_FILE_LIST};
 var s_li = []; // ${PY_FILE_SIZE};
+var rs_li = []; // raw size
+var mt_li = []; // mtimes
+
 
 class UploadManager {
 	constructor() {
@@ -655,12 +658,12 @@ class FileManager {
 		const menu = createElement("div");
 		
 		const options = [
-			{ 
-				text: "Sort By", 
-				className: "disable_selection popup-btn menu_options debug_only",
+			{
+				text: "Sort By",
+				className: "disable_selection popup-btn menu_options",
 				action: () => this.Show_sort_by()
 			},
-			{ 
+			{
 				text: "New Folder", 
 				className: "disable_selection popup-btn menu_options",
 				action: () => this.Show_folder_maker()
@@ -693,6 +696,71 @@ class FileManager {
 			 <div class='pagination center' onclick='context_menu.create_folder()'>Create</div>`
 		);
 		popup_msg.open_popup();
+	}
+
+	Show_sort_by() {
+		const menu = createElement("div");
+
+		const options = [
+			{ text: "Name (Asc)", action: () => this.sort_files("name", "asc") },
+			{ text: "Name (Desc)", action: () => this.sort_files("name", "desc") },
+			{ text: "Size (Asc)", action: () => this.sort_files("size", "asc") },
+			{ text: "Size (Desc)", action: () => this.sort_files("size", "desc") },
+			{ text: "Date Modified (Asc)", action: () => this.sort_files("date", "asc") },
+			{ text: "Date Modified (Desc)", action: () => this.sort_files("date", "desc") },
+		];
+
+		options.forEach(opt => {
+			const element = createElement("div");
+			element.innerText = opt.text;
+			element.className = "disable_selection popup-btn menu_options";
+			element.onclick = () => {
+				popup_msg.close();
+				opt.action();
+			};
+			menu.appendChild(element);
+		});
+
+		popup_msg.createPopup("Sort By", menu);
+		popup_msg.open_popup();
+	}
+
+	sort_files(type, order) {
+		// Note: Name sorting depends on python given sorting (natural sort)
+		if (!this.orig_order) {
+			this.orig_order = r_li.map((_, i) => i);
+		}
+
+		pref_store.set("sort_type", type);
+		pref_store.set("sort_order", order);
+
+		let zipped = r_li.map((r, i) => ({
+			r: r, f: f_li[i], s: s_li[i], rs: rs_li[i], mt: mt_li[i], orig: this.orig_order[i]
+		}));
+		
+		zipped.sort((a, b) => {
+			let valA, valB;
+			if (type === "name") {
+				valA = a.orig; valB = b.orig;
+			} else if (type === "size") {
+				valA = a.rs; valB = b.rs;
+			} else if (type === "date") {
+				valA = a.mt; valB = b.mt;
+			}
+
+			if (valA < valB) return order === "asc" ? -1 : 1;
+			if (valA > valB) return order === "asc" ? 1 : -1;
+			return 0;
+		});
+
+		r_li = zipped.map(z => z.r);
+		f_li = zipped.map(z => z.f);
+		s_li = zipped.map(z => z.s);
+		rs_li = zipped.map(z => z.rs);
+		mt_li = zipped.map(z => z.mt);
+		this.orig_order = zipped.map(z => z.orig);
+
+		this.show_file_list();
 	}
 
 	async Show_upload_files() {
@@ -742,7 +810,25 @@ class FileManager {
 		item.classList.add("dir_item");
 		
 		const link = createElement('a');
-		link.href = r.startsWith('v') ? go_link("vid", r_) : r_;
+		
+		// Determine link action based on file type
+		const text_extensions = ['.py', '.js', '.ts', '.jsx', '.tsx', '.html', '.htm', '.css', '.scss', '.less', 
+								  '.json', '.xml', '.md', '.txt', '.sql', '.java', '.cpp', '.c', '.h', '.go', 
+								  '.rs', '.php', '.rb', '.yaml', '.yml', '.sh', '.bash', '.conf', '.cfg', '.ini', 
+								  '.properties', '.gradle', '.maven'];
+		const file_ext = name.substr(name.lastIndexOf('.')).toLowerCase();
+		
+		if (r.startsWith('v')) {
+			// Video files
+			link.href = go_link("vid", r_);
+		} else if (text_extensions.includes(file_ext)) {
+			// Text files - open in editor
+			link.href = go_link("edit", r_);
+		} else {
+			// Other files - normal download link
+			link.href = r_;
+		}
+		
 		link.title = name;
 		link.className = `all_link disable_selection ${typeInfo.class}`;
 		
@@ -801,18 +887,36 @@ class FM_Page extends Page {
 		super(controller, type, my_part);
 	}
 
-	on_action_button() {
-		// show add folder, sort, etc
-		fm.show_more_menu();
-	}
-
 	async initialize(lazyload = false) {
 		if (!lazyload) {
 			this.controller.clear();
 		}
 
 		this.set_title("File Manager");
-		this.controller.set_actions_button_text("New&nbsp;");
+		this.controller.set_actions_button_text("Tools", { class: "fa-solid fa-wrench", text: "🛠" });
+		
+		this.controller.set_action_tools([
+			{
+				text: "Upload Files",
+				icon_class: "fa-solid fa-file-arrow-up",
+				icon_text: "⬆️",
+				action: () => fm.Show_upload_files(),
+				condition: () => !(user.permissions.NOPERMISSION || !user.permissions.UPLOAD)
+			},
+			{
+				text: "New Folder",
+				icon_class: "fa-solid fa-folder-plus",
+				icon_text: "📁",
+				action: () => fm.Show_folder_maker()
+			},
+			{
+				text: "Sort By",
+				icon_class: "fa-solid fa-sort",
+				icon_text: "🔽",
+				action: () => fm.Show_sort_by()
+			}
+		]);
+
 		this.controller.show_actions_button();
 
 		if (user.permissions.NOPERMISSION || !user.permissions.VIEW) {
@@ -840,13 +944,24 @@ class FM_Page extends Page {
 		r_li = folder_data.type_list;
 		f_li = folder_data.file_list;
 		s_li = folder_data.size_list;
+		rs_li = folder_data.raw_size_list || Array(f_li.length).fill(0);
+		mt_li = folder_data.mtime_list || Array(f_li.length).fill(0);
 
 		var title = folder_data.title;
 
 		this.set_title(title);
 
+		// Reset original order for the new folder
+		fm.orig_order = null;
 
-		fm.show_file_list();
+		let sort_type = pref_store.get("sort_type");
+		let sort_order = pref_store.get("sort_order");
+
+		if (sort_type && sort_order) {
+			fm.sort_files(sort_type, sort_order);
+		} else {
+			fm.show_file_list();
+		}
 	}
 
 	hide() {
