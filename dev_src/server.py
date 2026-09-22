@@ -635,7 +635,9 @@ def create_zip(self: SH, *args, **kwargs):
 	data = pt.directory_explorer_header().safe_substitute(
 														  PY_PAGE_TITLE=title,
 														  PY_PUBLIC_URL=CoreConfig.address(),
-														  PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+														  PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
+														  PY_ERROR_PAGE="",
+														  PY_PAGE_SCRIPTS="")
 
 	return self.return_txt(data, cookie=cookie)
 
@@ -843,6 +845,7 @@ def send_video_page(self: SH, *args, **kwargs):
 															PY_PAGE_TITLE=title,
 															PY_PUBLIC_URL=CoreConfig.address(),
 															PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
+															PY_ERROR_PAGE="",
 															PY_PAGE_SCRIPTS=pt.video_page_assets()))
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
@@ -1021,6 +1024,7 @@ def send_code_editor_page(self: SH, *args, **kwargs):
 															PY_PAGE_TITLE=title,
 															PY_PUBLIC_URL=CoreConfig.address(),
 															PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
+															PY_ERROR_PAGE="",
 															PY_PAGE_SCRIPTS=pt.code_editor_assets()))
 
 	encoded = '\n'.join(r).encode(enc, 'surrogateescape')
@@ -1244,7 +1248,7 @@ def login_page(self: SH, *args, **kwargs):
 	"""Send login page"""
 	user, cookie = Sconfig.authorize_user(self)
 
-	if user:
+	if user and not user.is_guest():
 		return self.redirect("/")
 
 	return self.send_text(pt.login_page())
@@ -1255,7 +1259,7 @@ def signup_page(self: SH, *args, **kwargs):
 	"""Send signup page"""
 	user, cookie = Sconfig.authorize_user(self)
 
-	if user:
+	if user and not user.is_guest():
 		return self.redirect("/")
 
 	if Sconfig.cli_args.no_signup:
@@ -1394,7 +1398,7 @@ def handle_login_post(self: SH, *args, **kwargs):
 	"""Handle login post"""
 	user, cookie = Sconfig.authorize_user(self)
 
-	if user:
+	if user and not user.is_guest():
 		return self.redirect("/")
 
 	post = DPD(self)
@@ -1433,7 +1437,7 @@ def handle_signup_post(self: SH, *args, **kwargs):
 	"""Handle signup post"""
 	user, cookie = Sconfig.authorize_user(self)
 
-	if user:
+	if user and not user.is_guest():
 		return self.redirect("/")
 
 	if Sconfig.cli_args.no_signup:
@@ -1775,7 +1779,8 @@ def rename_content(self: SH, *args, **kwargs):
 
 	try:
 		os.rename(os_f_path, os_new_f_path)
-		return self.send_json({"status": True, "head": "Success", "body": f"Renamed: {filename} → {new_name}"}, cookie=cookie)
+		display_old = urllib.parse.unquote(filename, errors='surrogatepass')
+		return self.send_json({"status": True, "head": "Success", "body": f"<span style='white-space:pre-wrap'>Renamed: {display_old} → {new_name}</span>"}, cookie=cookie)
 	except Exception as e:
 		return self.send_json({"status": False, "head": "Failed", "body": "<b>" + rel_path + "</b><br><b>" + e.__class__.__name__ + "</b> : " + self.get_web_path(str(e), -1)}, cookie=cookie)
 

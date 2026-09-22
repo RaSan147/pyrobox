@@ -4,8 +4,13 @@ class Error_Page extends Page {
 	}
 
 	initialize() {
-		this.controller.hide_actions_button(); // Hide actions button, not needed
-		this.controller.set_title("Error")
+		this.controller.hide_actions_button();
+		const codeEl = byId("error_code");
+		const msgEl = byId("error_message");
+		const code = codeEl ? codeEl.innerText.trim() : "";
+		const msg = msgEl ? msgEl.innerText.trim() : "Error";
+		const titleStr = code ? (code + " - " + msg) : ("Error: " + msg);
+		this.controller.set_title(titleStr);
 	}
 
 	hide() {

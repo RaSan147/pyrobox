@@ -30,7 +30,6 @@ class Admin_page extends Page {
 	}
 }
 
-page_controller.add_handler("admin", Admin_page, "admin-page");
 
 
 class Updater {
@@ -834,4 +833,4 @@ keep the submit button in center, modernize the button UI-->
 
 var admin_tools = new Admin_tools();
 
-
+page_controller.add_handler("admin", Admin_page, "admin-page");

@@ -87,6 +87,10 @@
 				/* making sure its visible */
 				display: block;
 			}
+
+			#error-page.active {
+				display: flex !important;
+			}
 		</style>
 	</noscript>
 
@@ -182,12 +186,34 @@
 			<script>
 				var ERROR_PAGE = "${PY_ERROR_PAGE}"
 			</script>
-			<h1><u>Error response</u></h1>
-			<p><u>Error code:</u> <span id="error_code">${code}</span></p>
-			<p><u>Message:</u> <span id="error_message">${message}</span></p>
-			<p><u>Error code explanation:</u> <span id="error_code2">${code}</span> - <span id="error_explain">${explain}</span></p>
-			<hr>
-			<center><img ${PY_ERR_IMG_SRC} style="max-width: 95vw;" alt="${code} Error Image" /></center>
+			<div class="error-container">
+				<div class="error-card">
+					<div class="error-header-badge">
+						<span class="error-badge" id="error_code">HTTP ${code}</span>
+					</div>
+					<h1 class="error-title" id="error_message">${message}</h1>
+					<p class="error-explain" id="error_explain">${explain}</p>
+
+					<div class="error-actions">
+						<a href="/" class="btn btn-primary" id="error-home-btn">
+							<span class="fa fa-solid fa-house">🏠</span>
+							<span>File Manager</span>
+						</a>
+						<button type="button" class="btn" id="error-back-btn" onclick="window.history.length > 1 ? window.history.back() : window.location.href='/'">
+							<span class="fa fa-solid fa-arrow-left">⬅️</span>
+							<span>Go Back</span>
+						</button>
+						<button type="button" class="btn" id="error-retry-btn" onclick="window.location.reload()">
+							<span class="fa fa-solid fa-arrows-rotate">🔄</span>
+							<span>Retry</span>
+						</button>
+					</div>
+
+					<div class="error-media-wrapper">
+						<img class="error-media-img" ${PY_ERR_IMG_SRC} alt="${code} Error Image" onerror="this.closest('.error-media-wrapper').style.display='none'" />
+					</div>
+				</div>
+			</div>
 		</div>
 
 

@@ -229,6 +229,9 @@ class User:
 	def is_admin(self) -> bool:
 		return self.ADMIN
 
+	def is_guest(self) -> bool:
+		return self.username == "Guest" or not bool(self.MEMBER)
+
 	# get the sha1 hash of the CLI password to use as a salt, makes a longer string and avoids holding secrets in memory
 
 	def salt_password(self, password) -> bytes:

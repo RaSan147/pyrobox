@@ -321,20 +321,36 @@ class PageController {
 	}
 
 	add_handler(type, handler_class, handle_part) {
-		this.handlers[type] = new handler_class(this, type, handle_part);
+		const handler = new handler_class(this, type, handle_part);
+		this.handlers[type] = handler;
+
+		// If this handler matches the active page type, activate it immediately
+		let activeType = this.type;
+		if (typeof ERROR_PAGE !== 'undefined' && ERROR_PAGE === "active") {
+			activeType = "error";
+		}
+
+		if (activeType === type) {
+			if (!this.handler || this.handler === handler || this.handler.constructor === Page) {
+				this.switch_handler(handler);
+			}
+		}
 	}
 
-	get_type() {
-		let that = this;
-		if (this.type) {
+	async get_type() {
+		if (typeof this.type === 'string' && this.type) {
 			return this.type;
 		}
 		const url = tools.add_query_here('type', '');
-		return fetch(url)
-			.then(data => { 
-				that.type = data.text();
-				return that.type;
-			})
+		try {
+			const res = await fetch(url);
+			const text = await res.text();
+			this.type = text ? text.trim() : "unknown";
+		} catch (err) {
+			console.error("Failed to fetch page type:", err);
+			this.type = "unknown";
+		}
+		return this.type;
 	}
 
 	hide_all() {
@@ -347,54 +363,53 @@ class PageController {
 		this.handler.clear();
 	}
 
+	async switch_handler(handler) {
+		const old_handler = this.handler;
+		this.handler = handler;
+
+		if (old_handler && old_handler !== this.handler && typeof old_handler.destroy === 'function') {
+			old_handler.destroy();
+		}
+
+		this.hide_all();
+		this.before_initialize();
+		try {
+			await this.handler.initialize();
+		} catch (err) {
+			console.error("Error initializing handler:", err);
+		}
+		this.after_initialize();
+		this.handler.show();
+		this.hide_loading();
+		this.container.style.display = "block";
+	}
+
 	async initialize() {
 		this.show_loading();
 
 		this.container.style.display = "none";
 		this.hide_all();
 
-		this.type = await this.get_type();
-		var type = this.type;
+		if (typeof ERROR_PAGE !== 'undefined' && ERROR_PAGE === "active") {
+			this.type = "error";
+		} else {
+			this.type = await this.get_type();
+		}
 
-		var old_handler = this.handler;
-
-		this.handler = null;
-
-		if (ERROR_PAGE == "active") {
+		let type = this.type;
+		if (typeof ERROR_PAGE !== 'undefined' && ERROR_PAGE === "active") {
+			type = "error";
 			this.type = "error";
 		}
-		//  else if (type == 'dir') {
-		// 	this.handler = fm_page;
-		// } else if (type == 'vid') {
-		// 	this.handler = video_page;
-		// } else if (type == "admin") {
-		// 	this.handler = admin_page;
-		// } else if (type == "zip") {
-		// 	this.handler = zip_page;
-		// }
+
 		if (this.handlers[type]) {
-			this.handler = this.handlers[type];
-		}
-
-		if (this.handler) {
-			// Cleanup old handler if switching to a different one
-			if (old_handler && old_handler !== this.handler && typeof old_handler.destroy === 'function') {
-				old_handler.destroy();
-			}
-
-			this.before_initialize();
-			this.handler.initialize();
-			this.after_initialize();
-			this.handler.show();
+			await this.switch_handler(this.handlers[type]);
 		} else {
-			// popup_msg.createPopup("This type of page is not ready yet");
-			// popup_msg.show();
-
-			this.handler = old_handler;
+			// Handler not registered yet (e.g. deferred script).
+			// Keep fallback Page and wait for add_handler() to activate it.
+			this.hide_loading();
+			this.container.style.display = "block";
 		}
-
-		this.hide_loading();
-		this.container.style.display = "block";
 	}
 
 	before_initialize() {

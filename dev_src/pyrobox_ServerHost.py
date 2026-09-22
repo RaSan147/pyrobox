@@ -267,6 +267,7 @@ class ServerHost(SH_base):
 			PY_PAGE_TITLE=title,
 			PY_PUBLIC_URL=CoreConfig.address(),
 			PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
+			PY_PAGE_SCRIPTS="",
 			*args, **kwargs)
 
 		return self.send_text(_format,  cookie=cookie)
@@ -277,14 +278,15 @@ class ServerHost(SH_base):
 
 		displaypath = self.get_displaypath(self.url_path)
 
-		title = get_titles(displaypath)
+		error_page_title = f"HTTP {code} - {message or 'Error'}"
 
 		_format = pt.error_page().safe_substitute(
 			PY_ERROR_PAGE="active",
-			PY_PAGE_TITLE=title,
+			PY_PAGE_TITLE=error_page_title,
 			PY_PUBLIC_URL=CoreConfig.address(),
 			PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
 			PY_ERR_IMG_SRC=f""" src="https://http.cat/{code}" """,
+			PY_PAGE_SCRIPTS="",
 		)
 
 		return super().send_error(code, message, explain, Template(_format), cookie=cookie)

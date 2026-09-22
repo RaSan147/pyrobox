@@ -276,6 +276,7 @@ body {
 	min-width: 0;
 	font-size: 15px;
 	font-weight: 600;
+	white-space: pre-wrap;
 	word-break: break-all;
 	overflow-wrap: anywhere;
 	line-height: 1.35;
@@ -3000,4 +3001,163 @@ input#folder-name {
 	color: #80d8ff;
 	filter: drop-shadow(0 0 10px rgba(0, 179, 255, 0.9));
 	transform: scale(0.88);
+}
+
+
+/* =============================================
+   ERROR PAGE — Standardized Cohesive Error Card
+   ============================================= */
+
+#error-page {
+	display: none;
+	width: 100%;
+}
+
+#error-page.page.active {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: calc(100vh - 110px);
+	padding: 24px 16px 48px;
+	box-sizing: border-box;
+}
+
+.error-container {
+	width: 100%;
+	max-width: 560px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin: auto;
+}
+
+.error-card {
+	width: 100%;
+	background: var(--surface-card, #202530);
+	background: linear-gradient(180deg, rgba(35, 42, 54, 0.96) 0%, rgba(26, 31, 40, 0.98) 100%);
+	border: 1px solid var(--border-regular, rgba(255, 255, 255, 0.12));
+	border-top: 1px solid rgba(255, 255, 255, 0.22);
+	border-radius: 16px;
+	box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.1);
+	padding: 38px 32px 34px;
+	box-sizing: border-box;
+	text-align: center;
+	transition: var(--btn-transition, all 0.2s ease);
+}
+
+.error-header-badge {
+	margin-bottom: 16px;
+}
+
+.error-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 6px 18px;
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	border-radius: 20px;
+	background: var(--color-danger-bg, rgba(244, 63, 94, 0.12));
+	color: var(--color-danger-text, #fda4af);
+	border: 1px solid var(--color-danger-border, rgba(244, 63, 94, 0.35));
+	box-shadow: 0 0 14px rgba(244, 63, 94, 0.15);
+}
+
+.error-title {
+	font-size: 26px;
+	font-weight: 700;
+	color: var(--text-primary, #e6ebf2);
+	margin: 0 0 10px 0;
+	line-height: 1.25;
+}
+
+.error-explain {
+	font-size: 14.5px;
+	color: var(--text-secondary, #9aa5b6);
+	margin: 0 0 26px 0;
+	line-height: 1.55;
+	word-break: break-word;
+	max-width: 480px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.error-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	justify-content: center;
+	align-items: center;
+}
+
+.error-actions .btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 9px 20px;
+	font-size: 13.5px;
+	font-weight: 600;
+	line-height: 1;
+	border-radius: var(--btn-radius-lg, 8px);
+	background: var(--btn-neutral-bg, rgba(255, 255, 255, 0.06));
+	border: 1px solid var(--btn-neutral-border, rgba(255, 255, 255, 0.14));
+	color: var(--text-primary, #e6ebf2);
+	text-decoration: none;
+	cursor: pointer;
+	user-select: none;
+	transition: var(--btn-transition, all 0.2s cubic-bezier(0.16, 1, 0.3, 1));
+	min-width: 125px;
+	box-sizing: border-box;
+}
+
+.error-actions .btn:hover {
+	background: var(--btn-neutral-hover, rgba(255, 255, 255, 0.12));
+	border-color: var(--btn-neutral-border-hover, rgba(255, 255, 255, 0.28));
+	color: #ffffff;
+	transform: translateY(-2px);
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.error-actions .btn:active {
+	transform: translateY(0);
+	box-shadow: none;
+}
+
+.error-actions .btn-primary {
+	background: var(--color-primary-bg, rgba(0, 180, 216, 0.16));
+	border-color: var(--color-primary-border, rgba(0, 180, 216, 0.45));
+	color: var(--color-primary-text, #67d6ed);
+	box-shadow: 0 2px 8px rgba(0, 180, 216, 0.15);
+}
+
+.error-actions .btn-primary:hover {
+	background: var(--color-primary-bg-hover, rgba(0, 180, 216, 0.28));
+	border-color: var(--color-primary-border-hover, rgba(0, 180, 216, 0.75));
+	color: #f0faff;
+	transform: translateY(-2px);
+	box-shadow: 0 6px 20px rgba(0, 180, 216, 0.35);
+}
+
+.error-media-wrapper {
+	margin-top: 24px;
+	border-radius: 12px;
+	overflow: hidden;
+	border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+	background: rgba(0, 0, 0, 0.25);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.error-media-img {
+	max-width: 100%;
+	max-height: 320px;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	display: block;
 }
