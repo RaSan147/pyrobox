@@ -10,6 +10,8 @@ __all__ = [
 	"theme_script",
 	"video_page_script",
 	"video_page_assets",
+	"video_css",
+	"plyr_js",
 	"code_editor_assets",
 	"no_page_assets",
 	"page_handler_script",
@@ -75,6 +77,14 @@ def file_list_script():
 def video_page_script():
 	return get_template("script_video_player.js")
 
+def video_css():
+	"""Return bundled Plyr CSS, served locally for offline support."""
+	return _get_template("video.css")
+
+def plyr_js():
+	"""Return bundled Plyr JS, served locally for offline support."""
+	return _get_template("plyr.polyfilled.min.js")
+
 def page_handler_script():
 	return get_template("script_page_handler.js")
 
@@ -97,14 +107,13 @@ def no_page_assets() -> str:
 
 
 def video_page_assets() -> str:
-	"""Return HTML tags to load Plyr and video.css, injected only on video pages."""
+	"""Return HTML tags to load Plyr and video.css, served locally for offline support."""
 	return (
 		'\t<!-- Plyr video player (video pages only) -->\n'
-		'\t<link rel="preload" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css"'
+		'\t<link rel="preload" href="/?video_css"'
 		' onload="this.onload=null;this.rel=\'stylesheet\'" as="style">\n'
-		'\t<noscript><link rel="stylesheet" href="https://raw.githack.com/RaSan147/pyrobox/main/assets/video.css"></noscript>\n'
-		'\t<script src="https://cdn.jsdelivr.net/npm/plyr@3.8.4/dist/plyr.polyfilled.js"'
-		' crossorigin="anonymous" onerror="document.getElementById(\'player\').style.maxWidth=\'98vw\'" defer></script>\n'
+		'\t<noscript><link rel="stylesheet" href="/?video_css"></noscript>\n'
+		'\t<script src="/?plyr_js" defer></script>\n'
 		'\t<script src="/?video_page_script" defer></script>\n'
 	)
 

@@ -1,5 +1,5 @@
 class Video_Page extends Page {
-	constructor(controller=page_controller, type="vid", handle_part="video-page") {
+	constructor(controller = page_controller, type = "vid", handle_part = "video-page") {
 		super(controller, type, handle_part);
 
 		this.controls = [
@@ -75,7 +75,7 @@ class Video_Page extends Page {
 						// type: content_type,
 					},
 				],
-				poster: 'https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@9fb9f51/assets/youtube-logo.webp', // to keep preview hidden
+				poster: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><defs><linearGradient id="a" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="%23b0b5ba"/><stop offset="15%" stop-color="%2355585b"/><stop offset="85%" stop-color="%232a2c2e"/><stop offset="100%" stop-color="%238a8580"/></linearGradient><linearGradient id="d" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23a81a1a"/><stop offset="100%" stop-color="%234a0808"/></linearGradient><linearGradient id="e" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="%23855"/><stop offset="100%" stop-color="%23211"/></linearGradient><radialGradient id="b" cx="50%" cy="50%" r="70%" fx="50%" fy="50%"><stop offset="0%" stop-color="%235a6066"/><stop offset="60%" stop-color="%232c2e33"/><stop offset="100%" stop-color="%23141518"/></radialGradient><filter id="c" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8" result="blur"/></filter></defs><rect width="100%" height="100%"/><rect x="70" y="110" width="260" height="180" rx="55" fill="url(%23a)"/><rect x="74" y="114" width="252" height="172" rx="51" fill="url(%23b)"/><rect x="74" y="114" width="252" height="172" rx="51" fill="none" stroke="%23050505" stroke-width="2" opacity=".7"/><path fill="red" filter="url(%23c)" opacity=".3" d="M172 165v70l60-35z"/><path fill="url(%23d)" stroke="url(%23e)" stroke-width="3" stroke-linejoin="round" d="M172 165v70l60-35z"/></svg>', // inline SVG poster — no CDN
 				keyboard: {
 					global: true,
 					focused: false,
@@ -96,14 +96,18 @@ class Video_Page extends Page {
 			this.player_source.src = video;
 			this.player_source.type = content_type;
 
+			// REQUIRED: dynamically changing <source> src does not trigger reload;
+			// must call load() explicitly so the browser picks up the new source.
+			const nativeVideo = document.getElementById('player');
+			if (nativeVideo) {
+				nativeVideo.load();
+			}
+
 			// Fallback backdrop for native player
-			if (this.video_backdrop) {
-				const nativeVideo = document.getElementById('player');
-				if (nativeVideo) {
-					nativeVideo.addEventListener('loadedmetadata', () => {
-						this.video_backdrop.classList.add('loaded');
-					}, { once: true });
-				}
+			if (this.video_backdrop && nativeVideo) {
+				nativeVideo.addEventListener('loadedmetadata', () => {
+					this.video_backdrop.classList.add('loaded');
+				}, { once: true });
 			}
 		}
 	}

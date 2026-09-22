@@ -1219,6 +1219,18 @@ def send_video_script(self: SH, *args, **kwargs):
 	return self.send_script(pt.video_page_script())
 
 
+@SH.on_req('HEAD', hasQ="video_css")
+def send_video_css(self: SH, *args, **kwargs):
+	"""Send bundled Plyr CSS (offline-safe, no CDN)"""
+	return self.send_css(pt.video_css())
+
+
+@SH.on_req('HEAD', hasQ="plyr_js")
+def send_plyr_js(self: SH, *args, **kwargs):
+	"""Send bundled Plyr JS (offline-safe, no CDN)"""
+	return self.send_script(pt.plyr_js())
+
+
 @SH.on_req('HEAD', hasQ="admin_page_script")
 def send_admin_script(self: SH, *args, **kwargs):
 	"""Send admin script"""
