@@ -863,10 +863,10 @@ class CodeEditor_Page extends Page {
 		this.readonly_toggle_btn.classList.toggle("readonly", this.is_read_only);
 		
 		if (this.is_read_only) {
-			this.readonly_toggle_btn.innerHTML = '<span class="fa fa-regular fa-pen">🔓</span> <span class="btn-text">Enable Editing</span>';
+			this.readonly_toggle_btn.innerHTML = '<span class="fa fa-solid fa-pen">🔓</span> <span class="btn-text">Enable Editing</span>';
 			this.readonly_toggle_btn.title = "Enable Editing";
 		} else {
-			this.readonly_toggle_btn.innerHTML = '<span class="fa fa-regular fa-pen-slash">🔒</span> <span class="btn-text">Disable Editing</span>';
+			this.readonly_toggle_btn.innerHTML = '<span class="fa fa-solid fa-lock">🔒</span> <span class="btn-text">Disable Editing</span>';
 			this.readonly_toggle_btn.title = "Disable Editing";
 		}
 		
