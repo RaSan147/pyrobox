@@ -2697,7 +2697,7 @@ input#folder-name {
 
 
 /* =============================================
-   VIDEO PAGE — Cinematic Player Layout
+   VIDEO PAGE - Cinematic Player Layout
    ============================================= */
 
 #video-page.page.active {
@@ -2711,7 +2711,7 @@ input#folder-name {
 	overflow: hidden;
 }
 
-/* Ambient blurred glow behind the player — JS sets background-image from poster */
+/* Ambient blurred glow behind the player - JS sets background-image from poster */
 #video-backdrop {
 	position: absolute;
 	inset: 0;
@@ -2743,7 +2743,7 @@ input#folder-name {
 	box-sizing: border-box;
 }
 
-/* Meta bar — "Now Playing" label + title */
+/* Meta bar - "Now Playing" label + title */
 #video-meta-bar {
 	width: 100%;
 	padding: 0 4px 14px;
@@ -2767,13 +2767,13 @@ input#folder-name {
 	color: #e8eaf0;
 	margin: 0;
 	line-height: 1.4;
-	/* Allow long filenames to wrap — never hide the name */
+	/* Allow long filenames to wrap - never hide the name */
 	word-break: break-word;
 	overflow-wrap: anywhere;
 	max-width: 100%;
 }
 
-/* Warning banner — hidden when empty, appears as styled amber alert */
+/* Warning banner - hidden when empty, appears as styled amber alert */
 .video-warning:empty {
 	display: none;
 }
@@ -2799,15 +2799,14 @@ input#folder-name {
 	flex-shrink: 0;
 }
 
-/* Player container */
+/* Player container — soft outer frame; video surface stays black */
 #container {
 	width: 100%;
-	border-radius: 12px;
+	border-radius: 8px;
 	overflow: hidden;
 	box-shadow:
-		0 0 0 1px rgba(255, 255, 255, 0.06),
-		0 8px 40px rgba(0, 0, 0, 0.7),
-		0 0 60px rgba(0, 179, 255, 0.07);
+		0 0 0 1px rgba(255, 255, 255, 0.04),
+		0 4px 20px rgba(0, 0, 0, 0.35);
 	background: #000;
 }
 
@@ -2819,7 +2818,7 @@ input#folder-name {
 	background: #000;
 }
 
-/* Actions bar — download button */
+/* Actions bar - download button */
 #video-actions-bar {
 	width: 100%;
 	display: flex;
@@ -2883,10 +2882,10 @@ input#folder-name {
 
 
 /* =============================================
-   SKIP OVERLAY — Double-click fast-forward / rewind
+   SKIP OVERLAY - Double-click fast-forward / rewind
    ============================================= */
 
-/* Single animation handles both opacity + scale pop — no conflict with a second animation */
+/* Single animation handles both opacity + scale pop - no conflict with a second animation */
 @keyframes skip-entrance {
 	0%   { opacity: 0; transform: translateY(-50%) scale(0.75); }
 	50%  { opacity: 1; transform: translateY(-50%) scale(1.07); }
@@ -2925,12 +2924,12 @@ input#folder-name {
 	-webkit-backdrop-filter: blur(8px) saturate(1.3);
 	border: 1px solid rgba(255, 255, 255, 0.13);
 
-	/* Hidden by default — no transition so animation controls it fully */
+	/* Hidden by default - no transition so animation controls it fully */
 	opacity: 0;
 	border-radius: 50px;
 }
 
-/* Left side — rewind */
+/* Left side - rewind */
 #plyr__time_skip[data-side="L"] {
 	left: 0;
 	right: auto;
@@ -2939,7 +2938,7 @@ input#folder-name {
 	--chevron-drift: -7px;
 }
 
-/* Right side — fast-forward */
+/* Right side - fast-forward */
 #plyr__time_skip[data-side="R"] {
 	right: 0;
 	left: auto;
@@ -2959,7 +2958,7 @@ input#folder-name {
 	transition: opacity 0.3s ease;
 }
 
-/* Chevrons — only animate while .bump is present (re-triggered each tap via reflow) */
+/* Chevrons - only animate while .bump is present (re-triggered each tap via reflow) */
 #plyr__time_skip.bump .skip-chevrons {
 	animation: skip-chevron-wave 0.48s ease-out forwards;
 }
@@ -2982,7 +2981,7 @@ input#folder-name {
 }
 
 /* =============================================
-   PLYR CONTROLS — Rewind / Fast-forward button glow
+   PLYR CONTROLS - Rewind / Fast-forward button glow
    ============================================= */
 
 .plyr__controls [data-plyr="rewind"],
@@ -3005,7 +3004,7 @@ input#folder-name {
 
 
 /* =============================================
-   ERROR PAGE — Standardized Cohesive Error Card
+   ERROR PAGE - Standardized Cohesive Error Card
    ============================================= */
 
 #error-page {

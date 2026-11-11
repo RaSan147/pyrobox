@@ -39,9 +39,9 @@
 
 """
 Summary for AI:
---- 
+---
 
-PyroDB2 - Advanced Python Database with Table Operations and Concurrency Support
+PyroDB3 - Advanced Python Database with Table Operations and Concurrency Support
 ===============================================================================
 
 A high-performance, thread-safe database library with a simple Pythonic API,
@@ -63,7 +63,7 @@ Quick Start
 -----------
 ```python
 # Create a database
-from pyroDB2 import PyroDB, PyroTable
+from pyroDB3 import PyroDB, PyroTable
 
 # Key-value storage
 db = PyroDB("data.pdb")
@@ -107,7 +107,7 @@ _PyroTRowList - Row Collection
 - Batch apply helpers
 - Dict export helpers
 
-_PyroTColumn - Column Object  
+_PyroTColumn - Column Object
 - Column-level operations
 - Bulk updates
 - Data transformation
@@ -150,7 +150,7 @@ Data Import/Export:
 table.to_json("backup.json")
 table.load_json("data.json")
 
-# CSV  
+# CSV
 table.to_csv("export.csv")
 table.load_csv("import.csv")
 
@@ -294,7 +294,7 @@ def load(location, auto_dump, sig=True):
 
 def as_is(*args, **kwargs):
 	"""
-	Does nothing — returns arguments as they are.
+	Does nothing - returns arguments as they are.
 	- If only one positional argument is passed and no kwargs, returns that object.
 	- If multiple args or kwargs, returns a tuple combining them.
 	"""
@@ -528,11 +528,21 @@ elif os.name == 'nt':
 
 
 class FileLock:
-	"""File-based locking mechanism with timeout support"""
+	"""File-based locking with timeout, same-thread reentrancy, and safe fd ownership.
+
+	Windows ``msvcrt.locking`` is *not* reentrant: a second acquire on the same
+	path from the same thread deadlocks until timeout. Nested call sites
+	(e.g. ``load_json`` holding ``*.lock`` then ``auto_dump`` → ``dump``) used
+	to hit that. Depth is tracked per absolute path so nested ``with FileLock``
+	on the same file only takes the OS lock once.
+	"""
 	_LOCK_BUSY = frozenset({errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK})
+	# abspath -> {'tid': int, 'depth': int, 'fd': int}
+	_held_by_path: dict = {}
+	_meta_lock = threading.Lock()
 
 	def __init__(self, filename, timeout=10, delay=0.05):
-		self.filename = filename
+		self.filename = os.path.abspath(filename)
 		self.timeout = timeout
 		self.delay = delay
 		self.fd = None
@@ -542,50 +552,96 @@ class FileLock:
 		if os.name == 'posix':
 			fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 		else:
+			# Region locks are position-based; always lock byte 0.
+			os.lseek(fd, 0, os.SEEK_SET)
+			if os.fstat(fd).st_size < 1:
+				os.write(fd, b'\0')
+				os.lseek(fd, 0, os.SEEK_SET)
 			msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
 
 	def _unlock_fd(self, fd):
 		if os.name == 'posix':
 			fcntl.flock(fd, fcntl.LOCK_UN)
 		else:
+			os.lseek(fd, 0, os.SEEK_SET)
 			msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
 
 	def acquire(self):
-		"""Acquire the lock, waiting if necessary"""
-		start_time = time.time()
-		while True:
-			fd = None
-			try:
-				fd = os.open(self.filename, os.O_CREAT | os.O_RDWR)
-				self._lock_fd(fd)
-				self.fd = fd
+		"""Acquire the lock, waiting if necessary. Reentrant for the owning thread."""
+		tid = threading.get_ident()
+		with FileLock._meta_lock:
+			state = FileLock._held_by_path.get(self.filename)
+			if state is not None and state['tid'] == tid:
+				state['depth'] += 1
+				self.fd = state['fd']
 				self.is_locked = True
 				return
+
+		start_time = time.time()
+		while True:
+			owned = None
+			locked_os = False
+			try:
+				owned = os.open(self.filename, os.O_CREAT | os.O_RDWR)
+				self._lock_fd(owned)
+				locked_os = True
+				with FileLock._meta_lock:
+					FileLock._held_by_path[self.filename] = {
+						'tid': tid, 'depth': 1, 'fd': owned,
+					}
+				self.fd = owned
+				self.is_locked = True
+				owned = None  # ownership transferred to registry
+				return
 			except OSError as e:
-				if fd is not None:
-					try:
-						os.close(fd)
-					except OSError:
-						pass
 				if e.errno not in self._LOCK_BUSY:
 					raise
 				if (time.time() - start_time) >= self.timeout:
 					raise TimeoutError(f"Timeout waiting for lock on {self.filename}")
 				time.sleep(self.delay)
+			finally:
+				# Close only if we still own the fd (failed acquire / interrupt).
+				if owned is not None:
+					if locked_os:
+						try:
+							self._unlock_fd(owned)
+						except OSError:
+							pass
+					try:
+						os.close(owned)
+					except OSError:
+						pass
 
 	def release(self):
-		"""Release the lock"""
-		if self.is_locked:
-			try:
-				self._unlock_fd(self.fd)
-			except OSError:
-				pass
-			try:
-				os.close(self.fd)
-			except OSError:
-				pass
-			self.is_locked = False
-			self.fd = None
+		"""Release one nesting level; unlock OS lock when depth reaches 0."""
+		if not self.is_locked:
+			return
+		tid = threading.get_ident()
+		fd = None
+		with FileLock._meta_lock:
+			state = FileLock._held_by_path.get(self.filename)
+			if state is None or state['tid'] != tid:
+				self.is_locked = False
+				self.fd = None
+				return
+			state['depth'] -= 1
+			if state['depth'] > 0:
+				self.is_locked = False
+				self.fd = None
+				return
+			fd = state['fd']
+			del FileLock._held_by_path[self.filename]
+
+		try:
+			self._unlock_fd(fd)
+		except OSError:
+			pass
+		try:
+			os.close(fd)
+		except OSError:
+			pass
+		self.is_locked = False
+		self.fd = None
 
 	def __enter__(self):
 		self.acquire()
@@ -593,9 +649,7 @@ class FileLock:
 
 	def __exit__(self, exc_type, exc_value, traceback):
 		self.release()
-		if exc_type is not None:
-			return False
-		return True
+		return False
 
 class TaskExecutor:
 	"""Serialize table/DB operations with a reentrant lock (fast path)."""
@@ -740,7 +794,7 @@ class PyroDB(object):
 		try:
 			signal.signal(signal.SIGTERM, sigterm_handler)
 			# ValueError: signal only works in main thread of the main interpreter
-		except:
+		except (ValueError, OSError, AttributeError):
 			atexit.register(sigterm_handler)
 
 	def unlink(self):
@@ -862,13 +916,13 @@ class PyroDB(object):
 			# Only move the file if it's not empty
 			if os.stat(f.name).st_size != 0:
 				shutil.move(f.name, savepath)
-		
+
 			# If saving to own location, update the modified time
 			if save_own:
 				self.m_time = os.stat(savepath).st_mtime
 
 
-	
+
 	# save = PROXY OF SELF.DUMP()
 	save = dump
 
@@ -1033,7 +1087,7 @@ class PyroDB(object):
 		Delete a key
 		"""
 		self._auto_rescan(rescan=rescan)
-		if not key in self.db:  # return False instead of an exception
+		if key not in self.db:  # return False instead of an exception
 			return False
 		del self.db[key]
 		self._autodumpdb(AD=AD)
@@ -1316,8 +1370,8 @@ class PyroTable(dict):
 		Args:
 			column: column name to index
 			mode:
-				- ``'unique'`` — one row per key; raises DuplicateIndexError on conflict
-				- ``'multi'`` — many rows per key (set of row_ids)
+				- ``'unique'`` - one row per key; raises DuplicateIndexError on conflict
+				- ``'multi'`` - many rows per key (set of row_ids)
 			rescan: rescan file before indexing
 			AD: auto-dump registry to disk
 		"""
@@ -1686,7 +1740,7 @@ class PyroTable(dict):
 				diff = tsize - csize
 
 				if name in self.column_names_set:
-					if exist_ok == True or exist_ok == "name":
+					if exist_ok is True or exist_ok == "name":
 						pass
 					elif exist_ok == "overwrite":
 						if diff > 0:
@@ -1708,7 +1762,7 @@ class PyroTable(dict):
 
 				tsize = self.height
 				if name in self._pk.db:
-					if exist_ok == True:
+					if exist_ok is True:
 						tsize = self.height - len(self._pk.db[name])
 						if not tsize:  # 0 cells to add
 							return
@@ -1855,7 +1909,7 @@ class PyroTable(dict):
 
 	def rows_obj(self, start=0, end=None, step=1, loop_back=False, rescan=True) -> Generator['_PyroTRow', None, None]:
 		"""Optimized row object generator with ID caching before yielding.
-		
+
 		- start: starting index
 		- end:   ending index (exclusive), defaults to table height
 		- step:  step size
@@ -2337,7 +2391,7 @@ class PyroTable(dict):
 
 		# Pre-compile regex patterns or normalize keywords
 		compiled = {}
-		
+
 		for col, val in kw_dict.items():
 			if regex:
 				flags = 0 if case_sensitive else re.IGNORECASE
@@ -2404,12 +2458,12 @@ class PyroTable(dict):
 		"""
 
 		return [res for res in self.search_multi_key_rows_iter(
-			kw_dict=kw_dict, 
-			full_match=full_match, 
-			return_obj=return_obj, 
-			rescan=rescan, 
-			case_sensitive=case_sensitive, 
-			regex=regex, 
+			kw_dict=kw_dict,
+			full_match=full_match,
+			return_obj=return_obj,
+			rescan=rescan,
+			case_sensitive=case_sensitive,
+			regex=regex,
 			limit=limit
 		)]
 
@@ -2957,7 +3011,7 @@ class PyroTable(dict):
 			try:
 				return key(row)
 			except Exception as e:
-				TypeError(f"Error applying key function: {e}")
+				raise TypeError(f"Error applying key function: {e}")
 
 		def build_sort_key(row: Union[dict, "_PyroTRow"]):
 			if column:
@@ -3196,10 +3250,13 @@ class PyroTable(dict):
 		- keep_columns: keep the existing columns (default: `True`) (if `False`, clears the table)
 		- AD: auto dump
 		"""
+		# Hold import-file lock only for the load; dump after release so we never
+		# nest FileLock(import) → auto_dump → FileLock(pdb) on the same path.
 		with FileLock(filepath + '.lock'):
 			self._load_json(filepath=filepath, iostream=iostream, json_str=json_str,
 							ignore_new_headers=ignore_new_headers, on_file_not_found=on_file_not_found,
-							keep_columns=keep_columns, AD=AD)
+							keep_columns=keep_columns, AD=False)
+		self.auto_dump(AD=AD)
 
 	@threadsafe_decorator
 	def to_csv(self, filepath=None, write_header=True, rescan=True) -> str:
@@ -3326,7 +3383,7 @@ class PyroTable(dict):
 						col = f"Unnamed-{n}"
 						n += 1
 
-					if not (col in columns_names):
+					if col not in columns_names:
 						if ignore_new_headers:
 							continue
 						if col in updated_columns:
@@ -3412,7 +3469,8 @@ class PyroTable(dict):
 			self._load_csv(filepath=filepath, iostream=iostream, csv_str=csv_str,
 						  header=header, ignore_none=ignore_none,
 						  ignore_new_headers=ignore_new_headers,
-						  on_file_not_found=on_file_not_found, AD=AD)
+						  on_file_not_found=on_file_not_found, AD=False)
+		self.auto_dump(AD=AD)
 
 	@staticmethod
 	def from_json(filepath="", iostream=None, json_str=None, location="", auto_dump=True, sig=True) -> "PyroTable":
@@ -4573,7 +4631,7 @@ def _extreme_concurrency_process_worker(
 								"value": value,
 								"notes": f"op_{i}"
 							})
-						
+
 							# OPTIMIZATION: Skip activity tracking for speed
 							# activities.append({row_id: ("inserted", value, row.to_dict())})
 
@@ -4586,7 +4644,7 @@ def _extreme_concurrency_process_worker(
 							if not row:
 								errors.append(f"Row {row_id} not found for update")
 								continue
-							
+
 							row["value"] = value
 
 				elif op_type == 'delete':
@@ -4598,7 +4656,7 @@ def _extreme_concurrency_process_worker(
 							if not row:
 								errors.append(f"Row {row_id} not found for deletion")
 								continue
-							
+
 							row.del_row()
 
 				elif op_type == 'read':
@@ -4658,6 +4716,10 @@ if __name__ == "__main__":
 
 	import multiprocessing
 
+	# Custom Skip Exception
+	class SkipTest(Exception):
+		pass
+
 	# Timing Decorator
 	def timed_test(test_func):
 		@wraps(test_func)
@@ -4669,10 +4731,25 @@ if __name__ == "__main__":
 				elapsed = time.perf_counter() - start_time
 				print(f"✅ {test_func.__name__} completed in {elapsed:.4f}s")
 				return result
+			except SkipTest as e:
+				elapsed = time.perf_counter() - start_time
+				print(f"⚠️  {test_func.__name__} skipped ({e}) after {elapsed:.4f}s")
+				wrapper._is_skipped = True
+				return None
 			except Exception as e:
 				elapsed = time.perf_counter() - start_time
 				print(f"❌ {test_func.__name__} failed after {elapsed:.4f}s")
 				raise
+		wrapper._is_skipped = False
+		return wrapper
+
+	def requires_save_load(test_func):
+		"""Decorator to skip tests that require msgpack (file save/load)."""
+		@wraps(test_func)
+		def wrapper(*args, **kwargs):
+			if not SAVE_LOAD:
+				raise SkipTest("msgpack not installed (SAVE_LOAD is False)")
+			return test_func(*args, **kwargs)
 		return wrapper
 
 	# Helper Functions (same as before)
@@ -4821,6 +4898,7 @@ if __name__ == "__main__":
 		__key_error(tb.column_obj)
 
 	@timed_test
+	@requires_save_load
 	def test_persistence():
 		"""Test saving and loading table with comprehensive checks"""
 		print("\n=== Testing Persistence ===")
@@ -4937,7 +5015,7 @@ if __name__ == "__main__":
 		)
 
 
-		   
+
 		# === test for search_multi_key_rows ===
 		ts = time.perf_counter()
 		multi_key_results = list(tb.search_multi_key_rows(
@@ -5247,6 +5325,7 @@ if __name__ == "__main__":
 			os.remove(test_file)
 
 	@timed_test
+	@requires_save_load
 	def test_extreme_concurrency():
 		"""Brutal concurrency stress test with mixed operations"""
 		print("\n=== Testing Extreme Concurrency ===")
@@ -5604,13 +5683,13 @@ if __name__ == "__main__":
 	@timed_test
 	def test_get_cell_obj_row_id_fix():
 		"""Test PyroTable.get_cell_obj with row_id parameter
-		
+
 		Previously: Used self.ids[row] even when row_id was provided directly.
 		Now: Correctly uses the row_id parameter when provided.
 		"""
 		print('\n=== Testing PyroTable.get_cell_obj row_id Fix ===')
 		tb = create_test_table(with_data=True)
-		
+
 		# Test cell access using row index
 		ts = time.perf_counter()
 		row_id_1 = tb.ids[1]  # row_id of index 1 (beta)
@@ -5618,14 +5697,14 @@ if __name__ == "__main__":
 		assert_with_message(
 			cell_by_index.value == "beta",
 			"Cell access by row index", time_start=ts)
-		
+
 		# Test cell access using row_id (BUG FIX)
 		ts = time.perf_counter()
 		cell_by_id = tb.get_cell_obj("name", row_id=row_id_1)
 		assert_with_message(
 			cell_by_id.value == "beta",
 			"Cell access by row_id", time_start=ts)
-		
+
 		# Test both methods return identical results
 		ts = time.perf_counter()
 		assert_with_message(
@@ -5635,31 +5714,31 @@ if __name__ == "__main__":
 	@timed_test
 	def test_column_get_cell_obj_row_id_fix():
 		"""Test _PyroTColumn.get_cell_obj with row_id parameter
-		
+
 		Previously: row_id parameter was ignored, only row was forwarded.
 		Now: row_id is properly forwarded to the source.
 		"""
 		print('\n=== Testing _PyroTColumn.get_cell_obj row_id Fix ===')
 		tb = create_test_table(with_data=True)
-		
+
 		# Get the column object
 		name_col = tb["name"]
 		row_id_1 = tb.ids[1]  # row_id of index 1 (beta)
-		
+
 		# Test column cell access using row index
 		ts = time.perf_counter()
 		col_cell_by_index = name_col.get_cell_obj(row=1)
 		assert_with_message(
 			col_cell_by_index.value == "beta",
 			"Column cell access by row index", time_start=ts)
-		
+
 		# Test column cell access using row_id (BUG FIX)
 		ts = time.perf_counter()
 		col_cell_by_id = name_col.get_cell_obj(row_id=row_id_1)
 		assert_with_message(
 			col_cell_by_id.value == "beta",
 			"Column cell access by row_id", time_start=ts)
-		
+
 		# Test both methods return identical results
 		ts = time.perf_counter()
 		assert_with_message(
@@ -5669,30 +5748,30 @@ if __name__ == "__main__":
 	@timed_test
 	def test_extend_list_mutation_fix():
 		"""Test PyroTable.extend() with add_extra_columns=False
-		
+
 		Previously: Used keys.remove(key) during iteration, causing list mutation.
 		Now: Filters the list before iteration using list comprehension.
 		"""
 		print('\n=== Testing extend() List Mutation Fix ===')
-		
+
 		# Create base table with columns: name, age
 		base_table = PyroTable()
 		base_table.add_column("name", "age")
 		base_table.add_row({"name": "Alice", "age": 30})
-		
+
 		# Create source table with extra columns: city, country
 		source_table = PyroTable()
 		source_table.add_column("name", "age", "city", "country")
 		source_table.add_row({"name": "Bob", "age": 25, "city": "LA", "country": "USA"})
 		source_table.add_row({"name": "Charlie", "age": 35, "city": "Chicago", "country": "USA"})
-		
+
 		# Test extend with add_extra_columns=False (BUG FIX)
 		ts = time.perf_counter()
 		base_table.extend(source_table, add_extra_columns=False)
 		assert_with_message(
 			base_table.height == 3 and "city" not in base_table.column_names,
 			"extend() correctly filters extra columns", time_start=ts)
-		
+
 		# Test data integrity
 		ts = time.perf_counter()
 		assert_with_message(
@@ -5703,17 +5782,17 @@ if __name__ == "__main__":
 	@timed_test
 	def test_add_list_mutation_fix():
 		"""Test PyroTable.add() with add_extra_columns=False
-		
+
 		Previously: Used keys.remove(key) during iteration, causing list mutation.
 		Now: Filters the list before iteration using list comprehension.
 		"""
 		print('\n=== Testing add() List Mutation Fix ===')
-		
+
 		# Create base table with columns: name, age
 		base_table = PyroTable()
 		base_table.add_column("name", "age")
 		base_table.add_row({"name": "Alice", "age": 30})
-		
+
 		# Add dict with extra keys: city, country
 		new_data = {
 			"name": ["Bob", "David"],
@@ -5721,14 +5800,14 @@ if __name__ == "__main__":
 			"city": ["LA", "NYC"],
 			"country": ["USA", "USA"]
 		}
-		
+
 		# Test add with add_extra_columns=False (BUG FIX)
 		ts = time.perf_counter()
 		base_table.add(new_data, add_extra_columns=False)
 		assert_with_message(
 			base_table.height == 3 and "city" not in base_table.column_names,
 			"add() correctly filters extra columns", time_start=ts)
-		
+
 		# Test data integrity
 		ts = time.perf_counter()
 		assert_with_message(
@@ -5739,38 +5818,38 @@ if __name__ == "__main__":
 	@timed_test
 	def test_taskexecutor_busy_flag_race_fix():
 		"""Test TaskExecutor busy flag synchronization
-		
+
 		Previously: Unsynchronized check-and-set of busy flag caused race condition.
 		Now: Uses lock to synchronize busy flag access.
 		"""
 		print('\n=== Testing TaskExecutor Busy Flag Race Fix ===')
-		
+
 		test_results = {"success": 0, "errors": 0}
 		lock = threading.Lock()
-		
+
 		def simple_task(value):
 			"""Simple task to test executor synchronization"""
 			return value * 2
-		
+
 		# Create a TaskExecutor
 		executor = TaskExecutor()
-		
+
 		# Test 1: Sequential task execution
 		ts = time.perf_counter()
 		result1 = executor.lock(simple_task, 5)
 		result2 = executor.lock(simple_task, 10)
 		result3 = executor.lock(simple_task, 15)
-		
+
 		assert_with_message(
 			result1 == 10 and result2 == 20 and result3 == 30,
 			"TaskExecutor sequential execution", time_start=ts)
-		
+
 		# Test 2: Concurrent task submission (stress test for race condition)
 		ts = time.perf_counter()
 		executor2 = TaskExecutor()
 		results = []
 		errors = []
-		
+
 		def worker_submit_tasks(task_id):
 			try:
 				for i in range(5):
@@ -5780,16 +5859,16 @@ if __name__ == "__main__":
 			except Exception as e:
 				with lock:
 					errors.append(str(e))
-		
+
 		threads = []
 		for t_id in range(5):
 			t = threading.Thread(target=worker_submit_tasks, args=(t_id,), daemon=True)
 			threads.append(t)
 			t.start()
-		
+
 		for t in threads:
 			t.join(timeout=5)
-		
+
 		# Verify all tasks completed without errors
 		assert_with_message(
 			len(errors) == 0 and len(results) == 25,
@@ -5799,47 +5878,47 @@ if __name__ == "__main__":
 	@timed_test
 	def test_read_operation_found_flag_logic():
 		"""Test read operation found flag logic
-		
+
 		Previously: found flag was never set to True when row was found.
 		Now: found flag correctly tracks whether all checks passed.
 		"""
 		print('\n=== Testing Read Operation Found Flag Logic ===')
-		
+
 		# Create test table with known data
 		tb = create_test_table(with_data=True)
-		
+
 		# Test 1: Read existing row - test row() method which uses internal logic
 		ts = time.perf_counter()
 		row_data = tb.row(0)  # First row (alpha, 100)
-		
+
 		assert_with_message(
 			row_data["id"] == 1 and row_data["name"] == "alpha" and row_data["value"] == 100,
 			"Read operation correctly retrieves existing row data", time_start=ts)
-		
+
 		# Test 2: Read with column search
 		ts = time.perf_counter()
 		beta_rows = list(tb.search_iter(kw='beta', column='name', full_match=True))
-		
+
 		assert_with_message(
 			len(beta_rows) == 1 and beta_rows[0].value == 'beta',
 			"Read operation correctly finds and verifies cell values", time_start=ts)
-		
+
 		# Test 3: Read with value verification - function-based search
 		ts = time.perf_counter()
-		
+
 		def value_check(v):
 			return isinstance(v, int) and v > 150
-		
+
 		high_value_rows = list(tb.search_iter(kw=value_check, column='value', is_function=True))
-		
+
 		assert_with_message(
 			len(high_value_rows) == 2 and all(r.value > 150 for r in high_value_rows),
 			"Read operation with value verification works correctly", time_start=ts)
-		
+
 		# Test 4: Read non-existent value - should find 0 rows
 		ts = time.perf_counter()
 		missing_rows = list(tb.search_iter(kw='nonexistent', column='name', full_match=True))
-		
+
 		assert_with_message(
 			len(missing_rows) == 0,
 			"Read operation correctly reports absence of non-existent values", time_start=ts)
@@ -5917,6 +5996,7 @@ if __name__ == "__main__":
 			"Multi mode persisted in registry", time_start=ts)
 
 	@timed_test
+	@requires_save_load
 	def test_persisted_indexed_columns_registry():
 		"""__indexed_columns__ survives dump/load; indexes rebuild from column data."""
 		print('\n=== Testing Persisted __indexed_columns__ Registry ===')
@@ -5976,6 +6056,7 @@ if __name__ == "__main__":
 			f"IndexedDict middle ops remain consistent ({elapsed:.3f}s)", time_start=ts)
 
 	@timed_test
+	@requires_save_load
 	def test_optimization_msgpack_roundtrip():
 		"""Faster packb/unpackb persistence path."""
 		print('\n=== Testing Msgpack Pack/Unpack Optimization ===')
@@ -6020,6 +6101,7 @@ if __name__ == "__main__":
 			f"Bulk add_row with rescan=False completed ({elapsed:.3f}s)", time_start=ts)
 
 	@timed_test
+	@requires_save_load
 	def test_full_throttle():
 		"""Full-throttle benchmark: write-through persistence + cross-process read + search."""
 		print('\n=== FULL THROTTLE TEST ===')
@@ -6160,10 +6242,13 @@ if __name__ == "__main__":
 
 		start_time = time.perf_counter()
 		failures = 0
+		skipped = 0
 
 		for test in tests:
 			try:
-				test()
+				result = test()
+				if result is None and getattr(test, '_is_skipped', False):
+					skipped += 1
 			except AssertionError as e:
 				failures += 1
 				print(f"❌ {test.__name__} failed: {str(e)}")
@@ -6175,11 +6260,12 @@ if __name__ == "__main__":
 
 		total_time = time.perf_counter() - start_time
 		print(f"\n{'='*50}")
-		print(f"⏱️  Test Summary: {len(tests)} tests, {failures} failures")
+		skip_str = f", {skipped} skipped" if skipped else ""
+		print(f"⏱️  Test Summary: {len(tests)} tests, {failures} failures{skip_str}")
 		print(f"⏱️  Total execution time: {total_time:.4f} seconds")
 		print("="*50)
 
-		
+
 		# remove any existing test files
 		test_files = ["__persistence_test.pdb", "__concurrency_test.pdb", "__extreme_concurrency_test.pdb",
 			"__optimization_persistence_test.pdb", "__optimization_rescan_test.pdb", "__full_throttle_test.pdb",
@@ -6194,24 +6280,5 @@ if __name__ == "__main__":
 		if failures > 0:
 			raise SystemExit(1)
 
-	# run_all_tests()
-
-
-	x = PyroTable()
-	x.add_column("name", "roll", "class", exist_ok=True)
-
-	x.add_row({"name": "John", "roll": 1, "class": "A"})
-	x.add_rows([
-		{"name": "Jane", "roll": 2, "class": "B"},
-		{"name": "Bob", "roll": 30, "class": "A"}
-	])
-
-
-
-	print(x)
-
-	toppers = x.search(kw="A", column="class")
-
-	print(toppers)
-
+	run_all_tests()
 

@@ -232,7 +232,7 @@ def str_comma_to_float(x):
 
 
 try:
-	from print_text3 import xprint
+	from print_text4 import xprint
 except ImportError:
 	xprint = print
 

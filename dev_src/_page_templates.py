@@ -102,7 +102,7 @@ def code_editor_script():
 
 
 def no_page_assets() -> str:
-	"""Return empty string — no page-specific assets needed."""
+	"""Return empty string - no page-specific assets needed."""
 	return ""
 
 

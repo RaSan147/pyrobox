@@ -294,7 +294,7 @@ def load(location, auto_dump, sig=True):
 
 def as_is(*args, **kwargs):
 	"""
-	Does nothing — returns arguments as they are.
+	Does nothing - returns arguments as they are.
 	- If only one positional argument is passed and no kwargs, returns that object.
 	- If multiple args or kwargs, returns a tuple combining them.
 	"""

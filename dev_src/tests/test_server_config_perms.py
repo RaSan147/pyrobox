@@ -182,8 +182,20 @@ class TestAdminEndpointsMethodSecurity:
 		import server  # noqa: F401
 		from pyroboxCore import SimpleHTTPRequestHandler
 
-		post_funcs = {func.__name__ for case, func in SimpleHTTPRequestHandler.handlers.get('POST', [])}
-		head_funcs = {func.__name__ for case, func in SimpleHTTPRequestHandler.handlers.get('HEAD', [])}
+		def _handler_names(method):
+			names = set()
+			for entry in SimpleHTTPRequestHandler.handlers.get(method, []):
+				if isinstance(entry, dict):
+					func = entry.get("func")
+				else:
+					# Legacy tuple form: (check, func)
+					func = entry[1] if len(entry) > 1 else None
+				if func is not None:
+					names.add(func.__name__)
+			return names
+
+		post_funcs = _handler_names('POST')
+		head_funcs = _handler_names('HEAD')
 
 		sensitive_actions = {'reload', 'shutdown', 'add_user', 'delete_user', 'update_user_perm'}
 

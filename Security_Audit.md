@@ -285,10 +285,10 @@ Ruff reported **13 errors** under standard rules:
 Running with flake8-bandit (`S`) and flake8-bugbear (`B`) revealed additional security-relevant findings:
 
 1. **Weak Hashing Algorithms (`S324`)**:
-   - `user_mgmt.py:L460`: `self.common_salt = hashlib.md5(sys_Pass).hexdigest()` — Insecure use of MD5.
-   - `user_mgmt.py:L478`: `uid = hashlib.sha1((str(time.time()) + username).encode("utf-8")).hexdigest()` — Insecure use of SHA-1.
+   - `user_mgmt.py:L460`: `self.common_salt = hashlib.md5(sys_Pass).hexdigest()` - Insecure use of MD5.
+   - `user_mgmt.py:L478`: `uid = hashlib.sha1((str(time.time()) + username).encode("utf-8")).hexdigest()` - Insecure use of SHA-1.
 2. **Hardcoded Test Passwords (`S106`)**:
-   - `user_mgmt.py:L700`: `z = user_handler.server_signup(username="Admin", password="pass")` — Hardcoded credential in test/module scope.
+   - `user_mgmt.py:L700`: `z = user_handler.server_signup(username="Admin", password="pass")` - Hardcoded credential in test/module scope.
 3. **Silenced Exceptions (`S110`)**:
    - Multiple `try-except-pass` blocks without logging in `upload_clone.py` (lines 86, 110, 145, 199, 238, 282, 316, 356, 375, 403, 409) that mask connection and permission errors.
 4. **Unused Loop Variables (`B007`)**:

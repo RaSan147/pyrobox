@@ -10,11 +10,9 @@ import datetime
 import functools
 import hashlib
 # import subprocess
-import importlib.util
 import io
 import json
 import os
-# import sys
 import posixpath
 import shutil
 import threading
@@ -29,8 +27,7 @@ from _arg_parser import add_args
 from _exceptions import LimitExceed
 from _fs_utils import (UploadHandler, dir_navigator, fmbytes, get_dir_size,
 					   get_stat, get_titles, get_tree_count_n_size, humanbytes)
-from _list_maker import (list_directory, list_directory_html,
-						 list_directory_json)
+from _list_maker import ListMaker
 from _sub_extractor import extract_subtitles_from_file
 from _zipfly_manager import ZIP_Manager
 from pyrobox_ServerHost import ServerConfig
@@ -47,7 +44,7 @@ from pyroboxCore import (
 from pyroboxCore import runner as pyroboxRunner
 from pyroboxCore import tools
 import user_mgmt as u_mgmt
-from UX_Tools import is_file, xpath
+from UX_Tools import OptionalDepManager, is_file, xpath, xprint
 
 __version__ = '0.9.7'
 true = T = True
@@ -59,11 +56,10 @@ enc = "utf-8"
 ###########################################
 
 add_args(CoreConfig)
-cli_args = CoreConfig.parser.parse_known_args()[0]
-
-logger.info(tools.text_box("Server Config", *({i: getattr(cli_args, i)}
-			for i in vars(cli_args) if not (i.startswith("admin") or "password" in i))))
-
+# Register flags only; parse empty argv so imports/tests do not consume process argv.
+# Real CLI (and argparse -h/--help/-v) is handled in run().
+CoreConfig.register_default_args(port=45454, directory="", bind="")
+cli_args = CoreConfig.parse_default_args(port=45454, directory="", bind="", args=[])
 
 Sconfig = ServerConfig(cli_args=cli_args)
 SH.server_config = Sconfig
@@ -75,9 +71,6 @@ SH.server_config = Sconfig
 CoreConfig.MAIN_FILE = os.path.abspath(__file__)
 
 CoreConfig.disabled_func.update({
-	"send2trash": False,
-	"natsort": False,
-	"pyqrcode": False,
 	"zip": False,
 	"update": False,
 	"delete": False,
@@ -88,9 +81,33 @@ CoreConfig.disabled_func.update({
 })
 
 
-# INSTALL REQUIRED PACKAGES
-REQUIREMENTS = ['send2trash', 'natsort', 'pyqrcode']
+def _announce_missing_dep(key, pip_name, missing):
+	xprint(
+		f"/yhu/Warning/=/: /b/{key}/=/ not found — {missing}. "
+		f"Install with `/b/pip install {pip_name}/=/`"
+	)
 
+
+# Optional runtime packages: register once, load through the shared manager.
+REQUIREMENTS = ['send2trash', 'natsort', 'pyqrcode']
+optional_deps = OptionalDepManager(
+	CoreConfig.disabled_func,
+	on_missing=_announce_missing_dep,
+)
+optional_deps.add(
+	"send2trash",
+	exports=("send2trash", "TrashPermissionError"),
+	fallbacks={"TrashPermissionError": OSError},
+	missing="trash disabled",
+)
+optional_deps.add(
+	"natsort",
+	missing="using built-in custom_sort",
+)
+optional_deps.add(
+	"pyqrcode",
+	missing="QR disabled",
+)
 
 if not os.path.isdir(CoreConfig.log_location):
 	try:
@@ -98,28 +115,16 @@ if not os.path.isdir(CoreConfig.log_location):
 	except Exception:
 		CoreConfig.log_location = "./"
 
-if not CoreConfig.disabled_func.get("send2trash"):
-	try:
-		from send2trash import TrashPermissionError, send2trash
-	except Exception:
-		CoreConfig.disabled_func["send2trash"] = True
-		logger.warning(
-			"send2trash module not found, send2trash function disabled. Install it using `pip install send2trash`")
+# Load once at import; access via optional_deps.<export>. run() only announces.
+optional_deps.load(announce=False)
 
-
-if not CoreConfig.disabled_func.get("natsort"):
-	if importlib.util.find_spec("natsort") is None:
-		CoreConfig.disabled_func["natsort"] = True
-		logger.warning(
-			"natsort not found, falling back to default sorting. Install it using `pip install natsort`")
-
-if not CoreConfig.disabled_func.get("pyqrcode"):
-	try:
-		import pyqrcode
-	except ImportError:
-		CoreConfig.disabled_func["pyqrcode"] = True
-		logger.warning(
-			"pyqrcode module not found, QR code generation disabled. Install it using `pip install pyqrcode`")
+list_maker = ListMaker(
+	sort_algorithm=(
+		optional_deps.natsort.humansorted
+		if optional_deps.available("natsort")
+		else None
+	),
+)
 
    #############################################
   # HANDLER UTILS                #
@@ -240,7 +245,7 @@ def get_version(self: SH, *args, **kwargs):
 @functools.lru_cache(maxsize=64)
 def _generate_qr_svg_bytes(url: str) -> bytes:
 	buf = io.BytesIO()
-	pyqrcode.create(url).svg(buf, scale=5)
+	optional_deps.pyqrcode.create(url).svg(buf, scale=5)
 	return buf.getvalue()
 
 
@@ -778,7 +783,7 @@ def send_ls_json(self: SH, *args, **kwargs):
 	if not user:  # guest or not will be handled in Authentication
 		return self.redirect("?login")
 
-	return list_directory_json(self, user=user)
+	return list_maker.list_directory_json(self, user=user)
 
 
 subtitle_location_map = OrderedDict()
@@ -1416,7 +1421,7 @@ def get_folder_data(self: SH, *args, **kwargs):
 
 		})
 
-	data = list_directory(self, os_path, user, cookie=cookie)
+	data = list_maker.list_directory(self, os_path, user, cookie=cookie)
 
 	if data:
 		return self.send_json(data, cookie=cookie)
@@ -1455,7 +1460,7 @@ def default_get(self: SH, filename=None, *args, **kwargs):
 				os_path = index
 				break
 		else:
-			return list_directory_html(self, os_path, user, cookie=cookie)
+			return list_maker.list_directory_html(self, os_path, user, cookie=cookie)
 
 	# check for trailing "/" which should return 404. See Issue17324
 	# The test for this was added in test_httpserver.py
@@ -1687,7 +1692,7 @@ def upload(self: SH, *args, **kwargs):
 		# ORIGINAL FILE STARTS FROM HERE
 		out = None
 		try:
-			out = open(temp_fn, 'wb', buffering=Sconfig.max_buffer_size)  # noqa: SIM115 — ownership passed to upload worker
+			out = open(temp_fn, 'wb', buffering=Sconfig.max_buffer_size)  # noqa: SIM115 - ownership passed to upload worker
 			preline = post.get()
 			while post.remainbytes > 0 and not upload_handler.error:
 				line = post.get()
@@ -1775,9 +1780,9 @@ def del_2_recycle(self: SH, *args, **kwargs):
 	try:
 		if CoreConfig.OS == 'Android':
 			raise InterruptedError
-		send2trash(os_f_path)
+		optional_deps.send2trash(os_f_path)
 		return self.send_json({"status": True, "head": "Success", "body": "Successfully Moved To Recycle bin: " + rel_path}, cookie=cookie)
-	except TrashPermissionError:
+	except optional_deps.TrashPermissionError:
 		msg = "Recycling unavailable! Try deleting permanently..."
 	except InterruptedError:
 		msg = "Recycling unavailable! Try deleting permanently..."
@@ -2070,24 +2075,52 @@ def default_post(self: SH, *args, **kwargs):
 	raise PostError("Bad Request")
 
 
+def _print_cli_banner():
+	xprint("/ch/Server Config/=/")
+	xprint(tools.text_box(
+		*({i: getattr(cli_args, i)}
+		  for i in vars(cli_args) if not (i.startswith("admin") or "password" in i)),
+	))
+	Sconfig.announce_upload_password()
+
+
 # proxy for old versions
 def run(*args, **kwargs):
+	global cli_args
+
 	SH.allow_CORS(method='GET', origin='*')
 
-	runner = pyroboxRunner(handler=SH, *args, **kwargs)
+	# Parse real process argv; argparse help/version actions exit themselves.
+	cli_args = CoreConfig.parse_default_args(port=45454, directory="", bind="")
+	Sconfig.sync_from_cli(cli_args)
+	optional_deps.announce_missing()
+	_print_cli_banner()
+
+	runner = pyroboxRunner(
+		handler=SH,
+		port=cli_args.port,
+		directory=cli_args.directory,
+		# Keep None (all interfaces). "" makes getaddrinfo pick a link-local
+		# IPv6 address and IPv4 clients get connection refused.
+		bind=cli_args.bind,
+		arg_parse=False,
+	)
 
 	url = CoreConfig.address()
+	xprint(f"/gh/Server address/=/: /bhu/{url}/=/")
 
-	if cli_args.qr and not CoreConfig.disabled_func["pyqrcode"]:
+	if cli_args.qr and optional_deps.available("pyqrcode"):
 		# Create a QR code on terminal
 		try:
-			url = pyqrcode.create(url, error='L')
-			print(url.terminal('black', 'white', quiet_zone=1))
+			qr = optional_deps.pyqrcode.create(url, error='L')
+			xprint("/ch/Scan to open/=/:")
+			print(qr.terminal('black', 'white', quiet_zone=1))
 		except Exception as e:
+			xprint(f"/rhu/Error generating QR code/=/: {e}")
 			logger.error(f"Error generating QR code: {e}")
 
 	runner.run()
 
 
 if __name__ == '__main__':
-	run(port=45454)
+	run()

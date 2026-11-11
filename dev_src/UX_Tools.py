@@ -12,6 +12,7 @@ from typing import Generator, List, Union
 
 from pathlib import Path
 from importlib import import_module
+import importlib.util
 
 import sys
 import subprocess
@@ -56,6 +57,141 @@ def import_loop(
 	if callable(fallback):
 		return fallback()
 	return None
+
+
+class OptionalDepManager:
+	"""Declarative loader for optional runtime packages.
+
+	Each entry is registered once; ``load(announce=...)`` probes/imports and
+	toggles a shared ``disabled`` mapping. Missing deps can be announced via
+	``on_missing`` (e.g. styled ``xprint``).
+	"""
+
+	def __init__(self, disabled=None, on_missing=None):
+		self.disabled = disabled if disabled is not None else {}
+		self.on_missing = on_missing
+		self._specs = []
+		self._exports = {}
+		self._loaded = set()
+		self._missing = {}
+		self._announced = set()
+
+	def add(
+		self,
+		key,
+		package=None,
+		*,
+		exports=None,
+		fallbacks=None,
+		probe_only=False,
+		pip_name=None,
+		missing="feature disabled",
+	):
+		"""Register one optional dependency.
+
+		Parameters
+		----------
+		key :
+			Flag name stored in ``disabled`` (and default export name for the module).
+		package :
+			Import name (defaults to ``key``).
+		exports :
+			Optional ``str`` / sequence of attribute names to pull from the module,
+			or a ``dict`` mapping ``{local_name: attr_name}``.
+		fallbacks :
+			Optional ``dict`` of ``{local_name: value}`` installed when import fails
+			(e.g. exception types used in ``except`` clauses).
+		probe_only :
+			If True, only check that the package is importable (no exports stored).
+		pip_name :
+			Name shown in ``pip install ...`` hints (defaults to ``package``).
+		missing :
+			Short reason shown when the package is unavailable.
+		"""
+		self._specs.append({
+			"key": key,
+			"package": package or key,
+			"exports": exports,
+			"fallbacks": fallbacks or {},
+			"probe_only": probe_only,
+			"pip_name": pip_name or package or key,
+			"missing": missing,
+		})
+		self.disabled.setdefault(key, False)
+		return self
+
+	def get(self, name, default=None):
+		return self._exports.get(name, default)
+
+	def __getattr__(self, name):
+		try:
+			return self._exports[name]
+		except KeyError:
+			raise AttributeError(
+				f"{type(self).__name__!r} has no export {name!r}"
+			) from None
+
+	def available(self, key):
+		return not self.disabled.get(key, False)
+
+	def load(self, announce=False):
+		"""Probe/import every registered dep. Safe to call multiple times."""
+		for spec in self._specs:
+			self._load_one(spec)
+		if announce:
+			self.announce_missing()
+		return self
+
+	def announce_missing(self):
+		"""Emit warnings for deps that failed to load (once each)."""
+		if not callable(self.on_missing):
+			return
+		for key, spec in self._missing.items():
+			if key in self._announced:
+				continue
+			self.on_missing(
+				key,
+				pip_name=spec["pip_name"],
+				missing=spec["missing"],
+			)
+			self._announced.add(key)
+
+	def _store_exports(self, key, mod, exports):
+		if exports is None:
+			self._exports[key] = mod
+		elif isinstance(exports, dict):
+			for local_name, attr in exports.items():
+				self._exports[local_name] = getattr(mod, attr)
+		elif isinstance(exports, str):
+			self._exports[exports] = getattr(mod, exports)
+		else:
+			for attr in exports:
+				self._exports[attr] = getattr(mod, attr)
+
+	def _load_one(self, spec):
+		key = spec["key"]
+		if key in self._loaded or key in self._missing:
+			return
+
+		# Honor a flag already set by the host before load().
+		if self.disabled.get(key):
+			self._missing[key] = spec
+			self._exports.update(spec.get("fallbacks") or {})
+			return
+
+		package = spec["package"]
+		try:
+			if spec["probe_only"]:
+				if importlib.util.find_spec(package) is None:
+					raise ImportError(package)
+			else:
+				mod = import_module(package)
+				self._store_exports(key, mod, spec["exports"])
+			self._loaded.add(key)
+		except (ImportError, AttributeError, ModuleNotFoundError):
+			self.disabled[key] = True
+			self._missing[key] = spec
+			self._exports.update(spec.get("fallbacks") or {})
 
 
 def get_gpu_names():
@@ -600,7 +736,7 @@ def _fallback_xprint(*args, sep=' ', end='\n', **kwargs):
 	print(*args, sep=sep, end=end, **kwargs)
 
 
-xprint = import_loop(["print_text3", "print_text4"], export="xprint", fallback=lambda: _fallback_xprint)
+xprint = import_loop(["print_text4"], export="xprint", fallback=lambda: _fallback_xprint)
 
 
 

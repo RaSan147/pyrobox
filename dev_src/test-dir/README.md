@@ -1,4 +1,4 @@
-# `dev_src/test-dir` — live / manual fixtures
+# `dev_src/test-dir` - live / manual fixtures
 
 Serve this directory (or `live_served/`) to exercise the UI against awkward names:
 

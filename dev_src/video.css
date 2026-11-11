@@ -539,7 +539,7 @@ nav {
 .plyr {
 	border-radius: 8px;
 	box-shadow: 0 2px 15px rgba(0, 0, 0, .1);
-	margin: 16px auto
+	margin: 2px auto;
 }
 
 .plyr.plyr--audio {

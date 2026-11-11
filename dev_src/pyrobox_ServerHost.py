@@ -2,11 +2,11 @@ import argparse
 from http import HTTPStatus
 import os
 import secrets
-from typing import Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 import urllib.parse
 
 from _fs_utils import get_titles, dir_navigator, reverse_humanbytes
-from UX_Tools import xpath
+from UX_Tools import xpath, xprint
 from pyroDB3 import PickleTable
 import user_mgmt as u_mgmt
 from user_mgmt import User
@@ -23,45 +23,74 @@ import _page_templates as pt
 
 
 class ServerConfig():
-	def __init__(self, cli_args:Union[dict, argparse.Namespace]):
-		self.name = cli_args.server_name
-		self.admin_username = cli_args.admin_id
-		self.admin_password = cli_args.admin_pass
+	def __init__(self, cli_args: argparse.Namespace) -> None:
+		self.name: Optional[str] = cli_args.server_name
+		self.admin_username: Optional[str] = cli_args.admin_id
+		self.admin_password: Optional[str] = cli_args.admin_pass
 		# Guest/anonymous upload gate (CLI --password); not an account password
 		cli_pass = getattr(cli_args, 'password', None)
 		if not cli_pass:
 			self.PASSWORD = secrets.token_urlsafe(9)
-			logger.info(tools.text_box("Upload Password", f"Generated random upload password: {self.PASSWORD}"))
+			self._password_auto_generated = True
 		else:
 			self.PASSWORD = cli_pass
+			self._password_auto_generated = False
 
 		self.uDB = PickleTable()
 		self.configDB = PickleTable()
-		self.cli_args = cli_args
+		self.cli_args: argparse.Namespace = cli_args
 
+		self.GUESTS = not self.cli_args.no_guest_allowed  # unless account mode, everyone is guest
 
-		self.GUESTS =  not self.cli_args.no_guest_allowed  # unless account mode, everyone is guest
-
-		self.admin_perms = []
-		self.member_perms = []
-		self.guest_perms = []
+		self.admin_perms: List[Any] = []
+		self.member_perms: List[Any] = []
+		self.guest_perms: List[Any] = []
 
 		self.init_config()
 		self.init_permissions(cli_args=cli_args)
 		self.init_account()
 
 		# Max size a zip file will be made
-		self.max_zip_size = reverse_humanbytes(cli_args.zip_limit) # 6GB by default
+		self.max_zip_size = reverse_humanbytes(cli_args.zip_limit)  # 6GB by default
 
 		# Max Buffer size for writing files
-		self.max_buffer_size = 1024*1024 # 1MB
-
+		self.max_buffer_size = 1024 * 1024  # 1MB
 
 		self.temp_dir = CoreConfig.temp_dir
 		self.subtitles_dir = xpath(self.temp_dir, "subtitles")
 		self.allow_subtitle = True
 		self.assets_dir = xpath(CoreConfig.MAIN_FILE_dir, '..', "assets", realpath=True)
 		self.zip_dir = xpath(self.temp_dir, "zip")
+
+	def announce_upload_password(self) -> None:
+		"""Print the auto-generated guest upload password (no-op if user-supplied)."""
+		if not self._password_auto_generated:
+			return
+		xprint(tools.text_box(
+			"/yhu/Upload password/=/",
+			f"/bh/{self.PASSWORD}/=/",
+			sep="\n",
+		))
+
+	def sync_from_cli(self, cli_args: argparse.Namespace) -> None:
+		"""Refresh runtime settings from a freshly parsed CLI namespace."""
+		self.cli_args = cli_args
+		self.name = cli_args.server_name
+		self.admin_username = cli_args.admin_id
+		self.admin_password = cli_args.admin_pass
+
+		cli_pass = getattr(cli_args, 'password', None)
+		if cli_pass:
+			self.PASSWORD = cli_pass
+			self._password_auto_generated = False
+
+		self.GUESTS = not cli_args.no_guest_allowed
+		self.max_zip_size = reverse_humanbytes(cli_args.zip_limit)
+
+		self.admin_perms = []
+		self.member_perms = []
+		self.guest_perms = []
+		self.init_permissions(cli_args=cli_args)
 
 	def init_config(self):
 		if self.name:
@@ -111,7 +140,7 @@ class ServerConfig():
 # This will contain server configurations, user database and limits.
 
 
-	def init_permissions(self, cli_args):
+	def init_permissions(self, cli_args: argparse.Namespace) -> None:
 		def check(arg, perm):
 			if arg:
 				return perm

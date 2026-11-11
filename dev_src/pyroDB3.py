@@ -228,23 +228,10 @@ import threading
 import datetime
 
 import traceback
-from typing import Any, Dict, Generator, List, Tuple, Union, Optional, Iterable, overload
-try:
-	from typing import Literal
-except ImportError:
-	# For Python 3.7 and earlier
-	try:
-		from typing_extensions import Literal
-	except ImportError:
-		# Fallback to a simple string type
-		class Literal:
-			def __class_getitem__(cls, item): return type(item)
+from typing import Any, Dict, Generator, List, Literal, Tuple, Union, Optional, Iterable, overload
 
-# import OrderedDict if python version is less than 3.7
-if sys.version_info < (3, 7):
-	from collections import OrderedDict  # type: ignore
-else:
-	OrderedDict = dict  # type: ignore
+# dict preserves insertion order on supported Python versions (3.8+).
+OrderedDict = dict  # type: ignore
 
 import re
 
@@ -294,7 +281,7 @@ def load(location, auto_dump, sig=True):
 
 def as_is(*args, **kwargs):
 	"""
-	Does nothing — returns arguments as they are.
+	Does nothing - returns arguments as they are.
 	- If only one positional argument is passed and no kwargs, returns that object.
 	- If multiple args or kwargs, returns a tuple combining them.
 	"""
@@ -308,11 +295,13 @@ def as_is(*args, **kwargs):
 
 
 def staticmethod_decorator(func):
+	"""Identity decorator kept for existing ``@staticmethod_decorator`` call sites.
+
+	Must not wrap with ``staticmethod``: on Python 3.8–3.9 those objects are not
+	callable inside a class body (``@threadsafe_decorator`` would fail). Plain
+	functions work on 3.8+; 3.10+ made ``staticmethod`` callable, but identity
+	remains the portable choice.
 	"""
-	Decorator for static methods, does nothing if python <=3.7
-	"""
-	if sys.version_info >= (3, 8):
-		return staticmethod(func)
 	return func
 
 
@@ -528,11 +517,21 @@ elif os.name == 'nt':
 
 
 class FileLock:
-	"""File-based locking mechanism with timeout support"""
+	"""File-based locking with timeout, same-thread reentrancy, and safe fd ownership.
+
+	Windows ``msvcrt.locking`` is *not* reentrant: a second acquire on the same
+	path from the same thread deadlocks until timeout. Nested call sites
+	(e.g. ``load_json`` holding ``*.lock`` then ``auto_dump`` → ``dump``) used
+	to hit that. Depth is tracked per absolute path so nested ``with FileLock``
+	on the same file only takes the OS lock once.
+	"""
 	_LOCK_BUSY = frozenset({errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK})
+	# abspath -> {'tid': int, 'depth': int, 'fd': int}
+	_held_by_path: dict = {}
+	_meta_lock = threading.Lock()
 
 	def __init__(self, filename, timeout=10, delay=0.05):
-		self.filename = filename
+		self.filename = os.path.abspath(filename)
 		self.timeout = timeout
 		self.delay = delay
 		self.fd = None
@@ -542,50 +541,96 @@ class FileLock:
 		if os.name == 'posix':
 			fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 		else:
+			# Region locks are position-based; always lock byte 0.
+			os.lseek(fd, 0, os.SEEK_SET)
+			if os.fstat(fd).st_size < 1:
+				os.write(fd, b'\0')
+				os.lseek(fd, 0, os.SEEK_SET)
 			msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
 
 	def _unlock_fd(self, fd):
 		if os.name == 'posix':
 			fcntl.flock(fd, fcntl.LOCK_UN)
 		else:
+			os.lseek(fd, 0, os.SEEK_SET)
 			msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
 
 	def acquire(self):
-		"""Acquire the lock, waiting if necessary"""
-		start_time = time.time()
-		while True:
-			fd = None
-			try:
-				fd = os.open(self.filename, os.O_CREAT | os.O_RDWR)
-				self._lock_fd(fd)
-				self.fd = fd
+		"""Acquire the lock, waiting if necessary. Reentrant for the owning thread."""
+		tid = threading.get_ident()
+		with FileLock._meta_lock:
+			state = FileLock._held_by_path.get(self.filename)
+			if state is not None and state['tid'] == tid:
+				state['depth'] += 1
+				self.fd = state['fd']
 				self.is_locked = True
 				return
+
+		start_time = time.time()
+		while True:
+			owned = None
+			locked_os = False
+			try:
+				owned = os.open(self.filename, os.O_CREAT | os.O_RDWR)
+				self._lock_fd(owned)
+				locked_os = True
+				with FileLock._meta_lock:
+					FileLock._held_by_path[self.filename] = {
+						'tid': tid, 'depth': 1, 'fd': owned,
+					}
+				self.fd = owned
+				self.is_locked = True
+				owned = None  # ownership transferred to registry
+				return
 			except OSError as e:
-				if fd is not None:
-					try:
-						os.close(fd)
-					except OSError:
-						pass
 				if e.errno not in self._LOCK_BUSY:
 					raise
 				if (time.time() - start_time) >= self.timeout:
 					raise TimeoutError(f"Timeout waiting for lock on {self.filename}")
 				time.sleep(self.delay)
+			finally:
+				# Close only if we still own the fd (failed acquire / interrupt).
+				if owned is not None:
+					if locked_os:
+						try:
+							self._unlock_fd(owned)
+						except OSError:
+							pass
+					try:
+						os.close(owned)
+					except OSError:
+						pass
 
 	def release(self):
-		"""Release the lock"""
-		if self.is_locked:
-			try:
-				self._unlock_fd(self.fd)
-			except OSError:
-				pass
-			try:
-				os.close(self.fd)
-			except OSError:
-				pass
-			self.is_locked = False
-			self.fd = None
+		"""Release one nesting level; unlock OS lock when depth reaches 0."""
+		if not self.is_locked:
+			return
+		tid = threading.get_ident()
+		fd = None
+		with FileLock._meta_lock:
+			state = FileLock._held_by_path.get(self.filename)
+			if state is None or state['tid'] != tid:
+				self.is_locked = False
+				self.fd = None
+				return
+			state['depth'] -= 1
+			if state['depth'] > 0:
+				self.is_locked = False
+				self.fd = None
+				return
+			fd = state['fd']
+			del FileLock._held_by_path[self.filename]
+
+		try:
+			self._unlock_fd(fd)
+		except OSError:
+			pass
+		try:
+			os.close(fd)
+		except OSError:
+			pass
+		self.is_locked = False
+		self.fd = None
 
 	def __enter__(self):
 		self.acquire()
@@ -593,9 +638,7 @@ class FileLock:
 
 	def __exit__(self, exc_type, exc_value, traceback):
 		self.release()
-		if exc_type is not None:
-			return False
-		return True
+		return False
 
 class TaskExecutor:
 	"""Serialize table/DB operations with a reentrant lock (fast path)."""
@@ -1316,8 +1359,8 @@ class PyroTable(dict):
 		Args:
 			column: column name to index
 			mode:
-				- ``'unique'`` — one row per key; raises DuplicateIndexError on conflict
-				- ``'multi'`` — many rows per key (set of row_ids)
+				- ``'unique'`` - one row per key; raises DuplicateIndexError on conflict
+				- ``'multi'`` - many rows per key (set of row_ids)
 			rescan: rescan file before indexing
 			AD: auto-dump registry to disk
 		"""
@@ -3196,10 +3239,13 @@ class PyroTable(dict):
 		- keep_columns: keep the existing columns (default: `True`) (if `False`, clears the table)
 		- AD: auto dump
 		"""
+		# Hold import-file lock only for the load; dump after release so we never
+		# nest FileLock(import) → auto_dump → FileLock(pdb) on the same path.
 		with FileLock(filepath + '.lock'):
 			self._load_json(filepath=filepath, iostream=iostream, json_str=json_str,
 							ignore_new_headers=ignore_new_headers, on_file_not_found=on_file_not_found,
-							keep_columns=keep_columns, AD=AD)
+							keep_columns=keep_columns, AD=False)
+		self.auto_dump(AD=AD)
 
 	@threadsafe_decorator
 	def to_csv(self, filepath=None, write_header=True, rescan=True) -> str:
@@ -3256,7 +3302,7 @@ class PyroTable(dict):
 		return output.getvalue()
 
 	def _load_csv(self, filepath=None, iostream=None, csv_str=None,
-				 header: Union[bool, str] = True, ignore_none=False, ignore_new_headers=False, on_file_not_found='error', AD=True):
+				 header: Union[bool, Literal["auto"]] = True, ignore_none=False, ignore_new_headers=False, on_file_not_found='error', AD=True):
 		columns_names = self.column_names_set
 
 		def add_row(row, columns):
@@ -3389,7 +3435,7 @@ class PyroTable(dict):
 
 	@threadsafe_decorator
 	def load_csv(self, filepath=None, iostream=None, csv_str=None,
-				 header: Union[bool, str] = True, ignore_none=False, ignore_new_headers=False, on_file_not_found='error', AD=True):
+				 header: Union[bool, Literal["auto"]] = True, ignore_none=False, ignore_new_headers=False, on_file_not_found='error', AD=True):
 		"""
 		Load a csv file to the table
 		- WILL OVERWRITE THE EXISTING DATA (To append, make a new table and extend)
@@ -3412,7 +3458,8 @@ class PyroTable(dict):
 			self._load_csv(filepath=filepath, iostream=iostream, csv_str=csv_str,
 						  header=header, ignore_none=ignore_none,
 						  ignore_new_headers=ignore_new_headers,
-						  on_file_not_found=on_file_not_found, AD=AD)
+						  on_file_not_found=on_file_not_found, AD=False)
+		self.auto_dump(AD=AD)
 
 	@staticmethod
 	def from_json(filepath="", iostream=None, json_str=None, location="", auto_dump=True, sig=True) -> "PyroTable":

@@ -20,11 +20,11 @@ exclude = [
   ".venv",
   "venv",
 ]
-target-version = "py37"
+target-version = "py38"
 line-length = 120
 
 [tool.ruff.lint]
-# Prefer Union/Optional over | for 3.7; keep serious checks only.
+# Prefer Union/Optional over | for 3.8; keep serious checks only.
 select = [
   "E9",   # runtime syntax
   "F63",  # invalid print/assert

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 DEFAULT_UPLOAD_PASSWORD = None
 
 
-def add_args(config:Config):
+def add_args(config:"Config"):
 	if config._custom_cli_args_added:
 		return
 	config.parser.add_argument('--password', '-k',

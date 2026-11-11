@@ -93,7 +93,7 @@ class TestNewFolder:
 		handler, root = work_handler
 		assert _resolve(handler, '/', '../outside') is None
 		# Absolute URL-style names are remapped under the served root (translate_path),
-		# not written outside — assert containment rather than total reject.
+		# not written outside - assert containment rather than total reject.
 		dest = _resolve(handler, '/', '/etc/passwd')
 		assert dest is not None
 		assert handler.path_is_under_directory(dest)
@@ -157,7 +157,7 @@ class TestDeletePermanent:
 	def test_rejects_delete_outside(self, work_handler):
 		handler, root = work_handler
 		assert _resolve(handler, '/', '../seed.txt') is None
-		# seed still present — no escape delete
+		# seed still present - no escape delete
 		assert (root / 'seed.txt').exists()
 
 
@@ -215,7 +215,7 @@ class TestOddLiveNames:
 		assert os.path.isdir(path)
 
 	def test_hash_in_filename_is_truncated_by_translate_path(self, live_handler):
-		"""translate_path strips '#' as a URL fragment — known limitation for such names."""
+		"""translate_path strips '#' as a URL fragment - known limitation for such names."""
 		handler, live = live_handler
 		# Fixture uses underscore form that survives URL/path translation
 		path = _resolve(handler, '/', 'hash_sharp_tag.txt')

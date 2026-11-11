@@ -165,7 +165,7 @@ def main():
     files = list(iter_files(base, ignore_hidden=args.ignore_hidden))
     print(f"Found {len(files)} files to upload under {base}")
     if args.dry_run:
-        print('Dry run mode — listing files:')
+        print('Dry run mode - listing files:')
         for full, rel in files:
             print(rel)
         return
@@ -200,7 +200,7 @@ def main():
             # if HEAD failed, fall back to directory GET below
             pass
 
-        # Fallback: check directory HTML for a login form marker — but treat this as heuristic only
+        # Fallback: check directory HTML for a login form marker - but treat this as heuristic only
         try:
             r = session.get(base_dir_url, timeout=10)
         except Exception:

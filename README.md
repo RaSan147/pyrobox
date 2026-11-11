@@ -48,15 +48,13 @@
 
 ## Server side requirement
 
-* Python 3.7 or higher. Older support available.[^1]
+* Python 3.8 or higher.
 * Basic knowledge about Python
 * `send2trash`, `natsort` python modules
 
-[^1]: [<=3.4 compatibility] is on the way.
-
 ## Installation
 
-  1. **Install Python 3.7 or higher**
+  1. **Install Python 3.8 or higher**
   1. **Close older pyrobox process if already running**
   1. Install using PIP
 

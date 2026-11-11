@@ -48,7 +48,7 @@ video {
 .plyr {
 	border-radius: 6px;
 	box-shadow: 0 2px 15px var(--plyr-color-shadow);
-	margin: 16px auto;
+	margin: 0;
 
 
 	-webkit-user-select: none;
