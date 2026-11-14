@@ -202,7 +202,7 @@ once with `use_wal=True` (`PYRODB_MODES=off,on`), then the WAL-specific tests ru
 | `test_wal_replay_rescan` | Replay on open, incremental rescan, full reload on checkpoint or shrink, torn txn ignored, non-WAL absorb |
 | `test_wal_open_single_load` | Opening a WAL table loads the snapshot once and replays the WAL |
 | `test_open_no_reload_rewrite` | In both modes, opening an existing file loads it once and leaves the snapshot byte-identical; change detection still works |
-| `test_wal_auto_checkpoint` | `wal_max_bytes` bounds WAL growth; readers follow along through auto checkpoints; `0` disables it |
+| `test_wal_auto_checkpoint` | `wal_max_bytes` bounds WAL growth; readers follow along; `0` disables it; 100 seeded `sync=True` kills during auto-checkpoint reload as the last reported commit (stale oversized WAL ignored) |
 | `test_wal_crash_injection` | Reload at every WAL byte cut equals the state after the last intact commit |
 | `test_wal_idempotency` | Double replay is a no-op; crash between snapshot replace and WAL reset loses nothing |
 | `test_wal_kill_mid_write` | Writer killed at random points: reload is a whole-txn prefix that includes every reported commit |

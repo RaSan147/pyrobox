@@ -5349,6 +5349,13 @@ if __name__ in ("__main__", "__mp_main__"):
 			if checkpoint_every and (i + 1) % checkpoint_every == 0:
 				tb.dump()
 
+	def _wal_auto_ckpt_kill_writer(path, limit, committed):
+		"""200 set_cells with sync=True (auto-checkpoint fsyncs). Publish each returned commit."""
+		tb = PyroTable(path, use_wal=True, sync=True, sig=False, wal_max_bytes=limit)
+		for i in range(200):
+			tb.set_cell("name", i % 5, f"value_{i}")
+			committed.value = i
+
 
 	def requires_save_load(test_func):
 		"""Decorator to skip tests that require msgpack (file save/load)."""
@@ -7288,7 +7295,7 @@ if __name__ in ("__main__", "__mp_main__"):
 	@timed_test
 	@requires_save_load
 	def test_wal_auto_checkpoint():
-		"""wal_max_bytes: a commit that leaves the WAL at/over the limit checkpoints (bounded growth)."""
+		"""wal_max_bytes bounds growth; a crash during sync=True auto-checkpoint keeps the last commit."""
 		print('\n=== Testing WAL Auto Checkpoint (wal_max_bytes) ===')
 		test_file = "__wal_auto_ckpt_test.pdb"
 		wal_file = test_file + ".wal"
@@ -7330,8 +7337,88 @@ if __name__ in ("__main__", "__mp_main__"):
 				off.set_cell("name", 0, f"off_{i}")
 			assert_with_message(off._snapshot_gen() == gen and os.path.getsize(wal_file) > LIMIT,
 				"wal_max_bytes=0 disables auto checkpoint")
+
+			# sync=True: 100 seeded kills while commits are auto-checkpointing.
+			# Seed picks the commit to wait for and a short jitter so the kill
+			# lands inside the next commit/checkpoint, not only between them.
+			# A crash between snapshot replace and WAL reset leaves a stale
+			# oversized WAL; reload must match the last returned commit (or the
+			# one in flight). A commit that already returned has checkpointed,
+			# so its live log stays under the limit.
+			kill_file = "__wal_auto_ckpt_kill.pdb"
+			SEEDS = 100
+
+			def names_at(n):
+				names = [f"n{j}" for j in range(5)]
+				for i in range(n + 1):
+					names[i % 5] = f"value_{i}"
+				return names
+
+			exact = inflight_n = stale = over = 0
+			for seed in range(SEEDS):
+				rng = random.Random(seed)
+				target = rng.randrange(40, 200)
+				jitter = rng.uniform(0, 0.015)
+				_cleanup_db_files(kill_file)
+				for n in _leftover_tmp(kill_file):
+					_safe_remove(os.path.join(os.path.dirname(os.path.abspath(kill_file)), n))
+				base = PyroTable(kill_file, use_wal=True, sync=True, sig=False, wal_max_bytes=LIMIT)
+				base.add_column("id", "name")
+				base.add_rows([{"id": i, "name": f"n{i}"} for i in range(5)])
+				base.dump()
+				committed = multiprocessing.Value('i', -1)
+				p = multiprocessing.Process(
+					target=_wal_auto_ckpt_kill_writer, args=(kill_file, LIMIT, committed))
+				p.start()
+				deadline = time.time() + 20
+				while committed.value < target and p.is_alive() and time.time() < deadline:
+					time.sleep(0.002)
+				assert_with_message(committed.value >= target,
+					f"[seed {seed}] writer reached commit {target}",
+					target, committed.value, message_on_success=False)
+				time.sleep(jitter)
+				try:
+					if p.is_alive():
+						p.kill()
+				except OSError:
+					pass
+				p.join(timeout=10)
+				reported = committed.value
+				r = PyroTable(kill_file, use_wal=True, sync=True, sig=False, wal_max_bytes=LIMIT)
+				got = r.column("name")
+				expect = names_at(reported)
+				inflight = names_at(reported + 1) if reported < 199 else None
+				live = r._wal_header_matches()
+				detail = (f"[seed {seed}] reported={reported} offset={r._wal_offset} "
+					f"live={live} wal={os.path.getsize(kill_file + '.wal')}B")
+				assert_with_message(got == expect or got == inflight, detail,
+					expect, got, message_on_success=False)
+				assert_with_message(r.column("id") == list(range(5)) and r.height == 5,
+					f"{detail} row ids unchanged", message_on_success=False)
+				if got == expect:
+					exact += 1
+				else:
+					inflight_n += 1
+				if not live:
+					stale += 1
+					assert_with_message(r._wal_offset == 0,
+						f"{detail} stale WAL ignored", 0, r._wal_offset, message_on_success=False)
+				elif got == expect:
+					assert_with_message(r._wal_offset < LIMIT,
+						f"{detail} returned commit left a live WAL at wal_max_bytes",
+						f"< {LIMIT}", r._wal_offset, message_on_success=False)
+				elif r._wal_offset >= LIMIT:
+					over += 1
+			print(f"  sync=True kills: {SEEDS} seeds, exact={exact}, inflight={inflight_n}, "
+				f"stale={stale}, live_over_limit={over}")
+			assert_with_message(exact + inflight_n == SEEDS,
+				"Every seeded kill reloaded as the last reported commit or the in-flight one")
 		finally:
 			_cleanup_db_files(test_file)
+			_cleanup_db_files("__wal_auto_ckpt_kill.pdb")
+			_kill = os.path.abspath("__wal_auto_ckpt_kill.pdb")
+			for n in _leftover_tmp(_kill):
+				_safe_remove(os.path.join(os.path.dirname(_kill), n))
 
 	@timed_test
 	@requires_save_load
