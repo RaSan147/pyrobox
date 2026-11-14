@@ -201,6 +201,7 @@ once with `use_wal=True` (`PYRODB_MODES=off,on`), then the WAL-specific tests ru
 | `test_wal_logged_ops` | Logged ops append txns without rewriting the snapshot; unlogged ops checkpoint |
 | `test_wal_replay_rescan` | Replay on open, incremental rescan, full reload on checkpoint or shrink, torn txn ignored, non-WAL absorb |
 | `test_wal_open_single_load` | Opening a WAL table loads the snapshot once and replays the WAL |
+| `test_open_no_reload_rewrite` | In both modes, opening an existing file loads it once and leaves the snapshot byte-identical; change detection still works |
 | `test_wal_auto_checkpoint` | `wal_max_bytes` bounds WAL growth; readers follow along through auto checkpoints; `0` disables it |
 | `test_wal_crash_injection` | Reload at every WAL byte cut equals the state after the last intact commit |
 | `test_wal_idempotency` | Double replay is a no-op; crash between snapshot replace and WAL reset loses nothing |
@@ -215,6 +216,3 @@ once with `use_wal=True` (`PYRODB_MODES=off,on`), then the WAL-specific tests ru
   runs is safe: when a non-WAL table opens a file whose WAL has committed records, it replays
   them, writes a snapshot, and removes the WAL.
 - `add_column`, `del_column`, `sort`, and the other operations in section 6 cost a full snapshot write.
-- Non-WAL mode (inherited from pyroDB3): `PyroDB.__init__` resets `m_time` to 0 after loading, so
-  the auto-dump at the end of the constructor rescans, reloads, and rewrites the snapshot every time
-  a file is opened. WAL mode does not do this.

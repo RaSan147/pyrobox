@@ -902,13 +902,13 @@ class PyroDB(object):
 
 		self.in_memory = False
 		self.location = ""
+		# mtime of the snapshot last loaded/written by us (set by _loaddb / dump)
+		self.m_time = 0
 		if location:
 			location_str = location if isinstance(location, str) else location.decode('utf-8')
 			self.load(location_str, auto_dump)
 		else:
 			self.in_memory = True
-
-		self.m_time = 0
 
 		self.auto_dump = auto_dump
 		self.auto_rescan = auto_rescan
@@ -917,7 +917,8 @@ class PyroDB(object):
 		if sig:
 			self.set_sigterm_handler()
 
-		if not use_wal:
+		# Create a missing file on open; never rewrite an existing one just for opening it.
+		if not use_wal and not self.in_memory and not os.path.exists(self.location):
 			self._autodumpdb()
 
 	def __init__db__(self, meta: dict = None):
@@ -1184,6 +1185,7 @@ class PyroDB(object):
 		try:
 			with FileLock(self.location + '.lock'):
 				with open(self.location, 'rb') as f:
+					loaded_mtime = os.fstat(f.fileno()).st_mtime
 					try:
 						db: dict = msgpack.unpackb(
 							f.read(),
@@ -1222,6 +1224,7 @@ class PyroDB(object):
 
 				self.db = db["__db__"]
 				self.__init__db__(meta=db)
+				self.m_time = loaded_mtime
 
 		except ValueError:
 			if os.stat(self.location).st_size == 0:  # Error raised because file is empty
@@ -7241,6 +7244,49 @@ if __name__ in ("__main__", "__mp_main__"):
 
 	@timed_test
 	@requires_save_load
+	def test_open_no_reload_rewrite():
+		"""Opening an existing file (either mode) loads it once and never rewrites it."""
+		print('\n=== Testing Open Without Reload/Rewrite ===')
+		test_file = "__open_no_rewrite_test.pdb"
+		_cleanup_db_files(test_file)
+		orig = PyroDB._loaddb
+		calls = {"n": 0}
+		def counting(self):
+			calls["n"] += 1
+			return orig(self)
+		try:
+			tb = PyroTable(test_file, use_wal=False, sig=False)
+			assert_with_message(os.path.exists(test_file), "Opening a missing file still creates it")
+			tb.add_column("id")
+			tb.add_rows([{"id": i} for i in range(3)])
+			with open(test_file, "rb") as f:
+				content = f.read()
+			sig = _file_sig(test_file)
+
+			PyroDB._loaddb = counting
+			for use_wal in (False, True):
+				calls["n"] = 0
+				r = PyroTable(test_file, use_wal=use_wal, sig=False)
+				assert_with_message(calls["n"] == 1, f"use_wal={use_wal}: snapshot loaded once", 1, calls["n"])
+				assert_with_message(r.column("id") == [0, 1, 2], f"use_wal={use_wal}: data loaded")
+				assert_with_message(calls["n"] == 1, f"use_wal={use_wal}: first read did not reload", 1, calls["n"])
+				with open(test_file, "rb") as f:
+					unchanged = f.read() == content
+				assert_with_message(unchanged and _file_sig(test_file) == sig,
+					f"use_wal={use_wal}: open did not rewrite the snapshot")
+
+			# Change detection still works after the m_time fix.
+			calls["n"] = 0
+			reader = PyroTable(test_file, use_wal=False, sig=False)
+			tb.set_cell("id", 0, 99)
+			assert_with_message(reader.get_cell("id", 0) == 99 and calls["n"] == 2,
+				"Reader reloads once after another instance writes", 2, calls["n"])
+		finally:
+			PyroDB._loaddb = orig
+			_cleanup_db_files(test_file)
+
+	@timed_test
+	@requires_save_load
 	def test_wal_auto_checkpoint():
 		"""wal_max_bytes: a commit that leaves the WAL at/over the limit checkpoints (bounded growth)."""
 		print('\n=== Testing WAL Auto Checkpoint (wal_max_bytes) ===')
@@ -7579,6 +7625,7 @@ if __name__ in ("__main__", "__mp_main__"):
 			test_wal_logged_ops,
 			test_wal_replay_rescan,
 			test_wal_open_single_load,
+			test_open_no_reload_rewrite,
 			test_wal_auto_checkpoint,
 			test_wal_crash_injection,
 			test_wal_idempotency,
