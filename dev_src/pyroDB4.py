@@ -221,7 +221,7 @@ import sys
 import time
 import zlib
 import random
-from tempfile import NamedTemporaryFile
+import tempfile
 import csv
 import copy as datacopy
 from types import FunctionType
@@ -880,11 +880,18 @@ class PyroDB(object):
 
 	key_string_error = TypeError('Key/name must be a string!')
 
-	def __init__(self, location: Union[str, bytes]="", auto_dump=True, sig=True, auto_rescan=True, task_executor=None, *args, **kwargs):
+	def __init__(self, location: Union[str, bytes]="", auto_dump=True, sig=True, auto_rescan=True, task_executor=None, use_wal=False, sync=False, *args, **kwargs):
 		"""Creates a database object and loads the data from the location path.
 		If the file does not exist it will be created on the first update.
+
+		- use_wal: owned by a WAL PyroTable; skip the initial dump (the table checkpoints)
+		- sync: fsync snapshot writes
 		"""
 		self.task_executor = task_executor or TaskExecutor()
+		self.use_wal = use_wal
+		self.sync = sync
+		# Set by a WAL PyroTable so PyroDB-level rescans go through WAL replay.
+		self._rescan_hook = None
 
 		self.db = {}  # Initialize the database as an empty dictionary
 		self.__db__ = {
@@ -910,7 +917,8 @@ class PyroDB(object):
 		if sig:
 			self.set_sigterm_handler()
 
-		self._autodumpdb()
+		if not use_wal:
+			self._autodumpdb()
 
 	def __init__db__(self, meta: dict = None):
 		"""
@@ -1015,6 +1023,9 @@ class PyroDB(object):
 		if self.in_memory or not rescan:
 			return False
 
+		if self._rescan_hook is not None:
+			return self._rescan_hook(rescan)
+
 		if os.path.exists(self.location):
 			m_time = os.stat(self.location).st_mtime
 			# print("⏰", "OWN:", self.m_time, "NEW:", m_time)
@@ -1084,33 +1095,60 @@ class PyroDB(object):
 
 		# Use file lock during dump
 		with FileLock(savepath + '.lock'):
-			try:
-				payload = msgpack.packb(
-					db,
-					default=PyroDB.___encode_datetime___,
-					**_MSGPACK_PACK_KW,
-				)
-			except Exception as e:
-				logger.error('Error while packing db for dump: %s', e)
-				logger.error('Location: %s', savepath)
-				raise e
-			# Temporary file to dump the data
-			with NamedTemporaryFile(mode='wb', delete=False) as f:
-				try:
-					f.write(payload)
-				except Exception as e:
-					logger.error('Error while dumping to temp file: %s', e)
-					logger.error('Location: %s, (to be moved to %s)', f.name, savepath)
-					raise e
-			# Only move the file if it's not empty
-			if os.stat(f.name).st_size != 0:
-				shutil.move(f.name, savepath)
+			self._write_snapshot(savepath, db, sync=self.sync)
 
 			# If saving to own location, update the modified time
 			if save_own:
 				self.m_time = os.stat(savepath).st_mtime
 
+	@staticmethod
+	def _write_snapshot(savepath, db, sync=False):
+		"""
+		Atomically replace ``savepath`` with the msgpack of ``db``.
 
+		Temp file lives in the same directory (``os.replace`` must not cross
+		devices). With ``sync``: fsync the temp file before the rename and the
+		parent directory after it (POSIX only; Windows cannot fsync a directory).
+		Caller holds ``savepath + '.lock'``.
+		"""
+		try:
+			payload = msgpack.packb(
+				db,
+				default=PyroDB.___encode_datetime___,
+				**_MSGPACK_PACK_KW,
+			)
+		except Exception as e:
+			logger.error('Error while packing db for dump: %s', e)
+			logger.error('Location: %s', savepath)
+			raise e
+		if not payload:
+			return
+
+		parent = os.path.dirname(os.path.abspath(savepath))
+		fd, tmp = tempfile.mkstemp(dir=parent, prefix=os.path.basename(savepath) + ".", suffix=".tmp")
+		try:
+			with os.fdopen(fd, 'wb') as f:
+				f.write(payload)
+				if sync:
+					f.flush()
+					os.fsync(f.fileno())
+			_retry_on_permission(os.replace, tmp, savepath)
+		except BaseException:
+			try:
+				os.remove(tmp)
+			except OSError:
+				pass
+			raise
+
+		if sync and os.name == 'posix':
+			try:
+				dfd = os.open(parent, os.O_RDONLY)
+				try:
+					os.fsync(dfd)
+				finally:
+					os.close(dfd)
+			except OSError:
+				pass
 
 	# save = PROXY OF SELF.DUMP()
 	save = dump
@@ -1303,17 +1341,23 @@ def _int_to_alpha(n):
 
 
 class PyroTable(dict):
-	def __init__(self, filepath: Union[str, bytes]="", auto_dump=True, sig=True, always_rescan=False, *args, **kwargs):
+	def __init__(self, filepath: Union[str, bytes]="", auto_dump=True, sig=True, always_rescan=False, *args, use_wal=False, sync=True, **kwargs):
 		"""
 		args:
 		- filepath: path to the db file (default: `""` or in-memory db)
 		- auto_dump: auto dump on change (default: `True`)
 		- sig: Add signal handler for graceful shutdown (default: `True`)
 		- always_rescan: always rescan the file for changes (default: `False`)
+		- use_wal: log row/cell mutations to `{filepath}.wal` instead of rewriting the snapshot (default: `False`)
+		- sync: (WAL mode) fsync on commit and checkpoint (default: `True`)
 		"""
 		self.task_executor = TaskExecutor()
 
 		self.CC = self.gen_CC()  # consider it as country code and every items are its people. they gets NID
+
+		self.use_wal = bool(use_wal)
+		self.sync = sync
+		self._wal_force_checkpoint = False
 
 		# Shared executor: table mutations and dump/rescan use the same lock domain
 		self._pk = PyroDB(
@@ -1322,6 +1366,8 @@ class PyroTable(dict):
 			sig=sig,
 			auto_rescan=True,
 			task_executor=self.task_executor,
+			use_wal=self.use_wal,
+			sync=bool(sync) if self.use_wal else False,
 			*args, **kwargs,
 		)
 		self.column_names_set = OrderedDict((k, None) for k in self._pk.db.keys())
@@ -1343,13 +1389,10 @@ class PyroTable(dict):
 
 		self.height = self.get_height(rescan=False)
 
+		self._ids_from_meta()
 
-		self._pk.__db__["__id__"] = self._pk.__db__.get("__id__", None)
-		if self._pk.__db__["__id__"] is None or len(self._pk.__db__["__id__"]) != self.height:
-			# if __id__ is not set, generate a new one
-			self.ids = self._gen_ids()
-			self._pk.__db__["__id__"] = self.ids.ids
-		self.refresh_ids(self._pk.__db__["__id__"])
+		self._wal_obj: Optional[_WriteAheadLog] = None
+		self._wal_reset_state()
 
 		self._load_registered_indexes()
 
@@ -1369,6 +1412,79 @@ class PyroTable(dict):
 		def wrapper(other: "PyroTable", *args, **kwargs):
 			return other.task_executor.lock(func, other, *args, **kwargs)
 		return wrapper
+
+	# ---------------------------------------------------------------- WAL
+	# See pyroDB4_WAL_SPEC.md. Offsets/gen are only touched under {loc}.lock.
+
+	def _ids_from_meta(self):
+		"""Load row ids from ``__id__``; regenerate (and force a checkpoint) if missing/mismatched."""
+		ids = self._pk.__db__.get("__id__", None)
+		if ids is None or len(ids) != self.height:
+			self.refresh_ids(None)
+			# New ids must reach the snapshot before any WAL record refers to them.
+			self._wal_force_checkpoint = True
+		else:
+			self.refresh_ids(ids)
+
+	def _wal_reset_state(self):
+		self._wal_pending: List[dict] = []
+		self._wal_snap_sig: Optional[Tuple[int, int]] = None
+		self._wal_seen: Optional[Tuple[int, int]] = None
+		self._wal_gen: Optional[int] = None  # None => WAL stale/missing
+		self._wal_offset = 0
+
+	@property
+	def _wal(self) -> _WriteAheadLog:
+		path = self._pk.location + ".wal"
+		if self._wal_obj is None or self._wal_obj.path != path:
+			self._wal_obj = _WriteAheadLog(path, sync=self.sync)
+		return self._wal_obj
+
+	def _wal_active(self) -> bool:
+		return self.use_wal and SAVE_LOAD and not self._pk.in_memory and bool(self._pk.location)
+
+	def _wal_lock(self) -> FileLock:
+		return FileLock(self._pk.location + ".lock")
+
+	def _wal_snapshot_sig(self) -> Optional[Tuple[int, int]]:
+		try:
+			st = os.stat(self._pk.location)
+		except FileNotFoundError:
+			return None
+		return (st.st_mtime_ns, st.st_size)
+
+	def _snapshot_gen(self) -> int:
+		return int(self._pk.__db__.get("__wal_gen__") or 0)
+
+	def _wal_header_matches(self) -> bool:
+		"""WAL is valid only if frame 0 is checkpoint{gen == snapshot.__wal_gen__}."""
+		if self._wal_snapshot_sig() is None:
+			return False
+		hdr = self._wal.read_header()
+		return hdr is not None and hdr[0]["gen"] == self._snapshot_gen()
+
+	def _wal_checkpoint_locked(self):
+		"""Snapshot + WAL reset. Caller holds the TaskExecutor lock and {loc}.lock."""
+		gen = self._snapshot_gen() + 1
+		self._pk.__db__["__wal_gen__"] = gen
+		self._pk.__db__["__id__"] = self.ids.ids
+		loc = self._pk.location
+		PyroDB._write_snapshot(loc, self._pk.__db__, sync=self.sync)
+		st = os.stat(loc)
+		self._wal_offset = self._wal.reset(gen, st.st_mtime_ns)
+		self._wal_gen = gen
+		self._wal_snap_sig = (st.st_mtime_ns, st.st_size)
+		self._wal_seen = self._wal.stat()
+		self._pk.m_time = st.st_mtime
+		self._wal_pending.clear()
+		self._wal_force_checkpoint = False
+
+	def _wal_checkpoint(self):
+		if not self._wal_active():
+			self._wal_pending.clear()
+			return
+		with self._wal_lock():
+			self._wal_checkpoint_locked()
 
 	# @threadsafe_decorator
 	# def _generate_uuid(self) -> int:
@@ -1719,8 +1835,11 @@ class PyroTable(dict):
 
 	def delete_file(self):
 		"""
-		Delete the file from the disk
+		Delete the file (and its WAL) from the disk
 		"""
+		if self.use_wal and self._pk.location:
+			self._wal.remove()
+			self._wal_reset_state()
 		self._pk.delete_file()
 
 	def gen_CC(self):
@@ -1797,6 +1916,10 @@ class PyroTable(dict):
 		### if the file exists, the data will be overwritten
 		"""
 		self._pk.set_location(location)
+		if self.use_wal:
+			# Unknown WAL at the new path: the next flush checkpoints.
+			self._wal_reset_state()
+			self._wal_force_checkpoint = True
 
 	@property
 	def location(self):
@@ -3306,7 +3429,14 @@ class PyroTable(dict):
 		Dump the table to the db file
 		- ignored if the table is in-memory
 		- filepath: path to the file (if None, use current filepath)
+
+		In WAL mode, dumping to the own location is a checkpoint (snapshot + WAL reset);
+		dumping elsewhere is a plain snapshot export.
 		"""
+		if self._wal_active() and (
+			filepath is None or os.path.abspath(filepath) == os.path.abspath(self._pk.location)
+		):
+			return self.task_executor.lock(self._wal_checkpoint)
 		self._pk.dump(filepath=filepath)
 
 	def auto_dump(self, AD=True):
@@ -6508,6 +6638,80 @@ if __name__ == "__main__":
 		finally:
 			_safe_remove(test_file)
 
+	def _snapshot_meta(path):
+		with open(path, "rb") as f:
+			return msgpack.unpackb(f.read(), raw=False, object_hook=PyroDB.___decode_datetime___)
+
+	def _leftover_tmp(path):
+		parent = os.path.dirname(os.path.abspath(path))
+		base = os.path.basename(path) + "."
+		return [n for n in os.listdir(parent) if n.startswith(base) and n.endswith(".tmp")]
+
+	def _cleanup_db_files(path):
+		for suffix in ("", ".wal", ".lock"):
+			_safe_remove(path + suffix)
+
+	@timed_test
+	@requires_save_load
+	def test_wal_checkpoint():
+		"""Checkpoint writes snapshot (gen+1) then resets WAL to checkpoint{gen}."""
+		print('\n=== Testing WAL Checkpoint ===')
+		test_file = "__wal_checkpoint_test.pdb"
+		_cleanup_db_files(test_file)
+		try:
+			tb = PyroTable(test_file, use_wal=True)
+			tb.add_column("id", "name")
+			tb.add_rows([{"id": 1, "name": "a"}, {"id": 2, "name": "b"}])
+			tb.dump()
+			meta = _snapshot_meta(test_file)
+			hdr = tb._wal.read_header()
+			assert_with_message(hdr is not None, "WAL header written")
+			assert_with_message(meta["__wal_gen__"] == hdr[0]["gen"], "Header gen == snapshot gen",
+				meta["__wal_gen__"], hdr[0]["gen"])
+			assert_with_message(os.path.getsize(test_file + ".wal") == hdr[1], "WAL holds only the checkpoint frame")
+			assert_with_message(meta["__id__"] == tb.ids.as_list(), "Snapshot __id__ matches ids")
+			assert_with_message(meta["__db__"]["name"] == ["a", "b"], "Snapshot data")
+			assert_with_message(hdr[0]["snapshot_mtime"] == os.stat(test_file).st_mtime_ns, "Header records snapshot mtime")
+
+			gen1 = meta["__wal_gen__"]
+			tb.dump()
+			assert_with_message(_snapshot_meta(test_file)["__wal_gen__"] == gen1 + 1, "Second checkpoint bumps gen")
+			assert_with_message(tb._wal_header_matches(), "Header valid after checkpoint")
+			assert_with_message(_leftover_tmp(test_file) == [], "No temp files left behind")
+			extra = [n for n in os.listdir(".") if n.startswith(test_file) and n not in
+				(test_file, test_file + ".wal", test_file + ".lock")]
+			assert_with_message(extra == [], "Only {loc}, {loc}.wal, {loc}.lock exist", [], extra)
+
+			# Crash between os.replace and WAL reset: snapshot gen ahead of WAL header -> stale.
+			meta = _snapshot_meta(test_file)
+			meta["__wal_gen__"] += 1
+			with open(test_file, "wb") as f:
+				f.write(msgpack.packb(meta, **_MSGPACK_PACK_KW))
+			tb._pk._loaddb()
+			assert_with_message(not tb._wal_header_matches(), "Stale-gen WAL detected")
+
+			# Export to another path is a plain snapshot (no WAL there).
+			export = "__wal_checkpoint_export.pdb"
+			tb.dump(export)
+			assert_with_message(os.path.exists(export) and not os.path.exists(export + ".wal"), "Export writes no WAL")
+			_cleanup_db_files(export)
+
+			# sync=False still produces a valid checkpoint.
+			tb2 = PyroTable(test_file, use_wal=True, sync=False)
+			tb2.dump()
+			assert_with_message(tb2._wal_header_matches(), "sync=False checkpoint valid")
+
+			tb2.delete_file()
+			assert_with_message(not os.path.exists(test_file + ".wal"), "delete_file removes WAL")
+
+			# Non-WAL mode never creates a WAL and leaves no temp file.
+			tb3 = PyroTable(test_file)
+			tb3.add_column("x")
+			assert_with_message(not os.path.exists(test_file + ".wal"), "Non-WAL dump writes no WAL")
+			assert_with_message(_leftover_tmp(test_file) == [], "Non-WAL dump leaves no temp file")
+		finally:
+			_cleanup_db_files(test_file)
+
 	@timed_test
 	def run_all_tests():
 		"""Run all test cases with timing and proper cleanup"""
@@ -6543,6 +6747,7 @@ if __name__ == "__main__":
 			test_full_throttle,
 			test_v3_snapshot_compat,
 			test_wal_codec,
+			test_wal_checkpoint,
 		]
 		only = [t.strip() for t in os.environ.get("PYRODB_TESTS", "").split(",") if t.strip()]
 		if only:
