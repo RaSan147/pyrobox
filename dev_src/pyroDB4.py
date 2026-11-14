@@ -216,8 +216,10 @@ import json
 import signal
 import atexit
 import shutil
+import struct
 import sys
 import time
+import zlib
 import random
 from tempfile import NamedTemporaryFile
 import csv
@@ -674,6 +676,204 @@ class TaskExecutor:
 		future.set_exception(exception)
 		if exception.__traceback__ is None:
 			exception.__traceback__ = traceback.extract_stack()
+
+
+def _retry_on_permission(func, *args, retries=10, delay=0.02, **kwargs):
+	"""Run ``func``; retry on Windows transient sharing violations (PermissionError)."""
+	for attempt in range(retries):
+		try:
+			return func(*args, **kwargs)
+		except PermissionError:
+			if attempt + 1 >= retries:
+				raise
+			time.sleep(delay * (attempt + 1))
+
+
+_fdatasync = getattr(os, "fdatasync", os.fsync)
+
+
+class WALRecordError(ValueError):
+	"""A WAL record is missing required fields or has an unknown kind."""
+
+
+# kind -> required fields (besides "k"). See pyroDB4_WAL_SPEC.md section 3.
+_WAL_SCHEMA: Dict[str, Tuple[str, ...]] = {
+	"checkpoint": ("gen", "snapshot_mtime"),
+	"txn_begin": ("txid",),
+	"txn_commit": ("txid",),
+	"set_cell": ("col", "row_id", "val"),
+	"add_row": ("row_id", "pos", "vals"),
+	"del_row": ("row_id",),
+	"add_column": ("name",),
+	"del_column": ("name",),
+	"meta": ("key", "val"),
+}
+
+_WAL_INT_FIELDS = ("gen", "snapshot_mtime", "txid", "row_id")
+
+
+def _wal_validate(rec) -> None:
+	if not isinstance(rec, dict):
+		raise WALRecordError(f"WAL record must be a dict, got {type(rec).__name__}")
+	kind = rec.get("k")
+	fields = _WAL_SCHEMA.get(kind)
+	if fields is None:
+		raise WALRecordError(f"Unknown WAL record kind: {kind!r}")
+	for field in fields:
+		if field not in rec:
+			raise WALRecordError(f"WAL record {kind!r} missing required field {field!r}")
+		if field in _WAL_INT_FIELDS and (not isinstance(rec[field], int) or isinstance(rec[field], bool)):
+			raise WALRecordError(f"WAL record {kind!r} field {field!r} must be int")
+	if kind == "add_row":
+		if rec["pos"] is not None and not isinstance(rec["pos"], int):
+			raise WALRecordError("WAL record 'add_row' field 'pos' must be int or None")
+		if not isinstance(rec["vals"], dict):
+			raise WALRecordError("WAL record 'add_row' field 'vals' must be a map")
+
+
+class _WriteAheadLog:
+	"""
+	Framed append-only log: ``[u32 len][u32 crc32][msgpack payload]`` (little endian).
+
+	Stateless about the table; offsets are owned by the caller (PyroTable), which must
+	hold ``{loc}.lock`` around every write.
+	"""
+	FRAME_HEADER = struct.Struct("<II")
+
+	def __init__(self, path: str, sync: bool = True):
+		self.path = path
+		self.sync = sync
+
+	@staticmethod
+	def encode_frame(rec: dict) -> bytes:
+		_wal_validate(rec)
+		payload = msgpack.packb(rec, default=PyroDB.___encode_datetime___, **_MSGPACK_PACK_KW)
+		return _WriteAheadLog.FRAME_HEADER.pack(len(payload), zlib.crc32(payload) & 0xFFFFFFFF) + payload
+
+	@staticmethod
+	def decode_frames(data: bytes, base_offset: int = 0) -> List[Tuple[dict, int]]:
+		"""
+		Decode consecutive frames. Returns ``[(record, end_offset), ...]`` where
+		``end_offset`` is absolute (``base_offset`` + position after the frame).
+		Stops silently at the first torn/corrupt/invalid frame (torn tail).
+		"""
+		out = []
+		pos = 0
+		hsize = _WriteAheadLog.FRAME_HEADER.size
+		n = len(data)
+		while pos + hsize <= n:
+			length, crc = _WriteAheadLog.FRAME_HEADER.unpack_from(data, pos)
+			start = pos + hsize
+			end = start + length
+			if end > n:
+				break
+			payload = data[start:end]
+			if zlib.crc32(payload) & 0xFFFFFFFF != crc:
+				break
+			try:
+				rec = msgpack.unpackb(payload, raw=False, object_hook=PyroDB.___decode_datetime___)
+				_wal_validate(rec)
+			except Exception:
+				break
+			out.append((rec, base_offset + end))
+			pos = end
+		return out
+
+	@staticmethod
+	def committed_txns(frames: List[Tuple[dict, int]]) -> Tuple[List[List[dict]], Optional[int]]:
+		"""
+		Group frames into committed transactions.
+		Returns ``(txns, end_of_last_commit)``; records outside a txn and an
+		unterminated trailing txn are discarded.
+		"""
+		txns = []
+		last_end = None
+		cur = None
+		cur_txid = None
+		for rec, end in frames:
+			kind = rec["k"]
+			if kind == "txn_begin":
+				cur = []
+				cur_txid = rec["txid"]
+			elif kind == "txn_commit":
+				if cur is not None and rec["txid"] == cur_txid:
+					txns.append(cur)
+					last_end = end
+				cur = None
+				cur_txid = None
+			elif kind == "checkpoint":
+				cur = None
+				cur_txid = None
+			elif cur is not None:
+				cur.append(rec)
+		return txns, last_end
+
+	def stat(self) -> Optional[Tuple[int, int]]:
+		"""(size, mtime_ns) of the WAL file, or None if missing."""
+		try:
+			st = os.stat(self.path)
+		except FileNotFoundError:
+			return None
+		return (st.st_size, st.st_mtime_ns)
+
+	def read_from(self, offset: int = 0) -> List[Tuple[dict, int]]:
+		try:
+			with open(self.path, "rb") as f:
+				f.seek(offset)
+				data = f.read()
+		except FileNotFoundError:
+			return []
+		return self.decode_frames(data, base_offset=offset)
+
+	def read_header(self) -> Optional[Tuple[dict, int]]:
+		"""First frame if it is a valid checkpoint record, else None."""
+		frames = self.read_from(0)
+		if frames and frames[0][0]["k"] == "checkpoint":
+			return frames[0]
+		return None
+
+	def _sync_fd(self, f, full=False):
+		if not self.sync:
+			return
+		f.flush()
+		(os.fsync if full else _fdatasync)(f.fileno())
+
+	def append_txn(self, records: List[dict], offset: int, txid: int) -> int:
+		"""
+		Write ``txn_begin, *records, txn_commit`` at ``offset`` (truncating anything
+		after it: torn or unterminated tail). Returns the new end offset.
+		"""
+		blob = b"".join(
+			[self.encode_frame({"k": "txn_begin", "txid": txid})]
+			+ [self.encode_frame(r) for r in records]
+			+ [self.encode_frame({"k": "txn_commit", "txid": txid})]
+		)
+
+		def _write():
+			with open(self.path, "r+b") as f:
+				f.seek(offset)
+				f.truncate()
+				f.write(blob)
+				self._sync_fd(f)
+		_retry_on_permission(_write)
+		return offset + len(blob)
+
+	def reset(self, gen: int, snapshot_mtime: int) -> int:
+		"""Rewrite the WAL to contain only ``checkpoint{gen}``. Returns the header end offset."""
+		header = self.encode_frame({"k": "checkpoint", "gen": gen, "snapshot_mtime": snapshot_mtime})
+
+		def _write():
+			with open(self.path, "wb") as f:
+				f.write(header)
+				self._sync_fd(f, full=True)
+		_retry_on_permission(_write)
+		return len(header)
+
+	def remove(self):
+		def _rm():
+			if os.path.exists(self.path):
+				os.remove(self.path)
+		_retry_on_permission(_rm)
 
 
 class PyroDB(object):
@@ -6221,6 +6421,94 @@ if __name__ == "__main__":
 			_safe_remove(test_file + ".lock")
 
 	@timed_test
+	@requires_save_load
+	def test_wal_codec():
+		"""Frame encode/decode, torn tail at every byte, bad CRC, schema validation."""
+		print('\n=== Testing WAL Codec ===')
+		W = _WriteAheadLog
+		dt = datetime.datetime(2026, 1, 2, 3, 4, 5, 678000)
+		recs = [
+			{"k": "checkpoint", "gen": 3, "snapshot_mtime": 123},
+			{"k": "txn_begin", "txid": 7},
+			{"k": "set_cell", "col": "name", "row_id": 42, "val": "x"},
+			{"k": "add_row", "row_id": 43, "pos": None, "vals": {"name": "y", "when": dt}},
+			{"k": "add_row", "row_id": 44, "pos": 0, "vals": {}},
+			{"k": "del_row", "row_id": 42},
+			{"k": "txn_commit", "txid": 7},
+		]
+		frames = [W.encode_frame(r) for r in recs]
+		blob = b"".join(frames)
+		decoded = W.decode_frames(blob)
+		assert_with_message([r for r, _ in decoded] == recs, "Round trip (incl. datetime)")
+		assert_with_message(decoded[-1][1] == len(blob), "End offset of last frame", len(blob), decoded[-1][1])
+
+		# Torn tail at every byte boundary: only fully written frames decode.
+		boundaries = []
+		acc = 0
+		for fr in frames:
+			acc += len(fr)
+			boundaries.append(acc)
+		for cut in range(len(blob) + 1):
+			n_ok = len(W.decode_frames(blob[:cut]))
+			expected = sum(1 for b in boundaries if b <= cut)
+			if n_ok != expected:
+				raise AssertionError(f"❌ torn tail at {cut}: decoded {n_ok}, expected {expected}")
+		print(f"✅ Torn tail at all {len(blob) + 1} cut points")
+
+		# Committed txn grouping ignores an unterminated tail.
+		txns, last_end = W.committed_txns(W.decode_frames(blob[:boundaries[-1] - 1]))
+		assert_with_message(txns == [] and last_end is None, "Unterminated txn discarded")
+		txns, last_end = W.committed_txns(decoded)
+		assert_with_message(len(txns) == 1 and len(txns[0]) == 4 and last_end == len(blob), "Committed txn grouped")
+		mismatched = blob[:boundaries[-2]] + W.encode_frame({"k": "txn_commit", "txid": 8})
+		txns, _ = W.committed_txns(W.decode_frames(mismatched))
+		assert_with_message(txns == [], "Commit with mismatched txid discarded")
+
+		# Bad CRC: flip one payload byte in frame 2; decoding stops before it.
+		bad = bytearray(blob)
+		bad[boundaries[1] + W.FRAME_HEADER.size] ^= 0xFF
+		assert_with_message(len(W.decode_frames(bytes(bad))) == 2, "Decode stops at bad CRC")
+
+		# Schema: missing required field / unknown kind / wrong type rejected on encode.
+		for broken in (
+			{"k": "set_cell", "col": "a", "val": 1},
+			{"k": "add_row", "row_id": 1, "vals": {}},
+			{"k": "nope"},
+			{"k": "del_row", "row_id": "1"},
+			{"k": "add_row", "row_id": 1, "pos": "0", "vals": {}},
+		):
+			try:
+				W.encode_frame(broken)
+			except WALRecordError:
+				pass
+			else:
+				raise AssertionError(f"❌ schema accepted {broken}")
+		print("✅ Schema rejects invalid records on encode")
+
+		# Schema is also enforced on decode (hand-crafted frame, valid CRC).
+		payload = msgpack.packb({"k": "del_row"}, **_MSGPACK_PACK_KW)
+		raw = W.FRAME_HEADER.pack(len(payload), zlib.crc32(payload) & 0xFFFFFFFF) + payload
+		assert_with_message(W.decode_frames(frames[0] + raw) == decoded[:1], "Schema enforced on decode")
+
+		# File-level helpers: reset, append_txn truncates the tail at offset.
+		test_file = "__wal_codec_test.pdb.wal"
+		try:
+			wal = W(test_file, sync=True)
+			hdr_end = wal.reset(gen=1, snapshot_mtime=99)
+			hdr = wal.read_header()
+			assert_with_message(hdr is not None and hdr[0]["gen"] == 1 and hdr[1] == hdr_end, "reset writes header")
+			end1 = wal.append_txn([{"k": "del_row", "row_id": 5}], hdr_end, txid=1)
+			with open(test_file, "ab") as f:
+				f.write(b"\x10\x00\x00\x00garbage")  # torn tail
+			end2 = wal.append_txn([{"k": "del_row", "row_id": 6}], end1, txid=2)
+			txns, last = W.committed_txns(wal.read_from(0))
+			assert_with_message(
+				[t[0]["row_id"] for t in txns] == [5, 6] and last == end2 == os.path.getsize(test_file),
+				"append_txn truncates torn tail before writing")
+		finally:
+			_safe_remove(test_file)
+
+	@timed_test
 	def run_all_tests():
 		"""Run all test cases with timing and proper cleanup"""
 		tests = [
@@ -6254,7 +6542,11 @@ if __name__ == "__main__":
 			test_extreme_concurrency,
 			test_full_throttle,
 			test_v3_snapshot_compat,
+			test_wal_codec,
 		]
+		only = [t.strip() for t in os.environ.get("PYRODB_TESTS", "").split(",") if t.strip()]
+		if only:
+			tests = [t for t in tests if t.__name__ in only]
 
 		start_time = time.perf_counter()
 		failures = 0
