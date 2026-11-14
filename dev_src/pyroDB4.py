@@ -5161,144 +5161,10 @@ _PickleTRow = _PyroTRow
 _PickleTColumn = _PyroTColumn
 
 
-def _extreme_concurrency_process_worker(
-	process_id, lock, TEST_FILE, THREADS_PER_PROCESS,
-	expected_values, errors, operation_counter, OPERATIONS_PER_THREAD, activities, use_wal=False):
-	"""Worker function for multiprocessing with fixed concurrency issues"""
 
-	# Initialize table with lock protection
-	with lock:
-		tb = PyroTable(TEST_FILE, use_wal=use_wal)
-	threads = []
-
-	def worker(table: PyroTable, process_id, thread_id):
-		nonlocal errors, operation_counter
-		rng = random.Random(process_id * 1000 + thread_id + int(time.time()))
-		local_dump_counter = 0  # Batch dumps locally
-
-		for i in range(OPERATIONS_PER_THREAD):
-			# OPTIMIZATION: Reduced sleep by 10x for performance testing
-			time.sleep(rng.uniform(0.001, 0.01))  # Was 0.01-0.1, now 10x faster
-			try:
-				# Atomic operation selection and execution
-				with lock:
-					operation_counter.value += 1
-				available_ops = []
-
-				# Determine possible operations based on current state
-				if expected_values:
-					available_ops.extend(['update', 'delete', 'read'])
-				available_ops.append('insert')  # Always allow inserts
-
-				op_type = rng.choice(available_ops)
-
-				row_id = rng.randint(1, 10000000)
-				value = rng.randint(1, 10000)
-
-				# Execute operation with appropriate locking
-				if op_type == 'insert':
-					with lock:
-						if row_id not in expected_values:
-							expected_values[row_id] = value
-							row = table.add_row({
-								"id": row_id,
-								"name": f"proc_{process_id}_thread_{thread_id}",
-								"value": value,
-								"notes": f"op_{i}"
-							})
-
-							# OPTIMIZATION: Skip activity tracking for speed
-							# activities.append({row_id: ("inserted", value, row.to_dict())})
-
-				elif op_type == 'update':
-					with lock:
-						if row_id in expected_values:
-							expected_values[row_id] = value
-							row = table.find_1st_row(kw=row_id, column="id", return_obj=True)
-
-							if not row:
-								errors.append(f"Row {row_id} not found for update")
-								continue
-
-							row["value"] = value
-
-				elif op_type == 'delete':
-					with lock:
-						if row_id in expected_values:
-							expected_values.pop(row_id)
-							row = table.find_1st_row(kw=row_id, column="id", return_obj=True)
-
-							if not row:
-								errors.append(f"Row {row_id} not found for deletion")
-								continue
-
-							row.del_row()
-
-				elif op_type == 'read':
-					with lock:
-						if row_id in expected_values:
-							expected_value = expected_values[row_id]
-							row = table.find_1st_row(kw=row_id, column="id", return_obj=True)
-
-							if not row:
-								errors.append(f"Row {row_id} not found for read")
-								continue
-
-							if row["value"] != expected_value:
-								errors.append(f"Value mismatch for row {row_id}")
-
-				# OPTIMIZATION: Batch file dumps every 200 ops instead of probabilistic 0.5%
-				local_dump_counter += 1
-				if local_dump_counter >= 200:
-					with lock:
-						table.dump(TEST_FILE)
-					local_dump_counter = 0
-
-			except Exception as e:
-				error_msg = f"Process {process_id} Thread {thread_id} Op {i}: {str(e)}"
-				errors.append(error_msg)
-
-	# Start threads
-	for thread_id in range(THREADS_PER_PROCESS):
-		t = threading.Thread(
-			target=worker,
-			args=(tb, process_id, thread_id),
-			daemon=True
-		)
-		threads.append(t)
-		t.start()
-
-	# Wait for threads with timeout
-	for t in threads:
-		t.join(timeout=120)  # 2 minute timeout per thread
-
-	# Final save
-	with lock:
-		tb.dump(TEST_FILE)
-		# tb.to_json(f"{TEST_FILE}{process_id}_final.json")
-
-def _wal_kill_writer(path, committed, batch=3):
-	"""Subprocess: append batches of rows (one txn each) forever; report committed rows."""
-	tb = PyroTable(path, use_wal=True, sync=False, sig=False)
-	seq = tb.height
-	while True:
-		tb.add_rows([{"seq": seq + i, "batch": seq // batch} for i in range(batch)])
-		seq += batch
-		committed.value = seq
-
-
-def _wal_multiwriter_worker(path, pid, n_ops, committed, checkpoint_every=0):
-	"""Subprocess: insert own rows and update them, coordinating only via {loc}.lock."""
-	tb = PyroTable(path, use_wal=True, sync=False, sig=False)
-	for i in range(n_ops):
-		row = tb.add_row({"pid": pid, "seq": i, "val": None})
-		row["val"] = i * 2
-		committed.value = i + 1
-		if checkpoint_every and (i + 1) % checkpoint_every == 0:
-			tb.dump()
-
-
-if __name__ == "__main__":
+# "__mp_main__": spawn-start children (Windows) re-import this file under that name and
+# must find the subprocess workers defined below; only "__main__" runs the suite.
+if __name__ in ("__main__", "__mp_main__"):
 	import string
 	import os
 	import time
@@ -5338,6 +5204,144 @@ if __name__ == "__main__":
 				raise
 		wrapper._is_skipped = False
 		return wrapper
+
+
+	def _extreme_concurrency_process_worker(
+		process_id, lock, TEST_FILE, THREADS_PER_PROCESS,
+		expected_values, errors, operation_counter, OPERATIONS_PER_THREAD, activities, use_wal=False):
+		"""Worker function for multiprocessing with fixed concurrency issues"""
+
+		# Initialize table with lock protection
+		with lock:
+			tb = PyroTable(TEST_FILE, use_wal=use_wal)
+		threads = []
+
+		def worker(table: PyroTable, process_id, thread_id):
+			nonlocal errors, operation_counter
+			rng = random.Random(process_id * 1000 + thread_id + int(time.time()))
+			local_dump_counter = 0  # Batch dumps locally
+
+			for i in range(OPERATIONS_PER_THREAD):
+				# OPTIMIZATION: Reduced sleep by 10x for performance testing
+				time.sleep(rng.uniform(0.001, 0.01))  # Was 0.01-0.1, now 10x faster
+				try:
+					# Atomic operation selection and execution
+					with lock:
+						operation_counter.value += 1
+					available_ops = []
+
+					# Determine possible operations based on current state
+					if expected_values:
+						available_ops.extend(['update', 'delete', 'read'])
+					available_ops.append('insert')  # Always allow inserts
+
+					op_type = rng.choice(available_ops)
+
+					row_id = rng.randint(1, 10000000)
+					value = rng.randint(1, 10000)
+
+					# Execute operation with appropriate locking
+					if op_type == 'insert':
+						with lock:
+							if row_id not in expected_values:
+								expected_values[row_id] = value
+								row = table.add_row({
+									"id": row_id,
+									"name": f"proc_{process_id}_thread_{thread_id}",
+									"value": value,
+									"notes": f"op_{i}"
+								})
+
+								# OPTIMIZATION: Skip activity tracking for speed
+								# activities.append({row_id: ("inserted", value, row.to_dict())})
+
+					elif op_type == 'update':
+						with lock:
+							if row_id in expected_values:
+								expected_values[row_id] = value
+								row = table.find_1st_row(kw=row_id, column="id", return_obj=True)
+
+								if not row:
+									errors.append(f"Row {row_id} not found for update")
+									continue
+
+								row["value"] = value
+
+					elif op_type == 'delete':
+						with lock:
+							if row_id in expected_values:
+								expected_values.pop(row_id)
+								row = table.find_1st_row(kw=row_id, column="id", return_obj=True)
+
+								if not row:
+									errors.append(f"Row {row_id} not found for deletion")
+									continue
+
+								row.del_row()
+
+					elif op_type == 'read':
+						with lock:
+							if row_id in expected_values:
+								expected_value = expected_values[row_id]
+								row = table.find_1st_row(kw=row_id, column="id", return_obj=True)
+
+								if not row:
+									errors.append(f"Row {row_id} not found for read")
+									continue
+
+								if row["value"] != expected_value:
+									errors.append(f"Value mismatch for row {row_id}")
+
+					# OPTIMIZATION: Batch file dumps every 200 ops instead of probabilistic 0.5%
+					local_dump_counter += 1
+					if local_dump_counter >= 200:
+						with lock:
+							table.dump(TEST_FILE)
+						local_dump_counter = 0
+
+				except Exception as e:
+					error_msg = f"Process {process_id} Thread {thread_id} Op {i}: {str(e)}"
+					errors.append(error_msg)
+
+		# Start threads
+		for thread_id in range(THREADS_PER_PROCESS):
+			t = threading.Thread(
+				target=worker,
+				args=(tb, process_id, thread_id),
+				daemon=True
+			)
+			threads.append(t)
+			t.start()
+
+		# Wait for threads with timeout
+		for t in threads:
+			t.join(timeout=120)  # 2 minute timeout per thread
+
+		# Final save
+		with lock:
+			tb.dump(TEST_FILE)
+			# tb.to_json(f"{TEST_FILE}{process_id}_final.json")
+
+	def _wal_kill_writer(path, committed, batch=3):
+		"""Subprocess: append batches of rows (one txn each) forever; report committed rows."""
+		tb = PyroTable(path, use_wal=True, sync=False, sig=False)
+		seq = tb.height
+		while True:
+			tb.add_rows([{"seq": seq + i, "batch": seq // batch} for i in range(batch)])
+			seq += batch
+			committed.value = seq
+
+
+	def _wal_multiwriter_worker(path, pid, n_ops, committed, checkpoint_every=0):
+		"""Subprocess: insert own rows and update them, coordinating only via {loc}.lock."""
+		tb = PyroTable(path, use_wal=True, sync=False, sig=False)
+		for i in range(n_ops):
+			row = tb.add_row({"pid": pid, "seq": i, "val": None})
+			row["val"] = i * 2
+			committed.value = i + 1
+			if checkpoint_every and (i + 1) % checkpoint_every == 0:
+				tb.dump()
+
 
 	def requires_save_load(test_func):
 		"""Decorator to skip tests that require msgpack (file save/load)."""
@@ -5985,6 +5989,12 @@ if __name__ == "__main__":
 		total_time = time.perf_counter() - ts_total
 		print(f"⏱️  Total test time: {total_time:.2f}s")
 		print(f"⚡ Operations/sec: {operation_counter.value/total_time:,.0f}")
+
+		assert_with_message(all(p.exitcode == 0 for p in processes), "All worker processes exited cleanly",
+			[0] * NUM_PROCESSES, [p.exitcode for p in processes])
+		expected_ops = NUM_PROCESSES * THREADS_PER_PROCESS * OPERATIONS_PER_THREAD
+		assert_with_message(operation_counter.value == expected_ops, "Every worker operation ran",
+			expected_ops, operation_counter.value)
 
 		# Final validation
 		ts = time.perf_counter()
@@ -7582,5 +7592,6 @@ if __name__ == "__main__":
 		if total_failures > 0:
 			raise SystemExit(1)
 
-	run_all_tests()
+	if __name__ == "__main__":
+		run_all_tests()
 
