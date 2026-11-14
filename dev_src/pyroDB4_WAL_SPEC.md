@@ -174,7 +174,24 @@ matching pyroDB3.
 - Parent-directory fsync is skipped on Windows.
 - The whole suite must pass on Windows (`cd dev_src; python pyroDB4.py`).
 
-## 13. Known limitations (milestone 1)
+## 13. Tests
+
+Run with `cd dev_src; python pyroDB4.py`. The shared suite runs once with `use_wal=False` and
+once with `use_wal=True` (`PYRODB_MODES=off,on`), then the WAL-specific tests run once.
+`PYRODB_TESTS=name1,name2` runs only the named tests.
+
+| Test | Invariant |
+|------|-----------|
+| `test_wal_codec` | Frame round trip, torn tail at every byte, bad CRC, schema checked on encode and decode |
+| `test_wal_checkpoint` | Snapshot gen+1 then WAL reset, only three files, stale gen detected, export writes no WAL |
+| `test_wal_logged_ops` | Logged ops append txns without rewriting the snapshot; unlogged ops checkpoint |
+| `test_wal_replay_rescan` | Replay on open, incremental rescan, full reload on checkpoint or shrink, torn txn ignored, non-WAL absorb |
+| `test_wal_crash_injection` | Reload at every WAL byte cut equals the state after the last intact commit |
+| `test_wal_idempotency` | Double replay is a no-op; crash between snapshot replace and WAL reset loses nothing |
+| `test_wal_kill_mid_write` | Writer killed at random points: reload is a whole-txn prefix that includes every reported commit |
+| `test_wal_multiprocess_kill` | Concurrent writers with no external lock, plus checkpoints, one writer killed: no lost or duplicated rows |
+
+## 14. Known limitations (milestone 1)
 
 - `AD=False` records stay buffered until the next commit or dump. If another process changes
   the file in between, a full reload drops the unflushed local changes (pyroDB3 behaves the same).

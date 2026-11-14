@@ -5264,6 +5264,27 @@ def _extreme_concurrency_process_worker(
 		tb.dump(TEST_FILE)
 		# tb.to_json(f"{TEST_FILE}{process_id}_final.json")
 
+def _wal_kill_writer(path, committed, batch=3):
+	"""Subprocess: append batches of rows (one txn each) forever; report committed rows."""
+	tb = PyroTable(path, use_wal=True, sync=False, sig=False)
+	seq = tb.height
+	while True:
+		tb.add_rows([{"seq": seq + i, "batch": seq // batch} for i in range(batch)])
+		seq += batch
+		committed.value = seq
+
+
+def _wal_multiwriter_worker(path, pid, n_ops, committed, checkpoint_every=0):
+	"""Subprocess: insert own rows and update them, coordinating only via {loc}.lock."""
+	tb = PyroTable(path, use_wal=True, sync=False, sig=False)
+	for i in range(n_ops):
+		row = tb.add_row({"pid": pid, "seq": i, "val": None})
+		row["val"] = i * 2
+		committed.value = i + 1
+		if checkpoint_every and (i + 1) % checkpoint_every == 0:
+			tb.dump()
+
+
 if __name__ == "__main__":
 	import string
 	import os
@@ -7159,6 +7180,256 @@ if __name__ == "__main__":
 			_cleanup_db_files(test_file)
 
 	@timed_test
+	@requires_save_load
+	def test_wal_crash_injection():
+		"""Cut the WAL at every byte; reload must equal the state after the last intact commit."""
+		print('\n=== Testing WAL Crash Injection ===')
+		test_file = "__wal_crash_src.pdb"
+		crash_file = "__wal_crash_cut.pdb"
+		_cleanup_db_files(test_file)
+		_cleanup_db_files(crash_file)
+		rng = random.Random(1337)
+		try:
+			tb = PyroTable(test_file, use_wal=True, sync=False, sig=False)
+			tb.add_column("id", "name", "val")
+			tb.add_rows([{"id": i, "name": f"r{i}", "val": i} for i in range(4)])
+			tb.dump()
+			header_end = tb._wal_offset
+			states = [(header_end, _table_state(tb))]
+			next_id = 100
+			for _ in range(30):
+				op = rng.choice(["set", "set", "add", "insert", "pop", "batch", "bulk"])
+				if op == "pop" and tb.height <= 2:
+					op = "add"
+				if op == "set":
+					tb.set_cell(rng.choice(["name", "val"]), rng.randrange(tb.height), rng.randint(0, 999))
+				elif op == "add":
+					tb.add_row({"id": next_id, "name": f"a{next_id}", "val": next_id})
+					next_id += 1
+				elif op == "insert":
+					tb.add_row({"id": next_id, "name": f"i{next_id}"}, position=rng.randrange(tb.height + 1))
+					next_id += 1
+				elif op == "pop":
+					tb.pop_row(rng.randrange(tb.height))
+				elif op == "batch":
+					tb.batch_set_cells([("val", rng.randrange(tb.height), rng.randint(0, 9)) for _ in range(3)])
+				else:
+					tb.add_rows([{"id": next_id + j, "name": "bulk"} for j in range(3)])
+					next_id += 3
+				states.append((tb._wal_offset, _table_state(tb)))
+
+			with open(test_file, "rb") as f:
+				snapshot = f.read()
+			with open(test_file + ".wal", "rb") as f:
+				wal = f.read()
+			assert_with_message(states[-1][0] == len(wal), "Last commit ends at WAL EOF", len(wal), states[-1][0])
+			with open(crash_file, "wb") as f:
+				f.write(snapshot)
+
+			mismatches = []
+			for cut in range(len(wal) + 1):
+				with open(crash_file + ".wal", "wb") as f:
+					f.write(wal[:cut])
+				expected = states[0][1]
+				for end, state in states:
+					if end <= cut:
+						expected = state
+				got = _table_state(PyroTable(crash_file, use_wal=True, sync=False, sig=False))
+				if got != expected:
+					mismatches.append(cut)
+			assert_with_message(not mismatches,
+				f"Reload at all {len(wal) + 1} cut points matches last intact commit",
+				message_on_fail=f"mismatch at cuts {mismatches[:10]}")
+
+			# After a torn tail, a new write is durable and the tail is gone.
+			for cut in (states[len(states) // 2][0] + 5, len(wal) - 3):
+				with open(crash_file + ".wal", "wb") as f:
+					f.write(wal[:cut])
+				w = PyroTable(crash_file, use_wal=True, sync=False, sig=False)
+				w.set_cell("name", 0, f"post_crash_{cut}")
+				expect = _table_state(w)
+				assert_with_message(_table_state(PyroTable(crash_file, use_wal=True, sig=False)) == expect,
+					f"Write after torn tail at {cut} survives reload")
+		finally:
+			_cleanup_db_files(test_file)
+			_cleanup_db_files(crash_file)
+
+	@timed_test
+	@requires_save_load
+	def test_wal_idempotency():
+		"""Replaying records twice is harmless; crash between snapshot and WAL reset loses nothing."""
+		print('\n=== Testing WAL Idempotency ===')
+		test_file = "__wal_idem_test.pdb"
+		_cleanup_db_files(test_file)
+		try:
+			tb = PyroTable(test_file, use_wal=True, sync=False, sig=False)
+			tb.add_column("id", "name")
+			tb.add_rows([{"id": i, "name": f"n{i}"} for i in range(3)])
+			tb.dump()
+			tb.add_row({"id": 10, "name": "ten"})
+			tb.add_row({"id": 11, "name": "eleven"}, position=1)
+			tb.set_cell("name", 0, "zero")
+			tb.pop_row(2)
+			final = _table_state(tb)
+			txns = _wal_txns(test_file + ".wal")
+
+			# Same committed txns applied twice in a row on top of the snapshot.
+			r = PyroTable(test_file, use_wal=True, sig=False)
+			assert_with_message(_table_state(r) == final, "Single replay")
+			r._wal_apply(txns)
+			assert_with_message(_table_state(r) == final, "Second replay of the same txns is a no-op",
+				final, _table_state(r))
+			for t in txns:
+				r._wal_apply([t])
+				r._wal_apply([t])
+			assert_with_message(len(set(r.ids.as_list())) == len(r.ids.as_list()), "No duplicate row ids after re-replay")
+
+			# The whole WAL body duplicated on disk replays to the same state.
+			with open(test_file + ".wal", "rb") as f:
+				wal = f.read()
+			hdr_end = tb._wal.read_header()[1]
+			with open(test_file + ".wal", "wb") as f:
+				f.write(wal + wal[hdr_end:])
+			assert_with_message(_table_state(PyroTable(test_file, use_wal=True, sig=False)) == final,
+				"Duplicated WAL body replays to the same state")
+			with open(test_file + ".wal", "wb") as f:
+				f.write(wal)
+
+			# add_row / add_column replay skip when already present.
+			n = r.height
+			rid = r.ids[0]
+			assert_with_message(not r._wal_apply_record({"k": "add_row", "row_id": rid, "pos": None, "vals": {}}),
+				"add_row with existing row_id skipped")
+			assert_with_message(r._wal_apply_record({"k": "add_column", "name": "extra"}), "add_column applied once")
+			assert_with_message(not r._wal_apply_record({"k": "add_column", "name": "extra"}), "add_column replay skipped")
+			assert_with_message(list(r.column_names_set).count("extra") == 1 and len(r._pk.db["extra"]) == n,
+				"Single extra column with full height")
+			assert_with_message(not r._wal_apply_record({"k": "del_row", "row_id": -1}), "del_row of missing row skipped")
+			assert_with_message(not r._wal_apply_record({"k": "set_cell", "col": "name", "row_id": -1, "val": 1}),
+				"set_cell of missing row skipped")
+
+			# Crash after os.replace but before WAL reset: snapshot has gen+1, WAL is stale.
+			w = PyroTable(test_file, use_wal=True, sync=False, sig=False)
+			w.set_cell("name", 0, "pre_checkpoint")
+			expected = _table_state(w)
+			def boom(*a, **kw):
+				raise OSError("simulated crash before WAL reset")
+			w._wal.reset = boom
+			try:
+				w.dump()
+			except OSError:
+				pass
+			else:
+				raise AssertionError("❌ simulated crash did not raise")
+			hdr = _WriteAheadLog(test_file + ".wal").read_header()[0]
+			assert_with_message(_snapshot_meta(test_file)["__wal_gen__"] == hdr["gen"] + 1, "Snapshot ahead of WAL header")
+			reopened = PyroTable(test_file, use_wal=True, sync=False, sig=False)
+			assert_with_message(_table_state(reopened) == expected, "Stale WAL ignored: no lost or duplicated rows",
+				expected, _table_state(reopened))
+			reopened.add_row({"id": 77, "name": "after"})
+			assert_with_message(reopened._wal_header_matches(), "First write after stale WAL checkpoints")
+			assert_with_message(_table_state(PyroTable(test_file, use_wal=True, sig=False)) == _table_state(reopened),
+				"State durable after recovery")
+		finally:
+			_cleanup_db_files(test_file)
+
+	@timed_test
+	@requires_save_load
+	def test_wal_kill_mid_write():
+		"""Kill a writer process at random points: reload is always a whole-txn prefix."""
+		print('\n=== Testing WAL Kill Mid-Write ===')
+		test_file = "__wal_kill_test.pdb"
+		_cleanup_db_files(test_file)
+		BATCH = 3
+		try:
+			tb = PyroTable(test_file, use_wal=True, sig=False)
+			tb.add_column("seq", "batch")
+			tb.dump()
+			expected_rows = 0
+			for attempt, delay in enumerate((0.6, 0.9, 1.3)):
+				committed = multiprocessing.Value('i', expected_rows)
+				p = multiprocessing.Process(target=_wal_kill_writer, args=(test_file, committed, BATCH))
+				p.start()
+				deadline = time.time() + 20
+				while committed.value < expected_rows + 30 and time.time() < deadline:
+					time.sleep(0.01)
+				time.sleep(delay * 0.05)
+				p.kill()
+				p.join()
+				reported = committed.value
+
+				r = PyroTable(test_file, use_wal=True, sig=False)
+				seqs = r.column("seq")
+				print(f"  kill {attempt}: reported={reported} loaded={len(seqs)} wal={os.path.getsize(test_file + '.wal')}B")
+				assert_with_message(seqs == list(range(len(seqs))), f"[kill {attempt}] rows form a contiguous prefix")
+				assert_with_message(len(seqs) % BATCH == 0, f"[kill {attempt}] no partial batch (txn atomic)",
+					f"multiple of {BATCH}", len(seqs))
+				assert_with_message(reported <= len(seqs) <= reported + BATCH,
+					f"[kill {attempt}] every reported commit survived", reported, len(seqs))
+				assert_with_message(len(set(r.ids.as_list())) == len(seqs), f"[kill {attempt}] unique row ids")
+				expected_rows = len(seqs)
+
+			# A fresh writer recovers (truncates any torn tail) and its write is durable.
+			w = PyroTable(test_file, use_wal=True, sig=False)
+			w.add_row({"seq": w.height, "batch": -1})
+			r = PyroTable(test_file, use_wal=True, sig=False)
+			assert_with_message(r.height == expected_rows + 1 and r.column("seq")[-1] == expected_rows,
+				"Write after kill is durable")
+		finally:
+			_cleanup_db_files(test_file)
+
+	@timed_test
+	@requires_save_load
+	def test_wal_multiprocess_kill():
+		"""Concurrent WAL writers (no external lock) with checkpoints; one is killed mid-run."""
+		print('\n=== Testing WAL Multi-Process Writers + Kill ===')
+		test_file = "__wal_multiproc_test.pdb"
+		_cleanup_db_files(test_file)
+		N_PROC, N_OPS = 3, 120
+		try:
+			tb = PyroTable(test_file, use_wal=True, sig=False)
+			tb.add_column("pid", "seq", "val")
+			tb.dump()
+			counters = [multiprocessing.Value('i', 0) for _ in range(N_PROC)]
+			procs = [
+				multiprocessing.Process(target=_wal_multiwriter_worker,
+					args=(test_file, pid, N_OPS if pid else 10**6, counters[pid], 40 if pid == 1 else 0))
+				for pid in range(N_PROC)
+			]
+			for p in procs:
+				p.start()
+			deadline = time.time() + 60
+			while counters[0].value < 30 and time.time() < deadline:
+				time.sleep(0.01)
+			procs[0].kill()
+			for p in procs:
+				p.join(timeout=120)
+			assert_with_message(all(not p.is_alive() for p in procs), "All writers finished")
+			assert_with_message(all(procs[i].exitcode == 0 for i in range(1, N_PROC)), "Survivors exited cleanly",
+				0, [p.exitcode for p in procs])
+
+			r = PyroTable(test_file, use_wal=True, sig=False)
+			rows = list(r.rows())
+			assert_with_message(len(set(r.ids.as_list())) == len(rows), "Unique row ids")
+			for pid in range(N_PROC):
+				mine = [row for row in rows if row["pid"] == pid]
+				seqs = [row["seq"] for row in mine]
+				print(f"  pid {pid}: rows={len(seqs)} reported={counters[pid].value} exit={procs[pid].exitcode}")
+				assert_with_message(seqs == list(range(len(seqs))), f"pid {pid}: contiguous, ordered seqs")
+				if pid:
+					assert_with_message(len(seqs) == N_OPS, f"pid {pid}: all {N_OPS} rows present", N_OPS, len(seqs))
+				else:
+					reported = counters[0].value
+					assert_with_message(reported <= len(seqs) <= reported + 1,
+						"killed pid 0: every reported commit survived", reported, len(seqs))
+				bad = [row for row in mine[:-1] if row["val"] != row["seq"] * 2]
+				if pid and mine and mine[-1]["val"] != mine[-1]["seq"] * 2:
+					bad.append(mine[-1])
+				assert_with_message(not bad, f"pid {pid}: updates applied", message_on_fail=f"bad rows {bad[:3]}")
+		finally:
+			_cleanup_db_files(test_file)
+
+	@timed_test
 	def run_all_tests():
 		"""Run all test cases with timing and proper cleanup"""
 		tests = [
@@ -7199,12 +7470,16 @@ if __name__ == "__main__":
 			test_wal_checkpoint,
 			test_wal_logged_ops,
 			test_wal_replay_rescan,
+			test_wal_crash_injection,
+			test_wal_idempotency,
+			test_wal_kill_mid_write,
+			test_wal_multiprocess_kill,
 		]
 		only = [t.strip() for t in os.environ.get("PYRODB_TESTS", "").split(",") if t.strip()]
 		if only:
 			tests = [t for t in tests if t.__name__ in only]
 			wal_tests = [t for t in wal_tests if t.__name__ in only]
-		modes = [m.strip() for m in os.environ.get("PYRODB_MODES", "off,on").split(",") if m.strip()]
+		modes = [m.strip() for m in os.environ.get("PYRODB_MODES", "off,on").split(",") if m.strip() in ("off", "on")]
 
 		test_files = ["__persistence_test.pdb", "__concurrency_test.pdb", "__extreme_concurrency_test.pdb",
 			"__optimization_persistence_test.pdb", "__optimization_rescan_test.pdb", "__full_throttle_test.pdb",
