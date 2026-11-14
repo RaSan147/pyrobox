@@ -5150,12 +5150,12 @@ _PickleTColumn = _PyroTColumn
 
 def _extreme_concurrency_process_worker(
 	process_id, lock, TEST_FILE, THREADS_PER_PROCESS,
-	expected_values, errors, operation_counter, OPERATIONS_PER_THREAD, activities):
+	expected_values, errors, operation_counter, OPERATIONS_PER_THREAD, activities, use_wal=False):
 	"""Worker function for multiprocessing with fixed concurrency issues"""
 
 	# Initialize table with lock protection
 	with lock:
-		tb = PyroTable(TEST_FILE)
+		tb = PyroTable(TEST_FILE, use_wal=use_wal)
 	threads = []
 
 	def worker(table: PyroTable, process_id, thread_id):
@@ -5319,9 +5319,17 @@ if __name__ == "__main__":
 		"""Generate random lowercase string of given length"""
 		return ''.join(random.choice(string.ascii_lowercase) for _ in range(length))
 
+	# Mode under test; run_all_tests runs the suite once per value.
+	_TEST_USE_WAL = False
+
+	def make_table(path="", **kw):
+		"""PyroTable in the current test mode (``use_wal`` unless overridden)."""
+		kw.setdefault("use_wal", _TEST_USE_WAL)
+		return PyroTable(path, **kw)
+
 	def create_test_table(with_data=False):
 		"""Create a basic test table with common columns"""
-		tb = PyroTable()
+		tb = make_table()
 		tb.add_column("id", exist_ok=True)
 		tb.add_column("name", exist_ok=True)
 		tb.add_column("value", exist_ok=True)
@@ -5475,7 +5483,7 @@ if __name__ == "__main__":
 								"File creation", time_start=ts)
 
 			ts = time.perf_counter()
-			loaded_tb = PyroTable(test_file)
+			loaded_tb = make_table(test_file)
 			assert_with_message(loaded_tb.height == 3,
 								"Row count after load", time_start=ts)
 
@@ -5496,7 +5504,7 @@ if __name__ == "__main__":
 								0, "File size after modification", time_start=ts)
 
 			ts = time.perf_counter()
-			reloaded_tb = PyroTable(test_file)
+			reloaded_tb = make_table(test_file)
 			assert_with_message(reloaded_tb.height == 4,
 								"Incremental save", time_start=ts)
 
@@ -5762,7 +5770,7 @@ if __name__ == "__main__":
 								"CSV special character handling", time_start=ts)
 
 			ts = time.perf_counter()
-			new_tb = PyroTable()
+			new_tb = make_table()
 			new_tb.load_csv(csv_file)
 			assert_with_message(new_tb.height == 4,
 								"CSV import row count", time_start=ts)
@@ -5795,7 +5803,7 @@ if __name__ == "__main__":
 								4, "JSON data count", time_start=ts)
 
 			ts = time.perf_counter()
-			new_tb = PyroTable()
+			new_tb = make_table()
 			new_tb.load_json(json_file)
 			assert_with_message(new_tb.row(
 				2)["value"] == 300, "JSON data integrity", time_start=ts)
@@ -5917,7 +5925,7 @@ if __name__ == "__main__":
 		for i in range(NUM_PROCESSES):
 			p = multiprocessing.Process(
 				target=_extreme_concurrency_process_worker,
-				args=(i, lock, TEST_FILE, THREADS_PER_PROCESS, expected_values, errors, operation_counter, OPERATIONS_PER_THREAD, activities)
+				args=(i, lock, TEST_FILE, THREADS_PER_PROCESS, expected_values, errors, operation_counter, OPERATIONS_PER_THREAD, activities, _TEST_USE_WAL)
 			)
 			processes.append(p)
 			p.start()
@@ -5948,7 +5956,7 @@ if __name__ == "__main__":
 		ts = time.perf_counter()
 		final_table = create_test_table()
 		if os.path.exists(TEST_FILE):
-			final_table = PyroTable(TEST_FILE)
+			final_table = make_table(TEST_FILE)
 			# final_table.to_json("__extreme_concurrency_final.json")
 			os.remove(TEST_FILE)
 
@@ -6317,12 +6325,12 @@ if __name__ == "__main__":
 		print('\n=== Testing extend() List Mutation Fix ===')
 
 		# Create base table with columns: name, age
-		base_table = PyroTable()
+		base_table = make_table()
 		base_table.add_column("name", "age")
 		base_table.add_row({"name": "Alice", "age": 30})
 
 		# Create source table with extra columns: city, country
-		source_table = PyroTable()
+		source_table = make_table()
 		source_table.add_column("name", "age", "city", "country")
 		source_table.add_row({"name": "Bob", "age": 25, "city": "LA", "country": "USA"})
 		source_table.add_row({"name": "Charlie", "age": 35, "city": "Chicago", "country": "USA"})
@@ -6351,7 +6359,7 @@ if __name__ == "__main__":
 		print('\n=== Testing add() List Mutation Fix ===')
 
 		# Create base table with columns: name, age
-		base_table = PyroTable()
+		base_table = make_table()
 		base_table.add_column("name", "age")
 		base_table.add_row({"name": "Alice", "age": 30})
 
@@ -6489,7 +6497,7 @@ if __name__ == "__main__":
 	def test_optimization_shared_executor():
 		"""PyroTable and inner PyroDB must share one TaskExecutor."""
 		print('\n=== Testing Shared TaskExecutor ===')
-		tb = PyroTable()
+		tb = make_table()
 		assert_with_message(
 			tb.task_executor is tb._pk.task_executor,
 			"PyroTable shares TaskExecutor with PyroDB", time_start=time.perf_counter())
@@ -6572,7 +6580,7 @@ if __name__ == "__main__":
 
 			ts = time.perf_counter()
 			tb.dump(test_file)
-			tb2 = PyroTable(test_file)
+			tb2 = make_table(test_file)
 			assert_with_message(
 				tb2.indexed_columns == {"name": "unique"},
 				"Registry restored from disk", time_start=ts)
@@ -6585,7 +6593,7 @@ if __name__ == "__main__":
 
 			# External write: another instance mutates file, open table rescans + rebuilds
 			ts = time.perf_counter()
-			writer = PyroTable(test_file)
+			writer = make_table(test_file)
 			writer.set_cell("name", 1, "rescan_target", AD=True, rescan=False)
 			del writer
 			tb2.rescan()
@@ -6634,7 +6642,7 @@ if __name__ == "__main__":
 			dump_time = time.perf_counter() - ts
 
 			ts = time.perf_counter()
-			tb2 = PyroTable(test_file)
+			tb2 = make_table(test_file)
 			load_time = time.perf_counter() - ts
 
 			assert_with_message(
@@ -6650,7 +6658,7 @@ if __name__ == "__main__":
 	def test_optimization_add_row_rescan():
 		"""add_row respects rescan=False (no redundant file stat during bulk add)."""
 		print('\n=== Testing add_row Rescan Parameter ===')
-		tb = PyroTable()
+		tb = make_table()
 		tb.add_column("id", "name")
 		tb.add_row({"id": 0, "name": "seed"}, AD=False, rescan=False)
 
@@ -6683,7 +6691,7 @@ if __name__ == "__main__":
 
 		try:
 			# Phase 1: Bulk build + immediate dump (write-through)
-			tb = PyroTable()
+			tb = make_table()
 			tb.add_column("id", "name", "value", "notes")
 			ts = time.perf_counter()
 			rows = [
@@ -6702,7 +6710,7 @@ if __name__ == "__main__":
 
 			# Phase 2: Cold load from disk
 			ts = time.perf_counter()
-			tb2 = PyroTable(test_file)
+			tb2 = make_table(test_file, sync=False)
 			tb2.index_column("name", rescan=False)
 			results["load"] = time.perf_counter() - ts
 			print(f"  load from disk: {results['load']:.3f}s")
@@ -6734,7 +6742,7 @@ if __name__ == "__main__":
 			# Phase 4: Cross-process visibility (write-through)
 			ts = time.perf_counter()
 			tb2.set_cell("name", 0, "cross_process_marker", AD=True, rescan=False)
-			tb3 = PyroTable(test_file)
+			tb3 = make_table(test_file)
 			found = tb3.find_1st("cross_process_marker", column="name", full_match=True, rescan=True)
 			results["cross_process_read"] = time.perf_counter() - ts
 			print(f"  cross-process read after write: {results['cross_process_read']:.3f}s")
@@ -6763,7 +6771,7 @@ if __name__ == "__main__":
 			print(f"  Effective write+read throughput: {ROW_COUNT / total:,.0f} rows/s")
 
 		finally:
-			for f in (test_file, test_file + ".lock"):
+			for f in (test_file, test_file + ".lock", test_file + ".wal"):
 				if os.path.exists(f):
 					os.remove(f)
 
@@ -6783,7 +6791,7 @@ if __name__ == "__main__":
 			}
 			with open(test_file, "wb") as f:
 				f.write(msgpack.packb(v3_payload, **_MSGPACK_PACK_KW))
-			tb = PyroTable(test_file)
+			tb = make_table(test_file)
 			assert_with_message(tb.height == 2, "v3 rows loaded", 2, tb.height)
 			assert_with_message(tb.ids.as_list() == [11, 22], "v3 row ids preserved", [11, 22], tb.ids.as_list())
 			assert_with_message(tb.column("name") == ["a", "b"], "v3 column data", ["a", "b"], tb.column("name"))
@@ -6948,7 +6956,7 @@ if __name__ == "__main__":
 			assert_with_message(not os.path.exists(test_file + ".wal"), "delete_file removes WAL")
 
 			# Non-WAL mode never creates a WAL and leaves no temp file.
-			tb3 = PyroTable(test_file)
+			tb3 = PyroTable(test_file, use_wal=False)
 			tb3.add_column("x")
 			assert_with_message(not os.path.exists(test_file + ".wal"), "Non-WAL dump writes no WAL")
 			assert_with_message(_leftover_tmp(test_file) == [], "Non-WAL dump leaves no temp file")
@@ -7142,7 +7150,7 @@ if __name__ == "__main__":
 
 			# Switching to non-WAL mode absorbs the WAL into the snapshot.
 			expected = _table_state(a)
-			e = PyroTable(test_file)
+			e = PyroTable(test_file, use_wal=False)
 			assert_with_message(_table_state(e) == expected, "Non-WAL open absorbs WAL", expected, _table_state(e))
 			assert_with_message(not os.path.exists(wal_file), "WAL removed after absorb")
 			f2 = PyroTable(test_file, use_wal=True)
@@ -7183,6 +7191,9 @@ if __name__ == "__main__":
 			test_advanced_search,
 			test_extreme_concurrency,
 			test_full_throttle,
+		]
+		# WAL-specific tests choose their own mode; run once.
+		wal_tests = [
 			test_v3_snapshot_compat,
 			test_wal_codec,
 			test_wal_checkpoint,
@@ -7192,45 +7203,61 @@ if __name__ == "__main__":
 		only = [t.strip() for t in os.environ.get("PYRODB_TESTS", "").split(",") if t.strip()]
 		if only:
 			tests = [t for t in tests if t.__name__ in only]
+			wal_tests = [t for t in wal_tests if t.__name__ in only]
+		modes = [m.strip() for m in os.environ.get("PYRODB_MODES", "off,on").split(",") if m.strip()]
 
-		start_time = time.perf_counter()
-		failures = 0
-		skipped = 0
-
-		for test in tests:
-			try:
-				result = test()
-				if result is None and getattr(test, '_is_skipped', False):
-					skipped += 1
-			except AssertionError as e:
-				failures += 1
-				print(f"❌ {test.__name__} failed: {str(e)}")
-				print('+'*50 + f"\n{traceback.format_exc()}\n" + '-'*50)
-			except Exception as e:
-				failures += 1
-				print(f"❌ {test.__name__} failed (UNHANDLED): {str(e)}")
-				print('+'*50 + f"\n{traceback.format_exc()}\n" + '-'*50)
-
-		total_time = time.perf_counter() - start_time
-		print(f"\n{'='*50}")
-		skip_str = f", {skipped} skipped" if skipped else ""
-		print(f"⏱️  Test Summary: {len(tests)} tests, {failures} failures{skip_str}")
-		print(f"⏱️  Total execution time: {total_time:.4f} seconds")
-		print("="*50)
-
-
-		# remove any existing test files
 		test_files = ["__persistence_test.pdb", "__concurrency_test.pdb", "__extreme_concurrency_test.pdb",
 			"__optimization_persistence_test.pdb", "__optimization_rescan_test.pdb", "__full_throttle_test.pdb",
-			"__indexed_columns_persist_test.pdb"] + ["__extreme_concurrency_final.json", "__extreme_concurrency_activities.json, actual_values.json", "expected_values.json"]
+			"__indexed_columns_persist_test.pdb"]
+		json_files = ["__extreme_concurrency_final.json", "__extreme_concurrency_activities.json", "actual_values.json", "expected_values.json"]
 
-		for file in test_files:
-			_safe_remove(file)
-			if not file.endswith(".lock"):
-				_safe_remove(file + ".lock")
+		def cleanup():
+			for file in test_files:
+				for suffix in ("", ".lock", ".wal"):
+					_safe_remove(file + suffix)
+			for file in json_files:
+				_safe_remove(file)
 
+		def run_batch(batch, label):
+			failures = 0
+			skipped = 0
+			start_time = time.perf_counter()
+			for test in batch:
+				try:
+					result = test()
+					if result is None and getattr(test, '_is_skipped', False):
+						skipped += 1
+				except AssertionError as e:
+					failures += 1
+					print(f"❌ [{label}] {test.__name__} failed: {str(e)}")
+					print('+'*50 + f"\n{traceback.format_exc()}\n" + '-'*50)
+				except Exception as e:
+					failures += 1
+					print(f"❌ [{label}] {test.__name__} failed (UNHANDLED): {str(e)}")
+					print('+'*50 + f"\n{traceback.format_exc()}\n" + '-'*50)
+			return label, len(batch), failures, skipped, time.perf_counter() - start_time
 
-		if failures > 0:
+		global _TEST_USE_WAL
+		summaries = []
+		for mode in modes:
+			_TEST_USE_WAL = mode == "on"
+			print(f"\n{'#'*50}\n# Running suite with use_wal={_TEST_USE_WAL}\n{'#'*50}")
+			summaries.append(run_batch(tests, f"use_wal={_TEST_USE_WAL}"))
+			cleanup()
+		_TEST_USE_WAL = False
+		if wal_tests:
+			summaries.append(run_batch(wal_tests, "wal-specific"))
+		cleanup()
+
+		print(f"\n{'='*50}")
+		total_failures = 0
+		for label, n, failures, skipped, elapsed in summaries:
+			total_failures += failures
+			skip_str = f", {skipped} skipped" if skipped else ""
+			print(f"⏱️  [{label}] Test Summary: {n} tests, {failures} failures{skip_str} ({elapsed:.2f}s)")
+		print("="*50)
+
+		if total_failures > 0:
 			raise SystemExit(1)
 
 	run_all_tests()
