@@ -1358,6 +1358,7 @@ class PyroTable(dict):
 		self.use_wal = bool(use_wal)
 		self.sync = sync
 		self._wal_force_checkpoint = False
+		self._wal_depth = 0
 
 		# Shared executor: table mutations and dump/rescan use the same lock domain
 		self._pk = PyroDB(
@@ -1485,6 +1486,56 @@ class PyroTable(dict):
 			return
 		with self._wal_lock():
 			self._wal_checkpoint_locked()
+
+	def _wal_log(self, rec: dict):
+		"""Buffer a record for the current transaction (no-op unless WAL is active)."""
+		if self._wal_active():
+			self._wal_pending.append(rec)
+
+	def _wal_flush(self):
+		"""Commit buffered records as one txn, or checkpoint if required."""
+		if not self._wal_active():
+			self._wal_pending.clear()
+			self._wal_force_checkpoint = False
+			return
+		with self._wal_lock():
+			if (self._wal_force_checkpoint or self._wal_gen is None
+					or self._wal_snapshot_sig() is None):
+				self._wal_checkpoint_locked()
+				return
+			if not self._wal_pending:
+				return
+			try:
+				self._wal_offset = self._wal.append_txn(
+					self._wal_pending, self._wal_offset, txid=random.getrandbits(63))
+			except (WALRecordError, TypeError, ValueError):
+				# Unencodable record: memory already holds the change; let a checkpoint surface it.
+				self._wal_pending.clear()
+				self._wal_force_checkpoint = True
+				raise
+			self._wal_seen = self._wal.stat()
+			self._wal_pending.clear()
+
+	def _wal_writer(func):
+		"""
+		Mutator wrapper (WAL mode): TaskExecutor lock -> {loc}.lock -> catch up -> func.
+		Appends therefore always follow a catch-up under the same file lock.
+		"""
+		def wrapper(self: "PyroTable", *args, **kwargs):
+			return self.task_executor.lock(self._wal_writer_call, func, args, kwargs)
+		wrapper.__name__ = getattr(func, "__name__", "wal_writer")
+		wrapper.__doc__ = getattr(func, "__doc__", None)
+		return wrapper
+
+	def _wal_writer_call(self, func, args, kwargs):
+		if self._wal_depth or not self._wal_active():
+			return func(self, *args, **kwargs)
+		with self._wal_lock():
+			self._wal_depth += 1
+			try:
+				return func(self, *args, **kwargs)
+			finally:
+				self._wal_depth -= 1
 
 	# @threadsafe_decorator
 	# def _generate_uuid(self) -> int:
@@ -1664,6 +1715,7 @@ class PyroTable(dict):
 			val = self._pk.db[column][row_idx]
 			self._index_detach(column, self._normalize_index_key(val), self.ids[row_idx])
 
+	@_wal_writer
 	@threadsafe_decorator
 	def index_column(self, column: str, mode: str = "unique", rescan=True, AD=True):
 		"""
@@ -1725,6 +1777,7 @@ class PyroTable(dict):
 				ret.append(self.get_cell(column, row_idx, rescan=False))
 		return ret
 
+	@_wal_writer
 	@threadsafe_decorator
 	def drop_column_index(self, column: str, AD=True):
 		"""Remove a column from the persisted index registry and runtime cache."""
@@ -2020,6 +2073,7 @@ class PyroTable(dict):
 		"""
 		return self._pk.items(rescan=rescan)
 
+	@_wal_writer
 	@threadsafe_decorator
 	def add_column(self, *names, exist_ok=False, AD=True, rescan=True):
 		"""
@@ -2105,6 +2159,7 @@ class PyroTable(dict):
 
 	add_columns = add_column  # alias
 
+	@_wal_writer
 	@threadsafe_decorator
 	def del_column(self, name, AD=True, rescan=True):
 		"""
@@ -2818,10 +2873,12 @@ class PyroTable(dict):
 
 		self._index_on_set_cell(col, row, val, old_val=old_val)
 
-		self.auto_dump(AD=AD)
+		self._wal_log({"k": "set_cell", "col": col, "row_id": self.ids[row], "val": val})
+		self.auto_dump(AD=AD, logged=True)
 
 		return True
 
+	@_wal_writer
 	@threadsafe_decorator
 	def set_cell(self, col, row, val, AD=True, rescan=True) -> bool:
 		"""
@@ -2856,13 +2913,14 @@ class PyroTable(dict):
 		"""
 		return self.set_cell(col=col, row=self.ids.index(row_id), val=val, AD=AD, rescan=rescan)
 
+	@_wal_writer
 	@threadsafe_decorator
 	def batch_set_cells(self, updates: List[Tuple[str, int, Any]], AD=True, rescan=True):
-		"""Set multiple cells with a single lock"""
+		"""Set multiple cells with a single lock (one WAL transaction)"""
 		self._auto_rescan(rescan=rescan)
 		for col, row, val in updates:
 			self._set_cell(col, row, val, AD=False, rescan=False)
-		self.auto_dump(AD=AD)
+		self.auto_dump(AD=AD, logged=True)
 
 	def _get_cell(self, col, row, rescan=True):
 		"""
@@ -2973,6 +3031,7 @@ class PyroTable(dict):
 		# in case row or row_id is invalid
 		raise IndexError("Invalid row")
 
+	@_wal_writer
 	@threadsafe_decorator
 	def pop_row(self, index: int = -1, returns=True, AD=True, rescan=True) -> Union[dict, None]:
 		"""
@@ -2997,7 +3056,9 @@ class PyroTable(dict):
 		if returns:
 			box = self.row(index)
 
-		self._index_on_remove_row(index if index >= 0 else index + self.height)
+		row_idx = index if index >= 0 else index + self.height
+		self._index_on_remove_row(row_idx)
+		row_id = self.ids[row_idx]
 
 		for c in self.column_names_set:
 			self._pk.db[c].pop(index)
@@ -3006,7 +3067,8 @@ class PyroTable(dict):
 
 		self.height -= 1
 
-		self.auto_dump(AD=AD)
+		self._wal_log({"k": "del_row", "row_id": row_id})
+		self.auto_dump(AD=AD, logged=True)
 
 		return box
 
@@ -3028,6 +3090,7 @@ class PyroTable(dict):
 		"""
 		self.del_row(self.ids.index(row_id), AD=AD, rescan=rescan)
 
+	@_wal_writer
 	@threadsafe_decorator
 	def clear(self, AD=True, rescan=True):
 		"""
@@ -3048,6 +3111,7 @@ class PyroTable(dict):
 
 		return self
 
+	@_wal_writer
 	def blank_sheet(self, AD=True, rescan=True):
 		"""
 		Blank the sheet (clear all rows and columns)
@@ -3076,8 +3140,9 @@ class PyroTable(dict):
 		- return: new PyroTable object
 		"""
 
-		new = PyroTable(location, auto_dump=auto_dump, sig=sig)
+		new = PyroTable(location, auto_dump=auto_dump, sig=sig, use_wal=self.use_wal, sync=self.sync)
 		new._pk.db = datacopy.deepcopy(self.__db__())
+		new._wal_force_checkpoint = True
 		for meta_key in ("__id__", "__epoch__", "__indexed_columns__"):
 			if meta_key in self._pk.__db__:
 				new._pk.__db__[meta_key] = datacopy.deepcopy(self._pk.__db__[meta_key])
@@ -3101,6 +3166,7 @@ class PyroTable(dict):
 		"""
 		return self._copy(location=location, auto_dump=auto_dump, sig=sig)
 
+	@_wal_writer
 	@threadsafe_decorator
 	def add_row(self, row: Union[dict, "_PyroTRow"], position: int = None, rescan=True, AD=True) -> "_PyroTRow":
 		"""
@@ -3158,7 +3224,11 @@ class PyroTable(dict):
 
 		self.height += 1
 
-		self.auto_dump(AD=AD)
+		self._wal_log({
+			"k": "add_row", "row_id": row_id, "pos": None if append else position,
+			"vals": {k: row.get(k) for k in self.column_names_set},
+		})
+		self.auto_dump(AD=AD, logged=True)
 
 		return self.row_obj_by_id(row_id)
 
@@ -3195,6 +3265,7 @@ class PyroTable(dict):
 
 		return row_obj
 
+	@_wal_writer
 	@threadsafe_decorator
 	def add_rows(self, rows: List[Union[dict, "_PyroTRow"]], position: int = None, rescan=True, AD=True) -> List["_PyroTRow"]:
 		"""
@@ -3216,7 +3287,7 @@ class PyroTable(dict):
 		ret = []
 		for row in rows:
 			ret.append(self._add_row(row=row, position=position, AD=False, rescan=False))
-		self.auto_dump(AD=AD)
+		self.auto_dump(AD=AD, logged=True)
 		return ret
 
 	def _append_rows_bulk(self, rows: List[Union[dict, "_PyroTRow"]], AD=True) -> List["_PyroTRow"]:
@@ -3233,9 +3304,16 @@ class PyroTable(dict):
 			for offset, (row, row_id) in enumerate(zip(rows, new_ids)):
 				self._index_on_add_row(start_idx + offset, row_id, row)
 		self.height += len(rows)
-		self.auto_dump(AD=AD)
+		if self._wal_active():
+			for row, rid in zip(rows, new_ids):
+				self._wal_pending.append({
+					"k": "add_row", "row_id": rid, "pos": None,
+					"vals": {col: row.get(col) for col in col_names},
+				})
+		self.auto_dump(AD=AD, logged=True)
 		return [_PyroTRow(self, rid, CC) for rid in new_ids]
 
+	@_wal_writer
 	def add_rows_as_list(self, rows: List[list], position: int = None, AD=True, rescan=True) -> List["_PyroTRow"]:
 		"""
 		- rows: list of rows (list)
@@ -3259,9 +3337,10 @@ class PyroTable(dict):
 			position = row_obj.index() + 1
 			ret.append(row_obj)
 
-		self.auto_dump(AD=AD)
+		self.auto_dump(AD=AD, logged=True)
 		return ret
 
+	@_wal_writer
 	@threadsafe_decorator
 	def sort(self, column=None, key=None, reverse=False, row_object_key_arg=False, copy=False, AD=True, rescan=True):
 		"""
@@ -3370,6 +3449,7 @@ class PyroTable(dict):
 
 
 
+	@_wal_writer
 	def remove_duplicates(self, columns=None, AD=True, rescan=True):
 		"""
 		Remove duplicate rows (keep the 1st occurrence)
@@ -3407,7 +3487,7 @@ class PyroTable(dict):
 				seen_rows.add(row_key)
 				row = get_next(row)
 
-		self.auto_dump(AD=AD)
+		self.auto_dump(AD=AD, logged=True)
 
 	def verify_source(self, CC):
 		"""
@@ -3439,12 +3519,20 @@ class PyroTable(dict):
 			return self.task_executor.lock(self._wal_checkpoint)
 		self._pk.dump(filepath=filepath)
 
-	def auto_dump(self, AD=True):
+	def auto_dump(self, AD=True, logged=False):
 		"""
 		Auto dump the table to the db file
 		- ignored if the table is in-memory
+		- logged: (WAL mode) the caller buffered WAL records for its change.
+		  Unlogged changes force the next flush to be a full checkpoint.
 		"""
-		self._pk._autodumpdb(AD=AD)
+		if not self.use_wal:
+			self._pk._autodumpdb(AD=AD)
+			return
+		if not logged:
+			self._wal_force_checkpoint = True
+		if self._pk.auto_dump and AD:
+			self.task_executor.lock(self._wal_flush)
 
 	def to_json(self, filepath=None, indent=4, format: Literal['list', 'dict'] = 'list') -> str:
 		"""
@@ -4246,7 +4334,7 @@ class _PyroTRow(dict):
 				if not ignore_extra:
 					raise
 
-		self.source.auto_dump(AD=AD)
+		self.source.auto_dump(AD=AD, logged=True)
 
 	def __str__(self):
 		return "<PyroTable._PyroTRow object> " + str(self.to_dict())
@@ -4687,7 +4775,7 @@ class _PyroTColumn(list):
 		for i in range(self.source.height):
 			self.set_item(i, value, AD=False, rescan=False, source_checked=sc)
 
-		self.source.auto_dump(AD=AD)
+		self.source.auto_dump(AD=AD, logged=True)
 
 	def del_item(self, row: int, AD=True, rescan=True):
 		"""
@@ -6712,6 +6800,100 @@ if __name__ == "__main__":
 		finally:
 			_cleanup_db_files(test_file)
 
+	def _wal_txns(path):
+		"""Committed txns in a WAL file (list of record lists)."""
+		return _WriteAheadLog.committed_txns(_WriteAheadLog(path).read_from(0))[0]
+
+	def _file_sig(path):
+		st = os.stat(path)
+		return (st.st_mtime_ns, st.st_size)
+
+	@timed_test
+	@requires_save_load
+	def test_wal_logged_ops():
+		"""set_cell/add_row/pop_row append WAL txns; unlogged ops checkpoint."""
+		print('\n=== Testing WAL Logged Operations ===')
+		test_file = "__wal_logged_ops_test.pdb"
+		wal_file = test_file + ".wal"
+		_cleanup_db_files(test_file)
+		try:
+			tb = PyroTable(test_file, use_wal=True, sync=False)
+			tb.add_column("id", "name")
+			assert_with_message(tb._wal_header_matches() and _wal_txns(wal_file) == [],
+				"add_column checkpoints (empty WAL)")
+			snap = _file_sig(test_file)
+
+			rows = tb.add_rows([{"id": 1, "name": "a"}, {"id": 2, "name": "b"}, {"id": 3, "name": "c"}])
+			txns = _wal_txns(wal_file)
+			assert_with_message(len(txns) == 1 and [r["k"] for r in txns[0]] == ["add_row"] * 3,
+				"add_rows = one txn of 3 add_row records")
+			assert_with_message([r["row_id"] for r in txns[0]] == [r.id for r in rows], "add_row carries row_id")
+			assert_with_message(txns[0][0]["vals"] == {"id": 1, "name": "a"} and txns[0][0]["pos"] is None,
+				"add_row carries vals and pos")
+
+			tb.set_cell("name", 1, "B")
+			txns = _wal_txns(wal_file)
+			assert_with_message(txns[-1] == [{"k": "set_cell", "col": "name", "row_id": rows[1].id, "val": "B"}],
+				"set_cell record addressed by row_id")
+
+			tb.add_row({"id": 0, "name": "z"}, position=0)
+			assert_with_message(_wal_txns(wal_file)[-1][0]["pos"] == 0, "Positional insert logs pos")
+
+			tb.pop_row(0)
+			assert_with_message(_wal_txns(wal_file)[-1][0]["k"] == "del_row", "pop_row logs del_row")
+
+			tb.batch_set_cells([("name", 0, "A"), ("name", 1, "BB"), ("id", 2, 33)])
+			txns = _wal_txns(wal_file)
+			assert_with_message(len(txns[-1]) == 3 and all(r["k"] == "set_cell" for r in txns[-1]),
+				"batch_set_cells = one txn")
+
+			tb.row_obj(0).update({"id": 10, "name": "AA"})
+			assert_with_message(len(_wal_txns(wal_file)[-1]) == 2, "row.update = one txn")
+
+			tb.row_obj(2).del_row()
+			tb.remove_duplicates()
+			tb["name"].set_all("same")
+			assert_with_message(len(_wal_txns(wal_file)[-1]) == 2, "column.set_all = one txn")
+			assert_with_message(_file_sig(test_file) == snap, "Logged ops never rewrote the snapshot")
+
+			# Unlogged ops force a checkpoint.
+			for label, op in (
+				("sort", lambda: tb.sort("id")),
+				("add_column", lambda: tb.add_column("extra")),
+				("del_column", lambda: tb.del_column("extra")),
+				("index_column", lambda: tb.index_column("id", mode="multi")),
+			):
+				gen = tb._snapshot_gen()
+				tb.set_cell("name", 0, f"before_{label}")
+				op()
+				assert_with_message(tb._snapshot_gen() == gen + 1 and _wal_txns(wal_file) == [],
+					f"{label} checkpoints and resets WAL")
+
+			# Unlogged AD=False change + later logged AD=True change => checkpoint, not append.
+			gen = tb._snapshot_gen()
+			tb.add_column("late", AD=False)
+			tb.set_cell("late", 0, "x")
+			assert_with_message(tb._snapshot_gen() == gen + 1 and _wal_txns(wal_file) == [],
+				"Pending unlogged change forces checkpoint")
+			assert_with_message(_snapshot_meta(test_file)["__db__"]["late"][0] == "x", "Checkpoint includes both changes")
+
+			# AD=False logged changes stay buffered until the next commit.
+			tb.set_cell("name", 0, "p1", AD=False)
+			tb.set_cell("name", 1, "p2", AD=False)
+			assert_with_message(_wal_txns(wal_file) == [] and len(tb._wal_pending) == 2, "AD=False buffers records")
+			tb.set_cell("name", 0, "p3")
+			assert_with_message([r["val"] for r in _wal_txns(wal_file)[-1]] == ["p1", "p2", "p3"],
+				"Buffered records flushed in one txn")
+
+			# In-memory WAL table: no files, nothing buffered.
+			mem = PyroTable(use_wal=True)
+			mem.add_column("a")
+			mem.add_row({"a": 1})
+			mem.set_cell("a", 0, 2)
+			assert_with_message(mem._wal_pending == [] and mem.get_cell("a", 0) == 2, "In-memory WAL table is a no-op")
+		finally:
+			_cleanup_db_files(test_file)
+
 	@timed_test
 	def run_all_tests():
 		"""Run all test cases with timing and proper cleanup"""
@@ -6748,6 +6930,7 @@ if __name__ == "__main__":
 			test_v3_snapshot_compat,
 			test_wal_codec,
 			test_wal_checkpoint,
+			test_wal_logged_ops,
 		]
 		only = [t.strip() for t in os.environ.get("PYRODB_TESTS", "").split(",") if t.strip()]
 		if only:
