@@ -1394,6 +1394,13 @@ class PyroTable(dict):
 
 		self._wal_obj: Optional[_WriteAheadLog] = None
 		self._wal_reset_state()
+		if self._wal_active():
+			with self._wal_lock():
+				# Reload under the lock: the snapshot may have been replaced since PyroDB loaded it.
+				self._wal_full_reload(reload_snapshot=os.path.exists(self._pk.location))
+			self._pk._rescan_hook = self._wal_rescan
+		elif SAVE_LOAD and self._pk.location and not self._pk.in_memory and os.path.exists(self._pk.location + ".wal"):
+			self._absorb_wal()
 
 		self._load_registered_indexes()
 
@@ -1485,7 +1492,149 @@ class PyroTable(dict):
 			self._wal_pending.clear()
 			return
 		with self._wal_lock():
+			self._wal_catch_up_locked()
 			self._wal_checkpoint_locked()
+
+	def _wal_apply_record(self, rec: dict) -> bool:
+		"""Apply one replayed record. Idempotent (spec section 4). Returns True if state changed."""
+		kind = rec["k"]
+		db = self._pk.db
+		if kind == "set_cell":
+			row_id, col = rec["row_id"], rec["col"]
+			if row_id not in self.ids or col not in db:
+				return False
+			db[col][self.ids.index(row_id)] = rec["val"]
+			return True
+		if kind == "add_row":
+			row_id = rec["row_id"]
+			if row_id in self.ids:
+				return False
+			vals = rec["vals"]
+			pos = rec["pos"]
+			if pos is None or pos >= len(self.ids):
+				self.ids.append(row_id)
+				for col in self.column_names_set:
+					db[col].append(vals.get(col))
+			else:
+				pos = max(pos, 0)
+				self.ids.insert(pos, row_id)
+				for col in self.column_names_set:
+					db[col].insert(pos, vals.get(col))
+			return True
+		if kind == "del_row":
+			row_id = rec["row_id"]
+			if row_id not in self.ids:
+				return False
+			idx = self.ids.index(row_id)
+			for col in self.column_names_set:
+				db[col].pop(idx)
+			self.ids.pop(idx)
+			return True
+		if kind == "add_column":
+			name = rec["name"]
+			if name in self.column_names_set:
+				return False
+			db[name] = [None] * len(self.ids)
+			self.column_names_set[name] = None
+			return True
+		if kind == "del_column":
+			name = rec["name"]
+			if name not in self.column_names_set:
+				return False
+			db.pop(name)
+			self.column_names_set.pop(name)
+			return True
+		return False
+
+	def _wal_apply(self, txns: List[List[dict]]) -> bool:
+		changed = False
+		for txn in txns:
+			for rec in txn:
+				if self._wal_apply_record(rec):
+					changed = True
+		if changed:
+			self.height = len(self.ids)
+			self._pk.__db__["__id__"] = self.ids.ids
+			self._rebuild_all_column_indexes()
+		return changed
+
+	def _wal_full_reload(self, reload_snapshot=True):
+		"""
+		Reload snapshot (optional) and replay the WAL from frame 0.
+		Caller holds {loc}.lock. Unflushed local changes are discarded.
+		"""
+		if reload_snapshot:
+			self._wal_pending.clear()
+			self._wal_force_checkpoint = False
+			self._pk._loaddb()
+			if self._pk.__db__.get("__epoch__") is None:
+				self._pk.__db__["__epoch__"] = self.id_generator.epoch
+			self.column_names_set = OrderedDict((k, None) for k in self._pk.db.keys())
+			self.height = self.get_height(rescan=False)
+			self._ids_from_meta()
+
+		sig = self._wal_snapshot_sig()
+		self._wal_snap_sig = sig
+		self._wal_gen = None
+		self._wal_offset = 0
+		frames = self._wal.read_from(0) if sig is not None else []
+		if frames and frames[0][0]["k"] == "checkpoint" and frames[0][0]["gen"] == self._snapshot_gen():
+			self._wal_gen = frames[0][0]["gen"]
+			self._wal_offset = frames[0][1]
+			txns, last = _WriteAheadLog.committed_txns(frames[1:])
+			self._wal_apply(txns)
+			if last is not None:
+				self._wal_offset = last
+		self._wal_seen = self._wal.stat()
+		self._load_registered_indexes()
+		if sig is not None:
+			self._pk.m_time = sig[0] / 1e9
+
+	def _wal_catch_up_locked(self) -> bool:
+		"""Apply committed WAL records written by others since our offset. Caller holds {loc}.lock."""
+		if not self._wal_active():
+			return False
+		sig = self._wal_snapshot_sig()
+		if sig is None:
+			return False
+		seen = self._wal.stat()
+		if sig != self._wal_snap_sig:
+			self._wal_full_reload()
+			return True
+		if seen == self._wal_seen:
+			return False
+		if self._wal_gen is None or seen is None or seen[0] < self._wal_offset:
+			self._wal_full_reload()
+			return True
+		txns, last = _WriteAheadLog.committed_txns(self._wal.read_from(self._wal_offset))
+		changed = self._wal_apply(txns)
+		if last is not None:
+			self._wal_offset = last
+		self._wal_seen = seen
+		return changed
+
+	def _wal_catch_up(self) -> bool:
+		with self._wal_lock():
+			return self._wal_catch_up_locked()
+
+	def _wal_rescan(self, rescan=True) -> bool:
+		"""Cheap stat check; take the file lock only if the snapshot or WAL changed."""
+		if not rescan or not self._wal_active():
+			return False
+		if self._wal_snapshot_sig() == self._wal_snap_sig and self._wal.stat() == self._wal_seen:
+			return False
+		return self.task_executor.lock(self._wal_catch_up)
+
+	def _absorb_wal(self):
+		"""Non-WAL table opening a file with a WAL: replay it into the snapshot, then drop the WAL."""
+		with self._wal_lock():
+			if self._wal_header_matches():
+				txns, _ = _WriteAheadLog.committed_txns(self._wal.read_from(0)[1:])
+				if self._wal_apply(txns):
+					self._pk.__db__["__id__"] = self.ids.ids
+					PyroDB._write_snapshot(self._pk.location, self._pk.__db__)
+					self._pk.m_time = os.stat(self._pk.location).st_mtime
+			self._wal.remove()
 
 	def _wal_log(self, rec: dict):
 		"""Buffer a record for the current transaction (no-op unless WAL is active)."""
@@ -1499,6 +1648,8 @@ class PyroTable(dict):
 			self._wal_force_checkpoint = False
 			return
 		with self._wal_lock():
+			# Never append without catching up first: append truncates at our offset.
+			self._wal_catch_up_locked()
 			if (self._wal_force_checkpoint or self._wal_gen is None
 					or self._wal_snapshot_sig() is None):
 				self._wal_checkpoint_locked()
@@ -1533,6 +1684,7 @@ class PyroTable(dict):
 		with self._wal_lock():
 			self._wal_depth += 1
 			try:
+				self._wal_catch_up_locked()
 				return func(self, *args, **kwargs)
 			finally:
 				self._wal_depth -= 1
@@ -1863,7 +2015,10 @@ class PyroTable(dict):
 	def rescan(self, rescan=True):
 		"""
 		Rescan the file for changes
+		- WAL mode: snapshot change => full reload; WAL growth => apply new committed txns only
 		"""
+		if self.use_wal:
+			return self._wal_rescan(rescan=rescan)
 		updated = self._pk.rescan(rescan=rescan)
 		if updated:
 			self.height = self.get_height()
@@ -6894,6 +7049,107 @@ if __name__ == "__main__":
 		finally:
 			_cleanup_db_files(test_file)
 
+	def _table_state(tb):
+		"""Comparable snapshot of a table: ids + column data."""
+		return (list(tb.ids.as_list()), {c: list(tb._pk.db[c]) for c in tb.column_names_set})
+
+	def _count_full_reloads(tb):
+		counter = {"n": 0}
+		orig = tb._wal_full_reload
+		def counting(*a, **kw):
+			counter["n"] += 1
+			return orig(*a, **kw)
+		tb._wal_full_reload = counting
+		return counter
+
+	@timed_test
+	@requires_save_load
+	def test_wal_replay_rescan():
+		"""Replay on open, incremental rescan, full reload on checkpoint/shrink, torn tail."""
+		print('\n=== Testing WAL Replay & Rescan ===')
+		test_file = "__wal_replay_test.pdb"
+		wal_file = test_file + ".wal"
+		_cleanup_db_files(test_file)
+		try:
+			a = PyroTable(test_file, use_wal=True, sync=False)
+			a.add_column("id", "name")
+			a.index_column("id", mode="unique")
+			a.add_rows([{"id": i, "name": f"n{i}"} for i in range(5)])
+			a.set_cell("name", 2, "two")
+			a.pop_row(0)
+			a.add_row({"id": 99, "name": "first"}, position=0)
+
+			# Open after logged writes (no dump): replay reproduces the exact state.
+			b = PyroTable(test_file, use_wal=True, sync=False)
+			assert_with_message(_table_state(b) == _table_state(a), "Replay on open matches writer state",
+				_table_state(a), _table_state(b))
+			assert_with_message(b.height == a.height == 5, "Height after replay")
+			assert_with_message(b.find_1st(99, column="id", full_match=True).row_index == 0,
+				"Index rebuilt after replay")
+
+			# Incremental rescan: only the new tail is read, no full reload.
+			reloads = _count_full_reloads(b)
+			off_before = b._wal_offset
+			a.set_cell("name", 1, "inc")
+			assert_with_message(b.get_cell("name", 1) == "inc", "Incremental rescan sees set_cell")
+			assert_with_message(reloads["n"] == 0 and b._wal_offset > off_before, "Rescan advanced offset without reload")
+			assert_with_message(b.rescan() is False, "Unchanged files => rescan returns False")
+
+			b.add_row({"id": 100, "name": "from_b"})
+			assert_with_message(a.find_1st(100, column="id", full_match=True) is not None, "Writer sees other's add_row (index)")
+			a.pop_row(0)
+			b.rescan()
+			assert_with_message(_table_state(b) == _table_state(a), "Both instances converge after pop_row")
+			assert_with_message(reloads["n"] == 0, "Still no full reload on b")
+
+			# Checkpoint by a => b detects snapshot change => full reload.
+			a.dump()
+			assert_with_message(b.rescan() is True and reloads["n"] == 1, "Checkpoint triggers full reload")
+			assert_with_message(_table_state(b) == _table_state(a), "State equal after checkpoint reload")
+
+			# WAL shrink without snapshot change (simulated) => full reload.
+			a.set_cell("name", 0, "pre_shrink")
+			b.rescan()
+			hdr_end = a._wal.read_header()[1]
+			with open(wal_file, "r+b") as f:
+				f.truncate(hdr_end)
+			before = reloads["n"]
+			b.rescan()
+			assert_with_message(reloads["n"] == before + 1, "WAL shrink triggers full reload")
+
+			# Unterminated txn at the tail is ignored, then truncated by the next writer.
+			a.rescan()
+			c = PyroTable(test_file, use_wal=True, sync=False)
+			with open(wal_file, "ab") as f:
+				f.write(_WriteAheadLog.encode_frame({"k": "txn_begin", "txid": 1}))
+				f.write(_WriteAheadLog.encode_frame({"k": "del_row", "row_id": c.ids[0]}))
+			height = c.height
+			assert_with_message(c.rescan() is False and c.height == height, "Unterminated txn not applied")
+			a.set_cell("name", 0, "after_tail")
+			assert_with_message(c.get_cell("name", 0) == "after_tail" and c.height == height,
+				"Next write truncates tail; readers see it")
+			txns = _wal_txns(wal_file)
+			assert_with_message(all(r["k"] != "del_row" or r["row_id"] != c.ids[0] for t in txns for r in t),
+				"Torn txn gone from WAL")
+
+			# Re-open (crash without dump) reproduces the state.
+			d = PyroTable(test_file, use_wal=True)
+			assert_with_message(_table_state(d) == _table_state(a), "Reopen without dump replays WAL")
+
+			# PyroDB-level access goes through WAL replay too (rescan hook).
+			a.set_cell("name", 0, "via_hook")
+			assert_with_message(list(b._pk.items())[1][1][0] == "via_hook", "_pk.items() triggers WAL catch-up")
+
+			# Switching to non-WAL mode absorbs the WAL into the snapshot.
+			expected = _table_state(a)
+			e = PyroTable(test_file)
+			assert_with_message(_table_state(e) == expected, "Non-WAL open absorbs WAL", expected, _table_state(e))
+			assert_with_message(not os.path.exists(wal_file), "WAL removed after absorb")
+			f2 = PyroTable(test_file, use_wal=True)
+			assert_with_message(_table_state(f2) == expected, "Absorbed snapshot reopens in WAL mode")
+		finally:
+			_cleanup_db_files(test_file)
+
 	@timed_test
 	def run_all_tests():
 		"""Run all test cases with timing and proper cleanup"""
@@ -6931,6 +7187,7 @@ if __name__ == "__main__":
 			test_wal_codec,
 			test_wal_checkpoint,
 			test_wal_logged_ops,
+			test_wal_replay_rescan,
 		]
 		only = [t.strip() for t in os.environ.get("PYRODB_TESTS", "").split(",") if t.strip()]
 		if only:
