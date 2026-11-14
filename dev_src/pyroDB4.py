@@ -1341,7 +1341,7 @@ def _int_to_alpha(n):
 
 
 class PyroTable(dict):
-	def __init__(self, filepath: Union[str, bytes]="", auto_dump=True, sig=True, always_rescan=False, *args, use_wal=False, sync=True, **kwargs):
+	def __init__(self, filepath: Union[str, bytes]="", auto_dump=True, sig=True, always_rescan=False, *args, use_wal=False, sync=True, wal_max_bytes=8 * 1024 * 1024, **kwargs):
 		"""
 		args:
 		- filepath: path to the db file (default: `""` or in-memory db)
@@ -1350,6 +1350,7 @@ class PyroTable(dict):
 		- always_rescan: always rescan the file for changes (default: `False`)
 		- use_wal: log row/cell mutations to `{filepath}.wal` instead of rewriting the snapshot (default: `False`)
 		- sync: (WAL mode) fsync on commit and checkpoint (default: `True`)
+		- wal_max_bytes: (WAL mode) checkpoint after a commit leaves the WAL at least this large (default: 8 MiB; `0`/`None` disables)
 		"""
 		self.task_executor = TaskExecutor()
 
@@ -1357,6 +1358,7 @@ class PyroTable(dict):
 
 		self.use_wal = bool(use_wal)
 		self.sync = sync
+		self.wal_max_bytes = wal_max_bytes
 		self._wal_force_checkpoint = False
 		self._wal_depth = 0
 
@@ -1679,6 +1681,8 @@ class PyroTable(dict):
 				raise
 			self._wal_seen = self._wal.stat()
 			self._wal_pending.clear()
+			if self.wal_max_bytes and self._wal_offset >= self.wal_max_bytes:
+				self._wal_checkpoint_locked()
 
 	def _wal_writer(func):
 		"""
@@ -3308,7 +3312,7 @@ class PyroTable(dict):
 		- return: new PyroTable object
 		"""
 
-		new = PyroTable(location, auto_dump=auto_dump, sig=sig, use_wal=self.use_wal, sync=self.sync)
+		new = PyroTable(location, auto_dump=auto_dump, sig=sig, use_wal=self.use_wal, sync=self.sync, wal_max_bytes=self.wal_max_bytes)
 		new._pk.db = datacopy.deepcopy(self.__db__())
 		new._wal_force_checkpoint = True
 		for meta_key in ("__id__", "__epoch__", "__indexed_columns__"):
@@ -7237,6 +7241,54 @@ if __name__ in ("__main__", "__mp_main__"):
 
 	@timed_test
 	@requires_save_load
+	def test_wal_auto_checkpoint():
+		"""wal_max_bytes: a commit that leaves the WAL at/over the limit checkpoints (bounded growth)."""
+		print('\n=== Testing WAL Auto Checkpoint (wal_max_bytes) ===')
+		test_file = "__wal_auto_ckpt_test.pdb"
+		wal_file = test_file + ".wal"
+		_cleanup_db_files(test_file)
+		LIMIT = 2000
+		try:
+			tb = PyroTable(test_file, use_wal=True, sync=False, sig=False, wal_max_bytes=LIMIT)
+			tb.add_column("id", "name")
+			tb.add_rows([{"id": i, "name": f"n{i}"} for i in range(5)])
+			gen0 = tb._snapshot_gen()
+			max_seen = 0
+			txn_sizes = []
+			for i in range(200):
+				before = tb._wal_offset
+				tb.set_cell("name", i % 5, f"value_{i}")
+				size = os.path.getsize(wal_file)
+				max_seen = max(max_seen, size)
+				if tb._wal_offset > before:
+					txn_sizes.append(tb._wal_offset - before)
+			checkpoints = tb._snapshot_gen() - gen0
+			print(f"  checkpoints={checkpoints} max_wal={max_seen}B limit={LIMIT}B")
+			assert_with_message(checkpoints >= 5, "Auto checkpoints happened", ">= 5", checkpoints)
+			assert_with_message(max_seen < LIMIT, "WAL never left at/over the limit after a commit", LIMIT, max_seen)
+			assert_with_message(tb._wal_header_matches(), "WAL header valid after auto checkpoint")
+			assert_with_message(_table_state(PyroTable(test_file, use_wal=True, sig=False)) == _table_state(tb),
+				"State durable across auto checkpoints")
+
+			# A reader following along through auto checkpoints converges.
+			reader = PyroTable(test_file, use_wal=True, sig=False)
+			for i in range(100):
+				tb.set_cell("name", 0, f"r{i}")
+				assert_with_message(reader.get_cell("name", 0) == f"r{i}", "", message_on_success=False)
+			print("✅ Reader converges across auto checkpoints")
+
+			# Disabled: WAL grows past the limit.
+			off = PyroTable(test_file, use_wal=True, sync=False, sig=False, wal_max_bytes=0)
+			gen = off._snapshot_gen()
+			for i in range(100):
+				off.set_cell("name", 0, f"off_{i}")
+			assert_with_message(off._snapshot_gen() == gen and os.path.getsize(wal_file) > LIMIT,
+				"wal_max_bytes=0 disables auto checkpoint")
+		finally:
+			_cleanup_db_files(test_file)
+
+	@timed_test
+	@requires_save_load
 	def test_wal_crash_injection():
 		"""Cut the WAL at every byte; reload must equal the state after the last intact commit."""
 		print('\n=== Testing WAL Crash Injection ===')
@@ -7527,6 +7579,7 @@ if __name__ in ("__main__", "__mp_main__"):
 			test_wal_logged_ops,
 			test_wal_replay_rescan,
 			test_wal_open_single_load,
+			test_wal_auto_checkpoint,
 			test_wal_crash_injection,
 			test_wal_idempotency,
 			test_wal_kill_mid_write,

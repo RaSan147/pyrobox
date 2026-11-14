@@ -113,6 +113,20 @@ instead of appending.
 
 `dump(filepath)` to a different path is a plain export (a snapshot copy, with no WAL).
 
+## 7a. Compaction policy (`wal_max_bytes`)
+
+`PyroTable(..., use_wal=True, wal_max_bytes=8 MiB)`. After a logged commit, if the WAL end offset
+is `>= wal_max_bytes`, the same writer checkpoints immediately while it still holds `{loc}.lock`.
+So after any commit the WAL is smaller than `wal_max_bytes`, apart from a single transaction that
+by itself exceeds the limit (that one is checkpointed straight away). `0` or `None` disables this;
+the WAL then shrinks only through `dump()` or an unlogged operation.
+
+The policy belongs to the library, not to callers: tests and applications should not call
+`dump()` on a timer just to bound the WAL.
+
+Opening a WAL table holds `{loc}.lock` from the snapshot load through WAL replay, so the
+snapshot is read only once and cannot be swapped out by another process's checkpoint in between.
+
 ## 8. Recomputed metadata (never logged)
 
 - `__id__` is derived from the replayed `self.ids` and only written to the snapshot at checkpoint.
@@ -155,7 +169,7 @@ semantics differ on Windows.
 
 ## 11. fsync policy
 
-`PyroTable(..., use_wal=True, sync=True)`:
+`PyroTable(..., use_wal=True, sync=True, wal_max_bytes=8 MiB)`:
 
 - `txn_commit`: `fdatasync` (`fsync` on Windows) of the WAL.
 - Checkpoint: `fsync` the snapshot temp file before `os.replace`, `fsync` the parent directory
@@ -186,6 +200,8 @@ once with `use_wal=True` (`PYRODB_MODES=off,on`), then the WAL-specific tests ru
 | `test_wal_checkpoint` | Snapshot gen+1 then WAL reset, only three files, stale gen detected, export writes no WAL |
 | `test_wal_logged_ops` | Logged ops append txns without rewriting the snapshot; unlogged ops checkpoint |
 | `test_wal_replay_rescan` | Replay on open, incremental rescan, full reload on checkpoint or shrink, torn txn ignored, non-WAL absorb |
+| `test_wal_open_single_load` | Opening a WAL table loads the snapshot once and replays the WAL |
+| `test_wal_auto_checkpoint` | `wal_max_bytes` bounds WAL growth; readers follow along through auto checkpoints; `0` disables it |
 | `test_wal_crash_injection` | Reload at every WAL byte cut equals the state after the last intact commit |
 | `test_wal_idempotency` | Double replay is a no-op; crash between snapshot replace and WAL reset loses nothing |
 | `test_wal_kill_mid_write` | Writer killed at random points: reload is a whole-txn prefix that includes every reported commit |
@@ -199,3 +215,6 @@ once with `use_wal=True` (`PYRODB_MODES=off,on`), then the WAL-specific tests ru
   runs is safe: when a non-WAL table opens a file whose WAL has committed records, it replays
   them, writes a snapshot, and removes the WAL.
 - `add_column`, `del_column`, `sort`, and the other operations in section 6 cost a full snapshot write.
+- Non-WAL mode (inherited from pyroDB3): `PyroDB.__init__` resets `m_time` to 0 after loading, so
+  the auto-dump at the end of the constructor rescans, reloads, and rewrites the snapshot every time
+  a file is opened. WAL mode does not do this.
