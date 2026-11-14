@@ -1360,6 +1360,28 @@ class PyroTable(dict):
 		self._wal_force_checkpoint = False
 		self._wal_depth = 0
 
+		# WAL mode: hold {loc}.lock from snapshot load through WAL replay, so the snapshot
+		# is read once and cannot be replaced by another process's checkpoint in between.
+		open_lock = None
+		if self.use_wal and SAVE_LOAD and filepath:
+			loc = filepath if isinstance(filepath, str) else filepath.decode('utf-8')
+			open_lock = FileLock(os.path.expanduser(loc) + ".lock")
+			open_lock.acquire()
+		try:
+			self._open_storage(filepath, auto_dump, sig, args, kwargs)
+		finally:
+			if open_lock is not None:
+				open_lock.release()
+
+		self._load_registered_indexes()
+
+		# make the super dict = self._pk.db
+
+
+		# DEFAULR LIMIT FOR STR conversion
+		self.str_limit = 50
+
+	def _open_storage(self, filepath, auto_dump, sig, args, kwargs):
 		# Shared executor: table mutations and dump/rescan use the same lock domain
 		self._pk = PyroDB(
 			location=filepath,
@@ -1368,7 +1390,7 @@ class PyroTable(dict):
 			auto_rescan=True,
 			task_executor=self.task_executor,
 			use_wal=self.use_wal,
-			sync=bool(sync) if self.use_wal else False,
+			sync=bool(self.sync) if self.use_wal else False,
 			*args, **kwargs,
 		)
 		self.column_names_set = OrderedDict((k, None) for k in self._pk.db.keys())
@@ -1396,19 +1418,10 @@ class PyroTable(dict):
 		self._wal_reset_state()
 		if self._wal_active():
 			with self._wal_lock():
-				# Reload under the lock: the snapshot may have been replaced since PyroDB loaded it.
-				self._wal_full_reload(reload_snapshot=os.path.exists(self._pk.location))
+				self._wal_full_reload(reload_snapshot=False)
 			self._pk._rescan_hook = self._wal_rescan
 		elif SAVE_LOAD and self._pk.location and not self._pk.in_memory and os.path.exists(self._pk.location + ".wal"):
 			self._absorb_wal()
-
-		self._load_registered_indexes()
-
-		# make the super dict = self._pk.db
-
-
-		# DEFAULR LIMIT FOR STR conversion
-		self.str_limit = 50
 
 	@staticmethod_decorator
 	def threadsafe_decorator(self, func=None):
@@ -7181,6 +7194,39 @@ if __name__ == "__main__":
 
 	@timed_test
 	@requires_save_load
+	def test_wal_open_single_load():
+		"""Opening a WAL table reads the snapshot once (under {loc}.lock) and still replays the WAL."""
+		print('\n=== Testing WAL Open Single Snapshot Load ===')
+		test_file = "__wal_open_load_test.pdb"
+		_cleanup_db_files(test_file)
+		orig = PyroDB._loaddb
+		calls = {"n": 0}
+		def counting(self):
+			calls["n"] += 1
+			return orig(self)
+		try:
+			tb = PyroTable(test_file, use_wal=True, sync=False, sig=False)
+			tb.add_column("id")
+			tb.add_rows([{"id": i} for i in range(3)])
+			tb.set_cell("id", 0, 42)
+			expected = _table_state(tb)
+			PyroDB._loaddb = counting
+			r = PyroTable(test_file, use_wal=True, sig=False)
+			assert_with_message(calls["n"] == 1, "WAL open loads the snapshot once", 1, calls["n"])
+			assert_with_message(_table_state(r) == expected, "WAL replayed on open")
+			PyroTable(test_file, use_wal=False, sig=False)
+			assert_with_message(not os.path.exists(test_file + ".wal"), "Non-WAL open absorbed the WAL")
+			calls["n"] = 0
+			PyroTable("__wal_open_missing.pdb", use_wal=True, sig=False)
+			assert_with_message(calls["n"] == 0 and not os.path.exists("__wal_open_missing.pdb"),
+				"Opening a missing file loads nothing and writes no snapshot")
+		finally:
+			PyroDB._loaddb = orig
+			_cleanup_db_files(test_file)
+			_cleanup_db_files("__wal_open_missing.pdb")
+
+	@timed_test
+	@requires_save_load
 	def test_wal_crash_injection():
 		"""Cut the WAL at every byte; reload must equal the state after the last intact commit."""
 		print('\n=== Testing WAL Crash Injection ===')
@@ -7470,6 +7516,7 @@ if __name__ == "__main__":
 			test_wal_checkpoint,
 			test_wal_logged_ops,
 			test_wal_replay_rescan,
+			test_wal_open_single_load,
 			test_wal_crash_injection,
 			test_wal_idempotency,
 			test_wal_kill_mid_write,
