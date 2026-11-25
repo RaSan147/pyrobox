@@ -228,23 +228,10 @@ import threading
 import datetime
 
 import traceback
-from typing import Any, Dict, Generator, List, Tuple, Union, Optional, Iterable, overload
-try:
-	from typing import Literal
-except ImportError:
-	# For Python 3.7 and earlier
-	try:
-		from typing_extensions import Literal
-	except ImportError:
-		# Fallback to a simple string type
-		class Literal:
-			def __class_getitem__(cls, item): return type(item)
+from typing import Any, Dict, Generator, List, Literal, Tuple, Union, Optional, Iterable, overload
 
-# import OrderedDict if python version is less than 3.7
-if sys.version_info < (3, 7):
-	from collections import OrderedDict  # type: ignore
-else:
-	OrderedDict = dict  # type: ignore
+# dict preserves insertion order on supported Python versions (3.8+).
+OrderedDict = dict  # type: ignore
 
 import re
 
@@ -308,11 +295,13 @@ def as_is(*args, **kwargs):
 
 
 def staticmethod_decorator(func):
+	"""Identity decorator kept for existing ``@staticmethod_decorator`` call sites.
+
+	Must not wrap with ``staticmethod``: on Python 3.8–3.9 those objects are not
+	callable inside a class body (``@threadsafe_decorator`` would fail). Plain
+	functions work on 3.8+; 3.10+ made ``staticmethod`` callable, but identity
+	remains the portable choice.
 	"""
-	Decorator for static methods, does nothing if python <=3.7
-	"""
-	if sys.version_info >= (3, 8):
-		return staticmethod(func)
 	return func
 
 

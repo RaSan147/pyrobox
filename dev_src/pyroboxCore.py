@@ -1357,6 +1357,21 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	server_version = "SimpleHTTP/" + __version__
 
+	# ``return_file`` reads files up to these sizes fully so Content-Length matches
+	# the bytes sent (fstat can be short while a file is still being written).
+	send_blob_max = 8 * 1024 * 1024
+	# Larger limit for types where a truncated body breaks the page.
+	send_blob_asset_max = 32 * 1024 * 1024
+	send_blob_asset_types = frozenset({
+		"text/html",
+		"text/css",
+		"text/javascript",
+		"application/javascript",
+		"application/json",
+		"image/svg+xml",
+		"application/wasm",
+	})
+
 	if not mimetypes.inited:
 		mimetypes.init()  # try to read system mime.types
 	_custom_mime_types = {
@@ -1763,6 +1778,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 	def do_HANDLE(self, method: str) -> None:
 		"""Serve a single REQUEST."""
 		method = method.upper()
+		self._send_blob = None
 
 		# GET is served from the HEAD handler table; the body is still
 		# streamed below unless the actual request method was HEAD.
@@ -1833,7 +1849,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				if resp:
 					try:
 						if self.method != "HEAD":
-							self.copyfile(resp, self.wfile)
+							self._copy_body(resp)
 					except (ConnectionAbortedError, ConnectionResetError,
 							BrokenPipeError) as e:
 						self.log_info(tools.text_box(
@@ -1991,9 +2007,9 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			file = open(path, 'rb')  # noqa: SIM115 - caller closes after response copy
 			fs = os.fstat(file.fileno())
+			self._send_blob = None
 
-			file_len = fs[6]
-			# Use browser cache if possible
+			# Use browser cache if possible (before reading the body into memory).
 			if ("If-Modified-Since" in self.headers
 					and "If-None-Match" not in self.headers):
 				# compare If-Modified-Since and time of last file modification
@@ -2022,9 +2038,33 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 								self.send_header("Content-Encoding", C_encoding)
 
 							self.end_headers()
+							self._send_blob = None
 							file.close()
 
 							return None
+
+			# fstat can be short while the file is still being flushed (editor save,
+			# first hit after startup). A short Content-Length truncates JS/CSS and
+			# breaks clients. Prefer a full read so length matches bytes sent;
+			# large non-asset files still stream via restat + copyfile.
+			if ctype.split(";", 1)[0].strip().lower() in self.send_blob_asset_types:
+				blob_limit = self.send_blob_asset_max
+			else:
+				blob_limit = self.send_blob_max
+			if (
+				self.command != "HEAD"
+				and not self.use_range
+				and fs.st_size <= blob_limit
+			):
+				blob = file.read()
+				file_len = len(blob)
+				self._send_blob = (file, blob)
+			else:
+				# Re-stat to shrink the short-fstat race window before streaming.
+				try:
+					file_len = os.fstat(file.fileno()).st_size
+				except OSError:
+					file_len = fs[6]
 
 			if self.use_range:
 				first = self.range[0]
@@ -2035,6 +2075,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					last = file_len - 1
 
 				if first >= file_len:  # PAUSE AND RESUME SUPPORT
+					self._send_blob = None
 					self.send_error(code=416, message='Requested Range Not Satisfiable', cookie=cookie)
 					return None
 
@@ -2079,16 +2120,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			return file
 
 		except PermissionError:
+			self._send_blob = None
 			self.send_error(code=HTTPStatus.FORBIDDEN, message="Permission denied", cookie=cookie)
 			return None
 
 		except OSError:
+			self._send_blob = None
 			self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found", cookie=cookie)
 			self.log_info(f'File not found: {path}')
 
 			return None
 
 		except Exception:
+			self._send_blob = None
 			ERR_LOG = traceback.format_exc()
 			self.send_error(code=HTTPStatus.INTERNAL_SERVER_ERROR, message="Internal Server Error", cookie=cookie)
 			self.log_error(ERR_LOG)
@@ -2107,11 +2151,21 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			# Headers already sent by return_file - must still close the handle
 			# (clients often issue HEAD before GET; leaking handles exhausts FDs).
 			file.close()
+			self._send_blob = None
 			return
 		try:
-			self.copyfile(file, self.wfile)
+			self._copy_body(file)
 		finally:
 			file.close()
+
+	def _copy_body(self, source):
+		"""Write a response body, using the bytes ``return_file`` already read for ``source``."""
+		pending = self._send_blob
+		self._send_blob = None
+		if pending is not None and pending[0] is source:
+			self.wfile.write(pending[1])
+		else:
+			self.copyfile(source, self.wfile)
 
 
 	def get_displaypath(self, url_path, escape_html=True):
