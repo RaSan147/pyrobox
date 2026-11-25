@@ -4,6 +4,25 @@
   * **Removed the hardcoded default upload password** (`SECret`). A random one is generated on every launch unless you set one (see below). **Upgrade from 0.9.9 and older is strongly recommended.**
   * Reported by Abbos Eshmirzayev.
 
+  * **Hardening** (see `Security_Audit.md` / `REMEDIATION_LOG.md`):
+    * Path-restriction ACLs are now enforced on all file operations
+    * Stored XSS in admin user management and attribute injection in breadcrumbs fixed
+    * Admin mutating actions moved to `POST` with CSRF protection; credentials no longer sent in URLs
+    * Session token rotation, logout revocation and safer cookie flags
+    * Password hashing upgraded to salted scrypt (old hashes upgrade automatically on login)
+    * Login no longer reveals whether a username exists
+    * Defensive HTTP security headers; caps on subtitle cache, QR generation and directory walks (DoS)
+    * Guests get write permissions only with the session / `-k` password; members are exempt from the password
+
+  ## Client-side Changes
+  * **Works fully offline**: the video player's CSS/JS (Plyr 3.8.4, minified) is now bundled. Previously the site would not load in a no-internet environment because of the video player's CSS dependency. Font Awesome icons are optional and fall back to plain symbols when offline.
+  * **Video player** fixed and improved.
+  * **Built-in code editor** to view and edit text/code files in the browser.
+  * **Multiple file uploads** and **folder upload**, with a revamped upload UI and drag & drop.
+  * New file list view with offline sorting, colour-coded file-type icons, toast notifications and a refreshed UI/theme.
+  * Improved error page, names with multiple spaces are preserved, and action buttons improved.
+  * Fixed zip downloads showing "done" before the zip was actually ready.
+
   ## Database
   * **pyroDB4** New write-ahead-log (WAL) database engine: crash-safe writes, `wal_max_bytes` auto checkpoint, Blob support and a blob write race fix. User/config storage now uses pyroDB4.
 

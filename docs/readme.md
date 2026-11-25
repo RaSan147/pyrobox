@@ -29,10 +29,12 @@
 * 🔽 DOWNLOAD AND VIDEO STREAM WITH **PAUSE AND RESUME**
 * 🔼 UPLOAD WITH **PASSWORD** (User password or server-wide password)
 * 👌 HTML5 drag and drop uploader
-* 📈 MULTIPLE FILE **UPLOAD**
+* 📈 MULTIPLE FILE and **FOLDER UPLOAD**
+* ✏️ Built-in **CODE / TEXT EDITOR** (edit files right from the browser)
 * 📝 RENAME
 * 📁 FOLDER DOWNLOAD as **ZIP** (uses temp folder)
-* ⏯ Built-in VIDEO PLAYER
+* ⏯ Built-in VIDEO PLAYER (bundled, works with **no internet** connection)
+* 🔐 Safer by default: random upload password per launch (or a saved one), salted password hashing, CSRF protection, path ACLs
 * 🔁 **DELETE FILE** (MOVE TO RECYCLE BIN)
 * 🔥 PERMANENTLY DELETE
 * ⛓ `File manager` like `NAVIGATION BAR`
@@ -43,7 +45,7 @@
 * 🌐 (If you are using REAL IP AND ALLOW PYTHON TO USE PUBLIC NETWORK, YOUR SERVER CAN BE VISIBLE AROUND THE GLOBE. (you must use port forwarding from Router)
 * 🧬 Clone entire directory from Host to Client with least changes (last modified preserved)
 * 🔜 More comming soon
-* All of these without the need of any internet connection (having connection will provide better experience)
+* All of these without the need of any internet connection
 
 
 ## Server side requirement
