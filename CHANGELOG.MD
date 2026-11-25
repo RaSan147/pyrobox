@@ -4,7 +4,7 @@
   * **Removed the hardcoded default upload password** (`SECret`). A random one is generated on every launch unless you set one (see below). **Upgrade from 0.9.9 and older is strongly recommended.**
   * Reported by Abbos Eshmirzayev.
 
-  * **Hardening** (see `Security_Audit.md` / `REMEDIATION_LOG.md`):
+  * **Hardening**:
     * Path-restriction ACLs are now enforced on all file operations
     * Stored XSS in admin user management and attribute injection in breadcrumbs fixed
     * Admin mutating actions moved to `POST` with CSRF protection; credentials no longer sent in URLs
