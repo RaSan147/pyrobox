@@ -15,6 +15,7 @@ File System Utilities
 > Thanks for your help!
 """
 
+import html
 from io import BufferedWriter
 import os
 from queue import Queue
@@ -22,7 +23,7 @@ import re
 import time
 import traceback
 import urllib.parse
-from .tools import os_scan_walk_gen, xpath
+from .UX_Tools import os_scan_walk_gen, xpath
 
 from ._exceptions import LimitExceed
 
@@ -196,12 +197,13 @@ def get_dir_size(start_path = '.', limit=None, must_read=False):
 	return _get_tree_size(start_path, limit, must_read)
 
 
-def _get_tree_count_n_size(path):
+def _get_tree_count_n_size(path, max_count=50000):
 	"""
 	Get the size of a directory and all its subdirectories.
 	returns a tuple of (`total file count`, `total folder size`)
 
 	path: path to the directory
+	max_count: maximum number of entries to traverse to prevent DoS
 	"""
 	total = 0
 	count = 0
@@ -213,10 +215,12 @@ def _get_tree_count_n_size(path):
 			continue
 
 		count += 1
+		if max_count and count >= max_count:
+			break
 
 	return count, total
 
-def get_tree_count_n_size(start_path):
+def get_tree_count_n_size(start_path, max_count=50000):
 	"""
 	Get the size of a directory and all its subdirectories.
 	returns a tuple of (`total file count`, `total folder size`)
@@ -224,7 +228,7 @@ def get_tree_count_n_size(start_path):
 	path: path to the directory
 	"""
 
-	return _get_tree_count_n_size(start_path)
+	return _get_tree_count_n_size(start_path, max_count=max_count)
 
 
 def fmbytes(B=0, path=''):
@@ -355,7 +359,9 @@ def dir_navigator(path):
 		names.append(dir)
 
 	for i in range(len(names)):
-		tag = "<a class='dir_turns' href='" + urls[i] + "'>" + names[i] + "</a>"
+		href = html.escape(urls[i], quote=True)
+		name = names[i] if i == 0 else html.escape(names[i])
+		tag = f'<a class="dir_turns" href="{href}">{name}</a>'
 		r.append(tag)
 
 	return '<span class="dir_arrow">&#10151;</span>'.join(r)

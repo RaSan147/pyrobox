@@ -7,7 +7,7 @@ import urllib.parse
 
 from _fs_utils import get_titles, dir_navigator, reverse_humanbytes
 from UX_Tools import xpath, xprint
-from pyroDB3 import PickleTable
+from pyroDB4 import PickleTable
 import user_mgmt as u_mgmt
 from user_mgmt import User
 
@@ -28,13 +28,7 @@ class ServerConfig():
 		self.admin_username: Optional[str] = cli_args.admin_id
 		self.admin_password: Optional[str] = cli_args.admin_pass
 		# Guest/anonymous upload gate (CLI --password); not an account password
-		cli_pass = getattr(cli_args, 'password', None)
-		if not cli_pass:
-			self.PASSWORD = secrets.token_urlsafe(9)
-			self._password_auto_generated = True
-		else:
-			self.PASSWORD = cli_pass
-			self._password_auto_generated = False
+		self.PASSWORD, self._password_auto_generated = self._resolve_upload_password(cli_args)
 
 		self.uDB = PickleTable()
 		self.configDB = PickleTable()
@@ -62,6 +56,50 @@ class ServerConfig():
 		self.assets_dir = xpath(CoreConfig.MAIN_FILE_dir, '..', "assets", realpath=True)
 		self.zip_dir = xpath(self.temp_dir, "zip")
 
+	@staticmethod
+	def _open_preferences() -> PickleTable:
+		"""User-level preference table (survives reinstalls, shared by all servers)."""
+		pref_loc = os.path.join(os.path.expanduser("~"), ".pyrobox", "preferences.pdb")
+		os.makedirs(os.path.dirname(pref_loc), exist_ok=True)
+		prefs = PickleTable(pref_loc)
+		prefs.add_column("name", "value", exist_ok=True)
+		return prefs
+
+	def _resolve_upload_password(self, cli_args: argparse.Namespace) -> Tuple[str, bool]:
+		"""Pick the guest upload password: --password > saved preference > random.
+
+		Returns (password, auto_generated).
+		"""
+		cli_pass = getattr(cli_args, 'password', None)
+		save = getattr(cli_args, 'save_password', False)
+		clear = getattr(cli_args, 'clear_password', False)
+
+		if not (cli_pass and save) and not clear:
+			if cli_pass:
+				return cli_pass, False
+			saved = self._open_preferences().find_1st("UploadPassword", 'name')
+			if saved:
+				value = saved.row_obj()["value"]
+				if value:
+					return value, False
+			return secrets.token_urlsafe(9), True
+
+		prefs = self._open_preferences()
+		saved = prefs.find_1st("UploadPassword", 'name')
+		if clear:
+			if saved:
+				saved.row_obj().del_row()
+			if cli_pass:
+				return cli_pass, False
+			return secrets.token_urlsafe(9), True
+
+		# --password VALUE --save-password
+		if saved:
+			saved.row_obj()["value"] = cli_pass
+		else:
+			prefs.add_row(dict(name="UploadPassword", value=cli_pass))
+		return cli_pass, False
+
 	def announce_upload_password(self) -> None:
 		"""Print the auto-generated guest upload password (no-op if user-supplied)."""
 		if not self._password_auto_generated:
@@ -79,10 +117,9 @@ class ServerConfig():
 		self.admin_username = cli_args.admin_id
 		self.admin_password = cli_args.admin_pass
 
-		cli_pass = getattr(cli_args, 'password', None)
-		if cli_pass:
-			self.PASSWORD = cli_pass
-			self._password_auto_generated = False
+		new_pass, auto = self._resolve_upload_password(cli_args)
+		if not auto:  # keep the already generated random password otherwise
+			self.PASSWORD, self._password_auto_generated = new_pass, False
 
 		self.GUESTS = not cli_args.no_guest_allowed
 		self.max_zip_size = reverse_humanbytes(cli_args.zip_limit)

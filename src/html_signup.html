@@ -1,0 +1,240 @@
+<!DOCTYPE HTML>
+<!-- test1 -->
+<html lang="en">
+<head>
+	<!-- Performance: Preconnect & DNS Prefetch -->
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous">
+	<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="dns-prefetch" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+	<link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+	<!-- Encoding & Viewport -->
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+	<!-- SEO Meta Tags -->
+	<title>Signup - PyroBox</title>
+	<meta name="description" content="PyroBox - Signup to the file system">
+	<meta name="keywords" content="PyroBox, file manager, file sharing, file storage">
+	<meta name="author" content="RaSan147">
+	<meta name="application-name" content="PyroBox">
+
+	<!-- Open Graph (Facebook, LinkedIn, etc.) -->
+	<meta property="og:title" content="PyroBox">
+	<meta property="og:description" content="PyroBox - A simple file manager">
+	<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+	<meta property="og:url" content="${PY_PUBLIC_URL}">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="PyroBox">
+	<meta property="og:locale" content="en_US">
+	<meta property="og:locale:alternate" content="en_GB">
+
+	<!-- Twitter Meta Tags -->
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:site" content="@RaSan147">
+	<meta name="twitter:title" content="PyroBox">
+	<meta name="twitter:description" content="PyroBox - A simple file manager">
+	<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+
+	<!-- Mobile & PWA Compatibility -->
+	<meta name="theme-color" content="#000000">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-title" content="PyroBox">
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="msapplication-TileColor" content="#000000">
+	<meta name="msapplication-TileImage" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+
+	<!-- Fonts -->
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
+
+	<!-- Favicon -->
+	<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
+
+	<!-- Stylesheets -->
+	<link rel="stylesheet" href="?style">
+</head>
+	
+<body>
+
+
+	<div>
+		<div id="signup-page">
+			<div id="signup-header">
+				<h1>Signup</h1>
+			</div>
+			<div id="signup-form">
+				<form action="?do_signup" method="post" ENCTYPE="multipart/form-data" id="signup">
+					<input name="post-type" value="signup" hidden>
+					<table>
+						<tr>
+							<th><label for="username">Username</label></th>
+							<td><input type="text" name="username" class="txt_box" id="username" placeholder="Username (can be anything)" maxlength="64" minlength="1"></td>
+						</tr>
+						<tr>
+							<th><label for="password">Password</label></th>
+							<td><input type="password" name="password" class="txt_box" id="password" placeholder="Password" maxlength="512"></td>
+						</tr>
+					</table>
+					<div id="signup-submit">
+						<input id="submit_btn" type="submit" value="Signup">
+					</div>
+				</form>
+			</div>
+
+			<p class="status" id="status"></p>
+
+		</div>
+	</div>
+
+	<br>
+	<div>Already have an account? <a href="?login" style="font-size: medium;">LOGIN</a></div>
+
+
+	<style>
+		body {
+			padding: 20px;
+		}
+
+		.status {
+			color: rgb(48, 48, 48);
+			display: none;
+			font-size: 1.5em;
+			padding: 5px;
+			margin: 5px;
+			border: solid 2px;
+			border-radius: 4px;
+		}
+
+
+		#signup-page {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+		#signup-form {
+			width: 100%;
+			max-width: 400px;
+		}
+
+		.txt_box {
+			width: 100%;
+			height: 25px;
+			font-size: 1em;
+		}
+
+		#submit_btn {
+			width: 200px;
+			height: 50px;
+			font-size: 1.5em;
+		}
+
+		table {
+			border-color: #00000000;
+			border-spacing: 4px;
+			width: 95%;
+			text-align: left;
+		}
+	</style>
+
+	<script src="/?script_global"></script>
+	<script>
+
+		function update_note(note = '', color = "gray") {
+
+			const status = byId('status')
+			status.style.display = 'none';
+			if (note != '') {
+				status.style.display = 'block';
+			}
+			status.style.color = color;
+			status.innerText = note;
+		}
+
+
+
+		function test_fields() {
+			const note = (msg) => { update_note(msg, "red") }
+
+			const _uname = byId("username").value
+			const _pass = byId("password").value
+			const usernameRegex = /^[a-zA-Z0-9_]+$/g;
+
+
+			if (_uname.length < 1) {
+				note("Username must have at least 1 character!")
+			} else if (_uname.length > 64) {
+				note("Username must be less than 64 character long")
+			} else if (_pass.length < 4) {
+				note("Password must have at least 4 character!")
+			} else if (_pass.length > 256) {
+				note("Password can't be longer than 256 characters")
+			} else if (!usernameRegex.test(_uname)) {
+				note("Username can only have A-Z, a-z, 0-9, _")
+			} else if (_uname == _pass) {
+				note("Username and password can't be the same!")
+			} else {
+				return 1;
+			}
+
+			return 0;
+		}
+
+
+		byId("signup").onsubmit = (e) => {
+			e.preventDefault()
+
+			const formData = new FormData(e.target)
+
+			if (!test_fields()) {
+				return 0
+			}
+			var msg = "";
+			var color = "red"
+
+			// const filenames = formData.getAll('files').map(v => v.name).join(', ')
+			const request = new XMLHttpRequest()
+			request.open(e.target.method, e.target.action)
+			request.timeout = 60 * 1000;
+			request.onreadystatechange = () => {
+				if (request.readyState === XMLHttpRequest.DONE) {
+					msg = `${request.status}: ${request.statusText}`
+					if (request.status === 0) msg = 'Connection failed'
+					if (request.status === 204 || request.status === 200) {
+						var response = JSON.parse(request.responseText);
+						if (response.status == "success") {
+							msg = "Signed up. REDIRECTING...";
+							color = "green"
+
+							setTimeout(function () { goto("./"); }, 1000);
+						}
+						else {
+							msg = response.message;
+							if (response.status == "failed") {
+								color = "red";
+							} else {
+								color = "Yellow";
+							}
+						}
+
+					}
+					if (request.status === 401) msg = 'Incorrect password';
+
+					update_note(msg, color)
+				}
+			}
+
+
+			request.send(formData)
+		}
+	</script>
+
+</body>
+
+</html>

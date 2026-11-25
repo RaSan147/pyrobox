@@ -1,58 +1,127 @@
 import argparse
 from http import HTTPStatus
 import os
-from typing import Union
+import secrets
+from typing import Any, List, Optional, Tuple, Union
+import urllib.parse
 
 from ._fs_utils import get_titles, dir_navigator, reverse_humanbytes
-from .tools import xpath
-from .pyroDB import PickleTable
+from .UX_Tools import xpath, xprint
+from .pyroDB4 import PickleTable
 from . import user_mgmt as u_mgmt
 from .user_mgmt import User
 
-from .pyroboxCore import config as CoreConfig, SimpleHTTPRequestHandler as SH_base, SimpleCookie, tools
+from .pyroboxCore import config as CoreConfig, SimpleHTTPRequestHandler as SH_base, SimpleCookie, logger, tools
 
 
 from string import Template
 from . import _page_templates as pt
-
-
-
-
-
-
 class ServerConfig():
-	def __init__(self, cli_args:Union[dict, argparse.Namespace]):
-		self.name = cli_args.name
-		self.admin_username = cli_args.admin_id
-		self.admin_password = cli_args.admin_pass
+	def __init__(self, cli_args: argparse.Namespace) -> None:
+		self.name: Optional[str] = cli_args.server_name
+		self.admin_username: Optional[str] = cli_args.admin_id
+		self.admin_password: Optional[str] = cli_args.admin_pass
+		# Guest/anonymous upload gate (CLI --password); not an account password
+		self.PASSWORD, self._password_auto_generated = self._resolve_upload_password(cli_args)
 
 		self.uDB = PickleTable()
 		self.configDB = PickleTable()
-		self.cli_args = cli_args
+		self.cli_args: argparse.Namespace = cli_args
 
+		self.GUESTS = not self.cli_args.no_guest_allowed  # unless account mode, everyone is guest
 
-		self.GUESTS =  not self.cli_args.no_guest_allowed  # unless account mode, everyone is guest
-
-		self.admin_perms = []
-		self.member_perms = []
-		self.guest_perms = []
+		self.admin_perms: List[Any] = []
+		self.member_perms: List[Any] = []
+		self.guest_perms: List[Any] = []
 
 		self.init_config()
 		self.init_permissions(cli_args=cli_args)
 		self.init_account()
 
 		# Max size a zip file will be made
-		self.max_zip_size = reverse_humanbytes(cli_args.zip_limit) # 6GB by default
+		self.max_zip_size = reverse_humanbytes(cli_args.zip_limit)  # 6GB by default
 
 		# Max Buffer size for writing files
-		self.max_buffer_size = 1024*1024 # 1MB
-
+		self.max_buffer_size = 1024 * 1024  # 1MB
 
 		self.temp_dir = CoreConfig.temp_dir
 		self.subtitles_dir = xpath(self.temp_dir, "subtitles")
 		self.allow_subtitle = True
 		self.assets_dir = xpath(CoreConfig.MAIN_FILE_dir, '..', "assets", realpath=True)
 		self.zip_dir = xpath(self.temp_dir, "zip")
+
+	@staticmethod
+	def _open_preferences() -> PickleTable:
+		"""User-level preference table (survives reinstalls, shared by all servers)."""
+		pref_loc = os.path.join(os.path.expanduser("~"), ".pyrobox", "preferences.pdb")
+		os.makedirs(os.path.dirname(pref_loc), exist_ok=True)
+		prefs = PickleTable(pref_loc)
+		prefs.add_column("name", "value", exist_ok=True)
+		return prefs
+
+	def _resolve_upload_password(self, cli_args: argparse.Namespace) -> Tuple[str, bool]:
+		"""Pick the guest upload password: --password > saved preference > random.
+
+		Returns (password, auto_generated).
+		"""
+		cli_pass = getattr(cli_args, 'password', None)
+		save = getattr(cli_args, 'save_password', False)
+		clear = getattr(cli_args, 'clear_password', False)
+
+		if not (cli_pass and save) and not clear:
+			if cli_pass:
+				return cli_pass, False
+			saved = self._open_preferences().find_1st("UploadPassword", 'name')
+			if saved:
+				value = saved.row_obj()["value"]
+				if value:
+					return value, False
+			return secrets.token_urlsafe(9), True
+
+		prefs = self._open_preferences()
+		saved = prefs.find_1st("UploadPassword", 'name')
+		if clear:
+			if saved:
+				saved.row_obj().del_row()
+			if cli_pass:
+				return cli_pass, False
+			return secrets.token_urlsafe(9), True
+
+		# --password VALUE --save-password
+		if saved:
+			saved.row_obj()["value"] = cli_pass
+		else:
+			prefs.add_row(dict(name="UploadPassword", value=cli_pass))
+		return cli_pass, False
+
+	def announce_upload_password(self) -> None:
+		"""Print the auto-generated guest upload password (no-op if user-supplied)."""
+		if not self._password_auto_generated:
+			return
+		xprint(tools.text_box(
+			"/yhu/Upload password/=/",
+			f"/bh/{self.PASSWORD}/=/",
+			sep="\n",
+		))
+
+	def sync_from_cli(self, cli_args: argparse.Namespace) -> None:
+		"""Refresh runtime settings from a freshly parsed CLI namespace."""
+		self.cli_args = cli_args
+		self.name = cli_args.server_name
+		self.admin_username = cli_args.admin_id
+		self.admin_password = cli_args.admin_pass
+
+		new_pass, auto = self._resolve_upload_password(cli_args)
+		if not auto:  # keep the already generated random password otherwise
+			self.PASSWORD, self._password_auto_generated = new_pass, False
+
+		self.GUESTS = not cli_args.no_guest_allowed
+		self.max_zip_size = reverse_humanbytes(cli_args.zip_limit)
+
+		self.admin_perms = []
+		self.member_perms = []
+		self.guest_perms = []
+		self.init_permissions(cli_args=cli_args)
 
 	def init_config(self):
 		if self.name:
@@ -85,7 +154,7 @@ class ServerConfig():
 			_admin = self.user_handler.get_user(self.admin_username, temp=True)
 
 			if _admin:
-				if not _admin.is_admin:
+				if not _admin.is_admin():
 					raise ValueError(tools.text_box("Provided username is not an admin"))
 				if not _admin.check_password(self.admin_password):
 					raise ValueError(tools.text_box("Admin password is incorrect"))
@@ -102,7 +171,7 @@ class ServerConfig():
 # This will contain server configurations, user database and limits.
 
 
-	def init_permissions(self, cli_args):
+	def init_permissions(self, cli_args: argparse.Namespace) -> None:
 		def check(arg, perm):
 			if arg:
 				return perm
@@ -163,16 +232,14 @@ class ServerConfig():
 		if self.DefaultPerms["value"].get("guest", None):
 			self.guest_perms = User.unpack_permission_to_list(self.DefaultPerms["value"]["guest"])
 		elif not self.name:
-			self.guest_perms = self.member_perms # if no account mode, guest is member
-			self.guest_perms.remove(permits.MEMBER) # remove member permission
-
-		else:
+			# Anonymous server: guests have write (MODIFY, DELETE, UPLOAD) and other permissions (VIEW, DOWNLOAD, ZIP),
+			# with upload / save-code operations gated by the session / -k password.
 			self.guest_perms = [
-				check(cli_args.guest_allowed, permits.VIEW),
+				permits.VIEW,
 				check(not cli_args.no_upload, permits.UPLOAD),
-				check(not cli_args.no_zip, permits.ZIP),
 				check(not cli_args.no_modify, permits.MODIFY),
 				check(not cli_args.no_delete, permits.DELETE),
+				check(not cli_args.no_zip, permits.ZIP),
 				check(not cli_args.no_download, permits.DOWNLOAD),
 			]
 
@@ -183,6 +250,27 @@ class ServerConfig():
 
 			if cli_args.view_only:
 				remove_perm(self.guest_perms, permits.DOWNLOAD)
+				remove_perm(self.guest_perms, permits.ZIP)
+
+		else:
+			# Named server: guests have write and other permissions when guest_allowed
+			self.guest_perms = [
+				check(cli_args.guest_allowed, permits.VIEW),
+				check(not cli_args.no_upload and cli_args.guest_allowed, permits.UPLOAD),
+				check(not cli_args.no_modify and cli_args.guest_allowed, permits.MODIFY),
+				check(not cli_args.no_delete and cli_args.guest_allowed, permits.DELETE),
+				check(not cli_args.no_zip and cli_args.guest_allowed, permits.ZIP),
+				check(not cli_args.no_download and cli_args.guest_allowed, permits.DOWNLOAD),
+			]
+
+			if cli_args.view_only or cli_args.read_only:
+				remove_perm(self.guest_perms, permits.UPLOAD)
+				remove_perm(self.guest_perms, permits.MODIFY)
+				remove_perm(self.guest_perms, permits.DELETE)
+
+			if cli_args.view_only:
+				remove_perm(self.guest_perms, permits.DOWNLOAD)
+				remove_perm(self.guest_perms, permits.ZIP)
 
 
 		# remove None values
@@ -205,10 +293,14 @@ class ServerConfig():
 
 
 	def get_users(self):
+		"""Return usernames from the user DB (admin UI)."""
 		return self.uDB.get_column("username")
 
 
-
+	def authorize_user(self, handler: 'ServerHost') -> Tuple[Union[User, None], SimpleCookie]:
+		"""Authenticate request handler using cookies and server settings"""
+		guest = getattr(self, 'guest_id', None) if self.GUESTS else None
+		return self.user_handler.authenticate_handler(handler, allow_guests=self.GUESTS, guest_user=guest)
 
 
 
@@ -223,8 +315,21 @@ class ServerHost(SH_base):
 	"""
 	Just a wrapper for SH_base to add some extra functionality
 	"""
+	server_config: ServerConfig = None
+
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
+
+	def do_HANDLE(self, method: str):
+		req_path = urllib.parse.urlsplit(self.path).path
+		
+		if self.server_config:
+			user, cookie = self.server_config.authorize_user(self)
+			if user and not user.is_path_allowed(req_path):
+				self.send_error(HTTPStatus.NOT_FOUND, "File not found", cookie=cookie)
+				return
+			
+		super().do_HANDLE(method)
 
 
 	def html_main_page(self, user:User, *args, cookie:Union[SimpleCookie, str]=None,  **kwargs):
@@ -232,7 +337,7 @@ class ServerHost(SH_base):
 		Return HTML page for the directory listing
 		"""
 
-		if user.NOPERMISSION or user.VIEW == False:
+		if user.NOPERMISSION or not user.VIEW:
 			return self.send_error(HTTPStatus.UNAUTHORIZED, "You don't have permission to see file list", cookie=cookie)
 
 
@@ -245,6 +350,7 @@ class ServerHost(SH_base):
 			PY_PAGE_TITLE=title,
 			PY_PUBLIC_URL=CoreConfig.address(),
 			PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
+			PY_PAGE_SCRIPTS="",
 			*args, **kwargs)
 
 		return self.send_text(_format,  cookie=cookie)
@@ -255,12 +361,15 @@ class ServerHost(SH_base):
 
 		displaypath = self.get_displaypath(self.url_path)
 
-		title = get_titles(displaypath)
+		error_page_title = f"HTTP {code} - {message or 'Error'}"
 
 		_format = pt.error_page().safe_substitute(
 			PY_ERROR_PAGE="active",
-			PY_PAGE_TITLE=title,
+			PY_PAGE_TITLE=error_page_title,
 			PY_PUBLIC_URL=CoreConfig.address(),
-			PY_DIR_TREE_NO_JS=dir_navigator(displaypath))
+			PY_DIR_TREE_NO_JS=dir_navigator(displaypath),
+			PY_ERR_IMG_SRC=f""" src="https://http.cat/{code}" """,
+			PY_PAGE_SCRIPTS="",
+		)
 
 		return super().send_error(code, message, explain, Template(_format), cookie=cookie)

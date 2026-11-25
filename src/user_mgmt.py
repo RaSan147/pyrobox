@@ -1,25 +1,115 @@
 # import pickledb
 import hashlib
 import time, datetime
+import secrets
 from secrets import compare_digest
 from enum import Enum
-from typing import Tuple, List, TypeVar, Union
+from typing import Tuple, List, TypeVar, Union, TYPE_CHECKING
+import posixpath
+from urllib.parse import unquote
+import json
+import re
+
+VALID_USERNAME_REGEX = re.compile(r'^[a-zA-Z0-9_.-]{3,32}$')
 
 
+def is_valid_username(username: str) -> bool:
+	if not username or not isinstance(username, str):
+		return False
+	return bool(VALID_USERNAME_REGEX.match(username))
 
+
+if TYPE_CHECKING:
+	from .pyrobox_ServerHost import ServerHost as SH
+
+
+def normalize(p: str) -> str:
+	p = unquote(p)                    # %2e%2e -> ..
+	p = p.replace("\\", "/")          # windows
+	if not p.startswith("/"):
+		p = "/" + p
+	p = posixpath.normpath(p)         # resolves .. and //
+	# Windows posixpath can leave a leading '//' (UNC-style); URL ACLs are not UNC
+	if p.startswith("//"):
+		p = "/" + p.lstrip("/")
+	return p.rstrip("/") or "/"
+
+
+from http.cookies import SimpleCookie
 import binascii
 
 from .pyroboxCore import logger
-from .pyroDB import PickleTable, _PickleTRow
+from .pyroDB4 import PickleTable
 from .data_types import LimitedDict
 
-# Loads user database. Database is plaintext but stores passwords as a hash salted by config.PASSWORD
+
+def hash_password(password: str) -> bytes:
+	"""Hash password with per-user salt using scrypt (or PBKDF2-HMAC fallback)."""
+	salt = secrets.token_bytes(16)
+	salt_hex = binascii.hexlify(salt).decode("ascii")
+	try:
+		key = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=16384, r=8, p=1)
+		key_hex = binascii.hexlify(key).decode("ascii")
+		return f"scrypt$16384$8$1${salt_hex}${key_hex}".encode("ascii")
+	except (AttributeError, ValueError):
+		key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100000)
+		key_hex = binascii.hexlify(key).decode("ascii")
+		return f"pbkdf2$100000$sha256${salt_hex}${key_hex}".encode("ascii")
+
+
+def verify_password(stored: Union[bytes, str, None], password: str, common_salt: str = "0123456789") -> Tuple[bool, bool]:
+	"""
+	Verify password against stored hash.
+	Returns: (is_valid: bool, needs_rehash: bool)
+	"""
+	if not stored or not password:
+		return False, False
+
+	if isinstance(stored, str):
+		stored = stored.encode("ascii", errors="ignore")
+
+	if stored.startswith(b"scrypt$"):
+		try:
+			parts = stored.split(b"$")
+			n = int(parts[1])
+			r = int(parts[2])
+			p = int(parts[3])
+			salt = binascii.unhexlify(parts[4])
+			expected_key = binascii.unhexlify(parts[5])
+			computed_key = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=n, r=r, p=p)
+			return compare_digest(computed_key, expected_key), False
+		except Exception:
+			return False, False
+
+	if stored.startswith(b"pbkdf2$"):
+		try:
+			parts = stored.split(b"$")
+			iterations = int(parts[1])
+			hash_name = parts[2].decode("ascii")
+			salt = binascii.unhexlify(parts[3])
+			expected_key = binascii.unhexlify(parts[4])
+			computed_key = hashlib.pbkdf2_hmac(hash_name, password.encode("utf-8"), salt, iterations)
+			return compare_digest(computed_key, expected_key), False
+		except Exception:
+			return False, False
+
+	# Legacy single-round SHA-256 fallback (needs rehash)
+	legacy_hash = hashlib.sha256((common_salt + password).encode("utf-8")).digest()
+	if compare_digest(stored, legacy_hash):
+		return True, True
+
+	return False, False
+
+# Loads user database. Passwords are hashed with User_handler.common_salt.
 
 
 __all__ = [
 	"User",
 	"UserPermission",
-	"permits"
+	"permits",
+	"create_user_cookie",
+	"clear_user_cookie",
+	"is_valid_username"
 ]
 
 
@@ -79,7 +169,7 @@ class PermissionList(list):
 
 class User:
 	"""Object for WebUI users"""
-	def __init__(self, row:_PickleTRow={}):
+	def __init__(self, row=None):
 		"""Generate Object for WebUI users
 
 		Args:
@@ -96,7 +186,7 @@ class User:
 		"""
 
 
-		self.db = row
+		self.db = {} if row is None else row
 		self.user_handler = User_handler() # type: User_handler
 
 
@@ -137,24 +227,97 @@ class User:
 	def permission(self) -> PermissionList:
 		return self.unpack_permission(self.permission_pack)
 
+	@property
+	def allowed_paths(self) -> list:
+		paths = self.db.get("allowed_paths", [])
+		if isinstance(paths, str):
+			try:
+				paths = json.loads(paths)
+			except Exception:
+				paths = []
+		return paths
+
+	def set_allowed_paths(self, paths: list):
+		self.update("allowed_paths", paths)
+
+	def is_path_allowed(self, path: str) -> bool:
+		allowed = self.allowed_paths
+		if not allowed:                      # empty = unrestricted
+			return True
+
+		path = normalize(path)
+
+		longest_match_len = -1
+		longest_match_type = None
+		has_allow_child = False
+
+		for entry in allowed:
+			if not isinstance(entry, dict):
+				continue
+				
+			r_path = normalize(entry.get("path", ""))
+			r_subdirs = entry.get("subdirs", True)
+			r_type = entry.get("type", "allow").lower()
+			
+			r_len = len(r_path)
+
+			# 1. Exact match
+			if path == r_path:
+				if r_len > longest_match_len:
+					longest_match_len = r_len
+					longest_match_type = r_type
+					
+			# 2. Path is inside the rule path (rule path is a parent)
+			elif path.startswith(r_path + "/"):
+				if r_subdirs:
+					if r_len > longest_match_len:
+						longest_match_len = r_len
+						longest_match_type = r_type
+				else:
+					# If subdirs is False, allow files directly inside, but no deeper directories
+					if path[len(r_path)+1:].find("/") == -1: 
+						if r_len > longest_match_len:
+							longest_match_len = r_len
+							longest_match_type = r_type
+							
+			# 3. Path is an ancestor of the rule path (we are walking down the tree)
+			elif r_path.startswith(path + "/") or path == "/":
+				if r_type == "allow":
+					has_allow_child = True
+
+		# Follow the most specific rule if there is one
+		if longest_match_type is not None:
+			return longest_match_type == "allow"
+			
+		# If no direct match, but it's an ancestor of an allowed path, allow it so the user can navigate down
+		if has_allow_child:
+			return True
+
+		return False
+
 
 	def is_admin(self) -> bool:
 		return self.ADMIN
+
+	def is_guest(self) -> bool:
+		return self.username == "Guest" or not bool(self.MEMBER)
 
 	# get the sha1 hash of the CLI password to use as a salt, makes a longer string and avoids holding secrets in memory
 
 	def salt_password(self, password) -> bytes:
 		return hashlib.sha256((self.user_handler.common_salt+password).encode('utf-8')).digest()
 
+	def generate_new_token(self) -> str:
+		"""Generate and store a new cryptographically secure session token."""
+		token = secrets.token_bytes(32)
+		self.update("token", token)
+		return self.token_hex
+
 	def set_password(self, password:str) -> None:
 		# salt, hash and store password
-		p_hash = self.salt_password(password)
-		token = hashlib.sha256(p_hash + str(time.time()).encode()).digest()
-
-		# only store binary data
-
+		p_hash = hash_password(password)
 		self.update("password", p_hash)
-		self.update("token", token)
+		self.generate_new_token()
 
 
 
@@ -172,13 +335,16 @@ class User:
 
 		if self.check_password(old_password):
 			logger.info(f"Updating password of user {self.username}")
-			salted_new_password = self.salt_password(new_password)
-
-			self.update("password", salted_new_password)
+			self.update("password", hash_password(new_password))
+			self.generate_new_token()
 			return True
 		else:
 			logger.info(f"User {self.username} password mismatch")
 			return False
+
+	def create_cookie(self) -> SimpleCookie:
+		"""Create a SimpleCookie with user credentials valid for 1 year"""
+		return create_user_cookie(self)
 
 	def __setitem__(self, attr, value):
 		self.update(attr, value)
@@ -292,7 +458,8 @@ class User:
 		new_permission = self.permission
 
 		for each in permission:
-			if not hasattr(each, 'value') and not each: continue # default permission may have none or empty at Initialization
+			if not hasattr(each, 'value') and not each: 
+				continue # default permission may have none or empty at Initialization
 			new_permission[each.value] = 1
 			# -1 because 0 is no permission
 		self._save_permission(new_permission)
@@ -337,8 +504,11 @@ class User:
 		Returns:
 			bool: Was password valid?
 		"""
-		salted_new_password = self.salt_password(password)
-		return compare_digest(self.password, salted_new_password)
+		common_salt = getattr(getattr(self, "user_handler", None), "common_salt", "0123456789")
+		valid, needs_rehash = verify_password(self.password, password, common_salt=common_salt)
+		if valid and needs_rehash:
+			self.update("password", hash_password(password))
+		return valid
 
 	def check_token(self, token) -> bool:
 		"""match cookie token (hex str) with db["token"] (digest binary)
@@ -347,7 +517,7 @@ class User:
 
 
 class User_handler:
-	def __init__(self, init_permissions={}):
+	def __init__(self, init_permissions=None):
 		"""
 		init_permissions: `dict` of `UserPermission` to be used as default for new users (member, admin, guest) `{"member": [perms,..], ...}`
 		"""
@@ -358,7 +528,7 @@ class User_handler:
 		self.common_salt = "0123456789"
 
 		self.admins:List[User] = []
-		self.member_permission = init_permissions
+		self.member_permission = {} if init_permissions is None else init_permissions
 
 	def set_common_salt(self, sys_Pass):
 		self.common_salt = hashlib.md5(sys_Pass).hexdigest()
@@ -372,11 +542,15 @@ class User_handler:
 			"id",
 			"token",
 			"permission",
+			"allowed_paths",
 
 			exist_ok=True)
 
 
 	def create_user(self, username, password, is_admin=False) -> User:
+		if not is_valid_username(username):
+			raise ValueError(f"Invalid username: {username!r}. Must be 3-32 alphanumeric characters, '.', '-', or '_'.")
+
 		p_hash = token = None
 		uid = hashlib.sha1((str(time.time()) + username).encode("utf-8")).hexdigest()
 
@@ -390,6 +564,7 @@ class User_handler:
 			"token": token,
 
 			"permission": 0,
+			"allowed_paths": [],
 		}
 
 		row = self.user_db.add_row(u_data)
@@ -440,6 +615,12 @@ class User_handler:
 		return user
 
 	def server_signup(self, username, password) -> dict:
+		if not is_valid_username(username):
+			return {
+				"status": "error",
+				"message": "Invalid username format. Must be 3-32 characters (letters, numbers, '.', '-', '_')."
+			}
+
 		# check if username is already taken
 		if self.get_user(username, temp=True) is not None:
 			return {
@@ -458,16 +639,10 @@ class User_handler:
 
 	def server_login(self, username, password) -> dict:
 		user = self.get_user(username)
-		if user is None:
+		if user is None or not user.check_password(password):
 			return {
 				"status": "error",
-				"message": "User not found"
-			}
-
-		if not user.check_password(password):
-			return {
-				"status": "error",
-				"message": "Wrong password"
+				"message": "Invalid username or password"
 			}
 
 		user.update("last_active", round(datetime.datetime.now(datetime.timezone.utc).timestamp(),2))
@@ -516,7 +691,7 @@ class User_handler:
 		user = self.get_user(username)
 		if not user:
 			return False
-		if user.check_token(token):
+		if not user.check_token(token):
 			return False
 
 		user["last_active"] = datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
@@ -524,6 +699,77 @@ class User_handler:
 		if return_user:
 			return user
 		return True
+
+	def authenticate_cookie(self, cookie: Union[SimpleCookie, None]) -> Union[User, None]:
+		"""Extract user credentials from cookie and return authenticated User or None"""
+		if not cookie:
+			return None
+
+		def get(k):
+			x = cookie.get(k)
+			if x is not None:
+				return x.value
+			return ""
+
+		username = get("user")
+		token = get("token")
+
+		if not (username and token):
+			return None
+
+		user = self.get_user(username)
+		if user and user.check_token(token):
+			return user
+		return None
+
+	def authenticate_handler(self, handler: 'SH', allow_guests: bool = True, guest_user: User = None) -> Tuple[Union[User, None], SimpleCookie]:
+		"""
+		Authenticate request handler using cookies.
+		Returns (user, cookie).
+		"""
+		user = self.authenticate_cookie(handler.cookie)
+
+		if not user and allow_guests and guest_user:
+			user = guest_user
+
+		if not user:
+			return (None, clear_user_cookie())
+
+		return (user, create_user_cookie(user))
+
+
+def create_user_cookie(user: User) -> SimpleCookie:
+	"""Create a SimpleCookie for the given user"""
+	cookie = SimpleCookie()
+	cookie["user"] = user.username
+	cookie["user"]["expires"] = 365 * 86400
+	cookie["user"]["path"] = "/"
+	cookie["user"]["samesite"] = "Lax"
+
+	cookie["token"] = user.token_hex
+	cookie["token"]["expires"] = 365 * 86400
+	cookie["token"]["path"] = "/"
+	cookie["token"]["httponly"] = True
+	cookie["token"]["samesite"] = "Lax"
+
+	cookie["permissions"] = user.permission_pack
+	cookie["permissions"]["expires"] = 365 * 86400
+	cookie["permissions"]["path"] = "/"
+	cookie["permissions"]["samesite"] = "Lax"
+
+	return cookie
+
+
+def clear_user_cookie() -> SimpleCookie:
+	"""Create a SimpleCookie to clear user credentials"""
+	cookie = SimpleCookie()
+	for k in ("user", "token", "permissions"):
+		cookie[k] = ""
+		cookie[k]["expires"] = -1
+		cookie[k]["path"] = "/"
+		cookie[k]["samesite"] = "Lax"
+	cookie["token"]["httponly"] = True
+	return cookie
 
 
 

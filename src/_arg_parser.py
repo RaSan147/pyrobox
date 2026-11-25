@@ -1,15 +1,35 @@
 # add additional arguments to the parser
 config = None
 # the config must be imported from pyroboxCore
-if __name__ == "__main__":
-	from pyroboxCore import config
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+	from .pyroboxCore import Config
+
+# Guest upload password default (None = use the saved preference, else generate
+# a random password at server start)
+DEFAULT_UPLOAD_PASSWORD = None
 
 
-def main(config=config):
+def add_args(config:"Config"):
+	if config._custom_cli_args_added:
+		return
 	config.parser.add_argument('--password', '-k',
-							default=config.PASSWORD,
+							default=DEFAULT_UPLOAD_PASSWORD,
 							type=str,
-							help='[Value] Upload Password (default: %(default)s)')
+							help='[Value] Upload Password (default: randomly generated if not provided)',
+							nargs="?",
+							const=None)
+
+	config.parser.add_argument('--save-password',
+							action='store_true',
+							default=False,
+							help='[Flag] Save the --password value as the default upload password for future launches (stored in ~/.pyrobox/preferences.pdb)')
+
+	config.parser.add_argument('--clear-password',
+							action='store_true',
+							default=False,
+							help='[Flag] Remove the saved default upload password')
 
 
 
@@ -20,7 +40,7 @@ def main(config=config):
 
 
 
-	config.parser.add_argument('--name', '-n',
+	config.parser.add_argument('--server-name', '-sn',
 							type=str,
 							default=None,
 							help='[Value] In case you want to create a server User accounts based. --password must be always same and --admin-id and --admin-pass is required. See web doc for more info.'
@@ -96,3 +116,5 @@ def main(config=config):
 							default="6GB",
 							type=str,
 							help='[Value] Max size of zip file allowed to download (default: %(default)s) [can be bytes without suffix or suffixes like 1KB, 1MB, 1GB, 1TB]')
+
+	config._custom_cli_args_added = True

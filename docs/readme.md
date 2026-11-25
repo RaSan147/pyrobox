@@ -1,8 +1,8 @@
 # pyrobox 🔥
 
-**`Note :`** DEFAULT UPLOAD PASSWORD: `SECret`
-* you can change it by editing the code (see `config` class at top)
+**`Note :`** A random upload password is generated (and printed) on every launch, unless you set one.
 * to set password from command line, use `-k` or `--password` flag
+* to keep the same password on every launch, save it once: `pyrobox -k "my password" --save-password`
 
 # Status 
 [![Downloads](https://static.pepy.tech/badge/pyrobox)](https://pepy.tech/project/pyrobox)
@@ -83,10 +83,12 @@ CHECK [FAQ](#faq) FOR FUTURE HELP AND ISSUE FIX
 
 1. To change upload password
     - i) or add `-k` or `--password` command line argument when launching the program
-        - `pyrobox -k "my new password"` to launch the server with new password
-        - `pyrobox -k ""` to launch the server without password
-        - `pyrobox` to launch the server with default password (SECret)
-    - ii) just edit the code for permanent change  (see `config` class at top)
+        - `pyrobox -k "my new password"` to launch the server with new password (this run only)
+        - `pyrobox` to launch the server with the saved password, or a random one if none is saved
+    - ii) save a default password for every launch (stored in plain text in `~/.pyrobox/preferences.pdb`)
+        - `pyrobox -k "my password" --save-password` to save it (and use it now)
+        - `pyrobox --clear-password` to remove the saved password
+    - Priority: `-k` > saved password > random
 
 1. Optional configurations
 
@@ -101,7 +103,9 @@ usage: `local_server_pyrobox.py [--password PASSWORD] [--no-upload] [--no-zip] [
 # options:
   | arg `value`           | Description |
   | --------------------- | ------------|
-  |--password `PASSWORD`, -k  `PASSWORD` | Upload Password (default: SECret)|
+  |--password `PASSWORD`, -k  `PASSWORD` | Upload Password (default: saved password, else random)|
+  |--save-password        | Save the `--password` value as the default upload password for future launches|
+  |--clear-password       | Remove the saved default upload password|
   |--directory `DIRECTORY`, -d `DIRECTORY` | Specify alternative directory [default: current directory]
   |--bind `ADDRESS`, -b `ADDRESS` | Specify alternate bind address [default: all interfaces]|
 

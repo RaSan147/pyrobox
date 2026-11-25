@@ -1,7 +1,9 @@
 from setuptools import setup
 
 setup(
-    package_dir={"pyrobox": "src",},
+    packages=["pyrobox"],
+    package_dir={"pyrobox": "src"},
+    package_data={"pyrobox": ["*.html", "*.js", "*.css"]},
     install_requires=[
         'natsort',
         "send2trash",
@@ -12,7 +14,7 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        pyrobox=pyrobox:server.run
+        pyrobox=pyrobox.server:run
     ''',
 
 

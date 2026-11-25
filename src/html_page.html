@@ -1,0 +1,349 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+	<!-- Performance: Preconnect & DNS Prefetch -->
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous">
+	<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="dns-prefetch" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+	<link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+	<!-- Encoding & Viewport -->
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<!-- Page Title -->
+	<title>${PY_PAGE_TITLE}</title>
+
+	<!-- SEO Meta Tags -->
+	<meta name="description" content="PyroBox - A simple file manager">
+	<meta name="keywords" content="PyroBox, file manager, file sharing, file storage">
+	<meta name="author" content="RaSan147">
+	<meta name="application-name" content="PyroBox">
+
+	<!-- Open Graph (Facebook, LinkedIn, etc.) -->
+	<meta property="og:title" content="PyroBox">
+	<meta property="og:description" content="PyroBox - A simple file manager">
+	<meta property="og:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+	<meta property="og:url" content="${PY_PUBLIC_URL}">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="PyroBox">
+	<meta property="og:locale" content="en_US">
+	<meta property="og:locale:alternate" content="en_GB">
+
+	<!-- Twitter Meta Tags -->
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:site" content="@RaSan147">
+	<meta name="twitter:title" content="PyroBox">
+	<meta name="twitter:description" content="PyroBox - A simple file manager">
+	<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+
+	<!-- Mobile & PWA Compatibility -->
+	<meta name="theme-color" content="#000000">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-title" content="PyroBox">
+	<meta name="msapplication-TileColor" content="#000000">
+	<meta name="msapplication-TileImage" content="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png">
+
+	<!-- Styles & Fonts (Loaded Last for Performance) -->
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="/?style">
+</head>
+	
+<body>
+	<script>
+		const public_url = "${PY_PUBLIC_URL}";
+	</script>
+
+
+	<style>
+		#content_container {
+			/* hide content until page is loaded */
+			display: none;
+		}
+	</style>
+
+
+	<noscript>
+		<style>
+			.jsonly {
+				display: none !important
+			}
+
+			#content_container {
+				/* making sure its visible */
+				display: block;
+			}
+
+			#fm_page {
+				display: block;
+			}
+
+			#content_list {
+				/* making sure its visible */
+				display: block;
+			}
+
+			#error-page.active {
+				display: flex !important;
+			}
+		</style>
+	</noscript>
+
+	<link rel="icon" href="https://cdn.jsdelivr.net/gh/RaSan147/pyrobox@main/assets/favicon.png" type="image/png">
+
+
+
+	<div id="popup-container"></div>
+
+	<div id='TopBar' class='top_bar'>
+
+		<span id="dir-tree">${PY_DIR_TREE_NO_JS}</span>
+
+
+		<button class="open-sidebar-btn" onclick="sidebar_control.toggleNavR()" style='float: right;'><span>
+				<span class='nav-btn-text'>Menu</span> <span class="fa fa-solid fa-bars" aria-hidden="true">&#9776;</span></span>
+		</button>
+
+	</div>
+
+	<div id="sidebar_bg"></div> <!-- trigger to close Sidebar-->
+
+
+
+	<div id="mySidebarR" class="sidebar sidebarR theme-tools">
+
+		<span style='right:0; text-align:right;margin-right: 20px;' class="close-sidebar disable_selection"
+			  id="close-sidebarR" onclick="sidebar_control.closeNavR()">&times;</span> <!-- × -->
+
+		<div>
+			<div id="preference_button" class="accordion accordion-button debug_only" onclick="popup_msg.createPopup('Preference', 'Still Under Construction🏗️');popup_msg.open_popup()">Preference</div>
+			<div class="member_only">
+				<div id="user_panel_button" class="accordion accordion-button debug_only" onclick="popup_msg.createPopup('User Panel', 'Still Under Construction🏗️');popup_msg.open_popup()">User Panel</div>
+				<div id="admin_button" class="accordion accordion-button admin_only" onclick="goto('./?admin')">Admin Panel</div>
+				<div id="logout_button" class="accordion accordion-button" onclick="goto('./?logout')">Logout</div>
+			</div>
+			<div class="guest_only named_server">
+				<div id="login_button" class="accordion accordion-button" onclick="goto('./?login')">Login</div>
+				<div id="signup_button" class="accordion accordion-button" onclick="goto('./?signup')">Signup</div>
+			</div>
+		</div>
+
+
+		<div class='sidebar-end'></div>
+
+
+
+	</div>
+
+
+	<div id="actions-menu" class="actions-menu disable_selection jsonly hidden">
+		<!-- Buttons will be injected here -->
+	</div>
+	<div id="actions-btn" class="disable_selection jsonly" onclick="action_btn_controller.toggle()">
+		<div id="actions-btn-text">Tools&nbsp;</div>
+		<span class="fa fa-solid fa-wrench" id="actions-btn-icon"><b>+</b></span>
+		<span class="fa fa-solid fa-spinner fa-spin hidden" id="actions-loading-icon"><span class='spin'>⚉</span></span>
+	</div>
+	<div id="progress-island" class="disable_selection jsonly" onclick="progress_bars.show_list()">
+		<span id="progress-uploads">Running Uploads
+			<span id="progress-uploads-count">(0/0)</span></span>
+
+		<br>
+
+		<span id="progress-zips">Running Zips
+			<span id="progress-zips-count">(0/0)</span></span>
+	</div>
+
+
+	<div id="content_container">
+
+		<!-- Contains all the files -->
+
+		<div id="fm_page" class="page">
+			<div id="content_list">
+
+				<ul id="linkss">
+					<!-- CONTENT LIST (NO JS) -->
+
+					<!-- ${PY_NO_JS_FILE_LIST} -->
+
+
+				</ul>
+				<!-- ${PY_UPLOAD_FORM} -->
+			</div>
+
+			<div id="js-content_list" class="jsonly">
+				<!-- CONTENT LIST (JS) -->
+			</div>
+		</div>
+
+		<div id="error-page" class="page ${PY_ERROR_PAGE}">
+			<script>
+				var ERROR_PAGE = "${PY_ERROR_PAGE}"
+			</script>
+			<div class="error-container">
+				<div class="error-card">
+					<div class="error-header-badge">
+						<span class="error-badge" id="error_code">HTTP ${code}</span>
+					</div>
+					<h1 class="error-title" id="error_message">${message}</h1>
+					<p class="error-explain" id="error_explain">${explain}</p>
+
+					<div class="error-actions">
+						<a href="/" class="btn btn-primary" id="error-home-btn">
+							<span class="fa fa-solid fa-house">🏠</span>
+							<span>File Manager</span>
+						</a>
+						<button type="button" class="btn" id="error-back-btn" onclick="window.history.length > 1 ? window.history.back() : window.location.href='/'">
+							<span class="fa fa-solid fa-arrow-left">⬅️</span>
+							<span>Go Back</span>
+						</button>
+						<button type="button" class="btn" id="error-retry-btn" onclick="window.location.reload()">
+							<span class="fa fa-solid fa-arrows-rotate">🔄</span>
+							<span>Retry</span>
+						</button>
+					</div>
+
+					<div class="error-media-wrapper">
+						<img class="error-media-img" ${PY_ERR_IMG_SRC} alt="${code} Error Image" onerror="this.closest('.error-media-wrapper').style.display='none'" />
+					</div>
+				</div>
+			</div>
+		</div>
+
+
+		<div id="video-page" class="page">
+			<div id="video-player-wrapper">
+				<div id="video-backdrop"></div>
+
+				<div id="video-meta-bar">
+					<span class="video-watching-label">Now Playing</span>
+					<h1 id="player_title"></h1>
+					<div id="player-warning" class="video-warning"></div>
+				</div>
+
+				<div id="container">
+					<video controls crossorigin playsinline id="player">
+						<source id="player_source" />
+					</video>
+				</div>
+
+				<div id="video-actions-bar">
+					<a id="video_dl_url" download class="video-download-btn">
+						<span class="fa fa-solid fa-download">⬇</span>
+						<span>Download</span>
+					</a>
+				</div>
+			</div>
+		</div>
+
+		<div id="zip-page" class="page">
+			<h2>ZIPPING FOLDER</h2>
+			<h3 id="zip-prog">Progress</h3>
+			<h3 id="zip-perc"></h3>
+		</div>
+
+		<div id="code-editor-page" class="page">
+			<div id="editor-sticky-header">
+				<!-- Modern code editor with syntax highlighting -->
+				<header id="editor-header" class="editor-header">
+					<div class="editor-title-section">
+						<h2 id="editor-file-title">Code Editor</h2>
+						<span id="editor-file-info" class="editor-file-info"></span>
+						<span id="editor-unsaved-indicator" class="editor-unsaved-indicator" title="Unsaved changes">●</span>
+					</div>
+					<div class="editor-controls">
+						<input type="password" id="editor-password-input" class="editor-password-input" placeholder="Password" title="Password to save">
+						<select id="editor-line-ending-select" class="editor-line-ending-select" title="Choose line ending format">
+							<option value="LF">LF</option>
+							<option value="CRLF">CRLF</option>
+						</select>
+						<button id="editor-toggle-readonly-btn" class="editor-btn" title="Enable Editing">
+							<span class="fa fa-solid fa-pen">🔓</span>
+							<span class="btn-text">Enable Editing</span>
+						</button>
+						<button id="editor-download-btn" class="editor-btn" title="Download File">
+							<span class="fa fa-solid fa-download">⬇️</span>
+							<span class="btn-text">Download</span>
+						</button>
+						<button id="editor-save-btn" class="editor-save-btn" title="Save (Ctrl+S)">
+							<span class="fa fa-solid fa-save">💾</span>
+							<span class="btn-text">Save</span>
+						</button>
+					</div>
+				</header>
+			</div>
+			<div id="editor-container" class="editor-container"></div>
+			<noscript>
+				<div class="editor-noscript-warning">
+					<strong>JavaScript is required to use the code editor.</strong><br>
+					Please enable JavaScript to edit files or use your browser's developer tools to download the file content.
+				</div>
+			</noscript>
+		</div>
+
+		<div id="admin-page" class="page">
+
+			<h1 style="text-align: center;">Admin Page</h1>
+			<hr>
+
+
+			<div class="jsonly">
+
+				<!-- check if update available -->
+
+				<div>
+					<p class="update_text" id="update_text">Checking for Update...</p>
+					<!-- <div class="pagination jsonly" onclick="run_update()" id="run_update" style="display: none;">Run Update</div> -->
+					<br><br>
+				</div>
+
+				<div>
+					<table class="users_list">
+						<tr>
+							<th>Username</th>
+							<th>Manager</th>
+						</tr>
+					</table>
+				</div>
+
+
+
+				<div class='pagination jsonly' onclick="admin_tools.request_reload()"><span class="fa fa-solid fa-arrows-rotate">🧹</span> RELOAD SERVER</div>
+				<noscript>
+					<a href="/?reload" class='pagination'><span class="fa fa-solid fa-arrows-rotate">🧹</span> RELOAD SERVER</a><br>
+				</noscript>
+				<hr>
+
+				<div class='pagination jsonly' onclick="admin_tools.request_shutdown()"><span class="fa fa-solid fa-power-off">🔻</span> Shut down</div>
+			</div>
+
+			<noscript>
+				<h2>This page requires JS enabled</h2>
+			</noscript>
+		</div>
+	</div>
+
+	<script src="/?script_global"></script>
+	<script src="/?asset_script"></script>
+
+	<script src="/?theme_script"></script>
+
+	<script src="/?page_handler_script"></script>
+
+	<script src="/?file_list_script"></script>
+	<script src="/?error_page_script"></script>
+	<script src="/?zip_page_script"></script>
+	<script src="/?admin_page_script"></script>
+
+	<!-- Page-specific scripts/styles injected here by the server -->
+	<div style="display:none" id="page-scripts-anchor">${PY_PAGE_SCRIPTS}</div>
+
+</body>
+
+</html>

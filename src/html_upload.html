@@ -1,0 +1,32 @@
+<noscript>
+	<form ENCTYPE="multipart/form-data" method="post" action="?upload" id="uploader-nojs">
+		<center>
+			<h1 style="color: #fff; font-size: 24px; margin-bottom: 30px;">Upload Files</h1>
+
+			<div class="upload-pass-container">
+				<span class="upload-pass-label"><span class="fa fa-solid fa-lock" style="margin-right:8px;">🔐</span>Password:</span>
+				<div class="upload-pass-wrapper">
+					<input name="password" id="nojs-pass" type="password" class="upload-pass-box" placeholder="Optional" maxlength="512">
+					<button type="button" class="upload-pass-eye" onclick="var i=document.getElementById('nojs-pass'); i.type=(i.type==='password'?'text':'password');">
+						<span class="fa fa-solid fa-eye">👁️</span>
+					</button>
+				</div>
+			</div>
+
+			<input type="hidden" name="post-type" value="upload">
+
+			<div class="upload-box-outer">
+				<div class="drag-area" style="cursor: default;">
+					<div class="drag-icon-wrapper"><span class="drag-icon fa fa-solid fa-cloud-arrow-up"></span></div>
+					<header>Select Files to Upload</header>
+					<span>Multiple files and folders supported</span>
+					<div class="upload-button-container">
+						<input type="file" name="file" multiple class="drag-browse" style="width: auto;">
+					</div>
+				</div>
+			</div>
+
+			<button class="upload-button" type="submit"><span class="fa fa-solid fa-rocket" style="margin-right:10px;">🚀</span>Start Upload</button>
+		</center>
+	</form>
+</noscript>

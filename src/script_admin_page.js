@@ -1,0 +1,873 @@
+class Admin_page extends Page {
+	constructor(controller=page_controller, type="admin", handle_part="admin-page") {
+		super(controller, type, handle_part);
+
+	}
+
+	initialize() {
+		this.show();
+		this.controller.set_actions_button_text("Add User", { class: "fa-solid fa-user-plus", text: "👤+" }, () => admin_tools.add_user());
+		this.controller.set_action_tools([]);
+		this.controller.show_actions_button();
+	}
+
+	show() {
+		this.my_part.classList.add("active");
+		updater.check_update();
+		admin_tools.get_users();
+	}
+
+	hide() {
+		this.my_part.classList.remove("active");
+	}
+
+	clear() {
+		var table = byClass("users_list")[0];
+		var rows = table.rows.length;
+		for (var i = 1; i < rows; i++) {
+			table.deleteRow(1);
+		}
+	}
+}
+
+
+
+class Updater {
+	async check_update() {
+		fetch('/?update')
+			.then(response => {
+				// console.log(response);
+				return response.json();
+			}).then(data => {
+				if (data.update_available) {
+					byId("update_text").innerText = "Update Available! 🎉 Latest Version: " + data.latest_version;
+					byId("update_text").style.backgroundColor = "#00cc0033";
+
+					byId("run_update").style.display = "block";
+				} else {
+					byId("update_text").innerText = "No Update Available";
+					byId("update_text").style.backgroundColor = "#888";
+				}
+			})
+			.catch(async err => {
+				byId("update_text").innerText = "Update Error: " + "Invalid Response";
+				byId("update_text").style.backgroundColor = "#CC000033";
+			});
+	}
+
+	// run_update() {
+	// 	byId("update_text").innerText = "Updating...";
+	// 	fetch('/?update_now')
+	// 	.then(response => response.json())
+	// 	.then(data => {
+	// 		if (data.status) {
+	// 			byId("update_text").innerHTML = data.message;
+	// 			byId("update_text").style.backgroundColor = "green";
+
+	// 		} else {
+	// 			byId("update_text").innerHTML = data.message;
+	// 			byId("update_text").style.backgroundColor = "#bbb";
+	// 		}
+	// 	})
+	// 	.catch(err => {
+	// 		byId("update_text").innerText = "Update Error: " + "Invalid Response";
+	// 		byId("update_text").style.backgroundColor = "#CC000033";
+	// 	})
+
+
+	// 	byId("run_update").style.display = "none";
+	// }
+
+}
+
+var updater = new Updater();
+
+
+
+class Admin_tools {
+	constructor() {
+		this.user_list = [];
+	}
+
+	async get_users() {
+		fetch('/?get_users')
+			.then(response => response.json())
+			.then(data => {
+				this.user_list = data;
+				this.display_users();
+			})
+			.catch(err => {
+				console.log(err);
+			})
+	}
+
+	display_users() {
+		var table = byClass("users_list")[0];
+		var rows = table.rows.length;
+		for (var i = 1; i < rows; i++) {
+			table.deleteRow(1);
+		}
+
+		for (i = 0; i < this.user_list.length; i++) {
+			const index = i;
+			const username = this.user_list[i];
+			var row = table.insertRow(-1);
+
+			var tdUser = row.insertCell(0);
+			tdUser.textContent = username;
+
+			var tdAction = row.insertCell(1);
+			var manageBtn = createElement("div");
+			manageBtn.className = "pagination";
+			manageBtn.textContent = "Manage";
+			manageBtn.onclick = () => admin_tools.manage_user(index);
+			tdAction.appendChild(manageBtn);
+		}
+	}
+
+	show_perms(index) {
+
+	}
+
+	manage_user(index) {
+		var username = this.user_list[index];
+		this.selected_user = username;
+
+
+		const client_page_html = `
+<form action="" method="post" class="perm_checker_form">
+	<h2>Update Permissions</h2>
+	<table>
+		<tr>
+			<td>View</td>
+			<td><input type="checkbox" name="VIEW" value="0" id="view"></td>
+		</tr>
+		<tr>
+			<td>Download</td>
+			<td><input type="checkbox" name="DOWNLOAD" value="1" id="download"></td>
+		</tr>
+		<tr>
+			<td>Modify</td>
+			<td><input type="checkbox" name="MODIFY" value="2" id="modify"></td>
+		</tr>
+		<tr>
+			<td>Delete</td>
+			<td><input type="checkbox" name="DELETE" value="3" id="delete"></td>
+		</tr>
+		<tr>
+			<td>Upload</td>
+			<td><input type="checkbox" name="UPLOAD" value="4" id="upload"></td>
+		</tr>
+		<tr>
+			<td>Zip</td>
+			<td><input type="checkbox" name="ZIP" value="5" id="zip"></td>
+		</tr>
+		<tr>
+			<td>Admin</td>
+			<td><input type="checkbox" name="ADMIN" value="6" id="admin"></td>
+		</tr>
+		<tr>
+			<td>Member</td>
+			<td><input type="checkbox" name="MEMBER" value="7" id="member" disabled></td>
+		</tr>
+	</table>
+	
+	<br>
+	<h3 style="margin-bottom: 5px;">Path Restrictions (empty = all)</h3>
+	<div id="path_list" style="margin-bottom: 10px;"></div>
+	<button type="button" id="add_path_btn" style="padding: 5px; background: #444; color: white; border: 1px solid #555; cursor: pointer;">+ Add Path</button>
+
+	<div class="submit_parent">
+		<input type="submit" name="submit" value="Submit" id="submit">
+	</div>
+
+</form>
+
+<br>
+<div class="pagination" onclick='admin_tools.delete_user(${index})'
+	style="margin: 0 auto;">Delete User</div>
+
+<!--
+on submit, get all the values and put them in a dict object
+if admin is checked, all other values are checked -->
+
+
+<!-- make the table and input look modern
+keep the submit button in center, modernize the button UI-->
+
+
+<style>
+	.perm_checker_form table {
+		border-collapse: collapse;
+		width: 100%;
+		color: #afafaf;
+		font-family: monospace;
+		font-size: 25px;
+		text-align: left;
+	}
+	.perm_checker_form tr:nth-child(even) {background-color: #4d4d4d}
+
+	.perm_checker_form td:nth-child(1){
+		text-align: left;
+		width: calc(100% - 50px);
+	}
+
+	.perm_checker_form td:nth-child(2){
+		text-align: center;
+		width: 50px;
+	}
+
+
+	.perm_checker_form input[type=checkbox] {
+		-moz-appearance:none;
+		-webkit-appearance:none;
+		-o-appearance:none;
+		outline: none;
+		content: none;
+	}
+
+	.perm_checker_form input[type=checkbox]:before {
+		content: "✅";
+		font-size: 17px;
+		color: transparent !important;
+		background: #636363;
+		display: block;
+		width: 17px;
+		height: 17px;
+		border: 1px solid black;
+	}
+
+	.perm_checker_form input[type=checkbox][disabled]:before {
+		filter: grayscale(1);
+	}
+
+	.perm_checker_form input[type=checkbox]:checked:before {
+		color: black !important;
+	}
+
+	.perm_checker_form input[type=submit] {
+		background-color: #444;
+		color: white;
+		font-family: monospace;
+		font-size: 25px;
+		text-align: center;
+		border: none;
+		width: 60%;
+		padding: 15px 32px;
+		text-decoration: none;
+		display: inline-block;
+		margin: 4px 2px;
+		cursor: pointer;
+
+		border-radius: 2px;
+		box-shadow: 5px 5px 0 0 #1abeff;
+	}
+
+	.perm_checker_form input[type=submit]:hover {
+		background-color: #333;
+		box-shadow: 3px 3px 0 0 #1abeff;
+	}
+
+	.perm_checker_form .submit_parent {
+		display: flex;
+		justify-content: center;
+	}
+
+
+	.path_row {
+		display: flex;
+		gap: 5px;
+		margin-bottom: 5px;
+	}
+	.path_row input[type=text] {
+		flex: 1;
+		background: #333;
+		color: white;
+		border: 1px solid #555;
+		padding: 5px;
+	}
+	.path_row select {
+		background: #333;
+		color: white;
+		border: 1px solid #555;
+		padding: 5px;
+	}
+	.path_row button {
+		background: #cc0000;
+		color: white;
+		border: none;
+		cursor: pointer;
+		padding: 5px 10px;
+	}
+</style>
+
+		`
+
+		var client_page_script = `
+{
+	var view = document.getElementById("view");
+	var download = document.getElementById("download");
+	var modify = document.getElementById("modify");
+	var delete_ = document.getElementById("delete");
+	var upload = document.getElementById("upload");
+	var zip = document.getElementById("zip");
+	var admin = document.getElementById("admin");
+	var member = document.getElementById("member");
+	var path_list = document.getElementById("path_list");
+	var add_path_btn = document.getElementById("add_path_btn");
+
+	function create_path_row(path = "", subdirs = true, type = "allow") {
+		var row = document.createElement("div");
+		row.className = "path_row";
+		
+		var path_input = document.createElement("input");
+		path_input.type = "text";
+		path_input.placeholder = "/Folder";
+		path_input.value = path;
+		
+		var subdirs_select = document.createElement("select");
+		subdirs_select.innerHTML = '<option value="true">Recursive</option><option value="false">Exact</option>';
+		subdirs_select.value = subdirs ? "true" : "false";
+		
+		var type_select = document.createElement("select");
+		type_select.innerHTML = '<option value="allow">Allow</option><option value="deny">Deny</option>';
+		type_select.value = type;
+		
+		var del_btn = document.createElement("button");
+		del_btn.type = "button";
+		del_btn.innerText = "X";
+		del_btn.onclick = () => row.remove();
+		
+		row.appendChild(path_input);
+		row.appendChild(subdirs_select);
+		row.appendChild(type_select);
+		row.appendChild(del_btn);
+		
+		path_list.appendChild(row);
+	}
+	
+	add_path_btn.onclick = () => create_path_row();
+
+	var submit = document.getElementById("submit");
+
+	var username = admin_tools.selected_user;
+	var _user = new User();
+	fetch('/?get_user_perm&username=' + encodeURIComponent(username))
+	.then(response => response.json())
+	.then(data => {
+		if (data.status) {
+			_user.permissions_code = data.permissions_code;
+			var perms = _user.extract_permissions();
+
+			view.checked = perms["VIEW"];
+			download.checked = perms["DOWNLOAD"];
+			modify.checked = perms["MODIFY"];
+			delete_.checked = perms["DELETE"];
+			upload.checked = perms["UPLOAD"];
+			zip.checked = perms["ZIP"];
+			admin.checked = perms["ADMIN"];
+			member.checked = perms["MEMBER"];
+			
+			if (data.allowed_paths !== undefined) {
+				try {
+					var paths = JSON.parse(data.allowed_paths);
+					paths.forEach(p => {
+						if (typeof p === "string") {
+							create_path_row(p, true, "allow");
+						} else {
+							create_path_row(p.path || "", p.subdirs !== false, p.type || "allow");
+						}
+					});
+				} catch(e) {}
+			}
+		} else {
+			popup_msg.createPopup(data["message"]);
+			popup_msg.open_popup();
+		}
+	})
+
+
+	submit.onclick = function(e) {
+		e.preventDefault();
+		var dict = {};
+		dict["VIEW"] = view.checked;
+		dict["DOWNLOAD"] = download.checked;
+		dict["MODIFY"] = modify.checked;
+		dict["DELETE"] = delete_.checked;
+		dict["UPLOAD"] = upload.checked;
+		dict["ZIP"] = zip.checked;
+		dict["ADMIN"] = admin.checked;
+		dict["MEMBER"] = member.checked;
+
+
+		_user.permissions = dict;
+		var perms = _user.pack_permissions();
+		
+		var paths_data = [];
+		Array.from(path_list.children).forEach(row => {
+			var path_val = row.children[0].value.trim();
+			if (path_val) {
+				paths_data.push({
+					path: path_val,
+					subdirs: row.children[1].value === "true",
+					type: row.children[2].value
+				});
+			}
+		});
+		var paths = JSON.stringify(paths_data);
+
+		const formData = new FormData();
+		formData.append("post-type", "update_user_perm");
+		formData.append("username", username);
+		formData.append("perms", perms);
+		formData.append("allowed_paths", paths);
+
+		fetch('/?update_user_perm', {
+			method: 'POST',
+			body: formData
+		})
+		.then(response => response.json())
+		.then(data => {
+			if (data.self_kick) {
+				window.location.reload();
+				return;
+			}
+			popup_msg.createPopup(data["status"], data["message"]);
+			popup_msg.open_popup();
+		})
+		.catch(err => {
+			console.log(err);
+		})
+	}
+
+
+	admin.onclick = function() {
+		if (admin.checked) {
+			view.checked = true;
+			download.checked = true;
+			modify.checked = true;
+			delete_.checked = true;
+			upload.checked = true;
+			zip.checked = true;
+		}
+	}
+
+}
+`
+
+
+		popup_msg.createPopup(username + " Options", client_page_html, true, null_func, client_page_script);
+
+		popup_msg.open_popup();
+
+
+	}
+
+	delete_user(index) {
+		var username = this.user_list[index];
+		r_u_sure({
+			y: () => {
+				const formData = new FormData();
+				formData.append("post-type", "delete_user");
+				formData.append("username", username);
+
+				fetch('/?delete_user', {
+					method: 'POST',
+					body: formData
+				})
+					.then(response => response.json())
+					.then(data => {
+						if (data.status) {
+							popup_msg.createPopup("Success", data["message"]);
+						} else {
+							popup_msg.createPopup("Error", data["message"]);
+						}
+						popup_msg.open_popup();
+						this.get_users();
+					})
+					.catch(err => {
+						console.log(err);
+					})
+			}
+		});
+	}
+
+	request_reload() {
+		r_u_sure({
+			y: () => {
+				fetch('/?reload', { method: 'POST' })
+					.then(response => response.text())
+					.then(data => {
+						popup_msg.createPopup(data)
+						popup_msg.open_popup();
+					})
+
+			}
+		});
+	}
+
+	request_shutdown() {
+		r_u_sure({
+			y: () => {
+				fetch('/?shutdown', { method: 'POST' })
+					.then(response => response.text())
+					.then(data => {
+						popup_msg.createPopup(data)
+						popup_msg.open_popup();
+					})
+
+			}
+		});
+	}
+
+	add_user() {
+		var client_page_html = `
+<form action="" method="post" class="add_user_form">
+	<table>
+		<tr>
+			<td>Username</td>
+			<td><input type="text" name="username" id="add_user_username"></td>
+		</tr>
+		<tr>
+			<td>Password</td>
+			<td><input type="password" name="password" id="add_user_password"></td>
+		</tr>
+		<tr>
+			<td>Confirm Password</td>
+			<td><input type="password" name="confirm_password" id="add_user_confirm_password"></td>
+		</tr>
+	</table>
+
+	<br>
+	<h2>Permissions</h2>
+	<table>
+		<tr>
+			<td>View</td>
+			<td><input type="checkbox" name="VIEW" value="0" id="add_view"></td>
+		</tr>
+		<tr>
+			<td>Download</td>
+			<td><input type="checkbox" name="DOWNLOAD" value="1" id="add_download"></td>
+		</tr>
+		<tr>
+			<td>Modify</td>
+			<td><input type="checkbox" name="MODIFY" value="2" id="add_modify"></td>
+		</tr>
+		<tr>
+			<td>Delete</td>
+			<td><input type="checkbox" name="DELETE" value="3" id="add_delete"></td>
+		</tr>
+		<tr>
+			<td>Upload</td>
+			<td><input type="checkbox" name="UPLOAD" value="4" id="add_upload"></td>
+		</tr>
+		<tr>
+			<td>Zip</td>
+			<td><input type="checkbox" name="ZIP" value="5" id="add_zip"></td>
+		</tr>
+		<tr>
+			<td>Admin</td>
+			<td><input type="checkbox" name="ADMIN" value="6" id="add_admin"></td>
+		</tr>
+	</table>
+	
+	<br>
+	<h3 style="margin-bottom: 5px;">Path Restrictions (empty = all)</h3>
+	<div id="add_path_list" style="margin-bottom: 10px;"></div>
+	<button type="button" id="add_add_path_btn" style="padding: 5px; background: #444; color: white; border: 1px solid #555; cursor: pointer;">+ Add Path</button>
+	<br><br>
+
+	<div class="submit_parent">
+		<input type="submit" name="submit" value="Submit" id="add_user_submit">
+	</div>
+
+	<div id="add_user_status"></div>
+
+</form>
+
+<style>
+
+	.add_user_form table {
+		border-collapse: collapse;
+		width: 100%;
+		color: #afafaf;
+		font-family: monospace;
+		font-size: 18px;
+		text-align: left;
+	}
+
+	.add_user_form input[type=text], input[type=password] {
+		background-color: #444;
+		color: white;
+		font-family: monospace;
+		font-size: 20px;
+		text-align: center;
+		border: none;
+		width: 90%;
+		padding: 5px 7px;
+		text-decoration: none;
+		display: inline-block;
+		margin: 4px 2px;
+		cursor: pointer;
+
+		border-radius: 2px;
+		box-shadow: 5px 5px 0 0 #1abeff;
+	}
+
+	.add_user_form input[type=text]:hover, input[type=password]:hover {
+		background-color: #333;
+		box-shadow: 3px 3px 0 0 #1abeff;
+	}
+
+	.add_user_form .submit_parent {
+		display: flex;
+		justify-content: center;
+	}
+
+	.add_user_form input[type=submit] {
+		background-color: #444;
+		color: white;
+		font-family: monospace;
+		font-size: 25px;
+		text-align: center;
+		border: none;
+		width: 60%;
+		padding: 15px 32px;
+		text-decoration: none;
+		display: inline-block;
+		margin: 4px 2px;
+		cursor: pointer;
+
+		border-radius: 2px;
+		box-shadow: 5px 5px 0 0 #1abeff;
+	}
+
+	.add_user_form input[type=submit]:hover {
+		background-color: #333;
+		box-shadow: 3px 3px 0 0 #1abeff;
+	}
+	
+	.add_user_form tr:nth-child(even) {background-color: #4d4d4d}
+
+	.add_user_form td:nth-child(1){
+		text-align: left;
+		width: calc(100% - 50px);
+	}
+
+	.add_user_form td:nth-child(2){
+		text-align: center;
+		width: 50px;
+	}
+
+	.add_user_form input[type=checkbox] {
+		-moz-appearance:none;
+		-webkit-appearance:none;
+		-o-appearance:none;
+		outline: none;
+		content: none;
+	}
+
+	.add_user_form input[type=checkbox]:before {
+		content: "✅";
+		font-size: 17px;
+		color: transparent !important;
+		background: #636363;
+		display: block;
+		width: 17px;
+		height: 17px;
+		border: 1px solid black;
+	}
+
+	.add_user_form input[type=checkbox][disabled]:before {
+		filter: grayscale(1);
+	}
+
+	.add_user_form input[type=checkbox]:checked:before {
+		color: black !important;
+	}
+	
+	.path_row {
+		display: flex;
+		gap: 5px;
+		margin-bottom: 5px;
+	}
+	.path_row input[type=text] {
+		flex: 1;
+		background: #333;
+		color: white;
+		border: 1px solid #555;
+		padding: 5px;
+		width: auto;
+	}
+	.path_row select {
+		background: #333;
+		color: white;
+		border: 1px solid #555;
+		padding: 5px;
+	}
+	.path_row button {
+		background: #cc0000;
+		color: white;
+		border: none;
+		cursor: pointer;
+		padding: 5px 10px;
+	}
+
+</style>
+		`
+
+		var client_page_script = `
+{
+	var username = document.getElementById("add_user_username");
+	var password = document.getElementById("add_user_password");
+	var confirm_password = document.getElementById("add_user_confirm_password");
+	var submit = document.getElementById("add_user_submit");
+	
+	var view = document.getElementById("add_view");
+	var download = document.getElementById("add_download");
+	var modify = document.getElementById("add_modify");
+	var delete_ = document.getElementById("add_delete");
+	var upload = document.getElementById("add_upload");
+	var zip = document.getElementById("add_zip");
+	var admin = document.getElementById("add_admin");
+	var path_list = document.getElementById("add_path_list");
+	var add_path_btn = document.getElementById("add_add_path_btn");
+
+	function create_path_row() {
+		var row = document.createElement("div");
+		row.className = "path_row";
+		
+		var path_input = document.createElement("input");
+		path_input.type = "text";
+		path_input.placeholder = "/Folder";
+		
+		var subdirs_select = document.createElement("select");
+		subdirs_select.innerHTML = '<option value="true">Recursive</option><option value="false">Exact</option>';
+		
+		var type_select = document.createElement("select");
+		type_select.innerHTML = '<option value="allow">Allow</option><option value="deny">Deny</option>';
+		
+		var del_btn = document.createElement("button");
+		del_btn.type = "button";
+		del_btn.innerText = "X";
+		del_btn.onclick = () => row.remove();
+		
+		row.appendChild(path_input);
+		row.appendChild(subdirs_select);
+		row.appendChild(type_select);
+		row.appendChild(del_btn);
+		
+		path_list.appendChild(row);
+	}
+	
+	add_path_btn.onclick = () => create_path_row();
+	
+	admin.onclick = function() {
+		if (admin.checked) {
+			view.checked = true;
+			download.checked = true;
+			modify.checked = true;
+			delete_.checked = true;
+			upload.checked = true;
+			zip.checked = true;
+		}
+	}
+
+	var submit_status = document.getElementById("add_user_status");
+	const NotUsernameRegex = /[^a-zA-Z0-9_]/g;
+	const note = (msg, color='red') => {
+		submit_status.innerHTML = msg;
+		submit_status.style.color = color;
+	}
+
+	submit.onclick = function(e) {
+		e.preventDefault();
+
+		var OK = false;
+		var _uname = username.value;
+		var _pass = password.value;
+		var _pass_confirm = confirm_password.value;
+
+		if(_uname.length<1){
+			note("Username must have at least 1 character!");
+		} else if (_uname.length>64){
+			note("Username must be less than 64 character long");
+		} else if (_pass.length<4){
+			note("Password must have at least 4 character!");
+		}else if (_pass.length>256){
+			note("Password can't be longer than 256 characters");
+		} else if (NotUsernameRegex.test(_uname)){
+			note("Username can only have A-Z, a-z, 0-9, _");
+		} else if (_uname == _pass){
+			note("Username and password can't be the same!");
+		} else if (_pass != _pass_confirm){
+			note("Passwords do not match!");
+		} else {
+			OK = true;
+			note("Adding user...", "green");
+		}
+
+		if (!OK) {
+			return false;
+		}
+
+		var _user = new User();
+		_user.permissions = {
+			"VIEW": view.checked,
+			"DOWNLOAD": download.checked,
+			"MODIFY": modify.checked,
+			"DELETE": delete_.checked,
+			"UPLOAD": upload.checked,
+			"ZIP": zip.checked,
+			"ADMIN": admin.checked,
+			"MEMBER": true
+		};
+		var perms = _user.pack_permissions();
+		
+		var paths_data = [];
+		Array.from(path_list.children).forEach(row => {
+			var path_val = row.children[0].value.trim();
+			if (path_val) {
+				paths_data.push({
+					path: path_val,
+					subdirs: row.children[1].value === "true",
+					type: row.children[2].value
+				});
+			}
+		});
+		var paths = JSON.stringify(paths_data);
+
+		const formData = new FormData();
+		formData.append("post-type", "add_user");
+		formData.append("username", username.value);
+		formData.append("password", password.value);
+		formData.append("perms", perms);
+		formData.append("allowed_paths", paths);
+
+		fetch('/?add_user', {
+			method: 'POST',
+			body: formData
+		})
+		.then(response => response.json())
+		.then(data => {
+			popup_msg.createPopup(data["status"], data["message"]);
+			popup_msg.open_popup();
+
+			admin_tools.get_users();
+		})
+		.catch(err => {
+			console.log(err);
+		})
+	}
+}
+		`
+
+		popup_msg.createPopup("Add User", client_page_html, true, null_func, client_page_script);
+
+		popup_msg.open_popup();
+	}
+}
+
+var admin_tools = new Admin_tools();
+
+page_controller.add_handler("admin", Admin_page, "admin-page");

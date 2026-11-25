@@ -39,7 +39,7 @@ from http.cookies import SimpleCookie
 import binascii
 
 from pyroboxCore import logger
-from pyroDB3 import PickleTable
+from pyroDB4 import PickleTable
 from data_types import LimitedDict
 
 

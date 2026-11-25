@@ -33,7 +33,13 @@ def import_loop(
 	"""
 	for package in packages:
 		try:
-			mod = import_module(package)
+			try:
+				mod = import_module(package)
+			except ImportError:
+				if not __package__:
+					raise
+				# running as an installed package: sibling modules are relative
+				mod = import_module("." + package, __package__)
 			target = mod
 			if export is not None:
 				if isinstance(export, str):
@@ -655,7 +661,7 @@ def str_comma(x):
 		"1,23" → "1.23"
 		4.56 → "4,56"
 	"""
-	_PyroTCell = import_loop(["pyroDB3", "pyroDB2", "pyroDB"], export="_PyroTCell")
+	_PyroTCell = import_loop(["pyroDB4", "pyroDB3", "pyroDB2", "pyroDB"], export="_PyroTCell")
 	if _PyroTCell and isinstance(x, _PyroTCell):
 		x = x.value
 
@@ -671,7 +677,7 @@ def str_comma_to_float(x):
 		"1,23" → 1.23
 		"1.23" → 1.23 (unchanged)
 	"""
-	_Cell = import_loop(["pyroDB3", "pyroDB2", "pyroDB"], export=["_PyroTCell", "_PickleTCell"])
+	_Cell = import_loop(["pyroDB4", "pyroDB3", "pyroDB2", "pyroDB"], export=["_PyroTCell", "_PickleTCell"])
 	if _Cell and isinstance(x, _Cell):
 		x = x.value
 

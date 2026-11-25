@@ -1,3 +1,16 @@
+# Version 0.10.0
+  ## Database
+  * **pyroDB4** New write-ahead-log (WAL) database engine: crash-safe writes, `wal_max_bytes` auto checkpoint, Blob support and a blob write race fix. User/config storage now uses pyroDB4.
+
+  ## Server
+  * Upload password is random on every launch unless set. New `--save-password` / `--clear-password` flags keep a default password in `~/.pyrobox/preferences.pdb`. Priority: `-k` > saved > random.
+  * Removed Python 3.7 support.
+
+  ## Packaging
+  * `src/` is now generated from `dev_src/` with `build_src.py` (relative imports; html/js/css shipped as package data instead of inlined templates). `print_text4` is bundled.
+  * Console entry point is now `pyrobox.server:run`; SPDX `license = MIT` replaces the license classifier.
+
+
 # Version 0.9.9
   ## HOTFIX
   * **Server** Fixed upload where send_error(code, message) was swapped with send_error(message, code)

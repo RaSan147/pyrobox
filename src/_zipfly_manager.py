@@ -22,6 +22,7 @@ from logging import Logger
 logger = Logger(__name__)
 
 
+
 from ._fs_utils import get_dir_m_time, _get_tree_path_n_size, humanbytes
 from ._exceptions import LimitExceed
 
@@ -298,15 +299,7 @@ class zip7z:
 			f"{file_or_folder}/*" if os.path.isdir(file_or_folder) else file_or_folder
 		]
 
-		def process_thread():
-			self.running_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-
-
-		t = threading.Thread(target=process_thread)
-		t.start()
-
-		time.sleep(0.2)
-
+		self.running_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 
 		while self.running_process:
 			if self.running_process.stdout is None:
@@ -319,8 +312,6 @@ class zip7z:
 
 			if not line and self.running_process.poll() is not None:
 				break
-
-		t.join()
 
 	def stop(self):
 		if self.running_process:
@@ -534,7 +525,8 @@ class ZIP_Manager:
 		if not self.zip_allowed:
 			return err("ZIP FUNCTION DISABLED")
 
-		# Run zipfly or 7z handler
+		# Set status immediately to avoid multiple threads being spawned by polling
+		self.zip_id_status[zid] = "ARCHIVING"
 		self.zip_in_progress[zid] = 0
 
 		if not self.calculation_cache(zid):

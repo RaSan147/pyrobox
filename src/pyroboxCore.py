@@ -1,3 +1,4 @@
+import inspect
 import traceback
 import json
 import string
@@ -14,7 +15,7 @@ import urllib.parse
 import time
 import sys
 import socketserver
-import socket  # For gethostbyaddr()
+import socket
 import shutil
 import posixpath
 import mimetypes
@@ -25,18 +26,37 @@ import email.utils
 import datetime
 import argparse
 from string import Template
-from typing import List, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, TypedDict, Union
 from queue import Queue
 import logging
 import atexit
 import os
 import tempfile
 
-from typing import Type
-
-__version__ = "0.9.9"
+__version__ = "0.10.0"
 enc = "utf-8"
-DEV_MODE = False
+DEV_MODE = True
+
+# Callable stored on the class route table; ``on_req`` / ``on_GET`` register it; ``do_HANDLE`` invokes it.
+HTTPRouteHandler = Callable[..., Any]
+
+
+class RouteHandlerEntry(TypedDict):
+	"""One element of ``SimpleHTTPRequestHandler.handlers[method]``.
+
+	``check`` is unpacked into ``test_req`` when dispatching. ``func`` is the
+	handler actually called. ``source`` and ``cache_*`` are filled at route
+	registration so request handling does not call ``inspect`` again.
+	"""
+
+	check: Mapping[str, Any]
+	func: HTTPRouteHandler
+	source: str
+	cache_name: str
+	cache_args: str
+	cache_file: str
+	cache_line: int
+	cache_lines: List[str]
 
 
 __all__ = [
@@ -45,18 +65,89 @@ __all__ = [
 ]
 
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: \n%(message)s')
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-# set INFO to see all the requests
-# set WARNING to see only the requests that made change to the server
-# set ERROR to see only the requests that made the errors
-
 
 endl = "\n"
 T = t = true = True  # too lazy to type
 F = f = false = False  # too lazy to type
+
+
+# Keep these helpers in pyroboxCore.py: this module is also distributed as a
+# standalone, drop-in HTTP server and must not import other project files.
+BAD_FILENAME_CHARS = re.compile(r'[:*?"<>|\x00]')
+_DRIVE_ABS = re.compile(r'^[A-Za-z]:')
+
+
+def path_is_under_directory(
+	base_dir: str,
+	target_path: str,
+	*,
+	resolve_symlinks: bool = False,
+) -> bool:
+	"""Return True if target_path resolves inside base_dir."""
+	if not base_dir or not target_path:
+		return False
+
+	if resolve_symlinks:
+		base = os.path.realpath(base_dir)
+		target = os.path.realpath(target_path)
+	else:
+		base = os.path.abspath(base_dir)
+		target = os.path.abspath(target_path)
+
+	try:
+		return os.path.commonpath([base, target]) == base
+	except ValueError:
+		# Different drives / invalid path mix on Windows
+		return False
+
+
+def _is_unc_or_drive(normalized: str) -> bool:
+	return normalized.startswith('//') or bool(_DRIVE_ABS.match(normalized))
+
+
+def validate_client_relpath(
+	path: Optional[str],
+	*,
+	allow_leading_slash: bool = False,
+) -> Optional[str]:
+	"""Validate a client path and return its normalized relative form."""
+	if path is None or not isinstance(path, str):
+		return None
+
+	original = path.strip()
+	if not original:
+		return None
+
+	normalized = original.replace('\\', '/')
+	if _is_unc_or_drive(normalized):
+		return None
+
+	if normalized.startswith('/'):
+		if not allow_leading_slash:
+			return None
+	elif os.path.isabs(normalized) or os.path.isabs(original):
+		return None
+
+	normalized = normalized.strip('/')
+	if not normalized:
+		return None
+
+	parts = []
+	for part in normalized.split('/'):
+		if not part or part in ('.', '..'):
+			return None
+		if os.path.dirname(part) or _is_unc_or_drive(part):
+			return None
+		if BAD_FILENAME_CHARS.search(part):
+			return None
+		parts.append(part)
+
+	return '/'.join(parts)
+
+
+def directory_url_has_trailing_slash(url_path: str) -> bool:
+	"""True for a literal or URL-encoded trailing slash."""
+	return bool(url_path) and url_path.endswith(('/', '%2f', '%2F'))
 
 
 class Config:
@@ -73,22 +164,10 @@ class Config:
 		# DEFAULT PORT TO LAUNCH SERVER
 		self.port = 6969  # DEFAULT PORT TO LAUNCH SERVER
 
-		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
-		# CAN BE CHANGED BY USING --password NEW_PASSWORD
-		self.PASSWORD = "SECret"
-
 		# LOGGING
 		self.log_location = "./"  # fallback log_location = "./"
-		# if you want to see some important LOG in browser, may contain your important information
-		self.allow_web_log = True
 		self.write_log = False  # if you want to write log to file
 		self.log_extra = True
-
-		# ZIP FEATURES
-		self.default_zip = "zipfile"  # or "zipfile" to use python built in zip module
-
-		# CHECK FOR MISSING REQUIREMENTS
-		self.run_req_check = True
 
 		# FILE INFO
 		self.MAIN_FILE = os.path.realpath(__file__)
@@ -102,9 +181,8 @@ class Config:
 		self.dev_mode = DEV_MODE
 		self.reload = False
 
-		self.disabled_func = {
-			"reload": False,
-		}
+		# Extensible feature-flag bag; apps fill keys (e.g. zip, upload)
+		self.disabled_func = {}
 
 		# TEMP FILE MAPPING
 		self.temp_files = set()
@@ -114,11 +192,10 @@ class Config:
 		# CLEAN TEMP FILES ON EXIT
 		atexit.register(self.clear_temp)
 
-		# ASSET MAPPING
-		self.file_list = {}
-
 		# COMMANDLINE ARGUMENTS PARSER
 		self.parser = argparse.ArgumentParser(add_help=False)
+		self._custom_cli_args_added = False
+		self._default_cli_args_added = False
 
 		# Default error message template
 		self.DEFAULT_ERROR_MESSAGE = Template("""
@@ -134,7 +211,7 @@ class Config:
 				<p>Error code: ${code}</p>
 				<p>Message: ${message}</p>
 				<p>Error code explanation: ${code} - ${explain}</p>
-				<h3>PyroBox Version: ${version}</h3>
+				<h3>Server Version: ${version}</h3>
 			</body>
 		</html>
 		""")
@@ -166,7 +243,11 @@ class Config:
 	def address(self):
 		return f"{self.protocol}://{self.IP}:{self.port}"
 
-	def parse_default_args(self, port=0, directory="", bind=None):
+	def register_default_args(self, port=0, directory="", bind=None):
+		"""Add core CLI flags once. Does not parse argv (safe at import time)."""
+		if getattr(self, '_default_cli_args_added', False):
+			return
+
 		if not port:
 			port = self.port
 		if not directory:
@@ -194,18 +275,58 @@ class Config:
 								default='==SUPPRESS==',
 								help=('[Option] show this help message and exit'))
 
-
 		parser.add_argument('--no-extra-log', '-nxl',
 							action='store_true',
 							default=False,
 							help="[Flag] Disable file path and [= + - #] based logs (default: %(default)s)")
 
+		self._default_cli_args_added = True
 
-		args = parser.parse_known_args()[0]
+	def parse_default_args(self, port=0, directory="", bind=None, args=None):
+		"""Register core flags (if needed) and parse.
 
-		self.log_extra = not args.no_extra_log
+		``args=None`` uses ``sys.argv`` (argparse handles ``-h`` / ``-v``).
+		Pass ``args=[]`` to load defaults without reading the process argv.
+		"""
+		self.register_default_args(port=port, directory=directory, bind=bind)
 
-		return args
+		parsed = self.parser.parse_known_args(args)[0]
+		self.log_extra = not parsed.no_extra_log
+		return parsed
+
+
+	def init_logger(self, logger):
+		"""
+		Initializes the logger
+
+		Use arg parser to get log level, default is INFO
+		"""
+
+		self.parser.add_argument('--log-level', '-l',
+								default='INFO',
+								help='[Log level] Set the log level (default: %(default)s) [DEBUG, INFO, WARNING, ERROR, CRITICAL]')
+		args = self.parser.parse_known_args()[0]
+
+		log_level = args.log_level.upper()
+		if log_level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+			log_level = 'INFO'
+
+		logger.setLevel(getattr(logging, log_level))
+
+
+
+config = Config()
+
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: \n%(message)s')
+
+logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
+# set INFO to see all the requests
+# set WARNING to see only the requests that made change to the server
+# set ERROR to see only the requests that made the errors
+config.init_logger(logger)
+
 
 
 class Tools:
@@ -255,7 +376,6 @@ class Tools:
 
 
 tools = Tools()
-config = Config()
 
 
 
@@ -437,10 +557,78 @@ def URL_MANAGER(url: str):
 	return (path, dict_result, parse_result.fragment)
 
 
+# --- Route table (`on_req` / `on_GET` / …) --------------------------------------
+# Each verb maps to a list of RouteHandlerEntry dicts. Registration appends in
+# declaration order; do_HANDLE scans the list and stops on the first test_req match.
+
+def build_route_handler_entry(
+	url: str,
+	hasQ: Optional[Union[str, Sequence[str]]],
+	QV: Optional[Mapping[str, Any]],
+	fragent: str,
+	url_regex: str,
+	func: HTTPRouteHandler,
+) -> RouteHandlerEntry:
+	"""Build one ``handlers[method]`` entry: normalized matcher, callable, inspect snapshot.
+
+	Only ``on_req`` (via its decorator) should call this. Route normalization lives
+	here so ``entry["check"]`` always matches what ``test_req`` expects.
+
+	The value stored under ``func`` is the object invoked on each request (often a
+	decorator wrapper). ``inspect.unwrap(func)`` is used once; file, line number,
+	signature, and source text refer to that unwrapped target for stable debugging.
+	"""
+	# Match ``on_req`` / ``test_req``: a lone query key is normalized to a 1-tuple.
+	if isinstance(hasQ, str):
+		hasQ = (hasQ,)
+	# Empty path + empty pattern means "any path" (regex ``.*`` on url_path).
+	if url == '' and url_regex == '':
+		url_regex = '.*'
+	# Keyword args for ``self.test_req(**check)`` in do_HANDLE.
+	to_check: Mapping[str, Any] = {
+		"url": url,
+		"hasQ": hasQ,
+		"QV": QV,
+		"fragent": fragent,
+		"url_regex": url_regex,
+	}
+	real = inspect.unwrap(func)
+	try:
+		source = inspect.getsource(real)
+	except OSError:
+		source = f"<Source unavailable for {getattr(real, '__name__', type(real).__name__)} - missing physical file>"
+	except TypeError:
+		source = f"<Source unavailable for {getattr(real, '__name__', type(real).__name__)} - built-in/compiled>"
+	# Wrapper may still expose the public route name (e.g. functools.wraps).
+	name = getattr(func, "__name__", repr(func))
+	try:
+		args = str(inspect.signature(real))
+	except (TypeError, ValueError):
+		args = "(signature unavailable)"
+	try:
+		file = inspect.getfile(real)
+	except TypeError:
+		file = "<unknown file>"
+	try:
+		lines, lineno = inspect.getsourcelines(real)
+	except (OSError, TypeError):
+		lines, lineno = [], 0
+	return {
+		"check": to_check,
+		"func": func,
+		"source": source,
+		"cache_name": name,
+		"cache_args": args,
+		"cache_file": file,
+		"cache_line": lineno,
+		"cache_lines": lines,
+	}
+
 
 class HTTPServer(socketserver.TCPServer):
 
 	allow_reuse_address = True  # Seems to make sense in testing environment
+	allow_reuse_port = True # As per https://github.com/python/cpython/commit/192d17c3fd9945104bc0303cf248bb0d074d260e
 
 	def server_bind(self):
 		"""Override server_bind to store the server name."""
@@ -512,33 +700,48 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 	# use allow_CORS to add a method to the list (and Override ALL)
 	# DEFAULT: None
 
+	cookie: Optional[SimpleCookie] = None
 
+	# Instance attrs set while handling a request (declared for type checkers).
+	command: str
+	path: str
+	request_version: str
+	requestline: str
+	raw_requestline: bytes
+	method: str
+	url_path: str
+	query: Callable_dict
+	fragment: str
+	req_hash: Union[str, bytes]
+	use_range: bool
+	header_flushed: bool
+	response_code_sent: bool
+	close_connection: bool
+	headers: Any
 
 	@classmethod
-	def allowed_CORS(self, method) -> Union[str, None]:
+	def allowed_CORS(cls, method) -> Optional[str]:
 		"""Check if the method is allowed by the server"""
-		self = __class__
-		cors = self.allow_star_CORS.get(method.upper(), None)
+		cors = cls.allow_star_CORS.get(method.upper(), None)
 
-		return cors or self.allow_star_CORS.get("ALL", None)
+		return cors or cls.allow_star_CORS.get("ALL", None)
 
 
 	@classmethod
-	def allow_CORS(self, method, origin):
+	def allow_CORS(cls, method, origin):
 		"""Add a method to the allowed list
 
 		`method` = `GET`, `POST`, `PUT`, `DELETE`, `HEAD`, `OPTIONS`, `PATCH`\n
 		`origin` = `*`, `http://example.com`, `https://example.com`, `http://example.com:8080`, `https://example.com:8080`
 		"""
-		self = __class__
 		method = method.upper()
-		self.allow_star_CORS[method] = origin
+		cls.allow_star_CORS[method] = origin
 
 		if method == "HEAD":
-			self.allow_star_CORS["GET"] = origin
+			cls.allow_star_CORS["GET"] = origin
 
 		if method == "GET":
-			self.allow_star_CORS["HEAD"] = origin
+			cls.allow_star_CORS["HEAD"] = origin
 
 	def parse_request(self):
 		"""Parse a request (internal).
@@ -727,8 +930,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			if not self.parse_request():
 				# An error code has been sent, just exit
 				return
-			mname = 'do_' + self.command
-			self.method = self.command
+			mname = 'do_HANDLE'
+			self.method = self.command.upper()
 
 			if not hasattr(self, mname):
 				self.send_error(
@@ -760,7 +963,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 						)
 
 			try:
-				method()
+				method(self.command)
 			except Exception:
 				ERROR = traceback.format_exc()
 				self.log_error(ERROR)
@@ -825,7 +1028,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			message = shortmsg
 		if explain is None:
 			explain = longmsg
+		
 		self.log_error("code", code, "message", message, "\n\n", "URL", self.path, "\nquery", self.query, "\nfragment", self.fragment, "\nmethod", self.method)
+
 		self.send_response(code=code, message=message)
 
 		self._send_cookie(cookie=cookie)
@@ -927,12 +1132,25 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 			elif value.lower() == 'keep-alive':
 				self.close_connection = False
 
+	def _has_header(self, keyword):
+		if not hasattr(self, '_headers_buffer'):
+			return False
+		prefix = (keyword.lower() + ":").encode('utf-8')
+		return any(h.lower().startswith(prefix) for h in self._headers_buffer)
+
 	def end_headers(self):
 		"""Send the blank line ending the MIME headers."""
 
 		CORS_POLICY = self.allowed_CORS(self.method)
 		if self.allowed_CORS(self.method):
 			self.send_header('Access-Control-Allow-Origin', CORS_POLICY)
+
+		if not self._has_header('X-Content-Type-Options'):
+			self.send_header('X-Content-Type-Options', 'nosniff')
+		if not self._has_header('X-Frame-Options'):
+			self.send_header('X-Frame-Options', 'SAMEORIGIN')
+		if not self._has_header('Referrer-Policy'):
+			self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
 
 		if self.request_version != 'HTTP/0.9':
 			self._headers_buffer.append(b"\r\n")
@@ -1139,35 +1357,149 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 	server_version = "SimpleHTTP/" + __version__
 
-	if not mimetypes.inited:
-		mimetypes.init()  # try to read system mime.types
-	extensions_map = mimetypes.types_map.copy()
-	extensions_map.update({
-		'': 'application/octet-stream',  # Default
-			'.py': 'text/x-python',
-			'.c': 'text/x-c',
-			'.h': 'text/x-c',
-			'.css': 'text/css',
-
-			'.gz': 'application/gzip',
-			'.Z': 'application/octet-stream',
-			'.bz2': 'application/x-bzip2',
-			'.xz': 'application/x-xz',
-
-			'.webp': 'image/webp',
-
-			'opus': 'audio/opus',
-			'.oga': 'audio/ogg',
-			'.wav': 'audio/wav',
-
-			'.ogv': 'video/ogg',
-			'.ogg': 'application/ogg',
-			'.m4a': 'audio/mp4',
-
-			'.br': 'application/x-brotli',
+	# ``return_file`` reads files up to these sizes fully so Content-Length matches
+	# the bytes sent (fstat can be short while a file is still being written).
+	send_blob_max = 8 * 1024 * 1024
+	# Larger limit for types where a truncated body breaks the page.
+	send_blob_asset_max = 32 * 1024 * 1024
+	send_blob_asset_types = frozenset({
+		"text/html",
+		"text/css",
+		"text/javascript",
+		"application/javascript",
+		"application/json",
+		"image/svg+xml",
+		"application/wasm",
 	})
 
-	handlers = {
+	if not mimetypes.inited:
+		mimetypes.init()  # try to read system mime.types
+	_custom_mime_types = {
+		'': 'application/octet-stream',  # Default
+
+		# Audio
+		'.mp3': 'audio/mpeg',
+		'.m4a': 'audio/mp4',
+		'.m4b': 'audio/mp4',
+		'.m4p': 'audio/mp4',
+		'.m4r': 'audio/mp4',
+		'.aac': 'audio/aac',
+		'.opus': 'audio/opus',
+		'.ogg': 'audio/ogg',
+		'.oga': 'audio/ogg',
+		'.flac': 'audio/flac',
+		'.wav': 'audio/wav',
+		'.weba': 'audio/webm',
+		'.wma': 'audio/x-ms-wma',
+		'.aif': 'audio/x-aiff',
+		'.aiff': 'audio/x-aiff',
+		'.aifc': 'audio/x-aiff',
+		'.mid': 'audio/midi',
+		'.midi': 'audio/midi',
+		'.mp2': 'audio/mpeg',
+		'.mp1': 'audio/mpeg',
+		'.ac3': 'audio/ac3',
+		'.eac3': 'audio/eac3',
+		'.dts': 'audio/vnd.dts',
+		'.amr': 'audio/amr',
+		'.ape': 'audio/x-ape',
+		'.alac': 'audio/x-alac',
+
+		# Video
+		'.mp4': 'video/mp4',
+		'.m4v': 'video/mp4',
+		'.mkv': 'video/x-matroska',
+		'.webm': 'video/webm',
+		'.ogv': 'video/ogg',
+		'.avi': 'video/x-msvideo',
+		'.mov': 'video/quicktime',
+		'.qt': 'video/quicktime',
+		'.wmv': 'video/x-ms-wmv',
+		'.flv': 'video/x-flv',
+		'.f4v': 'video/x-f4v',
+		'.3gp': 'video/3gpp',
+		'.3g2': 'video/3gpp2',
+		'.ts': 'video/mp2t',
+		'.mts': 'video/mp2t',
+		'.m2ts': 'video/mp2t',
+		'.vob': 'video/x-ms-vob',
+		'.divx': 'video/divx',
+		'.asf': 'video/x-ms-asf',
+		'.rm': 'application/vnd.rn-realmedia',
+		'.rmvb': 'application/vnd.rn-realmedia-vbr',
+
+		# Subtitles
+		'.vtt': 'text/vtt',
+		'.srt': 'text/plain',
+		'.ass': 'text/plain',
+		'.ssa': 'text/plain',
+
+		# Images
+		'.webp': 'image/webp',
+		'.png': 'image/png',
+		'.jpg': 'image/jpeg',
+		'.jpeg': 'image/jpeg',
+		'.jpe': 'image/jpeg',
+		'.gif': 'image/gif',
+		'.svg': 'image/svg+xml',
+		'.svgz': 'image/svg+xml',
+		'.ico': 'image/x-icon',
+		'.bmp': 'image/bmp',
+		'.tiff': 'image/tiff',
+		'.tif': 'image/tiff',
+		'.avif': 'image/avif',
+		'.heic': 'image/heic',
+		'.heif': 'image/heif',
+		'.apng': 'image/apng',
+		'.jxl': 'image/jxl',
+
+		# Web / Code / Documents
+		'.html': 'text/html',
+		'.htm': 'text/html',
+		'.css': 'text/css',
+		'.js': 'text/javascript',
+		'.mjs': 'text/javascript',
+		'.json': 'application/json',
+		'.map': 'application/json',
+		'.wasm': 'application/wasm',
+		'.xml': 'application/xml',
+		'.pdf': 'application/pdf',
+		'.txt': 'text/plain',
+		'.md': 'text/markdown',
+		'.csv': 'text/csv',
+		'.py': 'text/x-python',
+		'.c': 'text/x-c',
+		'.h': 'text/x-c',
+		'.cpp': 'text/x-c',
+
+		# Compressed / Archives
+		'.gz': 'application/gzip',
+		'.Z': 'application/octet-stream',
+		'.bz2': 'application/x-bzip2',
+		'.xz': 'application/x-xz',
+		'.br': 'application/x-brotli',
+		'.tar': 'application/x-tar',
+		'.zip': 'application/zip',
+		'.7z': 'application/x-7z-compressed',
+		'.rar': 'application/vnd.rar',
+		'.iso': 'application/x-iso9660-image',
+
+		# Fonts
+		'.woff': 'font/woff',
+		'.woff2': 'font/woff2',
+		'.ttf': 'font/ttf',
+		'.otf': 'font/otf',
+		'.eot': 'application/vnd.ms-fontobject',
+	}
+	for ext, mime in _custom_mime_types.items():
+		if ext:
+			mimetypes.add_type(mime, ext)
+	extensions_map = mimetypes.types_map.copy()
+	extensions_map.update(_custom_mime_types)
+
+	# RouteHandlerEntry rows per HTTP method; see ``build_route_handler_entry``.
+	# Use Dict/List (not dict[]/list[]) so class body evaluates on Python 3.8.
+	handlers: Dict[str, List[RouteHandlerEntry]] = {
 		'HEAD': [],
 		'POST': [],
 		# 'GET': [],
@@ -1179,124 +1511,204 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		'TRACE': []
 	}
 
+	directory: str
+	range: Optional[Tuple[Optional[int], Optional[int]]]
+	handler_func: Optional[HTTPRouteHandler] = None
+	handler_func_name: Optional[str] = None
+	handler_func_args: Optional[str] = None
+	handler_func_source: Optional[str] = None
+	handler_func_file: Optional[str] = None
+	handler_func_lines: Optional[List[str]] = None
+	handler_func_line: Optional[int] = None
+
 	def __init__(self, *args, directory=None, **kwargs):
 		if directory is None:
 			directory = os.getcwd()
 		# os.fspath() same as directory, but str, new in 3.6
 		self.directory = os.fspath(directory)
-		super().__init__(*args, **kwargs)
+		self.url_path = '/'
 		self.query = Callable_dict()
+		self.fragment = ''
+		self.method = ''
+		self.use_range = False
+		self.range = None
+		super().__init__(*args, **kwargs)
 
-	def do_GET(self):
-		"""Serve a GET request."""
-		try:
-			resp = self.send_head()
-		except Exception as e:
-			traceback.print_exc()
-			self.send_error(code=500, message=str(e))
-			return
 
-		if resp:
-			try:
-				self.copyfile(resp, self.wfile)
-			except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-				self.log_info(tools.text_box(e.__class__.__name__,
-							  e, "\nby ", self.address_string()))
-			finally:
-				resp.close()
 
-	def do_(self):
-		'''incase of errored request'''
-		self.send_error(code=HTTPStatus.BAD_REQUEST, message="Bad request.")
+	# def do_GET(self):
+	# 	"""Serve a GET request."""
+	# 	try:
+	# 		resp = self.send_head()
+	# 	except Exception as e:
+	# 		traceback.print_exc()
+	# 		self.send_error(code=500, message=str(e))
+	# 		return
+
+	# 	if resp:
+	# 		try:
+	# 			self.copyfile(resp, self.wfile)
+	# 		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+	# 			self.log_info(tools.text_box(e.__class__.__name__,
+	# 						  e, "\nby ", self.address_string()))
+	# 		finally:
+	# 			resp.close()
+
+	# def do_(self):
+	# 	'''incase of errored request'''
+	# 	self.send_error(code=HTTPStatus.BAD_REQUEST, message="Bad request.")
 
 	@staticmethod
-	def on_req(method='', url='', hasQ=(), QV={}, fragent='', url_regex='', func=null):
-		'''called when request is received
-		type: GET, POST, HEAD, ...
-		url: url (must start with /)
-		hasQ: if url has query
-		QV: match query value
-		fragent: fragent of request
-		url_regex: url regex (must start with /) url regex, the url must start and end with this regex
+	def on_req(
+		method: str = '',
+		url: str = '',
+		hasQ: Optional[Union[str, Sequence[str]]] = None,
+		QV: Optional[Mapping[str, Any]] = None,
+		fragent: str = '',
+		url_regex: str = '',
+		func: HTTPRouteHandler = null,
+	) -> Callable[[HTTPRouteHandler], HTTPRouteHandler]:
+		"""Register a handler for an HTTP method and URL/query/fragment shape.
 
-		if query is tuple|list, it will only check existence of key
-		if query is dict, it will check value of key
-		'''
-		self = __class__
+		Parameters
+		----------
+		method :
+			HTTP verb (e.g. ``GET``, ``POST``, ``HEAD``). ``GET`` is stored with ``HEAD``.
+		url :
+			Exact path to match (``self.url_path``). Empty means no path constraint.
+		hasQ :
+			Query keys that must all be present (values ignored). A single string is
+			treated as one key; use a sequence for several keys.
+		QV :
+			Query keys and exact string values that must match ``self.query``. Skipped
+			if falsy (``None`` or empty mapping). Values are compared with ``!=`` to
+			``self.query[k]``.
+		fragent :
+			URL fragment (hash) that must match ``self.fragment`` if non-empty.
+		url_regex :
+			If non-empty, ``self.url_path`` must match ``^`` + ``url_regex`` + ``$``.
+		func :
+			Handler to register when used as ``@handler.on_req(...)``; may be omitted
+			and supplied by the decorator syntax.
+
+		Returns
+		-------
+		Decorator that appends the route entry to ``handlers[method]``.
+		"""
+		cls = __class__
 
 		method = method.upper()
 		if method == 'GET':
 			method = 'HEAD'
 
-		if method not in self.handlers:
-			self.handlers[method] = []
+		if method not in cls.handlers:
+			cls.handlers[method] = []
 
-		# FIXING TYPE ISSUE
-		if isinstance(hasQ, str):
-			hasQ = (hasQ,)
-
-		if url == '' and url_regex == '':
-			url_regex = '.*'
-
-		to_check = (url, hasQ, QV, fragent, url_regex)
-
-		def decorator(func):
-			self.handlers[method].append((to_check, func))
+		def decorator(func: HTTPRouteHandler = func) -> HTTPRouteHandler:
+			# Freeze matcher + handler + inspect snapshot at decoration time (dispatch order = append order).
+			cls.handlers[method].append(
+				build_route_handler_entry(
+					url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex, func=func)
+			)
 			return func
 		return decorator
 
 	@staticmethod
-	def on_GET(url='', hasQ=(), QV={}, fragent='', url_regex=''):
-		'''called when GET request is received'''
-		self = __class__
+	def on_GET(
+		url: str = '',
+		hasQ: Union[str, Sequence[str]] = (),
+		QV: Optional[Mapping[str, Any]] = None,
+		fragent: str = '',
+		url_regex: str = '',
+	) -> Callable[[HTTPRouteHandler], HTTPRouteHandler]:
+		"""Register a handler for GET (stored under HEAD with ``on_req``)."""
+		cls = __class__
 
-		return self.on_req(method='GET', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
-
-	@staticmethod
-	def on_POST(url='', hasQ=(), QV={}, fragent='', url_regex=''):
-		'''called when POST request is received'''
-		self = __class__
-
-		return self.on_req(method='POST', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
-
-	@staticmethod
-	def on_HEAD(url='', hasQ=(), QV={}, fragent='', url_regex=''):
-		'''called when HEAD request is received'''
-		self = __class__
-
-		return self.on_req(method='HEAD', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+		return cls.on_req(method='GET', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
 
 	@staticmethod
-	def on_OPTIONS(url='', hasQ=(), QV={}, fragent='', url_regex=''):
-		'''called when OPTIONS request is received'''
-		self = __class__
+	def on_POST(
+		url: str = '',
+		hasQ: Union[str, Sequence[str]] = (),
+		QV: Optional[Mapping[str, Any]] = None,
+		fragent: str = '',
+		url_regex: str = '',
+	) -> Callable[[HTTPRouteHandler], HTTPRouteHandler]:
+		"""Register a handler for POST."""
+		cls = __class__
 
-		return self.on_req(method='OPTIONS', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
-
-	@staticmethod
-	def on_DELETE(url='', hasQ=(), QV={}, fragent='', url_regex=''):
-		'''called when DELETE request is received'''
-		self = __class__
-
-		return self.on_req(method='DELETE', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
-
-	@staticmethod
-	def on_PUT(url='', hasQ=(), QV={}, fragent='', url_regex=''):
-		'''called when PUT request is received'''
-		self = __class__
-
-		return self.on_req(method='PUT', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
-
+		return cls.on_req(method='POST', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
 
 	@staticmethod
-	def alt_directory(dir, method='', url='', hasQ=(), QV={}, fragent='', url_regex='', cache_control="", cookie:Union[SimpleCookie, str]=None):
-		"""
-		alternative directory handler (only handles GET and HEAD request for files)
-		"""
-		self = __class__
+	def on_HEAD(
+		url: str = '',
+		hasQ: Union[str, Sequence[str]] = (),
+		QV: Optional[Mapping[str, Any]] = None,
+		fragent: str = '',
+		url_regex: str = '',
+	) -> Callable[[HTTPRouteHandler], HTTPRouteHandler]:
+		"""Register a handler for HEAD."""
+		cls = __class__
 
-		@self.on_req(method=method, url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
-		def alt_dir_function(self: Type[__class__], *args, **kwargs):
+		return cls.on_req(method='HEAD', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+
+	@staticmethod
+	def on_OPTIONS(
+		url: str = '',
+		hasQ: Union[str, Sequence[str]] = (),
+		QV: Optional[Mapping[str, Any]] = None,
+		fragent: str = '',
+		url_regex: str = '',
+	) -> Callable[[HTTPRouteHandler], HTTPRouteHandler]:
+		"""Register a handler for OPTIONS."""
+		cls = __class__
+
+		return cls.on_req(method='OPTIONS', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+
+	@staticmethod
+	def on_DELETE(
+		url: str = '',
+		hasQ: Union[str, Sequence[str]] = (),
+		QV: Optional[Mapping[str, Any]] = None,
+		fragent: str = '',
+		url_regex: str = '',
+	) -> Callable[[HTTPRouteHandler], HTTPRouteHandler]:
+		"""Register a handler for DELETE."""
+		cls = __class__
+
+		return cls.on_req(method='DELETE', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+
+	@staticmethod
+	def on_PUT(
+		url: str = '',
+		hasQ: Union[str, Sequence[str]] = (),
+		QV: Optional[Mapping[str, Any]] = None,
+		fragent: str = '',
+		url_regex: str = '',
+	) -> Callable[[HTTPRouteHandler], HTTPRouteHandler]:
+		"""Register a handler for PUT."""
+		cls = __class__
+
+		return cls.on_req(method='PUT', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+
+
+	@staticmethod
+	def alt_directory(
+		dir: str,
+		method: str = '',
+		url: str = '',
+		hasQ: Union[str, Sequence[str]] = (),
+		QV: Optional[Mapping[str, Any]] = None,
+		fragent: str = '',
+		url_regex: str = '',
+		cache_control: str = "",
+		cookie: Optional[Union[SimpleCookie, str]] = None,
+	) -> None:
+		"""Serve one file from ``dir`` by last URL segment; registers via ``on_req``; returns ``None``."""
+		cls = __class__
+
+		@cls.on_req(method=method, url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+		def alt_dir_function(self: "SimpleHTTPRequestHandler", *args, **kwargs):
 			"""
 			re-direct request to specific directory
 			"""
@@ -1316,20 +1728,33 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				)
 
 
-	def test_req(self, url='', hasQ=(), QV={}, fragent='', url_regex=''):
-		'''test if request is matched'
 
-		args:
-			url: url relative path (must start with /)
-			hasQ: if url has query
-			QV: match query value
-			fragent: fragent of request
-			url_regex: url regex, the url must start and end with this regex
+	def log_error(self, *args, **kwargs):
+		"""
+		Log error as well as show the function name and info
+		"""
+		if getattr(self, 'handler_func', None):
+			self.log_info(f'Error on [{self.handler_func_name}] -> [{self.handler_func_args}] -> at line [{self.handler_func_line}] -> in [{self.handler_func_file}]')
+
+		return super().log_error(*args, **kwargs)
 
 
-		'''
-		if url_regex and not re.search("^"+url_regex+'$', self.url_path):
-				return False
+	def test_req(
+		self,
+		url: str = '',
+		hasQ: Union[str, Sequence[str]] = (),
+		QV: Optional[Mapping[str, Any]] = None,
+		fragent: str = '',
+		url_regex: str = '',
+	) -> bool:
+		"""Return True if the current request matches the registration pattern.
+
+		Parameters match those passed to ``on_req`` / ``on_GET`` / etc.: exact ``url``,
+		presence checks ``hasQ``, value checks ``QV``, optional ``fragent``, and
+		optional full-path ``url_regex`` over ``self.url_path``.
+		"""
+		if url_regex and not re.search("^" + url_regex + '$', self.url_path):
+			return False
 		if url and url != self.url_path:
 			return False
 
@@ -1350,107 +1775,104 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 		return True
 
-	def do_HEAD(self):
-		"""Serve a HEAD request."""
-		resp = None
-		try:
-			resp = self.send_head()
-		except Exception as e:
-			ERROR = traceback.format_exc()
-			self.log_error(ERROR)
+	def do_HANDLE(self, method: str) -> None:
+		"""Serve a single REQUEST."""
+		method = method.upper()
+		self._send_blob = None
 
-			self.send_error(code=500, message=str(e))
-			return
-		finally:
-			if resp:
-				resp.close()
+		# GET is served from the HEAD handler table; the body is still
+		# streamed below unless the actual request method was HEAD.
+		dispatch = "HEAD" if method == "GET" else method
 
-	def do_POST(self):
-		"""Serve a POST request."""
-		self.range = None, None
+		if dispatch not in self.handlers:
+			return self.send_error(
+				code=HTTPStatus.NOT_IMPLEMENTED,
+				message="Unsupported method (%r)" % self.command,
+			)
 
-		path = self.translate_path(self.path)
-		# DIRECTORY DONT CONTAIN SLASH / AT END
-
-		url_path, query, fragment = self.url_path, self.query, self.fragment
-		spathsplit = self.url_path.split("/")
-
-		try:
-			for case, func in self.handlers['POST']:
-				if self.test_req(*case):
-					try:
-						self.log_info(f'[POST] -> [{func.__name__}] ->  {self.url_path}')
-
-						resp = func(self, url_path=url_path, query=query,
-								fragment=fragment, path=path, spathsplit=spathsplit)
-					except PostError:
-						ERROR = traceback.format_exc()
-						self.log_error(ERROR)
-						# break if error is raised and send BAD_REQUEST (at end of loop)
-						break
-
-					if resp:
-						try:
-							self.copyfile(resp, self.wfile)
-						except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-							self.log_info(tools.text_box(
-								e.__class__.__name__, e, "\nby ", [self.address_string()]))
-						finally:
-							resp.close()
-					return
-
-			return self.send_error(code=HTTPStatus.BAD_REQUEST, message="Invalid request.")
-
-		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
-			self.log_info(tools.text_box(e.__class__.__name__,
-						e, "\nby ", [self.address_string()]))
-			return
-		except Exception as e:
-			ERROR = traceback.format_exc()
-			self.log_error(ERROR)
-
-			self.send_error(code=500, message=str(e))
-			return
-
-	
-	def send_head(self):
-		"""Common code for GET and HEAD commands.
-
-		This sends the response code and MIME headers.
-
-		Return value is either a file object (which has to be copied
-		to the outputfile by the caller unless the command was HEAD,
-		and must be closed by the caller under all circumstances), or
-		None, in which case the caller has nothing further to do.
-
-		"""
-
-		if 'Range' not in self.headers:
-			self.range = None, None
-			first, last = 0, 0
-
-		else:
+		# ---- Range header ------------------------------------------------
+		# ``(None, None)`` is truthy - leave unused range as None and gate on use_range.
+		self.range = None
+		self.use_range = False
+		if "Range" in self.headers:
 			try:
-				self.range = parse_byte_range(self.headers['Range'])
-				first, last = self.range
+				self.range = parse_byte_range(self.headers["Range"])
 				self.use_range = True
-			except ValueError as e:
-				self.send_error(code=400, message='Invalid byte range')
-				return None
+			except ValueError:
+				return self.send_error(
+					code=HTTPStatus.BAD_REQUEST,
+					message="Invalid byte range",
+				)
 
 		path = self.translate_path(self.path)
-		# DIRECTORY DONT CONTAIN SLASH / AT END
-
 		url_path, query, fragment = self.url_path, self.query, self.fragment
-
 		spathsplit = self.url_path.split("/")
 
-		# GET WILL Also BE HANDLED BY HEAD
-		for case, func in self.handlers['HEAD']:
-			if self.test_req(*case):
-				return func(self, url_path=url_path, query=query, fragment=fragment, path=path, spathsplit=spathsplit)
+		try:
+			# First matching RouteHandlerEntry wins; ``func`` is the registered callable.
+			for entry in self.handlers[dispatch]:
+				if not isinstance(entry, dict):
+					continue
+				check = entry.get("check")
+				func = entry.get("func")
+				if check is None or func is None:
+					continue
+				if not self.test_req(**check):
+					continue
 
-		return self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found")
+				self.log_info(
+					f"[{dispatch}] -> [{entry.get('cache_name', func.__name__)}] -> {self.url_path}"
+				)
+
+				# Copy registration-time debug fields (no inspect.* here).
+				self.handler_func = func
+				self.handler_func_name = entry.get("cache_name", func.__name__)
+				self.handler_func_args = entry.get("cache_args", "")
+				self.handler_func_source = entry.get("source", "")
+				self.handler_func_file = entry.get("cache_file", "")
+				clines = entry.get("cache_lines")
+				clineno = entry.get("cache_line")
+				self.handler_func_lines = clines if clines else None
+				self.handler_func_line = clineno if clineno else None
+
+				try:
+					resp = func(self, url_path=url_path, query=query,
+								fragment=fragment, path=path,
+								spathsplit=spathsplit)
+				except PostError:
+					self.log_error(traceback.format_exc())
+					return self.send_error(
+						code=HTTPStatus.BAD_REQUEST,
+						message="Bad request",
+					)
+
+				if resp:
+					try:
+						if self.method != "HEAD":
+							self._copy_body(resp)
+					except (ConnectionAbortedError, ConnectionResetError,
+							BrokenPipeError) as e:
+						self.log_info(tools.text_box(
+							e.__class__.__name__, e, "\nby ",
+							[self.address_string()]))
+					finally:
+						close = getattr(resp, "close", None)
+						if close is not None:
+							close()
+				return
+
+			return self.send_error(
+				code=HTTPStatus.NOT_FOUND, message="File Not Found.",
+			)
+
+		except (ConnectionAbortedError, ConnectionResetError,
+				BrokenPipeError) as e:
+			self.log_info(tools.text_box(
+				e.__class__.__name__, e, "\nby ",
+				[self.address_string()]))
+		except Exception as e:
+			self.log_error(traceback.format_exc())
+			self.send_error(code=500, message=str(e))
 
 
 	def redirect(self, location, cookie:Union[SimpleCookie, str]=None):
@@ -1534,9 +1956,34 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		self.copyfile(file, self.wfile)
 		file.close()
 
-	def return_file(self, path, filename=None, download=False, cookie:Union[SimpleCookie, str]=None, cache_control=""):
+	def begin_sse(self, code: int = 200, cookie: Union[SimpleCookie, str, None] = None):
+		"""Start a Server-Sent Events response (no Content-Length; flush per event)."""
+		self.send_response(code=code)
+		self._send_cookie(cookie)
+		self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+		self.send_header("Cache-Control", "no-cache")
+		self.send_header("Connection", "keep-alive")
+		self.send_header("X-Accel-Buffering", "no")
+		self.end_headers()
+
+	def write_sse(self, event: str, data):
+		"""Write one SSE event and flush. ``data`` may be a dict/list or a string."""
+		if not isinstance(data, str):
+			payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+		else:
+			payload = data
+		chunk = f"event: {event}\ndata: {payload}\n\n".encode("utf-8", "surrogateescape")
+		self.wfile.write(chunk)
+		try:
+			self.wfile.flush()
+		except Exception:
+			pass
+
+	def return_file(self, path, filename=None, download=False, cookie:Union[SimpleCookie, str, None]=None, cache_control=""):
 		file = None
-		is_attachment = "attachment;" if (self.query("dl") or download) else ""
+		# RFC 6266 requires a disposition-type; a bare " filename=..." is invalid and
+		# some Chromium builds reject the whole response (ERR_INVALID_HTTP_RESPONSE).
+		disposition = "attachment" if (self.query("dl") or download) else "inline"
 
 		first, last = 0, None
 
@@ -1558,11 +2005,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			if ctype == "application/x-brotli" and "br" in self.headers.get("Accept-Encoding", ""):
 				C_encoding = "br"
 
-			file = open(path, 'rb')
+			file = open(path, 'rb')  # noqa: SIM115 - caller closes after response copy
 			fs = os.fstat(file.fileno())
+			self._send_blob = None
 
-			file_len = fs[6]
-			# Use browser cache if possible
+			# Use browser cache if possible (before reading the body into memory).
 			if ("If-Modified-Since" in self.headers
 					and "If-None-Match" not in self.headers):
 				# compare If-Modified-Since and time of last file modification
@@ -1591,9 +2038,33 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 								self.send_header("Content-Encoding", C_encoding)
 
 							self.end_headers()
+							self._send_blob = None
 							file.close()
 
 							return None
+
+			# fstat can be short while the file is still being flushed (editor save,
+			# first hit after startup). A short Content-Length truncates JS/CSS and
+			# breaks clients. Prefer a full read so length matches bytes sent;
+			# large non-asset files still stream via restat + copyfile.
+			if ctype.split(";", 1)[0].strip().lower() in self.send_blob_asset_types:
+				blob_limit = self.send_blob_asset_max
+			else:
+				blob_limit = self.send_blob_max
+			if (
+				self.command != "HEAD"
+				and not self.use_range
+				and fs.st_size <= blob_limit
+			):
+				blob = file.read()
+				file_len = len(blob)
+				self._send_blob = (file, blob)
+			else:
+				# Re-stat to shrink the short-fstat race window before streaming.
+				try:
+					file_len = os.fstat(file.fileno()).st_size
+				except OSError:
+					file_len = fs[6]
 
 			if self.use_range:
 				first = self.range[0]
@@ -1604,6 +2075,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 					last = file_len - 1
 
 				if first >= file_len:  # PAUSE AND RESUME SUPPORT
+					self._send_blob = None
 					self.send_error(code=416, message='Requested Range Not Satisfiable', cookie=cookie)
 					return None
 
@@ -1640,22 +2112,27 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 				self.send_header("Content-Encoding", C_encoding)
 
 
-			self.send_header("Content-Disposition", f'{is_attachment} filename="{filename}"')
+			# Keep filename token simple (quoted) - no leading space / missing type.
+			safe_name = str(filename).replace('"', "")
+			self.send_header("Content-Disposition", f'{disposition}; filename="{safe_name}"')
 			self.end_headers()
 
 			return file
 
 		except PermissionError:
+			self._send_blob = None
 			self.send_error(code=HTTPStatus.FORBIDDEN, message="Permission denied", cookie=cookie)
 			return None
 
 		except OSError:
+			self._send_blob = None
 			self.send_error(code=HTTPStatus.NOT_FOUND, message="File not found", cookie=cookie)
 			self.log_info(f'File not found: {path}')
 
 			return None
 
 		except Exception:
+			self._send_blob = None
 			ERR_LOG = traceback.format_exc()
 			self.send_error(code=HTTPStatus.INTERNAL_SERVER_ERROR, message="Internal Server Error", cookie=cookie)
 			self.log_error(ERR_LOG)
@@ -1665,17 +2142,30 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
 			return None
 
-	def send_file(self, path, filename=None, download=False, cookie:Union[SimpleCookie, str]=None, cache_control=''):
+	def send_file(self, path, filename=None, download=False, cookie:Union[SimpleCookie, str, None]=None, cache_control=''):
 		'''sends the head and file to client'''
 		file = self.return_file(path, filename, download, cookie=cookie, cache_control=cache_control)
 		if not file:
 			return # already flushed (with error/unchanged)
 		if self.command == "HEAD":
-			return  # to avoid sending file on get request
+			# Headers already sent by return_file - must still close the handle
+			# (clients often issue HEAD before GET; leaking handles exhausts FDs).
+			file.close()
+			self._send_blob = None
+			return
 		try:
-			self.copyfile(file, self.wfile)
+			self._copy_body(file)
 		finally:
 			file.close()
+
+	def _copy_body(self, source):
+		"""Write a response body, using the bytes ``return_file`` already read for ``source``."""
+		pending = self._send_blob
+		self._send_blob = None
+		if pending is not None and pending[0] is source:
+			self.wfile.write(pending[1])
+		else:
+			self.copyfile(source, self.wfile)
 
 
 	def get_displaypath(self, url_path, escape_html=True):
@@ -1690,7 +2180,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			displaypath = urllib.parse.unquote(url_path)
 
 		if escape_html:
-			displaypath = html.escape(displaypath, quote=False)
+			displaypath = html.escape(displaypath, quote=True)
 
 		return displaypath
 
@@ -1698,34 +2188,82 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		"""Return the relative path to the file, FOR WEB."""
 		return urllib.parse.unquote(posixpath.join(self.url_path, filename), errors='surrogatepass')
 
-	def get_web_path(self, path:str, times=1):
-		"""replace current directory with /"""
-		return path.replace(self.directory, "/", times)
+	def get_web_path(self, string:str, times=1):
+		"""
+		replace current directory with /. Use case, when sending log to client, hide the directory
+		
+		Args:
+			string (str): string to be converted
+			times (int): number of times to replace the directory with / (default: 1)(-1 for all)
+		"""
+		return string.replace(self.directory, "/", times)
 
-	def path_safety_check(self, paths:Union[str, List], *more_paths:Union[str, List]):
-		"""check if path is safe
-		paths: list of paths to check"""
+	def path_is_under_directory(self, target_path: str, *, resolve_symlinks: bool = False) -> bool:
+		"""Return True if target_path stays inside self.directory."""
+		return path_is_under_directory(
+			self.directory, target_path, resolve_symlinks=resolve_symlinks)
+
+	def path_safety_check(self, paths: Union[str, List], *more_paths: Union[str, List]):
+		"""Check if paths are safe and do not contain directory traversal attempts.
+
+		URL-style paths may start with '/'; those leading slashes are treated as
+		web-root relative (not filesystem-absolute). Drive letters, UNC paths,
+		'.'/'..' segments, and escapes outside self.directory are rejected.
+
+		Args:
+			paths: A string or list of paths to check.
+			more_paths: Additional paths to check.
+
+		Returns:
+			bool: True if all paths are safe, False otherwise.
+		"""
 		if isinstance(paths, str):
-			paths = [paths]
+			paths = [paths]  # Convert single string to list
+		else:
+			paths = list(paths)
 
-		if more_paths:
-			for path in more_paths:
-				if isinstance(path, str):
-					paths.append(path)
-				elif isinstance(path, (list, tuple, set)):
-					paths += more_paths
-				else:
-					raise TypeError(f"Invalid type {type(path)} for path")
+		# Process additional paths
+		for path in more_paths:
+			if isinstance(path, str):
+				paths.append(path)
+			elif isinstance(path, (list, tuple, set)):
+				paths.extend(path)  # Extend with actual list contents
+			else:
+				raise TypeError(f"Invalid type {type(path)} for path")
 
+		if not all(isinstance(path, str) for path in paths):
+			raise TypeError("All paths must be strings")
+
+		base_dir = os.path.abspath(self.directory)
 
 		for path in paths:
-			if path.startswith(('../', '..\\', '/../', '\\..\\')) or '/../' in path or '\\..\\' in path or path.endswith(('/..', '\\..')):
+			rel = validate_client_relpath(path, allow_leading_slash=True)
+			if rel is None:
+				return False
+
+			abs_path = os.path.abspath(os.path.join(base_dir, *rel.split('/')))
+			if not path_is_under_directory(base_dir, abs_path, resolve_symlinks=False):
 				return False
 
 		return True
 
+	def resolve_child_path(self, url_path: str, filename: str):
+		"""Map a client filename under url_path to a filesystem path inside the root.
 
+		Returns the absolute filesystem path, or None if the name is unsafe /
+		would escape the served directory. Uses translate_path (same rules as GET)
+		instead of os.path.join, which discards the base when filename is absolute.
+		"""
+		rel = validate_client_relpath(filename, allow_leading_slash=False)
+		if rel is None:
+			return None
 
+		# Build a URL path then translate with stdlib-equivalent rules
+		joined = posixpath.join(url_path or '/', rel)
+		fs_path = self.translate_path(joined)
+		if not path_is_under_directory(self.directory, fs_path, resolve_symlinks=False):
+			return None
+		return os.path.abspath(fs_path)
 
 	def translate_path(self, path):
 		"""Translate a /-separated PATH to the local filename syntax.
@@ -1739,7 +2277,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 		path = path.split('?', 1)[0]
 		path = path.split('#', 1)[0]
 		# Don't forget explicit trailing slash when normalizing. Issue17324
-		trailing_slash = path.rstrip().endswith('/')
+		trailing_slash = path.endswith('/')
 
 		try:
 			path = urllib.parse.unquote(path, errors='surrogatepass')
@@ -1757,6 +2295,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			path = os.path.join(path, word)
 		if trailing_slash:
 			path += '/'
+			return path
 
 		return os.path.normpath(path)  # fix OS based path issue
 
@@ -1783,13 +2322,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 			self.log_error(ERROR)
 			raise e
 
-		if not self.range:
+		# NOTE: ``self.range`` used to be ``(None, None)`` when unused, which is
+		# truthy - so every full GET incorrectly took the byte-range path.
+		if not getattr(self, "use_range", False) or not self.range:
 			shutil.copyfileobj(source, outputfile)
 
 		else:
 			# SimpleHTTPRequestHandler uses shutil.copyfileobj, which doesn't let
 			# you stop the copying before the end of the file.
-			start, stop = self.range  # set in send_head()
+			start, stop = self.range  # set when Range header parsed
 			copy_byte_range(source, outputfile, start, stop)
 
 	def guess_type(self, path):
@@ -1918,9 +2459,6 @@ class DealPostData:
 
 		self.form = FormData(req, self, fake=True)
 
-
-	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
-
 	def is_multipart(self):
 		return self.content_type.startswith("multipart/form-data")
 
@@ -1938,7 +2476,7 @@ class DealPostData:
 		* check if content size is within limit
 		* return True if within limit
 		"""
-		if not max_size < 0 or self.content_length <= max_size:
+		if max_size >= 0 and self.content_length > max_size:
 			raise PostError(
 				f"Content size limit exceeded: {self.content_length} > {max_size}")
 
@@ -2013,8 +2551,17 @@ class DealPostData:
 
 		return json.loads(line)
 
-	def skip(self,):
-		self.get()
+	def skip(self, line_count=1, *args, **kwargs):
+		"""skip next line
+		
+		Args:
+			line_count(int): number of lines to skip
+			show(bool): print line
+			strip(bool): strip \r\n at end
+			Timeout(float): if having network issue on any side, will keep trying to get content until Timeout (in seconds)
+		"""
+		for _ in range(line_count):
+			self.get(*args, **kwargs)
 
 	def start(self):
 		'''reads upto line 0'''
@@ -2077,7 +2624,7 @@ class FormData:
 			raise PostError("Not multipart")
 
 		line = self.dpd.get()
-		if not self.boundary in line:
+		if self.boundary not in line:
 			self.req.log_error(f"Content boundary missing on line {self.dpd.num}\n", [
 							   line, self.boundary])
 
@@ -2099,7 +2646,7 @@ class FormData:
 
 		return line
 
-	def get_file_name(self, line: Union[bytes, str, None] = None):
+	def get_file_name(self, line: Union[bytes, str, None] = None, ignore_folder=False):
 		"""
 		* get file name from Content-Disposition
 		* return file name
@@ -2108,8 +2655,14 @@ class FormData:
 
 		cd = ContentDisposition(line)
 		fn = cd.get('filename')
+		name = cd.get('name')
+
+		if name == 'folder' and ignore_folder:
+			return None
 
 		if not fn:
+			self.req.log_info(
+				f"Content-Disposition: {line}\nMissing filename in Content-Disposition")
 			raise PostError("Can't find out file name...")
 
 		return fn
@@ -2163,11 +2716,21 @@ class FormData:
 		if not field_name:
 			return None, None
 
-		self.dpd.skip()  # LINE 2 (blank line)
+		# After Content-Disposition, file parts often include Content-Type (and
+		# other) headers. Skip until the blank line that starts the body.
+		# (A single skip() wrongly eats Content-Type and leaves \r\n in the value.)
+		while True:
+			hdr = self.dpd.get()
+			if not hdr:
+				return field_name, None
+			if self.boundary in hdr:
+				return field_name, None
+			if hdr in (b"\r\n", b"\n") or hdr.strip() == b"":
+				break
 
 		line = b''
 		while 1:
-			_line = self.dpd.get()  # from LINE 3 till boundary (form field value)
+			_line = self.dpd.get()  # from body till boundary (form field value)
 			if (not _line) or (self.boundary in _line):  # boundary
 				break
 			line += _line
@@ -2286,7 +2849,7 @@ def get_ip(bind=None):
 		# doesn't even have to be reachable
 		s.connect(('10.255.255.255', 1))
 		IP = s.getsockname()[0]
-	except:
+	except OSError:
 		try:
 			if config.OS == "Android":
 				IP = s.connect(("192.168.43.1",  1))
@@ -2374,7 +2937,7 @@ def build(HandlerClass=BaseHTTPRequestHandler,
 	if sys.version_info >= (3, 8):  # BACKWARD COMPATIBILITY
 		ServerClass.address_family, addr = _get_best_family(bind, port)
 	else:
-		addr = (bind if bind != None else '', port)
+		addr = (bind if bind is not None else '', port)
 
 	HandlerClass.protocol_version = protocol
 	httpd = ServerClass(addr, HandlerClass)
@@ -2382,7 +2945,7 @@ def build(HandlerClass=BaseHTTPRequestHandler,
 	return httpd
 
 
-class DualStackServer(ThreadingHTTPServer):  # UNSUPPORTED IN PYTHON 3.7
+class DualStackServer(ThreadingHTTPServer):
 
 	def handle_error(self, request, client_address):
 		pass
@@ -2483,7 +3046,6 @@ class EasyServerRunner:
 			logger.info("Server stopped")
 
 
-
 def runner(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler, force_log_server_details=False) -> EasyServerRunner:
 
 	EasyServer = EasyServerRunner(
@@ -2499,7 +3061,6 @@ def runner(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequ
 	_log_details(force_log_server_details)
 
 	return EasyServer
-
 
 if __name__ == '__main__':
 	runner().run()
