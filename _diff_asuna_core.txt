@@ -1,0 +1,947 @@
+--- dev_src
++++ Asuna
+@@ -2,2 +2,3 @@
+ import traceback
++from platform import system as platform_system
+ import json
+@@ -28,3 +29,3 @@
+ from string import Template
+-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, TypedDict, Union
++from typing import Any, Callable, List, Mapping, Optional, Sequence, TypedDict, Union
+ from queue import Queue
+@@ -34,2 +35,4 @@
+ import tempfile
++
++from typing import Type
+ 
+@@ -73,81 +76,2 @@
+ 
+-# Keep these helpers in pyroboxCore.py: this module is also distributed as a
+-# standalone, drop-in HTTP server and must not import other project files.
+-BAD_FILENAME_CHARS = re.compile(r'[:*?"<>|\x00]')
+-_DRIVE_ABS = re.compile(r'^[A-Za-z]:')
+-
+-
+-def path_is_under_directory(
+-	base_dir: str,
+-	target_path: str,
+-	*,
+-	resolve_symlinks: bool = False,
+-) -> bool:
+-	"""Return True if target_path resolves inside base_dir."""
+-	if not base_dir or not target_path:
+-		return False
+-
+-	if resolve_symlinks:
+-		base = os.path.realpath(base_dir)
+-		target = os.path.realpath(target_path)
+-	else:
+-		base = os.path.abspath(base_dir)
+-		target = os.path.abspath(target_path)
+-
+-	try:
+-		return os.path.commonpath([base, target]) == base
+-	except ValueError:
+-		# Different drives / invalid path mix on Windows
+-		return False
+-
+-
+-def _is_unc_or_drive(normalized: str) -> bool:
+-	return normalized.startswith('//') or bool(_DRIVE_ABS.match(normalized))
+-
+-
+-def validate_client_relpath(
+-	path: Optional[str],
+-	*,
+-	allow_leading_slash: bool = False,
+-) -> Optional[str]:
+-	"""Validate a client path and return its normalized relative form."""
+-	if path is None or not isinstance(path, str):
+-		return None
+-
+-	original = path.strip()
+-	if not original:
+-		return None
+-
+-	normalized = original.replace('\\', '/')
+-	if _is_unc_or_drive(normalized):
+-		return None
+-
+-	if normalized.startswith('/'):
+-		if not allow_leading_slash:
+-			return None
+-	elif os.path.isabs(normalized) or os.path.isabs(original):
+-		return None
+-
+-	normalized = normalized.strip('/')
+-	if not normalized:
+-		return None
+-
+-	parts = []
+-	for part in normalized.split('/'):
+-		if not part or part in ('.', '..'):
+-			return None
+-		if os.path.dirname(part) or _is_unc_or_drive(part):
+-			return None
+-		if BAD_FILENAME_CHARS.search(part):
+-			return None
+-		parts.append(part)
+-
+-	return '/'.join(parts)
+-
+-
+-def directory_url_has_trailing_slash(url_path: str) -> bool:
+-	"""True for a literal or URL-encoded trailing slash."""
+-	return bool(url_path) and url_path.endswith(('/', '%2f', '%2F'))
+-
+-
+ class Config:
+@@ -166,6 +90,18 @@
+ 
++		# UPLOAD PASSWORD SO THAT ANYONE RANDOM CAN'T UPLOAD
++		# CAN BE CHANGED BY USING --password NEW_PASSWORD
++		self.PASSWORD = "SECret"
++
+ 		# LOGGING
+ 		self.log_location = "./"  # fallback log_location = "./"
++		# if you want to see some important LOG in browser, may contain your important information
++		self.allow_web_log = True
+ 		self.write_log = False  # if you want to write log to file
+ 		self.log_extra = True
++
++		# ZIP FEATURES
++		self.default_zip = "zipfile"  # or "zipfile" to use python built in zip module
++
++		# CHECK FOR MISSING REQUIREMENTS
++		self.run_req_check = True
+ 
+@@ -183,4 +119,5 @@
+ 
+-		# Extensible feature-flag bag; apps fill keys (e.g. zip, upload)
+-		self.disabled_func = {}
++		self.disabled_func = {
++			"reload": False,
++		}
+ 
+@@ -194,6 +131,7 @@
+ 
++		# ASSET MAPPING
++		self.file_list = {}
++
+ 		# COMMANDLINE ARGUMENTS PARSER
+ 		self.parser = argparse.ArgumentParser(add_help=False)
+-		self._custom_cli_args_added = False
+-		self._default_cli_args_added = False
+ 
+@@ -213,3 +151,3 @@
+ 				<p>Error code explanation: ${code} - ${explain}</p>
+-				<h3>Server Version: ${version}</h3>
++				<h3>PyroBox Version: ${version}</h3>
+ 			</body>
+@@ -228,3 +166,2 @@
+ 	def get_os(self):
+-		from platform import system as platform_system
+ 
+@@ -245,7 +182,3 @@
+ 
+-	def register_default_args(self, port=0, directory="", bind=None):
+-		"""Add core CLI flags once. Does not parse argv (safe at import time)."""
+-		if getattr(self, '_default_cli_args_added', False):
+-			return
+-
++	def parse_default_args(self, port=0, directory="", bind=None):
+ 		if not port:
+@@ -277,2 +210,3 @@
+ 
++
+ 		parser.add_argument('--no-extra-log', '-nxl',
+@@ -282,15 +216,8 @@
+ 
+-		self._default_cli_args_added = True
+-
+-	def parse_default_args(self, port=0, directory="", bind=None, args=None):
+-		"""Register core flags (if needed) and parse.
+-
+-		``args=None`` uses ``sys.argv`` (argparse handles ``-h`` / ``-v``).
+-		Pass ``args=[]`` to load defaults without reading the process argv.
+-		"""
+-		self.register_default_args(port=port, directory=directory, bind=bind)
+-
+-		parsed = self.parser.parse_known_args(args)[0]
+-		self.log_extra = not parsed.no_extra_log
+-		return parsed
++
++		args = parser.parse_known_args()[0]
++
++		self.log_extra = not args.no_extra_log
++
++		return args
+ 
+@@ -320,2 +247,4 @@
+ 
++def get_log_level():
++	argparse.add_argument('--log', '-l', default='INFO', help='Log level')
+ logging.basicConfig(level=logging.INFO, format='%(levelname)s: \n%(message)s')
+@@ -702,27 +631,11 @@
+ 
+-	cookie: Optional[SimpleCookie] = None
+-
+-	# Instance attrs set while handling a request (declared for type checkers).
+-	command: str
+-	path: str
+-	request_version: str
+-	requestline: str
+-	raw_requestline: bytes
+-	method: str
+-	url_path: str
+-	query: Callable_dict
+-	fragment: str
+-	req_hash: Union[str, bytes]
+-	use_range: bool
+-	header_flushed: bool
+-	response_code_sent: bool
+-	close_connection: bool
+-	headers: Any
++
+ 
+ 	@classmethod
+-	def allowed_CORS(cls, method) -> Optional[str]:
++	def allowed_CORS(self, method) -> Union[str, None]:
+ 		"""Check if the method is allowed by the server"""
+-		cors = cls.allow_star_CORS.get(method.upper(), None)
+-
+-		return cors or cls.allow_star_CORS.get("ALL", None)
++		self = __class__
++		cors = self.allow_star_CORS.get(method.upper(), None)
++
++		return cors or self.allow_star_CORS.get("ALL", None)
+ 
+@@ -730,3 +643,3 @@
+ 	@classmethod
+-	def allow_CORS(cls, method, origin):
++	def allow_CORS(self, method, origin):
+ 		"""Add a method to the allowed list
+@@ -736,10 +649,11 @@
+ 		"""
++		self = __class__
+ 		method = method.upper()
+-		cls.allow_star_CORS[method] = origin
++		self.allow_star_CORS[method] = origin
+ 
+ 		if method == "HEAD":
+-			cls.allow_star_CORS["GET"] = origin
++			self.allow_star_CORS["GET"] = origin
+ 
+ 		if method == "GET":
+-			cls.allow_star_CORS["HEAD"] = origin
++			self.allow_star_CORS["HEAD"] = origin
+ 
+@@ -1109,3 +1023,3 @@
+ 
+-	def _send_cookie(self, cookie:Union[SimpleCookie, str]=None):
++	def _send_cookie(self, cookie:Union[SimpleCookie, str, None]=None):
+ 		"""Must send cookie after self.send_response(XXX)"""
+@@ -1134,8 +1048,2 @@
+ 
+-	def _has_header(self, keyword):
+-		if not hasattr(self, '_headers_buffer'):
+-			return False
+-		prefix = (keyword.lower() + ":").encode('utf-8')
+-		return any(h.lower().startswith(prefix) for h in self._headers_buffer)
+-
+ 	def end_headers(self):
+@@ -1146,9 +1054,2 @@
+ 			self.send_header('Access-Control-Allow-Origin', CORS_POLICY)
+-
+-		if not self._has_header('X-Content-Type-Options'):
+-			self.send_header('X-Content-Type-Options', 'nosniff')
+-		if not self._has_header('X-Frame-Options'):
+-			self.send_header('X-Frame-Options', 'SAMEORIGIN')
+-		if not self._has_header('Referrer-Policy'):
+-			self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+ 
+@@ -1312,3 +1213,3 @@
+ 		now = time.time()
+-		year, month, day, hh, mm, ss, x, y, z = time.localtime(now)
++		year, month, day, hh, mm, ss, _x, _y, _z = time.localtime(now)
+ 		s = "%02d/%3s/%04d %02d:%02d:%02d" % (
+@@ -1361,128 +1262,30 @@
+ 		mimetypes.init()  # try to read system mime.types
+-	_custom_mime_types = {
++	extensions_map = mimetypes.types_map.copy()
++	extensions_map.update({
+ 		'': 'application/octet-stream',  # Default
+-
+-		# Audio
+-		'.mp3': 'audio/mpeg',
+-		'.m4a': 'audio/mp4',
+-		'.m4b': 'audio/mp4',
+-		'.m4p': 'audio/mp4',
+-		'.m4r': 'audio/mp4',
+-		'.aac': 'audio/aac',
+-		'.opus': 'audio/opus',
+-		'.ogg': 'audio/ogg',
+-		'.oga': 'audio/ogg',
+-		'.flac': 'audio/flac',
+-		'.wav': 'audio/wav',
+-		'.weba': 'audio/webm',
+-		'.wma': 'audio/x-ms-wma',
+-		'.aif': 'audio/x-aiff',
+-		'.aiff': 'audio/x-aiff',
+-		'.aifc': 'audio/x-aiff',
+-		'.mid': 'audio/midi',
+-		'.midi': 'audio/midi',
+-		'.mp2': 'audio/mpeg',
+-		'.mp1': 'audio/mpeg',
+-		'.ac3': 'audio/ac3',
+-		'.eac3': 'audio/eac3',
+-		'.dts': 'audio/vnd.dts',
+-		'.amr': 'audio/amr',
+-		'.ape': 'audio/x-ape',
+-		'.alac': 'audio/x-alac',
+-
+-		# Video
+-		'.mp4': 'video/mp4',
+-		'.m4v': 'video/mp4',
+-		'.mkv': 'video/x-matroska',
+-		'.webm': 'video/webm',
+-		'.ogv': 'video/ogg',
+-		'.avi': 'video/x-msvideo',
+-		'.mov': 'video/quicktime',
+-		'.qt': 'video/quicktime',
+-		'.wmv': 'video/x-ms-wmv',
+-		'.flv': 'video/x-flv',
+-		'.f4v': 'video/x-f4v',
+-		'.3gp': 'video/3gpp',
+-		'.3g2': 'video/3gpp2',
+-		'.ts': 'video/mp2t',
+-		'.mts': 'video/mp2t',
+-		'.m2ts': 'video/mp2t',
+-		'.vob': 'video/x-ms-vob',
+-		'.divx': 'video/divx',
+-		'.asf': 'video/x-ms-asf',
+-		'.rm': 'application/vnd.rn-realmedia',
+-		'.rmvb': 'application/vnd.rn-realmedia-vbr',
+-
+-		# Subtitles
+-		'.vtt': 'text/vtt',
+-		'.srt': 'text/plain',
+-		'.ass': 'text/plain',
+-		'.ssa': 'text/plain',
+-
+-		# Images
+-		'.webp': 'image/webp',
+-		'.png': 'image/png',
+-		'.jpg': 'image/jpeg',
+-		'.jpeg': 'image/jpeg',
+-		'.jpe': 'image/jpeg',
+-		'.gif': 'image/gif',
+-		'.svg': 'image/svg+xml',
+-		'.svgz': 'image/svg+xml',
+-		'.ico': 'image/x-icon',
+-		'.bmp': 'image/bmp',
+-		'.tiff': 'image/tiff',
+-		'.tif': 'image/tiff',
+-		'.avif': 'image/avif',
+-		'.heic': 'image/heic',
+-		'.heif': 'image/heif',
+-		'.apng': 'image/apng',
+-		'.jxl': 'image/jxl',
+-
+-		# Web / Code / Documents
+-		'.html': 'text/html',
+-		'.htm': 'text/html',
+-		'.css': 'text/css',
+-		'.js': 'text/javascript',
+-		'.mjs': 'text/javascript',
+-		'.json': 'application/json',
+-		'.map': 'application/json',
+-		'.wasm': 'application/wasm',
+-		'.xml': 'application/xml',
+-		'.pdf': 'application/pdf',
+-		'.txt': 'text/plain',
+-		'.md': 'text/markdown',
+-		'.csv': 'text/csv',
+-		'.py': 'text/x-python',
+-		'.c': 'text/x-c',
+-		'.h': 'text/x-c',
+-		'.cpp': 'text/x-c',
+-
+-		# Compressed / Archives
+-		'.gz': 'application/gzip',
+-		'.Z': 'application/octet-stream',
+-		'.bz2': 'application/x-bzip2',
+-		'.xz': 'application/x-xz',
+-		'.br': 'application/x-brotli',
+-		'.tar': 'application/x-tar',
+-		'.zip': 'application/zip',
+-		'.7z': 'application/x-7z-compressed',
+-		'.rar': 'application/vnd.rar',
+-		'.iso': 'application/x-iso9660-image',
+-
+-		# Fonts
+-		'.woff': 'font/woff',
+-		'.woff2': 'font/woff2',
+-		'.ttf': 'font/ttf',
+-		'.otf': 'font/otf',
+-		'.eot': 'application/vnd.ms-fontobject',
+-	}
+-	for ext, mime in _custom_mime_types.items():
+-		if ext:
+-			mimetypes.add_type(mime, ext)
+-	extensions_map = mimetypes.types_map.copy()
+-	extensions_map.update(_custom_mime_types)
++			'.py': 'text/x-python',
++			'.c': 'text/x-c',
++			'.h': 'text/x-c',
++			'.css': 'text/css',
++
++			'.gz': 'application/gzip',
++			'.Z': 'application/octet-stream',
++			'.bz2': 'application/x-bzip2',
++			'.xz': 'application/x-xz',
++
++			'.webp': 'image/webp',
++
++			'opus': 'audio/opus',
++			'.oga': 'audio/ogg',
++			'.wav': 'audio/wav',
++
++			'.ogv': 'video/ogg',
++			'.ogg': 'application/ogg',
++			'.m4a': 'audio/mp4',
++
++			'.br': 'application/x-brotli',
++	})
+ 
+ 	# RouteHandlerEntry rows per HTTP method; see ``build_route_handler_entry``.
+-	# Use Dict/List (not dict[]/list[]) so class body evaluates on Python 3.8.
+-	handlers: Dict[str, List[RouteHandlerEntry]] = {
++	handlers = {
+ 		'HEAD': [],
+@@ -1498,11 +1301,9 @@
+ 
+-	directory: str
+-	range: Optional[Tuple[Optional[int], Optional[int]]]
+-	handler_func: Optional[HTTPRouteHandler] = None
+-	handler_func_name: Optional[str] = None
+-	handler_func_args: Optional[str] = None
+-	handler_func_source: Optional[str] = None
+-	handler_func_file: Optional[str] = None
+-	handler_func_lines: Optional[List[str]] = None
+-	handler_func_line: Optional[int] = None
++	
++	handler_func = None
++	handler_func_name = None
++	handler_func_args = None
++	handler_func_source = None
++	handler_func_file = None
++	handler_func_lines, handler_func_line = None, None
+ 
+@@ -1513,9 +1314,4 @@
+ 		self.directory = os.fspath(directory)
+-		self.url_path = '/'
++		super().__init__(*args, **kwargs)
+ 		self.query = Callable_dict()
+-		self.fragment = ''
+-		self.method = ''
+-		self.use_range = False
+-		self.range = None
+-		super().__init__(*args, **kwargs)
+ 
+@@ -1582,3 +1378,3 @@
+ 		"""
+-		cls = __class__
++		self = __class__
+ 
+@@ -1588,4 +1384,4 @@
+ 
+-		if method not in cls.handlers:
+-			cls.handlers[method] = []
++		if method not in self.handlers:
++			self.handlers[method] = []
+ 
+@@ -1593,3 +1389,3 @@
+ 			# Freeze matcher + handler + inspect snapshot at decoration time (dispatch order = append order).
+-			cls.handlers[method].append(
++			self.handlers[method].append(
+ 				build_route_handler_entry(
+@@ -1609,5 +1405,5 @@
+ 		"""Register a handler for GET (stored under HEAD with ``on_req``)."""
+-		cls = __class__
+-
+-		return cls.on_req(method='GET', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
++		self = __class__
++
++		return self.on_req(method='GET', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+ 
+@@ -1622,5 +1418,5 @@
+ 		"""Register a handler for POST."""
+-		cls = __class__
+-
+-		return cls.on_req(method='POST', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
++		self = __class__
++
++		return self.on_req(method='POST', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+ 
+@@ -1635,5 +1431,5 @@
+ 		"""Register a handler for HEAD."""
+-		cls = __class__
+-
+-		return cls.on_req(method='HEAD', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
++		self = __class__
++
++		return self.on_req(method='HEAD', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+ 
+@@ -1648,5 +1444,5 @@
+ 		"""Register a handler for OPTIONS."""
+-		cls = __class__
+-
+-		return cls.on_req(method='OPTIONS', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
++		self = __class__
++
++		return self.on_req(method='OPTIONS', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+ 
+@@ -1661,5 +1457,5 @@
+ 		"""Register a handler for DELETE."""
+-		cls = __class__
+-
+-		return cls.on_req(method='DELETE', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
++		self = __class__
++
++		return self.on_req(method='DELETE', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+ 
+@@ -1674,5 +1470,5 @@
+ 		"""Register a handler for PUT."""
+-		cls = __class__
+-
+-		return cls.on_req(method='PUT', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
++		self = __class__
++
++		return self.on_req(method='PUT', url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+ 
+@@ -1692,6 +1488,6 @@
+ 		"""Serve one file from ``dir`` by last URL segment; registers via ``on_req``; returns ``None``."""
+-		cls = __class__
+-
+-		@cls.on_req(method=method, url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
+-		def alt_dir_function(self: "SimpleHTTPRequestHandler", *args, **kwargs):
++		self = __class__
++
++		@self.on_req(method=method, url=url, hasQ=hasQ, QV=QV, fragent=fragent, url_regex=url_regex)
++		def alt_dir_function(self: Type[__class__], *args, **kwargs):
+ 			"""
+@@ -1761,32 +1557,35 @@
+ 		return True
+-
+-	def do_HANDLE(self, method: str) -> None:
+-		"""Serve a single REQUEST."""
++	
++	def do_HANDLE(self, method:str):
++		"""Serve a REQUEST."""
++		self.range = None
++		self.use_range = False
++		self._send_blob = None
+ 		method = method.upper()
+-
+-		# GET is served from the HEAD handler table; the body is still
+-		# streamed below unless the actual request method was HEAD.
+-		dispatch = "HEAD" if method == "GET" else method
+-
+-		if dispatch not in self.handlers:
++		if method == "GET":
++			method = "HEAD"
++
++		if method not in self.handlers:
+ 			return self.send_error(
+ 				code=HTTPStatus.NOT_IMPLEMENTED,
+-				message="Unsupported method (%r)" % self.command,
+-			)
+-
+-		# ---- Range header ------------------------------------------------
+-		# ``(None, None)`` is truthy - leave unused range as None and gate on use_range.
+-		self.range = None
+-		self.use_range = False
+-		if "Range" in self.headers:
++				message="Unsupported method (%r)" % self.command)
++
++
++
++		if 'Range' not in self.headers:
++			self.range = None
++			self.use_range = False
++
++		else:
+ 			try:
+-				self.range = parse_byte_range(self.headers["Range"])
++				self.range = parse_byte_range(self.headers['Range'])
+ 				self.use_range = True
+ 			except ValueError:
+-				return self.send_error(
+-					code=HTTPStatus.BAD_REQUEST,
+-					message="Invalid byte range",
+-				)
++				self.send_error(code=400, message='Invalid byte range')
++				return None
++
+ 
+ 		path = self.translate_path(self.path)
++		# DIRECTORY DONT CONTAIN SLASH / AT END
++
+ 		url_path, query, fragment = self.url_path, self.query, self.fragment
+@@ -1796,3 +1595,3 @@
+ 			# First matching RouteHandlerEntry wins; ``func`` is the registered callable.
+-			for entry in self.handlers[dispatch]:
++			for entry in self.handlers[method]:
+ 				if not isinstance(entry, dict):
+@@ -1805,28 +1604,25 @@
+ 					continue
+-
+-				self.log_info(
+-					f"[{dispatch}] -> [{entry.get('cache_name', func.__name__)}] -> {self.url_path}"
+-				)
+-
+-				# Copy registration-time debug fields (no inspect.* here).
+-				self.handler_func = func
+-				self.handler_func_name = entry.get("cache_name", func.__name__)
+-				self.handler_func_args = entry.get("cache_args", "")
+-				self.handler_func_source = entry.get("source", "")
+-				self.handler_func_file = entry.get("cache_file", "")
+-				clines = entry.get("cache_lines")
+-				clineno = entry.get("cache_line")
+-				self.handler_func_lines = clines if clines else None
+-				self.handler_func_line = clineno if clineno else None
+-
+ 				try:
++					self.log_info(
++						f'[{method}] -> [{entry.get("cache_name", func.__name__)}] ->  {self.url_path}'
++					)
++
++					# Copy registration-time debug fields (no inspect.* here).
++					self.handler_func = func
++					self.handler_func_name = entry.get("cache_name", func.__name__)
++					self.handler_func_args = entry.get("cache_args", "")
++					self.handler_func_source = entry.get("source", "")
++					self.handler_func_file = entry.get("cache_file", "")
++					clines = entry.get("cache_lines")
++					clineno = entry.get("cache_line")
++					self.handler_func_lines = clines if clines else None
++					self.handler_func_line = clineno if clineno else None
++
+ 					resp = func(self, url_path=url_path, query=query,
+-								fragment=fragment, path=path,
+-								spathsplit=spathsplit)
++							fragment=fragment, path=path, spathsplit=spathsplit)
+ 				except PostError:
+-					self.log_error(traceback.format_exc())
+-					return self.send_error(
+-						code=HTTPStatus.BAD_REQUEST,
+-						message="Bad request",
+-					)
++					ERROR = traceback.format_exc()
++					self.log_error(ERROR)
++					# break if error is raised and send BAD_REQUEST (at end of loop)
++					break
+ 
+@@ -1834,30 +1630,27 @@
+ 					try:
++						print(method, self.method)
+ 						if self.method != "HEAD":
+ 							self.copyfile(resp, self.wfile)
+-					except (ConnectionAbortedError, ConnectionResetError,
+-							BrokenPipeError) as e:
++					except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+ 						self.log_info(tools.text_box(
+-							e.__class__.__name__, e, "\nby ",
+-							[self.address_string()]))
++							e.__class__.__name__, e, "\nby ", [self.address_string()]))
+ 					finally:
+-						close = getattr(resp, "close", None)
+-						if close is not None:
+-							close()
++						resp.close()
+ 				return
+ 
+-			return self.send_error(
+-				code=HTTPStatus.NOT_FOUND, message="File Not Found.",
+-			)
+-
+-		except (ConnectionAbortedError, ConnectionResetError,
+-				BrokenPipeError) as e:
+-			self.log_info(tools.text_box(
+-				e.__class__.__name__, e, "\nby ",
+-				[self.address_string()]))
++			return self.send_error(code=HTTPStatus.NOT_FOUND, message="File Not Found.")
++
++		except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
++			self.log_info(tools.text_box(e.__class__.__name__,
++						e, "\nby ", [self.address_string()]))
++			return
+ 		except Exception as e:
+-			self.log_error(traceback.format_exc())
++			ERROR = traceback.format_exc()
++			self.log_error(ERROR)
++
+ 			self.send_error(code=500, message=str(e))
+-
+-
+-	def redirect(self, location, cookie:Union[SimpleCookie, str]=None):
++			return
++
++
++	def redirect(self, location:str, cookie:Union[SimpleCookie, str, None]=None):
+ 		'''redirect to location'''
+@@ -1871,3 +1664,3 @@
+ 
+-	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None, cache_control=""):
++	def return_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type:str="text/html; charset=utf-8", cookie:Union[SimpleCookie, str, None]=None, cache_control:str=""):
+ 		'''returns only the head to client
+@@ -1903,3 +1696,3 @@
+ 
+-	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
++	def send_txt(self, msg:Union[str, bytes, Template], code:int=200, content_type:str="text/html; charset=utf-8", cookie:Union[SimpleCookie, str, None]=None):
+ 		'''sends the head and file to client'''
+@@ -1911,3 +1704,3 @@
+ 
+-	def send_text(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/html; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
++	def send_text(self, msg:Union[str, bytes, Template], code:int=200, content_type:str="text/html; charset=utf-8", cookie:Union[SimpleCookie, str, None]=None):
+ 		'''proxy to send_txt'''
+@@ -1915,3 +1708,3 @@
+ 
+-	def return_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
++	def return_script(self, msg:Union[str, bytes, Template], code:int=200, content_type:str="text/javascript; charset=utf-8", cookie:Union[SimpleCookie, str, None]=None):
+ 		'''proxy to send_txt'''
+@@ -1919,3 +1712,3 @@
+ 
+-	def send_script(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/javascript; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
++	def send_script(self, msg:Union[str, bytes, Template], code:int=200, content_type:str="text/javascript; charset=utf-8", cookie:Union[SimpleCookie, str, None]=None):
+ 		'''proxy to send_txt'''
+@@ -1923,3 +1716,3 @@
+ 
+-	def return_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
++	def return_css(self, msg:Union[str, bytes, Template], code:int=200, content_type:str="text/css; charset=utf-8", cookie:Union[SimpleCookie, str, None]=None):
+ 		'''proxy to send_txt'''
+@@ -1927,3 +1720,3 @@
+ 
+-	def send_css(self, msg:Union[str, bytes, Template], code:int=200, content_type="text/css; charset=utf-8", cookie:Union[SimpleCookie, str]=None):
++	def send_css(self, msg:Union[str, bytes, Template], code:int=200, content_type:str="text/css; charset=utf-8", cookie:Union[SimpleCookie, str, None]=None):
+ 		'''proxy to send_txt'''
+@@ -1931,3 +1724,3 @@
+ 
+-	def send_json(self, obj:Union[object, str, bytes], code=200, cookie:Union[SimpleCookie, str]=None, cache_control=""):
++	def send_json(self, obj:Union[object, str, bytes], code=200, cookie:Union[SimpleCookie, str, None]=None, cache_control:str=""):
+ 		"""send object as json
+@@ -1958,2 +1751,3 @@
+ 			payload = data
++		# SSE: comment keepalive / event + data lines
+ 		chunk = f"event: {event}\ndata: {payload}\n\n".encode("utf-8", "surrogateescape")
+@@ -1965,3 +1759,3 @@
+ 
+-	def return_file(self, path, filename=None, download=False, cookie:Union[SimpleCookie, str, None]=None, cache_control=""):
++	def return_file(self, path:str, filename:Optional[str]=None, download:bool=False, cookie:Union[SimpleCookie, str, None]=None, cache_control:str=""):
+ 		file = None
+@@ -1991,6 +1785,15 @@
+ 
+-			file = open(path, 'rb')  # noqa: SIM115 - caller closes after response copy
++			file = open(path, 'rb')
+ 			fs = os.fstat(file.fileno())
+ 
+-			file_len = fs[6]
++			# fstat can be short while the file is still being flushed (editor save,
++			# first hit after startup). A short Content-Length truncates JS and the
++			# app boots with no chat handler. Length must match the bytes we send.
++			self._send_blob = None
++			if self.command != "HEAD" and not self.use_range:
++				blob = file.read()
++				file_len = len(blob)
++				self._send_blob = blob
++			else:
++				file_len = fs[6]
+ 			# Use browser cache if possible
+@@ -2073,3 +1876,3 @@
+ 
+-			# Keep filename token simple (quoted) - no leading space / missing type.
++			# Keep filename token simple (quoted) — no leading space / missing type.
+ 			safe_name = str(filename).replace('"', "")
+@@ -2100,3 +1903,3 @@
+ 
+-	def send_file(self, path, filename=None, download=False, cookie:Union[SimpleCookie, str, None]=None, cache_control=''):
++	def send_file(self, path, filename=None, download=False, cookie:Union[SimpleCookie, str]=None, cache_control=''):
+ 		'''sends the head and file to client'''
+@@ -2106,8 +1909,15 @@
+ 		if self.command == "HEAD":
+-			# Headers already sent by return_file - must still close the handle
+-			# (clients often issue HEAD before GET; leaking handles exhausts FDs).
++			# Headers already sent by return_file — must still close the handle
++			# (Live2D issues HEAD before GET; leaking handles exhausts Windows FDs
++			# and yields broken /voice responses).
+ 			file.close()
++			self._send_blob = None
+ 			return
+ 		try:
+-			self.copyfile(file, self.wfile)
++			blob = self._send_blob
++			self._send_blob = None
++			if blob is not None:
++				self.wfile.write(blob)
++			else:
++				self.copyfile(file, self.wfile)
+ 		finally:
+@@ -2128,3 +1938,3 @@
+ 		if escape_html:
+-			displaypath = html.escape(displaypath, quote=True)
++			displaypath = html.escape(displaypath, quote=False)
+ 
+@@ -2146,14 +1956,5 @@
+ 
+-	def path_is_under_directory(self, target_path: str, *, resolve_symlinks: bool = False) -> bool:
+-		"""Return True if target_path stays inside self.directory."""
+-		return path_is_under_directory(
+-			self.directory, target_path, resolve_symlinks=resolve_symlinks)
+-
+ 	def path_safety_check(self, paths: Union[str, List], *more_paths: Union[str, List]):
+ 		"""Check if paths are safe and do not contain directory traversal attempts.
+-
+-		URL-style paths may start with '/'; those leading slashes are treated as
+-		web-root relative (not filesystem-absolute). Drive letters, UNC paths,
+-		'.'/'..' segments, and escapes outside self.directory are rejected.
+-
++		
+ 		Args:
+@@ -2167,4 +1968,2 @@
+ 			paths = [paths]  # Convert single string to list
+-		else:
+-			paths = list(paths)
+ 
+@@ -2181,33 +1980,41 @@
+ 			raise TypeError("All paths must be strings")
+-
+-		base_dir = os.path.abspath(self.directory)
++			
++
++		# Base directory (change this as needed)
++		base_dir = os.path.abspath(self.directory)  # Assuming self.base_directory exists
++		BAD_FILENAME_CHARS = re.compile(r'[:*?"<>|]')  # Windows-illegal characters
+ 
+ 		for path in paths:
+-			rel = validate_client_relpath(path, allow_leading_slash=True)
+-			if rel is None:
++			if not path or not path.strip():  # False on empty paths
++				# logger.info(f"Empty path: {path}")
+ 				return False
+ 
+-			abs_path = os.path.abspath(os.path.join(base_dir, *rel.split('/')))
+-			if not path_is_under_directory(base_dir, abs_path, resolve_symlinks=False):
++			path = path.strip().replace('\\', '/').strip('/')  # Remove leading/trailing whitespace
++
++			for part in path.split('/'):
++				if part in ('..', '.'):
++					# logger.info(f"Path traversal attempt: {path}")
++					return False
++
++			# Check for illegal characters
++			if BAD_FILENAME_CHARS.search(path):
++				# logger.info(f"Illegal characters in path: {path}")
+ 				return False
+ 
+-		return True
+-
+-	def resolve_child_path(self, url_path: str, filename: str):
+-		"""Map a client filename under url_path to a filesystem path inside the root.
+-
+-		Returns the absolute filesystem path, or None if the name is unsafe /
+-		would escape the served directory. Uses translate_path (same rules as GET)
+-		instead of os.path.join, which discards the base when filename is absolute.
+-		"""
+-		rel = validate_client_relpath(filename, allow_leading_slash=False)
+-		if rel is None:
+-			return None
+-
+-		# Build a URL path then translate with stdlib-equivalent rules
+-		joined = posixpath.join(url_path or '/', rel)
+-		fs_path = self.translate_path(joined)
+-		if not path_is_under_directory(self.directory, fs_path, resolve_symlinks=False):
+-			return None
+-		return os.path.abspath(fs_path)
++			# Normalize the path to an absolute path
++			abs_path = os.path.abspath(os.path.join(base_dir, path))
++
++			# Check if the resolved path is inside the base directory
++			if not abs_path.startswith(base_dir):
++				# logger.info(f"Path escapes base directory: {path}")
++				# logger.info(f"Base directory: {base_dir}")
++				# logger.info(f"Resolved path: {abs_path}")
++				return False  # Reject any path that escapes the base directory
++
++
++			# check for bad characters
++
++		return True  # If all checks pass, path is safe
++
++
+ 
+@@ -2225,3 +2032,3 @@
+ 		# Don't forget explicit trailing slash when normalizing. Issue17324
+-		trailing_slash = path.endswith('/')
++		trailing_slash = path.rstrip().endswith('/')
+ 
+@@ -2243,3 +2050,2 @@
+ 			path += '/'
+-			return path
+ 
+@@ -2271,4 +2077,4 @@
+ 		# NOTE: ``self.range`` used to be ``(None, None)`` when unused, which is
+-		# truthy - so every full GET incorrectly took the byte-range path.
+-		if not getattr(self, "use_range", False) or not self.range:
++		# truthy — so every full GET incorrectly took the byte-range path.
++		if not self.use_range or not self.range:
+ 			shutil.copyfileobj(source, outputfile)
+@@ -2296,3 +2102,3 @@
+ 
+-		base, ext = posixpath.splitext(path)
++		_base, ext = posixpath.splitext(path)
+ 		if ext in self.extensions_map:
+@@ -2407,2 +2213,5 @@
+ 
++
++	refresh = "<br><br><div class='pagination center' onclick='window.location.reload()'>Refresh &#128259;</div>"
++
+ 	def is_multipart(self):
+@@ -2424,3 +2233,3 @@
+ 		"""
+-		if max_size >= 0 and self.content_length > max_size:
++		if not max_size < 0 or self.content_length <= max_size:
+ 			raise PostError(
+@@ -2492,3 +2301,3 @@
+ 		if not self.content_type == "application/json":
+-			self.req.log_info(f"Are you sure you called `x=DealPostData(); x.start()` ?")
++			self.req.log_info("Are you sure you called `x=DealPostData(); x.start()` ?")
+ 			raise PostError("Content-Type is not application/json")
+@@ -2785,3 +2594,3 @@
+ 	)
+-	family, type, proto, canonname, sockaddr = next(iter(infos))
++	family, _type, _proto, _canonname, sockaddr = next(iter(infos))
+ 	return family, sockaddr
+@@ -2846,3 +2655,3 @@
+ 	port = data['port'] # same as config.port
+-	hostname = data['hostname']
++	_hostname = data['hostname']
+ 	local_ip = data['local_ip']
+@@ -2863,3 +2672,3 @@
+ 		f"Serving HTTP on port {port} \n",
+-		f"Server is probably running on\n",
++		"Server is probably running on\n",
+ 		(f"[over NETWORK] {network_address}\n" if on_network else ""),
+@@ -2893,3 +2702,3 @@
+ 
+-class DualStackServer(ThreadingHTTPServer):
++class DualStackServer(ThreadingHTTPServer):  # UNSUPPORTED IN PYTHON 3.7
+ 
+@@ -2994,2 +2803,3 @@
+ 
++
+ def runner(port=0, directory="", bind="", arg_parse=True, handler=SimpleHTTPRequestHandler, force_log_server_details=False) -> EasyServerRunner:
+@@ -3010,2 +2820,3 @@
+ 
++
+ if __name__ == '__main__':
