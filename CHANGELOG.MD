@@ -1,6 +1,6 @@
 # Version 0.10.0
   ## Security
-  * **Fixed (High): arbitrary file write via the upload endpoint** (CWE-22 / CWE-73, [GHSA-m52r-v5v5-69wx](https://github.com/RaSan147/pyrobox/security/advisories/GHSA-m52r-v5v5-69wx), CVE pending). `POST /?upload` joined the client-supplied filename onto the served directory and only blacklisted `../`, so an absolute filename could write outside the served directory (with a default setup, anyone who knew the default upload password). Affects **pyrobox <= 0.9.9**; fixed in **0.10.0**. Upload paths are now resolved and verified to stay under the served directory, with extra ACL checks.
+  * **Fixed (Critical, CVSS 9.8): arbitrary file write via the upload endpoint** (CWE-22 / CWE-73, [GHSA-m52r-v5v5-69wx](https://github.com/RaSan147/pyrobox/security/advisories/GHSA-m52r-v5v5-69wx), CVE pending). `POST /?upload` joined the client-supplied filename onto the served directory and only blacklisted `../`, so an absolute filename could write outside the served directory (with a default setup, anyone who knew the default upload password). Affects **pyrobox <= 0.9.9**; fixed in **0.10.0**. Upload paths are now resolved and verified to stay under the served directory, with extra ACL checks.
   * **Removed the hardcoded default upload password** (`SECret`). A random one is generated on every launch unless you set one (see below). **Upgrade from 0.9.9 and older is strongly recommended.**
   * Reported by Abbos Eshmirzayev.
 
