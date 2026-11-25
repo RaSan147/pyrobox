@@ -4,7 +4,10 @@ import email, time, traceback
 from queue import Queue
 from datetime import datetime, timezone
 
-import requests
+try:
+	import requests
+except ImportError:
+	raise SystemExit('"requests" is required for cloning. Install it with:  pip install "pyrobox[clone]"')
 
 os.umask(0) # make sure permissions are set correctly
 session = requests.session()
@@ -240,41 +243,57 @@ class Cloner:
 
 
 
-def main():
-	url = input("URL: ")
-	path = input("Save to: ")
-
-	overwrite = False
-
+def _ask_yes_no(prompt):
 	o = None
 	while o not in ["y", "n", "", "yes", "no"]:
-		o = input("Overwrite? (y/n) [Default: n]: ").lower()
-		if o == "y" or o == "yes":
-			overwrite = True
+		o = input(prompt).lower()
+	return o in ("y", "yes")
 
-	check_exist = "date+"
-	o = None
-	while o not in ["date", "date+", "size", ""]:
-		o = input("""Check exist? [Default: date+]
+
+def main(argv=None):
+	import argparse
+
+	parser = argparse.ArgumentParser(
+		prog="pyrobox-clone",
+		description="Clone (download) a folder from a pyrobox server. "
+		"Run without --url to answer the questions interactively.")
+	parser.add_argument("--url", "-u", help="URL of the server folder to clone from")
+	parser.add_argument("--path", "-p", default=None, help="Local folder to save to (default: ./)")
+	parser.add_argument("--overwrite", "-o", action="store_true", default=False,
+		help="Overwrite existing files regardless of the exist check")
+	parser.add_argument("--check-exist", "-c", choices=["date", "date+", "size"], default=None,
+		help="date: download if remote update time differs; "
+		"date+: download if remote is newer or same (ignored if local is newer); "
+		"size: download if size differs (default: date+)")
+	parser.add_argument("--delete-extras", "-d", action="store_true", default=False,
+		help="Delete local files/folders that do not exist on the server")
+	parser.add_argument("--ignore-hidden", action="store_true", default=False,
+		help="Skip files and folders starting with a dot")
+	args = parser.parse_args(argv)
+
+	if args.url:
+		url = args.url
+		path = args.path or "./"
+		overwrite = args.overwrite
+		check_exist = args.check_exist or "date+"
+		delete_extras = args.delete_extras
+	else:
+		url = input("URL: ")
+		path = input("Save to: ") or "./"
+
+		overwrite = _ask_yes_no("Overwrite? (y/n) [Default: n]: ")
+
+		o = None
+		while o not in ["date", "date+", "size"]:
+			o = input("""Check exist? [Default: date+]
 date: download if remote file is update time same as local file
 date+: download if remote file is newer or same as local file (ignored if local file is newer)
 size: download if remote file size is different from local file
 >>> """)
-		o = o or "date+" # default
-		
-		if o in ["date", "date+", "size"]:
-			check_exist = o
-		else:
-			o = None
+			o = o or "date+"  # default
+		check_exist = o
 
-	delete_extras = False
-
-	o = None
-	while o not in ["y", "n", "", "yes", "no"]:
-		o = input("Delete extras? (y/n) [Default: n]: ").lower()
-		if o == "y" or o == "yes":
-			delete_extras = True
-	
+		delete_extras = _ask_yes_no("Delete extras? (y/n) [Default: n]: ")
 
 	cloner = Cloner()
 
@@ -282,11 +301,13 @@ size: download if remote file size is different from local file
 		path=path,
 		overwrite=overwrite,
 		check_exist=check_exist,
-		delete_extras=delete_extras
+		delete_extras=delete_extras,
+		ignore_hidden=args.ignore_hidden
 	)
 
 	for future in as_completed(cloner.futures):
 		bool(future.result())
+
 
 if __name__ == "__main__":
 	main()

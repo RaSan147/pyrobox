@@ -50,7 +50,8 @@
 
 * Python 3.8 or higher.
 * Basic knowledge about Python
-* `send2trash`, `natsort` python modules
+* Installed automatically by `pip`: `send2trash`, `natsort`, `msgpack`, `tabulate2`, `pyqrcode`
+* Optional: `pip install "pyrobox[clone]"` for the clone tools (adds `requests`)
 
 ## Installation
 
@@ -79,18 +80,16 @@ https://github.com/RaSan147/pyrobox/assets/34002411/eb2ac313-f95a-4334-a265-c3fe
 
 ## Customization
 
-1. Simply running the code on will create a server on `CURRENT WORKING DIRECTORY` on `Port: 6969`
-1. On browser (on device under same router/wifi network), go to `deviceIP:port_number` to see the output like this: `http://192.168.0.101:6969/`
+1. Simply running the code on will create a server on `CURRENT WORKING DIRECTORY` on `Port: 45454`
+1. On browser (on device under same router/wifi network), go to `deviceIP:port_number` to see the output like this: `http://192.168.0.101:45454/`
     * you must allow python in firewall to access network, check [FAQ](#faq) for more help
 1. To change the server running directory,
-    * (i) either edit the code  (see `config` class at top)
-    * (ii) or add `-d` or `--directory` command line argument when launching the program
+    * add `-d` or `--directory` command line argument when launching the program
         * `pyrobox -d .` to launch the server in current directory (where the file is)
         * `pyrobox -d "D:\Server\Public folder\"`  (Use Double-Quotation while directory has space)
         * `pyrobox -d "D:/Server/Public folder"` (Forward or backward slash really doesn't matter, unless your terminal thinks otherwise)
 1. To change port number
-    * (i) just edit the code for permanent change  (see `config` class at top)
-    * (ii) or add the port number at the end of the command line arg
+    * add the port number at the end of the command line arg
         * `pyrobox 45678` # will run on port 45678
         * `pyrobox -d . 45678` # will run on port 45678 in current directory
 
@@ -108,19 +107,21 @@ https://github.com/RaSan147/pyrobox/assets/34002411/eb2ac313-f95a-4334-a265-c3fe
 
 1. Optional configurations
 
-usage: `pyrobox [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--no-delete] [--no-download] [--read-only] [--view-only] [--bind ADDRESS] [--directory DIRECTORY] [--version] [-h] [port]`
+usage: `pyrobox [--log-level LOG_LEVEL] [--password [PASSWORD]] [--save-password] [--clear-password] [--qr] [--server-name SERVER_NAME] [--admin-id ADMIN_ID] [--admin-pass ADMIN_PASS] [--no-signup] [--guest-allowed] [--no-guest-allowed] [--no-upload] [--no-zip] [--no-modify] [--no-delete] [--no-download] [--read-only] [--view-only] [--zip-limit ZIP_LIMIT] [--bind ADDRESS] [--directory DIRECTORY] [--version] [-h] [--no-extra-log] [port]`
 
 ## Positional Arguments
 
   | arg value             | Description |
   | --------------------- | ------------|
-  | `port`                | Specify alternate port [default: 6969] |
+  | `port`                | Specify alternate port [default: 45454] |
 
 ## Options
 
   | Flags/Arg `value`     | Description |
   | --------------------- | ------------|
   |--password `PASSWORD`, -k  `PASSWORD` | Upload Password (GUESTS users and Nameless server users must use it to upload files)(default: saved password, else random)|
+  |--log-level, -l `LOG_LEVEL` | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: `INFO`)|
+  |--qr, -q               | Show QR code for easy access (requires `pyqrcode`) (default: False)|
   |--save-password        | Save the `--password` value as the default upload password for future launches|
   |--clear-password       | Remove the saved default upload password|
   |--directory `DIRECTORY`, -d `DIRECTORY` | Specify alternative directory [default: current directory]
@@ -144,7 +145,7 @@ usage: `pyrobox [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--
 
 ## Advanced Account System
 
-> ### You must give a `--name [Name]` and `--admin-id [USER Name]`, `--admin-pass [PASSWORD]` to create an admin account. If guest not allowed `--no-guest-allowed` User must login to access the server. You can also disable signing up `--no-signup` (Only admin can add user from admin page). Admin can also update user permission from admin page.
+> ### You must give a `--server-name [Name]` (`-sn`) and `--admin-id [USER Name]`, `--admin-pass [PASSWORD]` to create an admin account. If guest not allowed `--no-guest-allowed` User must login to access the server. You can also disable signing up `--no-signup` (Only admin can add user from admin page). Admin can also update user permission from admin page.
 
   | Flags/Arg `value`    | Description |
   | -------------------- | ------------|
@@ -156,20 +157,19 @@ usage: `pyrobox [--password PASSWORD] [--no-upload] [--no-zip] [--no-update] [--
 
 ## Account Example
 
-  1. `pyrobox -n "My Server1" -aid "admin" -ak "admin123" -k "Guest_pass"` # will allow anyone to access the server, but they must use `Guest_pass` to upload files
-  1. `pyrobox -n "My Server2" -aid "admin" -ak "admin123" -ng` # If someone wants to access the server they must sign up via signup page first. No guest allowed
-  1. `pyrobox -n "My Server3" -aid "admin" -ak "admin123" -ng -ns` # Only admin can access the server. No guest allowed, no signup allowed. Admin can add user from admin page
+  1. `pyrobox -sn "My Server1" -aid "admin" -ak "admin123" -k "Guest_pass"` # will allow anyone to access the server, but they must use `Guest_pass` to upload files
+  1. `pyrobox -sn "My Server2" -aid "admin" -ak "admin123" -ng` # If someone wants to access the server they must sign up via signup page first. No guest allowed
+  1. `pyrobox -sn "My Server3" -aid "admin" -ak "admin123" -ng -ns` # Only admin can access the server. No guest allowed, no signup allowed. Admin can add user from admin page
 
 
 ## Clone Directory
 
-  1. Make a python file with the following code
-  ``` python
-  from pyrobox import clone
-  clone.main()
-  ```
-  1. Run the file. Follow the instructions.
-  1. For advanced use, check the source code of `clone.py` in the `pyrobox` module.
+  Cloning is optional and needs `requests`, so install the extra:
+
+  1. `pip install -U "pyrobox[clone]"`
+  1. Run `pyrobox-clone` (download a server's folder) or `pyrobox-upload-clone` (upload a local folder to a server). Follow the instructions.
+  1. Both accept flags, see `pyrobox-clone -h` / `pyrobox-upload-clone -h`. Example: `pyrobox-clone --url http://192.168.0.101:45454/ --path ./backup --delete-extras`
+  1. For advanced use, check the source code of `clone.py` / `upload_clone.py` in the `pyrobox` module.
 
 
 ## TODO

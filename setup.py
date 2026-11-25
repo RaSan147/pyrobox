@@ -10,11 +10,16 @@ setup(
         "msgpack",
         "tabulate2",
         "pyqrcode",
-        "requests",
     ],
+    extras_require={
+        # pip install pyrobox[clone]
+        "clone": ["requests"],
+    },
     entry_points='''
         [console_scripts]
         pyrobox=pyrobox.server:run
+        pyrobox-clone=pyrobox.clone:main
+        pyrobox-upload-clone=pyrobox.upload_clone:main
     ''',
 
 

@@ -20,7 +20,7 @@ KEEP = {"__init__.py", "__main__.py"}
 PY_MODULES = [
 	"_arg_parser", "_exceptions", "_fs_utils", "_list_maker", "_page_templates",
 	"_sub_extractor", "_zipfly_manager", "clone", "data_types", "pyroDB4",
-	"print_text4", "pyrobox_ServerHost", "pyroboxCore", "server", "user_mgmt", "UX_Tools",
+	"print_text4", "pyrobox_ServerHost", "pyroboxCore", "server", "upload_clone", "user_mgmt", "UX_Tools",
 ]
 
 ASSET_RE = re.compile(r"^(html_.*\.html|script_.*\.js|style_main\.css|video\.css|plyr\.polyfilled\.min\.js)$")

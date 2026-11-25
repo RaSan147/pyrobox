@@ -19,7 +19,10 @@ import mimetypes
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse, urlunparse, quote
 
-import requests
+try:
+    import requests
+except ImportError:
+    raise SystemExit('"requests" is required for cloning. Install it with:  pip install "pyrobox[clone]"')
 import getpass
 
 # no-op debug variable removed; keep file clean

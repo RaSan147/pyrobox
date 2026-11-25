@@ -5,6 +5,7 @@
   ## Server
   * Upload password is random on every launch unless set. New `--save-password` / `--clear-password` flags keep a default password in `~/.pyrobox/preferences.pdb`. Priority: `-k` > saved > random.
   * Removed Python 3.7 support.
+  * **Clone** is now an optional extra: `pip install pyrobox[clone]` (adds `requests`). New commands `pyrobox-clone` and `pyrobox-upload-clone`. Plain `pyrobox` no longer depends on `requests`.
 
   ## Packaging
   * `src/` is now generated from `dev_src/` with `build_src.py` (relative imports; html/js/css shipped as package data instead of inlined templates). `print_text4` is bundled.
