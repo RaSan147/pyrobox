@@ -24,12 +24,13 @@
   * Fixed zip downloads showing "done" before the zip was actually ready.
 
   ## Database
-  * **pyroDB4** New write-ahead-log (WAL) database engine: crash-safe writes, `wal_max_bytes` auto checkpoint, Blob support and a blob write race fix. User/config storage now uses pyroDB4.
+  * **pyroDB4** New write-ahead-log (WAL) database engine: crash-safe writes, `wal_max_bytes` auto checkpoint. User/config storage now uses pyroDB4.
 
   ## Server
   * Upload password is random on every launch unless set. New `--save-password` / `--clear-password` flags keep a default password in `~/.pyrobox/preferences.pdb`. Priority: `-k` > saved > random.
   * Removed Python 3.7 support.
   * **Clone** is now an optional extra: `pip install pyrobox[clone]` (adds `requests`). New commands `pyrobox-clone` and `pyrobox-upload-clone`. Plain `pyrobox` no longer depends on `requests`.
+  * Blob support via `_send_blob`
 
   ## Packaging
   * `src/` is now generated from `dev_src/` with `build_src.py` (relative imports; html/js/css shipped as package data instead of inlined templates). `print_text4` is bundled.
